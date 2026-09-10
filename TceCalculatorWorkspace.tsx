@@ -197,8 +197,8 @@ const COST_PLUS_INPUTS: Array<{
   { key: 'daysSea', label: 'Días de mar', suffix: 'días' },
   { key: 'daysPort', label: 'Días de puerto', suffix: 'días' },
   { key: 'bunkerCost', label: 'Coste combustible', suffix: 'USD' },
-  { key: 'portCosts', label: 'Gastos portuarios', suffix: 'USD' },
-  { key: 'cargoVolume', label: 'Toneladas carga', suffix: 'MT' },
+  { key: 'portCosts', label: 'Peajes y Dietas', suffix: 'USD' },
+  { key: 'cargoVolume', label: 'Carga Útil (kg)', suffix: 'kg' },
 ];
 
 const INPUTS: Array<{
@@ -212,13 +212,13 @@ const INPUTS: Array<{
   { key: 'daysPort', label: 'Días de puerto', suffix: 'días', step: '0.1' },
   { key: 'seaFuelConsumption', label: 'Consumo mar', suffix: 't/d', step: 'any' },
   { key: 'portFuelConsumption', label: 'Consumo puerto', suffix: 't/d', step: 'any' },
-  { key: 'portCosts', label: 'Costes portuarios', suffix: 'USD' },
-  { key: 'cargoVolume', label: 'Volumen de carga', suffix: 'MT' },
+  { key: 'portCosts', label: 'Peajes y Dietas', suffix: 'USD' },
+  { key: 'cargoVolume', label: 'Carga Útil (kg)', suffix: 'kg' },
   { key: 'bunkerDailyPortCost', label: 'Bunker diario en puerto', suffix: 'USD/día' },
   { key: 'totalCo2Emissions', label: 'Emisiones CO2 ETS', suffix: 'tCO2', step: '0.1' },
   { key: 'euaPrice', label: 'Precio EUA', suffix: 'USD/t', step: '0.01' },
   { key: 'etsCoverage', label: 'Cobertura ETS', suffix: 'factor', step: '0.5' },
-  { key: 'opexDaily', label: 'OPEX fijo diario', suffix: 'USD/día' },
+  { key: 'opexDaily', label: 'Costes Fijos (Chófer/Amort.)', suffix: 'USD/día' },
   { key: 'contractShipments', label: 'Número de embarques COA', suffix: 'viajes', step: '1' },
   { key: 'ownerMarginPercent', label: 'Margen armador', suffix: '%' },
   { key: 'chartererMarginPercent', label: 'Margen fletador', suffix: '%' },
@@ -2301,7 +2301,7 @@ export function CostPlusCalculator({
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="cost-plus-daily-opex" className="mb-1.5 block text-[11px] font-black uppercase tracking-wide text-slate-500">
-              OPEX diario
+              Costes Fijos (Chófer/Amort.)
             </label>
             <div className="flex overflow-hidden rounded-lg border border-slate-300 bg-white focus-within:border-amber-600 focus-within:ring-2 focus-within:ring-amber-600/15">
               <input id="cost-plus-daily-opex" type="number" step="any" value={values.dailyOpex} onChange={(event) => updateNumber('dailyOpex', event.target.value)} className="min-w-0 flex-1 border-0 px-3 py-2.5 text-sm font-bold text-slate-900 outline-none" />
@@ -2468,7 +2468,7 @@ export function VesselPricingRouter({
         </div>
         <label className="block min-w-[13rem]">
           <span className="mb-1 block text-[11px] font-black uppercase tracking-wide text-slate-500">
-            DWT buque
+            Carga Útil (kg)
           </span>
           <input
             type="number"
@@ -2478,7 +2478,7 @@ export function VesselPricingRouter({
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-right text-sm font-black text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/15"
           />
         </label>
-        <div className="min-w-[16rem]">
+        <div className="min-w-[16rem] hidden" style={{ display: 'none' }}>
           <div className="mb-1 flex items-center gap-1 text-[11px] font-black uppercase tracking-wide text-slate-600">
             <span>Scrubber</span>
             <span tabIndex={0} className="group relative inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-slate-300 bg-white text-[10px] font-black text-slate-500 shadow-sm">
