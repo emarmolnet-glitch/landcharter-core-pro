@@ -9968,38 +9968,28 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div class="input-group">
                                 <div class="flex items-center justify-between gap-2 mb-1">
-                                    <label class="text-sky-400 font-bold block text-xs">ETA Base Radar / ETA Radar (YYYY-MM-DD)</label>
-                                    <button type="button" id="btn-unlock-eta-radar" onclick="unlockEtaRadarManualEdit()" class="h-7 w-7 rounded-md border border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200 transition flex items-center justify-center" title="Desbloquear edición manual de ETA Radar" aria-label="Desbloquear edición manual de ETA Radar">
+                                    <label class="text-sky-400 font-bold block text-xs">ETA Base Origen / Salida (YYYY-MM-DD)</label>
+                                    <button type="button" id="btn-unlock-eta-radar" onclick="unlockEtaRadarManualEdit()" class="h-7 w-7 rounded-md border border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200 transition flex items-center justify-center" title="Desbloquear edición manual de ETA" aria-label="Desbloquear edición manual de ETA">
                                         <i id="eta-radar-lock-icon" class="fa-solid fa-lock text-[11px]"></i>
                                     </button>
                                 </div>
                                 <input type="date" id="eta-radar" class="input-gc text-sky-300 font-bold w-full bg-slate-100 border-slate-300 cursor-not-allowed" readonly data-manual-unlocked="false" oninput="handleEtaRadarManualInput()">
-                                <p id="eta-radar-lock-status" class="mt-1 text-[10px] font-bold text-slate-500 uppercase tracking-wide">Bloqueado: solo radar/histórico explícito</p>
+                                <p id="eta-radar-lock-status" class="mt-1 text-[10px] font-bold text-slate-500 uppercase tracking-wide">Bloqueado: basado en ruta terrestre OSRM</p>
                             </div>
                             <div class="input-group">
-                                <label class="text-indigo-400 font-bold block mb-1 text-xs">Delta Histórico / Delta Historico (Días / Days)</label>
-                                <input type="number" step="any" id="delta-historico" class="input-gc text-indigo-300 font-bold w-full" value="0" oninput="calculateAdjustedEtaAndDays(); runEngine()">
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-1 mb-4">
-                            <div class="input-group">
-                                <label class="text-purple-400 font-bold block mb-1 text-xs">Coste Remolcadores / Tug Cost</label>
-                                <div id="contenedor_coste_remolcadores" class="input-gc w-full min-h-[42px] flex items-center gap-1 flex-wrap" aria-live="polite">
-                                    <span class="base text-sm">$0 (Base)</span> x
-                                    <span class="multiplicador text-sm">0 (Total Tugs)</span> =
-                                    <span class="total font-bold text-blue-700">$0</span>
-                                </div>
-                                <input type="hidden" id="t-remolcadores" value="0">
+                                <label class="text-indigo-400 font-bold block mb-1 text-xs">Descansos Tacógrafo (Horas)</label>
+                                <input type="number" step="any" id="delta-historico" class="input-gc text-indigo-300 font-bold w-full" value="0" placeholder="0" oninput="calculateAdjustedEtaAndDays(); runEngine()">
+                                <p class="mt-1 text-[10px] text-slate-500">Pausas obligatorias (45 min / 4.5h) y descansos diarios (11h) según CE 561/2006</p>
                             </div>
                         </div>
 
                         <div id="historical-risk-panel" class="rounded-xl border border-slate-200 bg-slate-50 p-4 mb-4">
                             <div class="mb-3">
-                                <h3 class="text-xs font-black text-[#1E3A8A] uppercase tracking-wide">Motor de Riesgo Histórico</h3>
-                                <p id="historical-risk-source" class="text-[11px] text-slate-500 mt-0.5">Selecciona POL/POD y pulsa Cargar Histórico para aplicar promedios independientes.</p>
+                                <h3 class="text-xs font-black text-[#1E3A8A] uppercase tracking-wide">Motor de Riesgo y Tiempos Terrestres</h3>
+                                <p id="historical-risk-source" class="text-[11px] text-slate-500 mt-0.5">Selecciona Origen y Destino para aplicar tiempos de ruta terrestre OSRM y descansos normativos.</p>
                             </div>
-                            <div class="core-pro-unified-toolbar mb-3" role="toolbar" aria-label="Controles del motor de riesgo histórico">
-                                <div class="core-pro-unified-toolbar__views" aria-label="Vistas del riesgo histórico">
+                            <div class="core-pro-unified-toolbar mb-3" role="toolbar" aria-label="Controles del motor de riesgo terrestre">
+                                <div class="core-pro-unified-toolbar__views" aria-label="Vistas del riesgo terrestre">
                                     <button type="button" id="risk-view-summary" class="core-pro-toolbar-toggle rounded-md border border-slate-300 bg-white px-2.5 py-2 text-[10px] font-black uppercase text-slate-700 transition" aria-pressed="true" onclick="setHistoricalRiskView('summary')">
                                         <i class="fa-solid fa-chart-line mr-1"></i> Resumen
                                     </button>
@@ -10008,18 +9998,11 @@
                                     </button>
                                 </div>
                                 <div class="core-pro-unified-toolbar__filters">
-                                    <label class="inline-flex items-center gap-2 rounded-md bg-white px-2.5 py-1.5 text-[10px] font-black uppercase text-slate-600 shadow-sm">
-                                        Laycan libre
-                                        <input type="number" step="0.25" min="0" id="laycan-dias-libres" class="w-16 rounded border border-slate-300 bg-white px-2 py-1 text-right text-xs font-bold text-slate-900" value="0" oninput="runEngine()">
-                                    </label>
-                                    <div data-datalastic-credit-counter data-credit-variant="toolbar" data-credit-show-limit="true" aria-live="polite"></div>
+                                    <input type="hidden" id="laycan-dias-libres" value="0">
                                 </div>
                                 <div class="core-pro-unified-toolbar__actions">
                                     <button type="button" id="btn-load-historical-risk" onclick="loadHistoricalRiskOnDemand()" class="rounded-md bg-[#1E3A8A] px-3 py-2 text-[11px] font-black text-white shadow-sm transition hover:bg-blue-800">
                                         <i class="fa-solid fa-clock-rotate-left mr-1"></i> Cargar Histórico
-                                    </button>
-                                    <button type="button" id="btn-live-radar-risk" onclick="consultLiveRadarForVoyageTime()" class="rounded-md bg-cyan-700 px-3 py-2 text-[11px] font-black text-white shadow-sm transition hover:bg-cyan-600">
-                                        <i class="fa-solid fa-satellite-dish mr-1"></i> Consultar Radar En Vivo
                                     </button>
                                     <button type="button" id="btn-finish-voyage" onclick="finalizeVoyageLearning()" class="rounded-md bg-emerald-700 px-3 py-2 text-[11px] font-black text-white shadow-sm transition hover:bg-emerald-600">
                                         <i class="fa-solid fa-flag-checkered mr-1"></i> Finalizar Viaje
@@ -10029,27 +10012,27 @@
                             <div id="historical-risk-summary-view">
                                 <div class="grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
                                     <div class="core-pro-risk-port-card">
-                                        <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.12em] text-sky-700">POL · Puerto de carga</span>
+                                        <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.12em] text-sky-700">ORIGEN - PUNTO DE CARGA</span>
                                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                             <div>
-                                                <label class="mb-1 block text-[10px] font-black uppercase text-orange-700">Factor clima POL</label>
+                                                <label class="mb-1 block text-[10px] font-black uppercase text-orange-700">FACTOR CLIMA Y TRÁFICO (Horas)</label>
                                                 <input type="number" step="0.25" min="0" id="factor-clima" class="input-gc w-full border-slate-300 bg-white font-bold text-orange-700" value="0" oninput="calculateAdjustedEtaAndDays(); runEngine()">
                                             </div>
                                             <div>
-                                                <label class="mb-1 block text-[10px] font-black uppercase text-pink-700">T. espera fondeo POL</label>
+                                                <label class="mb-1 block text-[10px] font-black uppercase text-pink-700">T. ESPERA EN MUELLE (Horas)</label>
                                                 <input type="number" step="0.25" min="0" id="t-fondeo" class="input-gc w-full border-slate-300 bg-white font-bold text-pink-700" value="0" oninput="calculateAdjustedEtaAndDays(); runEngine()">
                                             </div>
                                         </div>
                                     </div>
                                     <div class="core-pro-risk-port-card">
-                                        <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">POD · Puerto de descarga</span>
+                                        <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">DESTINO - PUNTO DE DESCARGA</span>
                                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                             <div>
-                                                <label class="mb-1 block text-[10px] font-black uppercase text-orange-700">Factor clima POD</label>
+                                                <label class="mb-1 block text-[10px] font-black uppercase text-orange-700">FACTOR CLIMA Y TRÁFICO (Horas)</label>
                                                 <input type="number" step="0.25" min="0" id="factor-clima-pod" class="input-gc w-full border-slate-300 bg-white font-bold text-orange-700" value="0" oninput="calculateAdjustedEtaAndDays(); runEngine()">
                                             </div>
                                             <div>
-                                                <label class="mb-1 block text-[10px] font-black uppercase text-pink-700">T. espera fondeo POD</label>
+                                                <label class="mb-1 block text-[10px] font-black uppercase text-pink-700">T. ESPERA EN MUELLE (Horas)</label>
                                                 <input type="number" step="0.25" min="0" id="t-fondeo-pod" class="input-gc w-full border-slate-300 bg-white font-bold text-pink-700" value="0" oninput="calculateAdjustedEtaAndDays(); runEngine()">
                                             </div>
                                         </div>
@@ -10058,16 +10041,16 @@
                                 <div class="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
                                     <div class="rounded-lg border border-slate-200 bg-white p-3">
                                         <span class="block text-[10px] font-black uppercase text-slate-500">Impacto Riesgo</span>
-                                        <strong id="res-risk-impact" class="mono text-lg text-slate-950">$0.00/TM</strong>
+                                        <strong id="res-risk-impact" class="mono text-lg text-slate-950">0.00 € (Total)</strong>
                                     </div>
-                                    <div id="risk-demurrage-alert" class="hidden rounded-lg border border-orange-300 bg-orange-50 p-3 font-black text-orange-800">AVISO: Riesgo de Demurrage</div>
+                                    <div id="risk-demurrage-alert" class="hidden rounded-lg border border-orange-300 bg-orange-50 p-3 font-black text-orange-800">AVISO: Riesgo de Demora Terrestre</div>
                                 </div>
                             </div>
                             <div id="historical-risk-sof-view" class="hidden mt-3 rounded-lg bg-white p-3 shadow-sm">
                                 <div class="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                                     <div>
-                                        <h4 class="text-[11px] font-black text-slate-700 uppercase">Captura SOF real</h4>
-                                        <p id="sof-learning-status" class="text-[11px] text-slate-500">Introduce los días reales del Statement of Facts para alimentar el promedio histórico.</p>
+                                        <h4 class="text-[11px] font-black text-slate-700 uppercase">Captura SOF / Hoja de Ruta Real</h4>
+                                        <p id="sof-learning-status" class="text-[11px] text-slate-500">Introduce los tiempos reales del viaje para alimentar el promedio histórico terrestre.</p>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-1 gap-3 text-xs md:grid-cols-5">
@@ -10076,19 +10059,19 @@
                                         <input type="number" step="0.25" min="0" id="sof-delta-real" class="input-gc bg-white text-slate-900 border-slate-300 font-bold" value="0">
                                     </div>
                                     <div>
-                                        <label class="text-slate-600 font-black uppercase block mb-1">Clima SOF POL</label>
+                                        <label class="text-slate-600 font-black uppercase block mb-1">Clima/Tráfico Origen</label>
                                         <input type="number" step="0.25" min="0" id="sof-clima-real-pol" class="input-gc bg-white text-slate-900 border-slate-300 font-bold" value="0">
                                     </div>
                                     <div>
-                                        <label class="text-slate-600 font-black uppercase block mb-1">Fondeo SOF POL</label>
+                                        <label class="text-slate-600 font-black uppercase block mb-1">Muelle Origen</label>
                                         <input type="number" step="0.25" min="0" id="sof-fondeo-real-pol" class="input-gc bg-white text-slate-900 border-slate-300 font-bold" value="0">
                                     </div>
                                     <div>
-                                        <label class="text-slate-600 font-black uppercase block mb-1">Clima SOF POD</label>
+                                        <label class="text-slate-600 font-black uppercase block mb-1">Clima/Tráfico Destino</label>
                                         <input type="number" step="0.25" min="0" id="sof-clima-real-pod" class="input-gc bg-white text-slate-900 border-slate-300 font-bold" value="0">
                                     </div>
                                     <div>
-                                        <label class="text-slate-600 font-black uppercase block mb-1">Fondeo SOF POD</label>
+                                        <label class="text-slate-600 font-black uppercase block mb-1">Muelle Destino</label>
                                         <input type="number" step="0.25" min="0" id="sof-fondeo-real-pod" class="input-gc bg-white text-slate-900 border-slate-300 font-bold" value="0">
                                     </div>
                                 </div>
@@ -10099,30 +10082,30 @@
                             <h3 class="text-xs font-bold text-slate-400 uppercase mb-3">Resultados de Tiempo de Viaje / Voyage Time Results</h3>
                             <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                                 <div class="bg-white p-3 rounded-lg border border-slate-300">
-                                    <span class="text-[10px] font-bold text-[#495057] uppercase block mb-1">Radar POL</span>
+                                    <span class="text-[10px] font-bold text-[#495057] uppercase block mb-1">ETA Origen</span>
                                     <div class="flex justify-between items-center text-xs">
-                                        <span class="text-[#212529]">ETA Radar POL:</span>
+                                        <span class="text-[#212529]">ETA Origen:</span>
                                         <span id="res-base-eta" class="font-bold text-[#212529] font-mono">N/A</span>
                                     </div>
                                 </div>
                                 <div class="bg-white p-3 rounded-lg border border-slate-300">
-                                    <span class="text-[10px] font-bold text-sky-700 uppercase block mb-1">Ajuste POL</span>
+                                    <span class="text-[10px] font-bold text-sky-700 uppercase block mb-1">Ajuste Origen</span>
                                     <div class="flex justify-between items-center text-xs">
-                                        <span class="text-slate-700">ETA Final POL:</span>
+                                        <span class="text-slate-700">Ajuste Origen:</span>
                                         <span id="res-adjusted-eta" class="font-bold text-emerald-700 font-mono">N/A</span>
                                     </div>
                                 </div>
                                 <div class="bg-white p-3 rounded-lg border border-slate-300">
-                                    <span class="text-[10px] font-bold text-indigo-700 uppercase block mb-1">Tránsito a POD</span>
+                                    <span class="text-[10px] font-bold text-indigo-700 uppercase block mb-1">Tránsito a Destino</span>
                                     <div class="flex justify-between items-center text-xs">
-                                        <span class="text-slate-700">ETA Radar POD:</span>
+                                        <span class="text-slate-700">Tránsito a Destino:</span>
                                         <span id="res-radar-pod-eta" class="font-bold text-indigo-700 font-mono">N/A</span>
                                     </div>
                                 </div>
                                 <div class="bg-white p-3 rounded-lg border border-slate-300">
-                                    <span class="text-[10px] font-bold text-emerald-700 uppercase block mb-1">ETA Final POD</span>
+                                    <span class="text-[10px] font-bold text-emerald-700 uppercase block mb-1">ETA Final</span>
                                     <div class="flex justify-between items-center text-xs">
-                                        <span class="text-slate-700">ETA Final POD:</span>
+                                        <span class="text-slate-700">ETA Final:</span>
                                         <span id="res-final-pod-eta" class="font-bold text-emerald-700 font-mono">N/A</span>
                                     </div>
                                     <div class="flex justify-between items-center text-xs mt-1">
@@ -18298,6 +18281,27 @@ async function runOnDemandMapRouteWorkflow(button) {
         if (distTotalInput) {
             distTotalInput.value = distanceKm;
             distTotalInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        // Sincronizar ETA inicial en Módulo 4 basado en ruta OSRM y fecha de salida
+        const etaInput = document.getElementById('eta-radar');
+        if (etaInput && (!etaInput.value || etaInput.dataset.manualUnlocked !== 'true')) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const departureDate = document.getElementById('gc-laycan-date')?.value || todayStr;
+            etaInput.value = departureDate;
+            etaInput.dataset.etaSource = 'osrm';
+        }
+        // Auto-calcular descansos de tacógrafo según horas de conducción OSRM (CE 561/2006)
+        const deltaInput = document.getElementById('delta-historico');
+        if (deltaInput && (parseFloat(deltaInput.value) === 0 || deltaInput.dataset.autoTacografo === 'true')) {
+            const drivingHours = (distanceKm > 0) ? (distanceKm / 75) : 0;
+            const tacografoPausas = Math.floor(drivingHours / 4.5) * 0.75;
+            const tacografoDescansos = Math.floor(drivingHours / 9) * 11;
+            deltaInput.value = Math.round((tacografoPausas + tacografoDescansos) * 10) / 10;
+            deltaInput.dataset.autoTacografo = 'true';
+        }
+        if (typeof calculateAdjustedEtaAndDays === 'function') {
+            calculateAdjustedEtaAndDays();
         }
 
         updateRouteSummary();
@@ -36838,38 +36842,26 @@ function scheduleReactiveEngine() {
         const originalHtml = button?.innerHTML || '';
         if (button) {
             button.disabled = true;
-            button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Consultando';
+            button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculando';
         }
         try {
-            const vessels = typeof window.updateDatalasticRadar === 'function'
-                ? await window.updateDatalasticRadar({ refreshGlobe: false, radarContext: 'core-pro-voyage-time' })
-                : [];
-                
-            // LÍNEA DE INYECCIÓN DE DATOS AL MATCHING
-            interceptarRadarHaciaCoincidencias(vessels);
+            // Sincronización terrestre basada en la ruta OSRM del Módulo 1
+            const pol = (document.getElementById('port-pol')?.value || '').trim();
+            const pod = (document.getElementById('port-pod')?.value || '').trim();
+            const distLaden = parseFloat(document.getElementById('dist-laden')?.value) || State.distLaden || 0;
+            const departureDate = document.getElementById('gc-laycan-date')?.value || new Date().toISOString().split('T')[0];
 
-            const etaCandidates = (Array.isArray(vessels) ? vessels : [])
-                .flatMap((vessel) => [
-                    vessel?.eta_puerto_carga,
-                    vessel?.etapol,
-                    vessel?.routing?.eta,
-                    vessel?.estimatedArrivalAtPol
-                ])
-                .map(normalizeEtaDateValue)
-                .filter(Boolean)
-                .sort();
-            
-            if (etaCandidates[0]) setEtaRadarFromSystem(etaCandidates[0], 'live-radar');
-            else calculateAdjustedEtaAndDays();
-            
+            setEtaRadarFromSystem(departureDate, 'osrm');
+            if (typeof calculateAdjustedEtaAndDays === 'function') calculateAdjustedEtaAndDays();
+
             const source = document.getElementById('historical-risk-source');
             if (source) {
-                source.innerText = etaCandidates[0] 
-                    ? `Radar en vivo sincronizado: ETA POL ${etaCandidates[0]}.`
-                    : 'Radar en vivo completado: Sin ETA disponible.';
+                source.innerText = distLaden > 0
+                    ? `Ruta OSRM sincronizada: ${Math.round(distLaden)} km (${pol || 'Origen'} - ${pod || 'Destino'}).`
+                    : 'Ruta terrestre sincronizada con fecha de salida.';
             }
         } catch (error) {
-            console.error('[Radar] Error:', error);
+            console.error('[ETA Terrestre] Error:', error);
         } finally {
             if (button) {
                 button.disabled = false;
@@ -36882,7 +36874,7 @@ function scheduleReactiveEngine() {
             const ports = getSelectedRiskPorts();
             if (!ports.length) {
                 const source = document.getElementById('historical-risk-source');
-                if (source) source.innerText = 'Define POL/POD antes de cargar históricos.';
+                if (source) source.innerText = 'Define Origen/Destino antes de cargar históricos.';
                 return;
             }
             await loadLearnedRiskForSelectedPorts({ apply: true });
@@ -37052,9 +37044,9 @@ function scheduleReactiveEngine() {
 
         function updateHistoricalRiskEngine({ riskDays = 0, tce = 0, cargo = 0 } = {}) {
             const laycanFreeDays = Math.max(0, parseFloat(document.getElementById('laycan-dias-libres')?.value) || 0);
-            const impact = cargo > 0 ? ((riskDays * Math.abs(tce)) / cargo) : 0;
+            const penaltyCost = riskDays > 0 ? (cargo > 0 ? (riskDays * (Math.abs(tce) || 350)) : (riskDays * 350)) : 0;
             const impactEl = document.getElementById('res-risk-impact');
-            if (impactEl) impactEl.innerText = `$${impact.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/TM`;
+            if (impactEl) impactEl.innerText = `${penaltyCost.toFixed(2)} € (Total)`;
             const alertEl = document.getElementById('risk-demurrage-alert');
             const riskInputs = ['delta-historico', 'factor-clima', 't-fondeo', 'factor-clima-pod', 't-fondeo-pod', 'laycan-dias-libres']
                 .map((id) => document.getElementById(id))
@@ -37068,10 +37060,10 @@ function scheduleReactiveEngine() {
             if (alertEl) {
                 alertEl.classList.toggle('hidden', !isDemurrageRisk);
                 alertEl.innerText = isDemurrageRisk
-                    ? `AVISO: Riesgo de Demurrage (${riskDays.toFixed(2)} d > ${laycanFreeDays.toFixed(2)} d libres)`
+                    ? `AVISO: Riesgo de Demora Terrestre (${riskDays.toFixed(2)} d > ${laycanFreeDays.toFixed(2)} d libres)`
                     : '';
             }
-            return { riskDays, laycanFreeDays, impact, isDemurrageRisk };
+            return { riskDays, laycanFreeDays, impact: penaltyCost, isDemurrageRisk };
         }
 
         function setCoreValidationMark(id, active) {
@@ -63690,10 +63682,10 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 breakEven: txt('res-breakeven') || `${formatCoaMoney(State.breakEven || 0)}/TM`,
                 ownerTarget: txt('res-sug-owner') || `${formatCoaMoney(State.precioObjetivoArmador || 0)}/TM`,
                 chartererTarget: txt('res-sug-charterer') || `${formatCoaMoney(State.precioObjetivoFletador || 0)}/TM`,
-                riskImpact: txt('res-risk-impact') || `${formatCoaMoney(State.historicalRisk?.impact || 0)}/TM`,
+                riskImpact: txt('res-risk-impact') || `${formatCoaMoney(State.historicalRisk?.impact || 0)} € (Total)`,
                 riskDays: `${(Number(State.historicalRisk?.riskDays) || 0).toFixed(2)} d`,
                 laycanFreeDays: `${(Number(State.historicalRisk?.laycanFreeDays) || 0).toFixed(2)} d`,
-                demurrageRisk: State.historicalRisk?.isDemurrageRisk ? 'AVISO: Riesgo de Demurrage' : 'Dentro del laycan libre',
+                demurrageRisk: State.historicalRisk?.isDemurrageRisk ? 'AVISO: Riesgo de Demora Terrestre' : 'Dentro del tiempo previsto',
                 loadMethod: document.getElementById('metodo_carga')?.selectedOptions?.[0]?.text || 'N/D',
                 dischargeMethod: document.getElementById('metodo_descarga_pod')?.selectedOptions?.[0]?.text || 'N/D',
                 loadRate: txt('ritmo_real_pol') || `${Math.round(calcularRitmoEfectivo('pol') || 0).toLocaleString('en-US')} TM/d`,
@@ -65492,13 +65484,13 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             const fondeoInput = document.getElementById('t-fondeo');
             const remolcadoresInput = document.getElementById('t-remolcadores');
 
-            if (!deltaInput || !fondeoInput || !remolcadoresInput) return;
+            if (!deltaInput || !fondeoInput) return;
 
             if (!imo || imo === 'Unknown' || imo === 'N/A') {
                 deltaInput.value = 0;
-                climaInput.value = 0;
+                if (climaInput) climaInput.value = 0;
                 fondeoInput.value = 0;
-                remolcadoresInput.value = 0;
+                if (remolcadoresInput) remolcadoresInput.value = 0;
                 calculateAdjustedEtaAndDays();
                 return;
             }
@@ -65511,9 +65503,11 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                     }
                     deltaInput.value = vessel.delta_historico !== undefined ? vessel.delta_historico : 0;
                     fondeoInput.value = vessel.t_fondeo !== undefined ? vessel.t_fondeo : 0;
-                    remolcadoresInput.value = vessel.t_remolcadores !== undefined ? vessel.t_remolcadores : 0;
-                    remolcadoresInput.dataset.autoEstimated = (parseFloat(remolcadoresInput.value) || 0) > 0 ? 'false' : 'true';
-                    remolcadoresInput.dataset.tarifaBase = '';
+                    if (remolcadoresInput) {
+                        remolcadoresInput.value = vessel.t_remolcadores !== undefined ? vessel.t_remolcadores : 0;
+                        remolcadoresInput.dataset.autoEstimated = (parseFloat(remolcadoresInput.value) || 0) > 0 ? 'false' : 'true';
+                        remolcadoresInput.dataset.tarifaBase = '';
+                    }
                     
                     // Automatically sync DWT and Flag from validated vessel
                     if (vessel.dwt !== undefined && vessel.dwt !== null) {
@@ -65539,15 +65533,15 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 } else {
                     deltaInput.value = 0;
                     fondeoInput.value = 0;
-                    remolcadoresInput.value = 0;
+                    if (remolcadoresInput) remolcadoresInput.value = 0;
                 }
-                climaInput.value = 0;
+                if (climaInput) climaInput.value = 0;
             } catch (err) {
                 console.error("Error loading vessel params from IndexedDB:", err);
                 deltaInput.value = 0;
                 fondeoInput.value = 0;
-                remolcadoresInput.value = 0;
-                climaInput.value = 0;
+                if (remolcadoresInput) remolcadoresInput.value = 0;
+                if (climaInput) climaInput.value = 0;
             }
             calculateAdjustedEtaAndDays();
         }
@@ -65582,7 +65576,17 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         }
 
         function calculateAdjustedEtaAndDays() {
-            const etaRadarInput = document.getElementById('eta-radar')?.value;
+            let etaRadarInput = document.getElementById('eta-radar')?.value;
+            // Sincronizar ETA inicial basada en fecha de salida OSRM si no está establecida
+            if (!etaRadarInput) {
+                const departureDate = document.getElementById('gc-laycan-date')?.value || new Date().toISOString().split('T')[0];
+                const etaEl = document.getElementById('eta-radar');
+                if (etaEl && departureDate) {
+                    etaEl.value = departureDate;
+                    etaEl.dataset.etaSource = 'osrm';
+                    etaRadarInput = departureDate;
+                }
+            }
             const climaPol = Math.max(0, parseFloat(document.getElementById('factor-clima')?.value) || 0);
             const fondeoPol = Math.max(0, parseFloat(document.getElementById('t-fondeo')?.value) || 0);
             const climaPod = Math.max(0, parseFloat(document.getElementById('factor-clima-pod')?.value) || 0);
@@ -65606,9 +65610,12 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             const laytimePol = typeof State !== 'undefined' && Number.isFinite(Number(State.portDaysLoad))
                 ? Math.max(0, Number(State.portDaysLoad))
                 : (loadRate > 0 ? cargo / loadRate : 0);
-            const navigationDays = typeof State !== 'undefined' && Number.isFinite(Number(State.ladenDays ?? State.dLaden ?? State.seaDaysLaden))
+            const baseNavigationDays = typeof State !== 'undefined' && Number.isFinite(Number(State.ladenDays ?? State.dLaden ?? State.seaDaysLaden))
                 ? Math.max(0, Number(State.ladenDays ?? State.dLaden ?? State.seaDaysLaden))
                 : Math.max(0, parseFloat(document.getElementById('res-days-laden')?.innerText) || 0);
+            const tacografoHours = Math.max(0, parseFloat(document.getElementById('delta-historico')?.value) || 0);
+            const tacografoDays = tacografoHours > 0 ? (tacografoHours / 24) : 0;
+            const navigationDays = baseNavigationDays + tacografoDays;
             const baseDays = laytimePol + navigationDays;
 
             let baseEtaStr = etaRadarInput || 'N/A';
@@ -65669,7 +65676,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 const pol = (document.getElementById('port-pol')?.value || '').trim();
                 const pod = (document.getElementById('port-pod')?.value || '').trim();
                 if (!pol || !pod) {
-                    const error = new Error('Define Puerto de Carga (POL) y Puerto de Descarga (POD) antes de calcular la operación.');
+                    const error = new Error('Define Origen (Punto de Carga) y Destino (Punto de Descarga) antes de calcular la operación.');
                     if (managedByMaster) throw error;
                     setSmartAdjustmentAlert(error.message, 'error');
                     return false;
@@ -65678,7 +65685,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 if (typeof autoCalculateDistances === 'function') {
                     const routeResult = await autoCalculateDistances();
                     if (!routeResult || !routeResult.routes?.laden) {
-                        const error = new Error('No se pudo calcular la distancia marítima entre POL y POD. Revisa ambos puertos.');
+                        const error = new Error('No se pudo calcular la distancia terrestre entre Origen y Destino. Revisa ambos puntos.');
                         if (managedByMaster) throw error;
                         setSmartAdjustmentAlert(error.message, 'error');
                         return false;
@@ -65699,16 +65706,16 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 const adjustedDays = document.getElementById('res-adjusted-days')?.innerText || '0.00 d';
                 const adjustedEta = document.getElementById('res-adjusted-eta')?.innerText || 'N/A';
                 const sourceText = usedPortIntelligence
-                    ? 'Se aplicaron ajustes algorítmicos por puerto de carga y descarga.'
-                    : 'No había inteligencia portuaria específica; se recalculó con distancia de ruta y valores actuales.';
+                    ? 'Se aplicaron ajustes algorítmicos por punto de carga y descarga.'
+                    : 'Ruta terrestre recalculada con distancia OSRM y parámetros actuales.';
                 if (!managedByMaster) {
-                    setSmartAdjustmentAlert(`${sourceText} Ruta POL/POD: ${Math.round(distLaden).toLocaleString('en-US')} km. ETA final: ${adjustedEta}. Duración ajustada: ${adjustedDays}.`, 'success');
+                    setSmartAdjustmentAlert(`${sourceText} Ruta Origen/Destino: ${Math.round(distLaden).toLocaleString('en-US')} km. ETA final: ${adjustedEta}. Duración ajustada: ${adjustedDays}.`, 'success');
                 }
                 return true;
             } catch (error) {
                 console.error('Error recalculando ajustes inteligentes:', error);
                 if (managedByMaster) throw error;
-                setSmartAdjustmentAlert('Error al recalcular ajustes inteligentes. Revisa los puertos, distancias y parámetros del viaje.', 'error');
+                setSmartAdjustmentAlert('Error al recalcular ajustes inteligentes. Revisa los puntos de ruta, distancias y parámetros del viaje.', 'error');
                 return false;
             } finally {
                 if (btn && !managedByMaster) {
@@ -65788,10 +65795,10 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             'ets-route-type': 'Factor regulatorio EU ETS aplicado a las emisiones: 100%, 50% o 0%.',
             'apply-ets-surcharge': 'Define si ETS se presenta itemizado o all-in; el precio sugerido mantiene ETS antes del margen.',
             'eu-carbon-price': 'Precio de referencia del EUA usado para valorar las emisiones sujetas a ETS.',
-            'delta-historico': 'Días medios de desviación operativa aplicados desde la base histórica interna por puerto.',
-            'factor-clima': 'Días medios de pérdida climática para la ruta seleccionada.',
-            't-fondeo': 'Días medios de espera en fondeo antes de atraque o ventana operativa.',
-            'laycan-dias-libres': 'Días libres negociados antes de que el exceso de riesgo dispare aviso de demurrage.'
+            'delta-historico': 'Horas de descanso obligatorio del tacógrafo (CE 561/2006) sumadas al tiempo de ruta OSRM.',
+            'factor-clima': 'Horas estimadas de retraso por condiciones climatológicas adversas o congestión de tráfico.',
+            't-fondeo': 'Horas estimadas de espera en muelle de carga antes de la operativa.',
+            'laycan-dias-libres': 'Días u horas de franquicia antes de incurrir en coste de paralización/demora.'
         };
 
         function escapeTooltipText(value) {
