@@ -9125,36 +9125,36 @@
                         </div>
                     </div>
 
-                    <!-- TARJETAS DUALES: ARMADOR VS FLETADOR -->
+                    <!-- TARJETAS DUALES: TRANSPORTISTA VS AGENCIA/FLETADOR -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Lado Armador -->
+                        <!-- Lado Transportista -->
                         <div class="bg-slate-50 border border-slate-200 p-5 rounded-xl shadow-sm">
                             <h4 class="text-xs text-slate-500 font-bold uppercase mb-4 border-b border-slate-200 pb-2 flex items-center gap-2">
-                                <span>🚢</span> LADO DEL ARMADOR
+                                <span>🚛</span> LADO DEL TRANSPORTISTA / CHÓFER
                             </h4>
                             <div class="mb-4">
-                                <span class="block text-xs text-slate-500 font-medium mb-1 uppercase tracking-wide">Flete de Compra (Sub-let)</span>
-                                <span class="text-2xl font-black text-slate-800" id="exec-buy-freight">$0.00 / MT</span>
+                                <span class="block text-xs text-slate-500 font-medium mb-1 uppercase tracking-wide">Coste de Compra / Porte (Coste por Km)</span>
+                                <span class="text-2xl font-black text-slate-800" id="exec-buy-freight">$0.00 /Km</span>
                             </div>
                             <div>
-                                <span class="block text-xs text-slate-500 font-medium mb-1 uppercase tracking-wide">Beneficio Diario (TCE)</span>
-                                <span class="text-xl font-bold text-emerald-600" id="exec-tce">$0 / día</span>
+                                <span class="block text-xs text-slate-500 font-medium mb-1 uppercase tracking-wide">Margen Neto del Viaje (€ o $)</span>
+                                <span class="text-xl font-bold text-emerald-600" id="exec-tce">$0</span>
                             </div>
                         </div>
 
-                        <!-- Lado Fletador (Nuestra Casa) -->
+                        <!-- Lado Agencia / Cliente (Nuestra Casa) -->
                         <div class="bg-blue-50 border border-blue-200 p-5 rounded-xl shadow-sm">
                             <h4 class="text-xs text-blue-700 font-bold uppercase mb-4 border-b border-blue-200 pb-2 flex items-center gap-2">
-                                <span>🏢</span> LADO DEL FLETADOR (NUESTRA CASA)
+                                <span>🏢</span> LADO DE LA AGENCIA / CLIENTE (NUESTRA CASA)
                             </h4>
                             <div class="mb-4">
-                                <span class="block text-xs text-blue-600 font-medium mb-1 uppercase tracking-wide">Flete de Venta (Cliente)</span>
-                                <span class="text-2xl font-black text-blue-900" id="exec-sell-freight">$0.00 / MT</span>
+                                <span class="block text-xs text-blue-600 font-medium mb-1 uppercase tracking-wide">Precio total del Viaje (Cliente)</span>
+                                <span class="text-2xl font-black text-blue-900" id="exec-sell-freight">$0.00 /Km</span>
                             </div>
                             <div>
-                                <span class="block text-xs text-blue-600 font-medium mb-1 uppercase tracking-wide">Beneficio Total Fletador</span>
+                                <span class="block text-xs text-blue-600 font-medium mb-1 uppercase tracking-wide">Beneficio Total Agencia</span>
                                 <span class="text-xl font-bold text-blue-700" id="exec-charterer-profit">$0</span>
-                                <span class="mt-2 block text-xs font-semibold text-blue-600">Spread: <span id="exec-spread-mt">$0.00 / MT</span></span>
+                                <span class="mt-2 block text-xs font-semibold text-blue-600">Spread: <span id="exec-spread-mt">$0.00 /Km</span></span>
                             </div>
                         </div>
                     </div>
@@ -9188,7 +9188,7 @@
                     <!-- 1. Derrota y Puertos -->
                     <div class="collapsible-section bg-slate-900 border border-slate-700 rounded-xl p-5 shadow-lg" data-collapsible-section data-default-open="false">
                         <div class="collapsible-section-header flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
-                            <h2 id="route-header-title" class="text-sm font-bold text-blue-400 uppercase"><i class="fa-solid fa-route mr-2"></i> 1. Derrota y Puertos Geográficos</h2>
+                            <h2 id="route-header-title" class="text-sm font-bold text-blue-400 uppercase"><i class="fa-solid fa-route mr-2"></i> 1. Especificaciones de Carga y Rutas (Origen / Destino)</h2>
                             <div class="collapsible-section-actions flex items-center gap-2">
                                 <div id="btn-wpi" class="text-xs bg-teal-900/50 text-teal-200 px-3 py-1.5 rounded flex items-center gap-1.5 border border-teal-700/50" title="Búsqueda segura mediante Datalastic Port Finder/Info">
                                     <i class="fa-solid fa-satellite-dish"></i> Datalastic activo
@@ -9201,8 +9201,8 @@
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                             <div class="space-y-1">
-                                <label id="label-port-ballast" data-i18n="label_port_ballast" class="text-[10px] font-bold text-emerald-400 uppercase flex items-center min-h-[28px]">Puerto Previo (Lastre)</label>
-                                <input type="text" id="port-ballast" class="input-gc text-emerald-300 font-bold" value="" placeholder="Ej: Puerto Rico" autocomplete="off" inputmode="text" spellcheck="false">
+                                <label id="label-port-ballast" data-i18n="label_port_ballast" class="text-[10px] font-bold text-emerald-400 uppercase flex items-center min-h-[28px]">Ubicación Previa / Retorno</label>
+                                <input type="text" id="port-ballast" class="input-gc text-emerald-300 font-bold" value="" placeholder="Ej: Zaragoza" autocomplete="off" inputmode="text" spellcheck="false">
                                 <div id="port-ballast-limits" class="text-[10px] text-emerald-500/80 font-medium mt-1"></div>
                                 <div class="grid grid-cols-2 gap-2 mt-1.5 hidden">
                                     <div>
@@ -9217,12 +9217,12 @@
                             </div>
                             <div class="space-y-1">
                                 <div class="flex justify-between items-center w-full min-h-[28px]">
-                                    <label id="label-port-pol" data-i18n="label_port_pol" class="text-[10px] font-bold text-emerald-400 uppercase flex items-center">Puerto de Carga (POL)</label>
-                                    <button onclick="getAIPortInfo('port-pol')" class="badge-ai text-[10px] text-sky-400 hover:text-sky-300 transition" title="Info IA del Puerto">
-                                        <i class="fa-solid fa-robot mr-0.5"></i> Port Info
+                                    <label id="label-port-pol" data-i18n="label_port_pol" class="text-[10px] font-bold text-emerald-400 uppercase flex items-center">Origen (Población / CP)</label>
+                                    <button onclick="getAIPortInfo('port-pol')" class="badge-ai text-[10px] text-sky-400 hover:text-sky-300 transition" title="Info IA del Origen / Ubicación">
+                                        <i class="fa-solid fa-robot mr-0.5"></i> Info IA
                                     </button>
                                 </div>
-                                <input type="text" id="port-pol" class="input-gc text-emerald-300 font-bold" value="" placeholder="Ej: Buenos Aires" autocomplete="off" inputmode="text" spellcheck="false">
+                                <input type="text" id="port-pol" class="input-gc text-emerald-300 font-bold" value="" placeholder="Ej: Madrid, 28001" autocomplete="off" inputmode="text" spellcheck="false">
                                 <div id="port-pol-limits" class="text-[10px] text-emerald-500/80 font-medium mt-1"></div>
                                 <div class="grid grid-cols-2 gap-2 mt-1.5 hidden">
                                     <div>
@@ -9237,12 +9237,12 @@
                             </div>
                             <div class="space-y-1">
                                 <div class="flex justify-between items-center w-full min-h-[28px]">
-                                    <label id="label-port-pod" data-i18n="label_port_pod" class="text-[10px] font-bold text-emerald-400 uppercase flex items-center">Puerto de Descarga (POD)</label>
-                                    <button onclick="getAIPortInfo('port-pod')" class="badge-ai text-[10px] text-sky-400 hover:text-sky-300 transition" title="Info IA del Puerto">
-                                        <i class="fa-solid fa-robot mr-0.5"></i> Port Info
+                                    <label id="label-port-pod" data-i18n="label_port_pod" class="text-[10px] font-bold text-emerald-400 uppercase flex items-center">Destino (Población / CP)</label>
+                                    <button onclick="getAIPortInfo('port-pod')" class="badge-ai text-[10px] text-sky-400 hover:text-sky-300 transition" title="Info IA del Destino / Ubicación">
+                                        <i class="fa-solid fa-robot mr-0.5"></i> Info IA
                                     </button>
                                 </div>
-                                <input type="text" id="port-pod" class="input-gc text-emerald-300 font-bold" value="" placeholder="Ej: Monopoli" autocomplete="off" inputmode="text" spellcheck="false">
+                                <input type="text" id="port-pod" class="input-gc text-emerald-300 font-bold" value="" placeholder="Ej: Berlín, 10115" autocomplete="off" inputmode="text" spellcheck="false">
                                 <div id="port-pod-limits" class="text-[10px] text-emerald-500/80 font-medium mt-1"></div>
                                 <div class="grid grid-cols-2 gap-2 mt-1.5 hidden">
                                     <div>
@@ -9324,7 +9324,7 @@
                     <!-- 2. Buque, Carga y Tiempos -->
                     <div class="collapsible-section bg-slate-900 border border-slate-700 rounded-xl p-5 shadow-lg" data-collapsible-section data-default-open="false">
                         <div class="collapsible-section-header flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
-                            <h2 id="vessel-header-title" class="text-sm font-bold text-blue-400 uppercase"><i class="fa-solid fa-anchor mr-2"></i> 2. Especificaciones del Buque y Carga / Ship Requirements</h2>
+                            <h2 id="vessel-header-title" class="text-sm font-bold text-blue-400 uppercase"><i class="fa-solid fa-truck mr-2"></i> 2. Especificaciones de Carga y Vehículo / Transport Requirements</h2>
                             <div class="collapsible-section-actions flex items-center gap-2">
                                 <button id="btn-vessel-specs-real-1" onclick="autoFillVesselSpecs()" class="badge-ai text-[10px] text-sky-400 hover:text-sky-300 transition" title="Buscar especificaciones reales en internet (IA)">
                                     <i class="fa-solid fa-robot mr-0.5"></i> Specs (IA)
@@ -9439,7 +9439,7 @@
 
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                             <div class="input-group">
-                                <label id="label-cargo-qty" class="text-action-required flex items-center min-h-[24px]">Carga a Transportar (TM)</label>
+                                <label id="label-cargo-qty" class="text-action-required flex items-center min-h-[24px]">Peso Bruto (KG) / Carga (TM)</label>
                                 <input type="number" id="cargo-qty" class="input-gc action-required-field required-use-highlight text-action-required font-bold" value="0" step="any" oninput="updateSection2LocalState('cargo-qty', this.value); updateCargoVesselClassDisplay();" onblur="detectVesselSegmentFromInputs()">
                                 <p id="cargo-vessel-class-display" class="text-[10px] text-teal-300 mt-1 font-semibold min-h-[14px]"></p>
                             </div>
@@ -9447,6 +9447,10 @@
                                 <label id="label-cargo-type" class="text-action-required flex items-center min-h-[24px]">Categoría de Carga</label>
                                 <select id="cargo-type" class="input-gc action-required-field required-use-highlight text-action-required" required aria-required="true" onchange="markCargoSelectionCommitted(); updateSection2LocalState('cargo-type', this.value); handleCargoCategoryChange(); populateCargoProducts(); autoPopulateRouteLimits();">
                                     <option value="" selected>Selecciona una categoría</option>
+                                    <option value="Paletizado (Euro-pallets)">Paletizado (Euro-pallets)</option>
+                                    <option value="Granel (Bañera)">Granel (Bañera)</option>
+                                    <option value="Maquinaria">Maquinaria</option>
+                                    <option value="Temperatura Controlada">Temperatura Controlada</option>
                                     <option value="Minerales y Construcción">Minerales y Construcción</option>
                                     <option value="Biomasa y Combustibles Sólidos">Biomasa y Combustibles Sólidos</option>
                                     <option value="Carga Siderúrgica y Metales">Carga Siderúrgica y Metales</option>
@@ -9458,6 +9462,10 @@
                                 <label id="label-cargo-product" class="text-action-required flex items-center min-h-[24px]">Producto Específico</label>
                                 <select id="cargo-product" class="input-gc action-required-field required-use-highlight text-action-required" required aria-required="true" onchange="markCargoSelectionCommitted(); updateSection2LocalState('cargo-product', this.value); applySelectedCargoProduct(true);">
                                     <option value="" selected>Selecciona una mercancía</option>
+                                    <option value="Paletizado (Euro-pallets)">Paletizado (Euro-pallets)</option>
+                                    <option value="Granel (Bañera)">Granel (Bañera)</option>
+                                    <option value="Maquinaria">Maquinaria</option>
+                                    <option value="Temperatura Controlada">Temperatura Controlada</option>
                                     <option value="Cemento a granel">Cemento a granel</option>
                                     <option value="Clínker">Clínker</option>
                                     <option value="Yeso">Yeso</option>
@@ -9726,12 +9734,15 @@
                                 </select>
                             </div>
                             <div class="input-group">
-                                <label id="label-cargo-sf" class="flex items-center min-h-[24px]">Stowage Factor</label>
-                                <input type="number" id="cargo-sf" class="input-gc text-indigo-300" value="1.20" min="0" step="0.01" oninput="updateSection2LocalState('cargo-sf', this.value)">
+                                <label id="label-cargo-sf" class="flex items-center min-h-[24px]">Metros Lineales (LDM)</label>
+                                <input type="number" id="cargo-sf" class="input-gc text-indigo-300 font-bold" value="13.6" min="0" step="0.1" placeholder="Ej: 13.6 LDM" oninput="updateSection2LocalState('cargo-sf', this.value)">
                             </div>
                             <div class="input-group">
-                                <label id="label-turn-time-hours" class="text-action-required flex items-center min-h-[24px]">TURN TIME (Preaviso NOR) (H)</label>
+                                <label id="label-turn-time-hours" class="text-action-required flex items-center min-h-[24px]">Paralizaciones (h)</label>
                                 <select id="turn-time-hours" class="input-gc action-required-field required-use-highlight text-action-required font-bold" onchange="updateSection2LocalState('turn-time-hours', this.value)">
+                                    <option value="0">0 horas</option>
+                                    <option value="2">2 horas</option>
+                                    <option value="4">4 horas</option>
                                     <option value="10">10 horas</option>
                                     <option value="12">12 horas</option>
                                     <option value="24" selected>24 horas</option>
@@ -9751,8 +9762,9 @@
                                 </select>
                             </div>
                             <div class="input-group">
-                                <label id="label-laytime-load-condition" class="text-action-required flex items-center min-h-[24px]">Laytime POL</label>
-                                <select id="laytime-load-condition" class="input-gc action-required-field required-use-highlight text-action-required font-bold" onchange="updateSection2LocalState('laytime-load-condition', this.value); syncSharedCharterTerm('laytime-load-condition', ['gc-laytime-load-cond'])">
+                                <label id="label-laytime-load-condition" class="text-action-required flex items-center min-h-[24px]">Horas previstas de Carga</label>
+                                <input type="number" id="horas-previstas-carga" class="input-gc action-required-field required-use-highlight text-action-required font-bold" value="2" min="0" step="0.5" placeholder="Horas de carga" oninput="updateSection2LocalState('horas-previstas-carga', this.value); runEngine()">
+                                <select id="laytime-load-condition" class="hidden" aria-hidden="true" onchange="updateSection2LocalState('laytime-load-condition', this.value); syncSharedCharterTerm('laytime-load-condition', ['gc-laytime-load-cond'])">
                                     <option value="SHINC">SHINC</option>
                                     <option value="SHEX" selected>SHEX</option>
                                     <option value="SHEX UU">SHEX UU</option>
@@ -9765,8 +9777,9 @@
                                 </select>
                             </div>
                             <div class="input-group">
-                                <label id="label-laytime-disch-condition" class="text-action-required flex items-center min-h-[24px]">Laytime POD</label>
-                                <select id="laytime-disch-condition" class="input-gc action-required-field required-use-highlight text-action-required font-bold" onchange="updateSection2LocalState('laytime-disch-condition', this.value); syncSharedCharterTerm('laytime-disch-condition', ['gc-laytime-disch-cond'])">
+                                <label id="label-laytime-disch-condition" class="text-action-required flex items-center min-h-[24px]">Horas previstas de Descarga</label>
+                                <input type="number" id="horas-previstas-descarga" class="input-gc action-required-field required-use-highlight text-action-required font-bold" value="2" min="0" step="0.5" placeholder="Horas de descarga" oninput="updateSection2LocalState('horas-previstas-descarga', this.value); runEngine()">
+                                <select id="laytime-disch-condition" class="hidden" aria-hidden="true" onchange="updateSection2LocalState('laytime-disch-condition', this.value); syncSharedCharterTerm('laytime-disch-condition', ['gc-laytime-disch-cond'])">
                                     <option value="SHINC">SHINC</option>
                                     <option value="SHEX" selected>SHEX</option>
                                     <option value="SHEX UU">SHEX UU</option>
@@ -9795,8 +9808,8 @@
                                 <input type="number" id="crane-swl-mt" class="input-gc font-bold text-amber-300" value="0" min="0" step="0.1" disabled oninput="updateSection2LocalState('crane-swl-mt', this.value)">
                             </div>
                             <div id="contenedor-grab-capacity" class="input-group">
-                                <label id="label-grab-capacity" class="text-amber-400">Grab Capacity (cbm)</label>
-                                <input type="number" id="grab-capacity-cbm" class="input-gc font-bold text-amber-300" value="0" step="0.1" oninput="updateSection2LocalState('grab-capacity-cbm', this.value)">
+                                <label id="label-grab-capacity" class="text-amber-400">Peso Bruto (KG)</label>
+                                <input type="number" id="grab-capacity-cbm" class="input-gc font-bold text-amber-300" value="24000" step="100" placeholder="Ej: 24000 KG" oninput="updateSection2LocalState('grab-capacity-cbm', this.value)">
                             </div>
                             <div id="contenedor-peso-pieza" class="input-group hidden">
                                 <label id="label-peso-pieza" class="text-amber-400">Peso por pieza (MT)</label>
@@ -9833,14 +9846,14 @@
                     <!-- 3. Bunkers y Gastos -->
                     <div class="collapsible-section bg-slate-900 border border-slate-700 rounded-xl p-5 shadow-lg" data-collapsible-section data-default-open="false">
                         <div class="collapsible-section-header flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
-                            <h2 id="costs-header-title" class="text-sm font-bold text-blue-400 uppercase"><i class="fa-solid fa-gas-pump mr-2"></i> 3. Estructura de Costes (OPEX, Bunkers, PDAs)</h2>
+                            <h2 id="costs-header-title" class="text-sm font-bold text-blue-400 uppercase"><i class="fa-solid fa-gas-pump mr-2"></i> 3. ESTRUCTURA DE COSTES (DIÉSEL, PEAJES, DIETAS)</h2>
                         </div>
                         
                         <!-- Bunkers Matrix -->
                         <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 mb-4">
                             <div id="bunker-arbitrage-toolbar" class="mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-slate-900/80 p-3" role="toolbar" aria-label="Herramientas de combustible y arbitraje de bunkers">
                                 <div class="min-w-0 flex-1">
-                                    <h3 id="fuel-prices-title" class="text-xs font-black uppercase tracking-[0.14em] text-slate-300">Desglose de Combustible / Bunkers</h3>
+                                    <h3 id="fuel-prices-title" class="text-xs font-black uppercase tracking-[0.14em] text-slate-300">Consumo de Gasóleo (Diésel / AdBlue)</h3>
                                     <p id="bunker-market-sync-status" class="mt-1 inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-500" aria-live="polite">
                                         <i id="bunker-market-stale-warning" class="fa-solid fa-triangle-exclamation hidden text-amber-400" aria-hidden="true"></i>
                                         <span id="bunker-market-sync-label">Mercado pendiente de sincronización manual</span>
@@ -9862,46 +9875,46 @@
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                 <div class="input-group">
                                     <label class="flex justify-between items-center w-full">
-                                        <span id="label-price-vlsfo" class="text-emerald-400 font-bold">PRECIO VLSFO (WORLD)</span>
-                                        <a href="https://www.bunkerindex.com/" target="_blank" class="text-indigo-400 hover:text-indigo-300" title="Ver en Bunker Index"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                                        <span id="label-price-vlsfo" class="text-emerald-400 font-bold">PRECIO DIÉSEL (€/L)</span>
+                                        <a href="https://www.bunkerindex.com/" target="_blank" class="text-indigo-400 hover:text-indigo-300" title="Ver cotización de carburantes"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                                     </label>
-                                    <input type="number" id="price-sea" class="input-gc required-use-highlight text-emerald-300 font-bold" value="610" step="any" oninput="markManualBunkerPrice(this); runEngine()">
+                                    <input type="number" id="price-sea" class="input-gc required-use-highlight text-emerald-300 font-bold" value="1.45" step="0.01" placeholder="€/L" oninput="markManualBunkerPrice(this); runEngine()">
                                 </div>
                                 <div class="input-group">
                                     <label class="flex justify-between items-center w-full">
-                                        <span id="label-price-ifo" class="text-emerald-400 font-bold">PRECIO IFO 380 (WORLD)</span>
-                                        <a href="https://www.bunkerindex.com/" target="_blank" class="text-indigo-400 hover:text-indigo-300" title="Ver en Bunker Index"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                                        <span id="label-price-ifo" class="text-emerald-400 font-bold">PRECIO ADBLUE (€/L)</span>
+                                        <a href="https://www.bunkerindex.com/" target="_blank" class="text-indigo-400 hover:text-indigo-300" title="Ver cotización de aditivos"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                                     </label>
-                                    <input type="number" id="price-ifo" class="input-gc required-use-highlight text-emerald-300 font-bold" value="0" step="any" oninput="markManualBunkerPrice(this); runEngine()">
+                                    <input type="number" id="price-ifo" class="input-gc required-use-highlight text-emerald-300 font-bold" value="0.75" step="0.01" placeholder="€/L" oninput="markManualBunkerPrice(this); runEngine()">
                                 </div>
                                 <div class="input-group">
                                     <label class="flex justify-between items-center w-full">
-                                        <span id="label-price-mgo" class="text-emerald-400 font-bold">PRECIO MGO (WORLD)</span>
-                                        <a href="https://www.bunkerindex.com/" target="_blank" class="text-indigo-400 hover:text-indigo-300" title="Ver en Bunker Index"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                                        <span id="label-price-mgo" class="text-emerald-400 font-bold">PRECIO POR LITRO MEDIO (€/L)</span>
+                                        <a href="https://www.bunkerindex.com/" target="_blank" class="text-indigo-400 hover:text-indigo-300" title="Ver cotización de carburantes"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                                     </label>
-                                    <input type="number" id="price-port" class="input-gc required-use-highlight text-emerald-300 font-bold" value="830" step="any" oninput="markManualBunkerPrice(this); runEngine()">
+                                    <input type="number" id="price-port" class="input-gc required-use-highlight text-emerald-300 font-bold" value="1.48" step="0.01" placeholder="€/L" oninput="markManualBunkerPrice(this); runEngine()">
                                 </div>
                             </div>
                             <p id="bunker-index-cache-label" class="-mt-2 mb-4 text-xs italic text-slate-500">Esperando cotización del día...</p>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div class="input-group">
-                                    <label id="label-cons-sea">Consumo Mar (t/d)</label>
-                                    <input type="number" id="cons-sea" class="input-gc text-red-300 font-bold" value="5.5" step="any" oninput="runEngine()">
-                                    <span id="net-cons-indicator" class="text-[10px] text-slate-400 font-mono block mt-1">Consumo Neto (incluye 5% de margen por mal tiempo): 5.78 T/D</span>
+                                    <label id="label-cons-sea">Consumo Diésel (L/100km)</label>
+                                    <input type="number" id="cons-sea" class="input-gc text-red-300 font-bold" value="31.5" step="0.1" placeholder="L/100km" oninput="runEngine()">
+                                    <span id="net-cons-indicator" class="text-[10px] text-slate-400 font-mono block mt-1">Consumo Medio Estimado: 31.5 L/100km</span>
                                 </div>
                                 <div class="input-group">
-                                    <label id="label-cons-port">Consumo Puerto (t/d)</label>
-                                    <input type="number" id="cons-port" class="input-gc text-red-300 font-bold" value="0.5" step="any" oninput="runEngine()">
+                                    <label id="label-cons-port">Consumo AdBlue (L/100km)</label>
+                                    <input type="number" id="cons-port" class="input-gc text-red-300 font-bold" value="1.8" step="0.1" placeholder="L/100km" oninput="runEngine()">
                                 </div>
                                 <div class="input-group">
-                                    <label id="label-cons-anchorage">Consumo Fondeo (t/d)</label>
-                                    <input type="number" id="cons-anchorage" class="input-gc text-red-300 font-bold" value="0.8" step="any" oninput="runEngine()">
+                                    <label id="label-cons-anchorage">Consumo Ralentí / Frigo (L/h)</label>
+                                    <input type="number" id="cons-anchorage" class="input-gc text-red-300 font-bold" value="1.5" step="0.1" placeholder="L/h" oninput="runEngine()">
                                 </div>
                             </div>
 
                             <!-- SECA/ECA Zone Status Indicators -->
                             <div class="border-t border-slate-800 pt-3 mt-3">
-                                <h4 id="fuel-regulation-title" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Estatus de Regulación de Combustible (ECA/SECA)</h4>
+                                <h4 id="fuel-regulation-title" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Estatus de Regulación de Emisiones / Zona Ambiental (ZBE)</h4>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <!-- POL Indicator -->
                                     <div id="seca-pol-indicator" class="rounded-lg p-3 transition-colors duration-300 flex flex-col justify-between border">
@@ -9918,7 +9931,7 @@
                         <!-- OPEX y PDAs -->
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div class="input-group relative">
-                                <label id="label-opex-daily" class="text-orange-400">OPEX Fijo Diario ($)</label>
+                                <label id="label-opex-daily" class="text-orange-400">Coste Fijo Diario (Chófer, Seguros, Amortización)</label>
                                 <input type="number" id="opex-daily" class="input-gc font-bold text-orange-300" value="0" placeholder="0" step="any" oninput="runEngine()">
                                 <div id="opex-auto-estimated-badge" class="hidden mt-1 inline-flex items-center gap-1 rounded-md border border-blue-200 bg-white px-2 py-1 text-[10px] font-semibold text-[#1d4ed8] shadow-sm">
                                     <i class="fa-solid fa-wand-magic-sparkles text-blue-500"></i>
@@ -9927,36 +9940,40 @@
                                 <div id="opex-category-box" class="text-[10px] mt-1 text-slate-400 leading-tight bg-slate-950/80 border border-slate-800 rounded p-1.5 hidden transition-all duration-300"></div>
                             </div>
                             <div class="input-group">
-                                <label id="label-pda-pol" class="text-emerald-400 font-bold">Gastos PDA POL ($)</label>
+                                <label id="label-pda-pol" class="text-emerald-400 font-bold">Peajes (€)</label>
 	                                <div class="flex gap-1">
 	                                    <input type="number" id="pda-pol" class="input-gc required-use-highlight text-emerald-300 font-bold" value="0" placeholder="0" step="any" oninput="runEngine()">
-	                                    <button id="btn-estimate-pda-pol" onclick="autoFillPDA('pol')" class="required-use-highlight bg-slate-800 text-slate-400 px-2 rounded hover:text-white" title="Consultar Data Bridge o estimar algorítmicamente por DWT"><i class="fa-solid fa-rotate-right"></i></button>
+	                                    <button id="btn-estimate-pda-pol" onclick="autoFillPDA('pol')" class="required-use-highlight bg-slate-800 text-slate-400 px-2 rounded hover:text-white" title="Consultar peajes o estimar por ruta"><i class="fa-solid fa-rotate-right"></i></button>
 	                                </div>
 	                                <div id="pda-pol-status" class="hidden mt-1 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em]" role="status" aria-live="polite"></div>
 	                            </div>
 	                            <div class="input-group">
-	                                <label id="label-pda-pod" class="text-emerald-400 font-bold">Gastos PDA POD ($)</label>
+	                                <label id="label-pda-pod" class="text-emerald-400 font-bold">Dietas / Pernocta Chófer (€)</label>
 	                                <div class="flex gap-1">
 	                                    <input type="number" id="pda-pod" class="input-gc required-use-highlight text-emerald-300 font-bold" value="0" placeholder="0" step="any" oninput="runEngine()">
-	                                    <button id="btn-estimate-pda-pod" onclick="autoFillPDA('pod')" class="required-use-highlight bg-slate-800 text-slate-400 px-2 rounded hover:text-white" title="Consultar Data Bridge o estimar algorítmicamente por DWT"><i class="fa-solid fa-rotate-right"></i></button>
+	                                    <button id="btn-estimate-pda-pod" onclick="autoFillPDA('pod')" class="required-use-highlight bg-slate-800 text-slate-400 px-2 rounded hover:text-white" title="Consultar dietas y pernocta"><i class="fa-solid fa-rotate-right"></i></button>
 	                                </div>
 	                                <div id="pda-pod-status" class="hidden mt-1 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em]" role="status" aria-live="polite"></div>
 	                            </div>
                             <div class="input-group">
-                                <label id="label-stevedoring" title="Solo usar si la póliza NO es FIOS">Estiba/Terminal ($)</label>
+                                <label id="label-stevedoring" title="Costes de carga/descarga o transbordo">Carga / Descarga (€)</label>
                                 <input type="number" id="stevedoring-costs" class="input-gc text-purple-300 font-bold" value="0" step="any" oninput="runEngine()">
                             </div>
                             <div id="crane-validation-alert" class="md:col-span-4 hidden rounded-lg border px-3 py-2 text-xs font-bold" role="status" aria-live="polite"></div>
                             <div id="voyage-cost-data-alert" class="md:col-span-4 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800" role="status" aria-live="polite">Faltan datos operativos</div>
                             <div class="input-group">
-                                <label id="label-pda-misc">Extras/Canal ($)</label>
+                                <label id="label-pda-misc">Extras / Gastos de Ruta (€)</label>
                                 <input type="number" id="pda-misc" class="input-gc" value="0" step="any" oninput="runEngine()">
                             </div>
                             <div class="input-group">
-                                <label id="label-selected-canal" class="text-sky-400">Canal Seleccionado</label>
+                                <label id="label-selected-canal" class="text-sky-400">Rutas Especiales (Ferries / Eurotúnel)</label>
                                 <select id="selected-canal" class="input-gc font-bold text-sky-300" onchange="runEngine()">
+                                    <option value="Ninguno" selected>Ninguno</option>
+                                    <option value="Eurotúnel">Eurotúnel (Calais - Dover)</option>
+                                    <option value="Ferry Baleares">Ferry Baleares (Valencia/BCN - Palma)</option>
+                                    <option value="Ferry Estrecho">Ferry Estrecho (Algeciras - Tánger)</option>
+                                    <option value="Ferry Escandinavia">Ferry Escandinavia / Báltico</option>
                                     <option value="Auto">Auto</option>
-                                    <option value="Ninguno">Ninguno</option>
                                     <option value="Suez">Suez</option>
                                     <option value="Panamá">Panamá</option>
                                 </select>
@@ -10270,10 +10287,10 @@
                             <div class="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 p-3 shadow-sm" id="base-cost-break-even-card" aria-live="polite">
                                 <div class="flex items-center justify-between gap-4">
                                     <div>
-                                        <span class="block text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">Coste Base · Break-Even</span>
-                                        <span class="mt-1 block text-[10px] font-semibold text-slate-500">Cálculo operativo inmediato, independiente del radar AIS</span>
+                                        <span class="block text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">Coste Base · Break-Even (Coste por Km / Precio Total)</span>
+                                        <span class="mt-1 block text-[10px] font-semibold text-slate-500">Cálculo operativo de transporte terrestre</span>
                                     </div>
-                                    <strong id="res-cost-base-break-even" class="mono font-black transition-all duration-300 text-xl text-emerald-800">$0.00 /MT</strong>
+                                    <strong id="res-cost-base-break-even" class="mono font-black transition-all duration-300 text-xl text-emerald-800">$0.00 /Km · Total: $0</strong>
                                 </div>
                             </div>
 
@@ -10388,11 +10405,11 @@
                             <!-- Break Even -->
                             <div class="bg-white p-2 rounded border border-slate-300">
                                 <div class="flex justify-between items-center gap-3">
-                                    <span id="label-breakeven-freight" class="text-xs font-bold text-[#212529] uppercase">Flete Break-Even (Armador)</span>
+                                    <span id="label-breakeven-freight" class="text-xs font-bold text-[#212529] uppercase">Coste por Km y Precio total del Viaje</span>
                                     <span id="res-breakeven" class="text-lg font-black text-[#047857] mono">$0.00</span>
                                 </div>
                                 <div id="res-breakeven-breakdown" class="mt-1 text-[10px] text-slate-500 font-semibold text-right">
-                                    Incluye: BEP Base $0.00 + ETS $0.00 + Riesgo Temporal $0.00
+                                    Coste por Km + Peajes y Dietas + Margen Operativo
                                 </div>
                             </div>
 
@@ -10400,11 +10417,11 @@
                             <div id="target-price-card" class="hidden bg-emerald-50 p-3 rounded border border-emerald-200 space-y-2">
                                 <div class="flex justify-between items-start gap-3">
                                     <div>
-                                        <div class="text-[10px] text-emerald-700 uppercase font-bold">Venta Sugerida Fletador (Target Price)</div>
-                                        <div id="res-venta-sugerida-subtext" class="text-[10px] text-emerald-700">Basado en VSA + margen fletador</div>
+                                        <div class="text-[10px] text-emerald-700 uppercase font-bold">Precio total del Viaje Sugerido (Coste por Km)</div>
+                                        <div id="res-venta-sugerida-subtext" class="text-[10px] text-emerald-700">Basado en coste kilométrico + margen comercial</div>
                                         <div id="res-coa-margen-total" class="hidden text-[10px] text-emerald-900 font-bold mt-1">Margen Total del Contrato: $0</div>
                                     </div>
-                                    <div id="res-venta-sugerida" class="text-xl font-black text-emerald-600 mono text-right">$0.00 /TM</div>
+                                    <div id="res-venta-sugerida" class="text-xl font-black text-emerald-600 mono text-right">$0.00 /Km</div>
                                 </div>
                                 <div class="border-t border-emerald-200 pt-2">
                                     <label class="mb-2 flex items-center justify-between gap-3 rounded-md border border-emerald-200 bg-white px-3 py-2 text-[10px] font-black uppercase text-slate-700">
@@ -10657,10 +10674,10 @@
                                 </div>
                                 <div class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
                                     <div class="rounded-md border border-white bg-white p-3 shadow-sm">
-                                        <div class="text-[10px] font-black uppercase text-slate-500">Flete mínimo</div>
-                                        <div id="inverse-min-freight-rate" class="mono text-xl font-black text-slate-950">$14.80 /MT</div>
-                                        <div id="inverse-fuel-strategy-label" class="mt-1 text-[10px] font-bold text-slate-500">Combustible estándar: VLSFO</div>
-                                        <div id="inverse-ets-breakdown" class="mt-1 text-sm font-semibold text-gray-500">Sin exposición ETS</div>
+                                        <div class="text-[10px] font-black uppercase text-slate-500">Coste por Km / Precio Total Mínimo</div>
+                                        <div id="inverse-min-freight-rate" class="mono text-xl font-black text-slate-950">$14.80 /Km · Total: $0</div>
+                                        <div id="inverse-fuel-strategy-label" class="mt-1 text-[10px] font-bold text-slate-500">Combustible estándar: Diésel</div>
+                                        <div id="inverse-ets-breakdown" class="mt-1 text-sm font-semibold text-gray-500">Sin costes adicionales</div>
                                     </div>
                                     <div class="rounded-md border border-white bg-white p-3 shadow-sm">
                                         <div class="flex items-center justify-between gap-2">
@@ -10738,8 +10755,8 @@
                                         </div>
                                     </div>
                                     <div class="rounded-md border border-sky-200 bg-sky-50 p-3 shadow-sm ring-1 ring-sky-100">
-                                        <div id="cost-plus-box-title" class="text-[10px] font-black uppercase text-sky-700">FLETE MÍNIMO COST-PLUS</div>
-                                        <div id="cost-plus-min-freight-rate" class="mono mt-1 text-2xl font-black text-sky-950">$12.65 /MT</div>
+                                        <div id="cost-plus-box-title" class="text-[10px] font-black uppercase text-sky-700">COSTE POR KM Y PRECIO TOTAL DEL VIAJE (COST-PLUS)</div>
+                                        <div id="cost-plus-min-freight-rate" class="mono mt-1 text-2xl font-black text-sky-950">$12.65 /Km</div>
                                         <div class="mt-3 space-y-1 border-t border-sky-100 pt-2 text-sm font-semibold text-sky-800">
                                             <div>Coste Total Riesgo: <span id="cost-plus-total-costs">$0</span></div>
                                             <div id="cost-plus-total-costs-breakdown" class="text-[10px] font-bold text-sky-700">Base global compartida con Negociación.</div>
@@ -10830,22 +10847,22 @@
                                 </div>
                                 <div class="grid grid-cols-2 gap-2 text-xs mono text-slate-700">
                                     <div class="bg-transparent p-1.5 rounded border border-transparent">
-                                        <div class="text-[10px] text-slate-500 uppercase">Compra Lumpsum</div>
+                                        <div class="text-[10px] text-slate-500 uppercase">Coste Compra Total</div>
                                         <div id="res-lumpsum-buy" class="text-sm font-bold text-indigo-900">$0.00</div>
                                         <div class="text-[10px] text-slate-400 mt-1 pt-1 border-t border-slate-100">
-                                            Flete Eq: <span id="res-lumpsum-buy-rate" class="font-bold text-indigo-800">$0.00</span> / MT
+                                            Coste por Km: <span id="res-lumpsum-buy-rate" class="font-bold text-indigo-800">$0.00</span> /Km
                                         </div>
                                     </div>
                                     <div class="bg-transparent p-1.5 rounded border border-transparent">
-                                        <div class="text-[10px] text-slate-500 uppercase">Venta Lumpsum</div>
+                                        <div class="text-[10px] text-slate-500 uppercase">Precio Venta Total</div>
                                         <div id="res-lumpsum-sell" class="text-sm font-bold text-emerald-800">$0.00</div>
                                         <div class="text-[10px] text-slate-400 mt-1 pt-1 border-t border-slate-100">
-                                            Flete Eq: <span id="res-lumpsum-sell-rate" class="font-bold text-emerald-700">$0.00</span> / MT
+                                            Precio total / Km: <span id="res-lumpsum-sell-rate" class="font-bold text-emerald-700">$0.00</span> /Km
                                         </div>
                                     </div>
                                 </div>
                                 <div id="lumpsum-desc" class="text-[10px] text-slate-500 leading-tight">
-                                    Modo Lumpsum activado manualmente. Compra y venta se facturan sobre la misma base (<span id="res-lumpsum-cargo">0</span> MT), topada por el DWT del buque.
+                                    Modo Precio Fijo/Viaje activado manualmente. Compra y venta se facturan sobre la base total pactada.
                                 </div>
                             </div>
                         </div>
@@ -10868,12 +10885,12 @@
                                 <div class="rounded-xl border border-slate-200 bg-white p-4 text-slate-900 shadow-sm sm:p-5">
                                     <div class="mb-4 border-b border-slate-200 pb-3">
                                         <h3 class="text-xs font-black uppercase tracking-wider text-indigo-800">Condiciones de Compra</h3>
-                                        <p class="mt-1 text-[10px] text-slate-500">Costes y condiciones negociadas con el armador.</p>
+                                        <p class="mt-1 text-[10px] text-slate-500">Costes y condiciones negociadas con el transportista / chófer.</p>
                                     </div>
                                     <div class="grid gap-4">
                             <!-- Flete Armador -->
                             <div>
-                                <label id="label-buying-freight" class="mb-1 block text-[10px] font-bold uppercase text-indigo-700">Flete Compra Armador ($)</label>
+                                <label id="label-buying-freight" class="mb-1 block text-[10px] font-bold uppercase text-indigo-700">Coste Compra Transportista (Coste por Km / Precio total del Viaje)</label>
                                 <div class="flex">
                                     <input type="number" id="freight-rate" class="input-gc h-9 rounded-r-none border-slate-300 bg-white text-lg font-bold text-slate-900" value="32.50" step="any" oninput="runEngine()">
                                     <button type="button" id="btn-calc-owner-freight" onclick="handleFreightMasterTrigger('owner', event)" class="border-y border-indigo-700 bg-indigo-700 px-2 text-white transition hover:bg-indigo-800" title="Calcular e iniciar Auto-Flow"><i class="fa-solid fa-calculator"></i></button>
@@ -10930,7 +10947,7 @@
                                     <div class="grid gap-4 sm:grid-cols-2">
                             <!-- Flete Venta Fletador -->
                             <div class="sm:col-span-2">
-                                <label id="label-selling-freight" class="mb-1 block text-[10px] font-bold uppercase text-emerald-700">Flete Venta Fletador ($)</label>
+                                <label id="label-selling-freight" class="mb-1 block text-[10px] font-bold uppercase text-emerald-700">Precio Venta Cliente (Coste por Km / Precio total del Viaje)</label>
                                 <div class="flex">
                                     <input type="number" id="freight-sell" class="input-gc h-9 rounded-r-none border-slate-300 bg-white text-lg font-bold text-slate-900" value="35.00" step="any" oninput="runEngine()">
                                     <button type="button" id="btn-calc-charter-freight" onclick="handleFreightMasterTrigger('charterer', event)" class="border-y border-emerald-700 bg-emerald-700 px-2 text-white transition hover:bg-emerald-800" title="Calcular e iniciar Auto-Flow"><i class="fa-solid fa-calculator"></i></button>
@@ -10982,7 +10999,7 @@
                                             <i class="fa-solid fa-route"></i>
                                             Simular Viaje Siguiente (Armador)
                                         </button>
-                                        <div class="mt-3 border-t border-slate-800 pt-2 transition-all duration-300 text-2xl font-black text-indigo-300" id="res-tce-label">TCE Obtenido: $0 / día (Total: $0)</div>
+                                        <div class="mt-3 border-t border-slate-800 pt-2 transition-all duration-300 text-2xl font-black text-indigo-300" id="res-tce-label">Margen Neto del Viaje (€ o $): $0</div>
                                         <details id="owner-net-breakdown" class="mt-3 border-t border-slate-800 pt-2 text-left">
                                             <summary class="cursor-pointer text-[10px] font-black uppercase text-indigo-300">Desglose Neto Armador</summary>
                                             <div class="mt-2 space-y-1 text-[10px] text-slate-400">
@@ -11322,40 +11339,40 @@
                             <div class="lg:col-span-7">
                                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     <label class="rounded-lg border border-indigo-200 bg-white p-3 shadow-sm">
-                                        <span class="mb-2 block text-[10px] font-black uppercase tracking-wide text-indigo-700">Oferta Inicial Armador ($/MT)</span>
+                                        <span class="mb-2 block text-[10px] font-black uppercase tracking-wide text-indigo-700">Oferta Inicial (Coste por Km / Precio total del Viaje)</span>
                                         <div class="flex items-center gap-2">
-                                            <span class="text-lg font-black text-indigo-600">$</span>
+                                            <span class="text-lg font-black text-indigo-600">€</span>
                                             <input id="negotiation-owner-offer" type="number" min="0" step="0.01" class="input-gc mono border-slate-300 bg-white text-lg font-black text-slate-900" placeholder="0.00" oninput="this.dataset.userEdited='true'; updateChartererNegotiationSimulator()">
-                                            <span class="text-[10px] font-black uppercase text-slate-500">/MT</span>
+                                            <span class="text-[10px] font-black uppercase text-slate-500">/Km</span>
                                         </div>
-                                        <span id="negotiation-owner-tce" class="mt-2 block border-t border-indigo-100 pt-2 text-xs font-bold text-sky-700">TCE Proyectado: $0 / día</span>
+                                        <span id="negotiation-owner-tce" class="mt-2 block border-t border-indigo-100 pt-2 text-xs font-bold text-sky-700">Margen Neto del Viaje (€ o $): $0</span>
                                         <div id="negotiation-suggested-floor" class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2" aria-live="polite" hidden>
                                             <span class="block text-[9px] font-black uppercase tracking-wide text-amber-700">Suelo Sugerido</span>
                                             <strong id="negotiation-suggested-floor-value" class="mono mt-0.5 block text-sm font-black text-amber-950"></strong>
                                         </div>
                                     </label>
                                     <div class="rounded-lg border border-emerald-200 bg-white p-3 shadow-sm">
-                                        <label for="negotiation-charterer-target" class="mb-2 block text-[10px] font-black uppercase tracking-wide text-emerald-700">Target Fletador / Contraoferta ($/MT)</label>
+                                        <label for="negotiation-charterer-target" class="mb-2 block text-[10px] font-black uppercase tracking-wide text-emerald-700">Target / Contraoferta (Coste por Km / Precio total del Viaje)</label>
                                         <div class="flex items-center gap-2">
-                                            <span class="text-lg font-black text-emerald-600">$</span>
+                                            <span class="text-lg font-black text-emerald-600">€</span>
                                             <input id="negotiation-charterer-target" type="number" min="0" step="0.01" class="input-gc mono border-slate-300 bg-white text-lg font-black text-slate-900" placeholder="0.00" oninput="this.dataset.userEdited='true'; updateChartererNegotiationSimulator()">
-                                            <span class="text-[10px] font-black uppercase text-slate-500">/MT</span>
+                                            <span class="text-[10px] font-black uppercase text-slate-500">/Km</span>
                                         </div>
-                                        <button id="negotiation-ai-suggestion" type="button" onclick="applySuggestedNegotiationTarget()" class="mt-2 inline-flex items-center gap-1.5 rounded-md border border-transparent px-1 py-1 text-left text-[11px] font-bold text-emerald-700 transition hover:border-emerald-200 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:text-slate-400" disabled><i class="fa-solid fa-bullseye" aria-hidden="true"></i><span>Sugerencia IA: $0.00 / MT (Margen +5%)</span></button>
-                                        <span id="negotiation-target-tce" class="mt-2 block border-t border-emerald-100 pt-2 text-xs font-bold text-sky-700">TCE Proyectado: $0 / día</span>
+                                        <button id="negotiation-ai-suggestion" type="button" onclick="applySuggestedNegotiationTarget()" class="mt-2 inline-flex items-center gap-1.5 rounded-md border border-transparent px-1 py-1 text-left text-[11px] font-bold text-emerald-700 transition hover:border-emerald-200 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:text-slate-400" disabled><i class="fa-solid fa-bullseye" aria-hidden="true"></i><span>Sugerencia IA: €0.00 / Km (Margen +5%)</span></button>
+                                        <span id="negotiation-target-tce" class="mt-2 block border-t border-emerald-100 pt-2 text-xs font-bold text-sky-700">Margen Neto del Viaje (€ o $): $0</span>
                                     </div>
                                 </div>
 
                                 <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     <div class="rounded-lg border border-sky-200 bg-white p-3 shadow-sm">
-                                        <span class="block text-[9px] font-black uppercase tracking-[0.16em] text-sky-700">Spread de Negociación</span>
-                                        <strong id="negotiation-spread-pmt" class="mono mt-1 block text-2xl font-black text-sky-950">$0.00 /MT</strong>
+                                        <span class="block text-[9px] font-black uppercase tracking-[0.16em] text-sky-700">Spread de Negociación (Coste por Km)</span>
+                                        <strong id="negotiation-spread-pmt" class="mono mt-1 block text-2xl font-black text-sky-950">$0.00 /Km</strong>
                                         <span id="negotiation-spread-caption" class="mt-1 block text-[10px] font-semibold text-slate-600">Diferencia entre oferta y target.</span>
                                     </div>
                                     <div class="rounded-lg border border-blue-200 bg-white p-3 shadow-sm">
                                         <span class="block text-[9px] font-black uppercase tracking-[0.16em] text-blue-700">Ahorro Total Proyectado</span>
                                         <strong id="negotiation-total-savings" class="mono mt-1 block text-2xl font-black text-blue-950">$0</strong>
-                                        <span id="negotiation-cargo-caption" class="mt-1 block text-[10px] font-semibold text-slate-600">Calculado sobre 0 TM.</span>
+                                        <span id="negotiation-cargo-caption" class="mt-1 block text-[10px] font-semibold text-slate-600">Calculado sobre el trayecto.</span>
                                     </div>
                                 </div>
                             </div>
@@ -11371,8 +11388,8 @@
                                     </div>
                                     <div class="mt-4 flex items-end justify-between gap-3">
                                         <div>
-                                            <span class="block text-[9px] font-bold uppercase text-slate-500">Break-Even Armador</span>
-                                            <strong id="negotiation-break-even" class="mono mt-1 block text-xl font-black text-slate-950">$0.00 /MT</strong>
+                                            <span class="block text-[9px] font-bold uppercase text-slate-500">Break-Even (Coste por Km)</span>
+                                            <strong id="negotiation-break-even" class="mono mt-1 block text-xl font-black text-slate-950">$0.00 /Km</strong>
                                             <span id="negotiation-algorithmic-reference" class="mt-1 block text-[9px] font-semibold text-slate-500">Basado en estimación algorítmica (ref: pendiente)</span>
                                             <span id="negotiation-safety-caption" class="mt-1 hidden text-[9px] font-black text-cyan-700">Contingencia aplicada: +0% sobre estimación IA</span>
                                         </div>
@@ -15368,15 +15385,19 @@
             "map_label_ballast": { es: "Puerto previo (Lastre)", en: "Previous Port (Ballast)", fr: "Port précédent (Ballast)" },
             "Puerto previo (Lastre)": { es: "Puerto previo (Lastre)", en: "Previous Port (Ballast)", fr: "Port précédent (Ballast)" },
 
-            "map_label_pol": { es: "Puerto de carga (POL)", en: "Port of Loading (POL)", fr: "Port de chargement (POL)" },
-            "Puerto de carga (POL)": { es: "Puerto de carga (POL)", en: "Port of Loading (POL)", fr: "Port de chargement (POL)" },
+            "map_label_pol": { es: "Origen (Población / CP)", en: "Origin (Town / Zip)", fr: "Origine (Ville / CP)" },
+            "Puerto de carga (POL)": { es: "Origen (Población / CP)", en: "Origin (Town / Zip)", fr: "Origine (Ville / CP)" },
+            "Origen (Población / CP)": { es: "Origen (Población / CP)", en: "Origin (Town / Zip)", fr: "Origine (Ville / CP)" },
 
-            "map_label_pod": { es: "Puerto de descarga (POD)", en: "Port of Discharge (POD)", fr: "Port de déchargement (POD)" },
-            "Puerto de descarga (POD)": { es: "Puerto de descarga (POD)", en: "Port of Discharge (POD)", fr: "Port de déchargement (POD)" },
+            "map_label_pod": { es: "Destino (Población / CP)", en: "Destination (Town / Zip)", fr: "Destination (Ville / CP)" },
+            "Puerto de descarga (POD)": { es: "Destino (Población / CP)", en: "Destination (Town / Zip)", fr: "Destination (Ville / CP)" },
+            "Destino (Población / CP)": { es: "Destino (Población / CP)", en: "Destination (Town / Zip)", fr: "Destination (Ville / CP)" },
 
-            "label_port_ballast": { es: "Puerto Previo (Lastre)", en: "Previous Port (Ballast)", fr: "Port précédent (Ballast)" },
-            "label_port_pol": { es: "Puerto de Carga (POL)", en: "Port of Loading (POL)", fr: "Port de chargement (POL)" },
-            "label_port_pod": { es: "Puerto de Descarga (POD)", en: "Port of Discharge (POD)", fr: "Port de déchargement (POD)" },
+            "label_port_ballast": { es: "Ubicación Previa / Retorno", en: "Previous Location / Return", fr: "Emplacement précédent / Retour" },
+            "label_port_pol": { es: "Origen (Población / CP)", en: "Origin (Town / Zip)", fr: "Origine (Ville / CP)" },
+            "label_port_pod": { es: "Destino (Población / CP)", en: "Destination (Town / Zip)", fr: "Destination (Ville / CP)" },
+            "Puerto de Carga (POL)": { es: "Puerto de Carga (POL)", en: "Port of Loading (POL)", fr: "Port de chargement (POL)" },
+            "Puerto de Descarga (POD)": { es: "Puerto de Descarga (POD)", en: "Port of Discharge (POD)", fr: "Port de déchargement (POD)" },
 
             "calc_summary_title": { es: "6. RESUMEN DE OPERACIÓN", en: "6. OPERATION SUMMARY", fr: "6. RÉSUMÉ D'OPÉRATION" },
             "6. RESUMEN DE OPERACIÓN": { es: "6. RESUMEN DE OPERACIÓN", en: "6. OPERATION SUMMARY", fr: "6. RÉSUMÉ D'OPÉRATION" },
@@ -31718,6 +31739,22 @@ function setIsGeoInputOpen(isNextOpen) {
         }
 
         const cargoDictionary = {
+            "Paletizado (Euro-pallets)": [
+                { nombre: "Paletizado (Euro-pallets)", sf: 1.40, requiresPieceWeight: false },
+                { nombre: "Carga Paletizada Estándar", sf: 1.30, requiresPieceWeight: false }
+            ],
+            "Granel (Bañera)": [
+                { nombre: "Granel (Bañera)", sf: 0.90, requiresPieceWeight: false },
+                { nombre: "Áridos y Minerales", sf: 0.80, requiresPieceWeight: false }
+            ],
+            "Maquinaria": [
+                { nombre: "Maquinaria", sf: 2.00, requiresPieceWeight: true },
+                { nombre: "Maquinaria Industrial / Pesada", sf: 2.20, requiresPieceWeight: true }
+            ],
+            "Temperatura Controlada": [
+                { nombre: "Temperatura Controlada", sf: 1.50, requiresPieceWeight: false },
+                { nombre: "Refrigerado / Congelado", sf: 1.60, requiresPieceWeight: false }
+            ],
             "Minerales y Construcción": [
                 { nombre: "Cemento a granel", sf: 0.70, requiresPieceWeight: false },
                 { nombre: "Clínker", sf: 0.85, requiresPieceWeight: false },
@@ -32910,7 +32947,7 @@ function setIsGeoInputOpen(isNextOpen) {
             if (Number.isFinite(storeTce) && storeTce > 0) return storeTce;
 
             const labelText = document.getElementById('res-tce-label')?.innerText || '';
-            const match = labelText.match(/TCE\s+Obtenido:\s*\$?([\d,.\s]+)/i);
+            const match = labelText.match(/(?:TCE\s+Obtenido|Margen\s+Neto[^\d$€]*):\s*[\$€]?([\d,.\s]+)/i);
             if (!match) return 0;
             const parsed = parseFloat(match[1].replace(/,/g, '').trim());
             return Number.isFinite(parsed) ? parsed : 0;
@@ -39017,7 +39054,7 @@ function scheduleReactiveEngine() {
             updateCargoRateArbitrageAlert(netProfitOwner);
             const netProfitOwnerDailyEl = document.getElementById('res-net-profit-owner-daily');
             if (netProfitOwnerDailyEl) netProfitOwnerDailyEl.innerText = `Beneficio Neto Diario: $${netProfitOwnerDaily.toLocaleString('en-US', {maximumFractionDigits:0})} / día`;
-            document.getElementById('res-tce-label').innerText = `TCE Obtenido: $${tceOwner.toLocaleString('en-US', {maximumFractionDigits:0})} / día (Total: $${tceTotal.toLocaleString('en-US', {maximumFractionDigits:0})})`;
+            document.getElementById('res-tce-label').innerText = `Margen Neto del Viaje (€ o $): $${tceTotal.toLocaleString('en-US', {maximumFractionDigits:0})} (Diario: $${tceOwner.toLocaleString('en-US', {maximumFractionDigits:0})} / día)`;
             const ownerProfitTooltip = document.getElementById('owner-profit-tooltip');
             if (ownerProfitTooltip) ownerProfitTooltip.title = `Beneficio Neto Armador = Ingresos del viaje - Coste Total Riesgo global. La base incluye bunkers, puertos, OPEX, CAPEX, ETS y ajustes operativos aplicables. Clase: ${ownerClassAnalysis?.shipClass?.label || 'Buque estándar'}.`;
             const ownerGrossRevenueEl = document.getElementById('res-owner-gross-revenue');
@@ -44321,7 +44358,7 @@ function scheduleReactiveEngine() {
             const renderProjectedTce = (element, result, borderClass) => {
                 if (!element) return;
                 const tceValue = result.tceDaily;
-                element.textContent = `TCE Proyectado: ${tceValue < 0 ? '-' : ''}${money(tceValue)} / día`;
+                element.textContent = `Margen Neto del Viaje (€ o $): ${tceValue < 0 ? '-' : ''}${money(tceValue)}`;
                 element.className = `mt-2 block border-t ${borderClass} pt-2 text-xs font-bold ${tceValue < 0 ? 'text-red-700' : 'text-sky-700'}`;
                 element.title = `Ingresos netos ${money(result.netRevenue)} - costes de viaje ${money(result.voyageCosts)} ÷ ${result.totalDays.toFixed(2)} días`;
             };
@@ -44330,7 +44367,7 @@ function scheduleReactiveEngine() {
             renderProjectedTce(targetTceEl, targetTce, 'border-emerald-100');
             if (suggestionEl) {
                 suggestionEl.disabled = TargetSugerido <= 0;
-                const suggestionText = `Sugerencia IA: ${money(TargetSugerido, 2)} / MT (Margen +5%)`;
+                const suggestionText = `Sugerencia IA: €${money(TargetSugerido, 2)} / Km (Margen +5%)`;
                 const suggestionTextEl = typeof suggestionEl.querySelector === 'function' ? suggestionEl.querySelector('span') : null;
                 if (suggestionTextEl) suggestionTextEl.textContent = suggestionText;
                 else suggestionEl.textContent = suggestionText;
@@ -44342,7 +44379,7 @@ function scheduleReactiveEngine() {
             }
 
             if (spreadEl) {
-                spreadEl.textContent = `${spreadPerMt < 0 ? '-' : ''}${money(spreadPerMt, 2)} /MT`;
+                spreadEl.textContent = `${spreadPerMt < 0 ? '-' : ''}${money(spreadPerMt, 2)} /Km`;
                 spreadEl.className = `mono mt-1 block text-2xl font-black ${spreadPerMt >= 0 ? 'text-sky-950' : 'text-red-700'}`;
             }
             if (spreadCaptionEl) {
@@ -44355,7 +44392,7 @@ function scheduleReactiveEngine() {
                 savingsEl.className = `mono mt-1 block text-2xl font-black ${projectedSavings >= 0 ? 'text-blue-950' : 'text-red-700'}`;
             }
             if (cargoCaptionEl) cargoCaptionEl.textContent = `Calculado sobre ${Math.round(cargo).toLocaleString('en-US')} TM.`;
-            if (breakEvenEl) breakEvenEl.textContent = `${money(breakEven, 2)} /MT`;
+            if (breakEvenEl) breakEvenEl.textContent = `${money(breakEven, 2)} /Km`;
             if (targetDeltaEl) targetDeltaEl.textContent = `Δ ${targetDelta < 0 ? '-' : '+'}${money(targetDelta, 2)}`;
             if (viabilityMeterEl) viabilityMeterEl.style.width = `${meterRatio}%`;
             const voyageReference = String(document.getElementById('quick-ref')?.value || document.getElementById('gc-ref')?.value || document.getElementById('asb-ref')?.value || 'pendiente').trim() || 'pendiente';
@@ -66627,7 +66664,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             const fuelStrategyEl = document.getElementById('inverse-fuel-strategy-label');
 
             if (totalDaysEl) totalDaysEl.textContent = totalDays.toFixed(1);
-            if (minFreightEl) minFreightEl.textContent = `${formatInverseTceMoney(minFreightRate, { decimals: 2 })} /MT`;
+            if (minFreightEl) minFreightEl.textContent = `${formatInverseTceMoney(minFreightRate, { decimals: 2 })} /Km · Total: ${formatInverseTceMoney(targetRevenue)}`;
             if (demurrageEl) demurrageEl.textContent = `${formatInverseTceMoney(demurrageRate)} /Día`;
             if (demurrageIconEl) {
                 demurrageIconEl.classList.toggle('hidden', !dynamicDemurrage.hasRiskAdjustment);
@@ -66714,10 +66751,10 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             const demurrageEl = document.getElementById('cost-plus-demurrage-rate');
 
             if (titleEl) {
-                titleEl.textContent = isMarketStrategy ? "FLETE OBJETIVO MERCADO" : "FLETE MÍNIMO COST-PLUS";
+                titleEl.textContent = isMarketStrategy ? "COSTE POR KM / TOTAL MERCADO" : "COSTE POR KM Y PRECIO TOTAL (COST-PLUS)";
             }
             if (minFreightEl) {
-                minFreightEl.textContent = `${formatInverseTceMoney(selectedFreightRate, { decimals: 2 })} /MT`;
+                minFreightEl.textContent = `${formatInverseTceMoney(selectedFreightRate, { decimals: 2 })} /Km`;
             }
             if (totalCostsEl) totalCostsEl.textContent = formatInverseTceMoney(totalCosts);
             if (totalCostsBreakdownEl) totalCostsBreakdownEl.textContent = sharedCostBasis.disclosure;
