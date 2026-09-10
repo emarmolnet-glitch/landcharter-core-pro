@@ -120,6 +120,7 @@ function runCalculator(overrides = {}) {
     buildExecutiveShipClassAnalysis: () => ({ capexDaily: 0 }),
     getEtsRouteFactor: () => Number(values['ets-route-type']),
     calcularPrecioObjetivo: (base, margin) => Math.max(0, Number(base) || 0) * (1 + ((Number(margin) || 0) / 100)),
+    getTotalPortRiskDays: () => 0,
   };
   vm.runInNewContext(
     `${stevedoringAllocationSource}; ${calculatorSource}; globalThis.result = calcularViaje({ dwt: ${Number(values['vessel-dwt']) || 0}, hasScrubber: false });`,
@@ -239,8 +240,8 @@ test('liner terms auto-estimate stevedoring while FIOS keeps owner cost at zero'
   assert.equal(liner.result.stevedoringEnteredCost, 50000);
   assert.equal(liner.result.stevedoringOwnerCost, 50000);
   assert.equal(liner.elements.get('stevedoring-costs').dataset.autoEstimated, 'true');
-  assert.match(indexSource, /id="res-cost-stevedoring-note"/);
-  assert.match(indexSource, /FIOS: coste \$0 para el armador/);
+  assert.doesNotMatch(indexSource, /id="res-cost-stevedoring-note"/);
+  assert.doesNotMatch(indexSource, /FIOS: coste \$0 para el armador/);
   assert.match(indexSource, /Liner Terms: coste a cargo del armador/);
   assert.match(indexSource, /pdaRecurrente[\s\S]*stevedoringAllocation\.ownerCost/);
   assert.doesNotMatch(indexSource, /pdaRecurrente[\s\S]{0,300}parseFloat\(document\.getElementById\('stevedoring-costs'\)\.value\)/);
