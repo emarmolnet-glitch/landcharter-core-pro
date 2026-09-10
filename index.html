@@ -9832,48 +9832,29 @@
                         
                         <!-- Bunkers Matrix -->
                         <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 mb-4">
-                            <div id="bunker-arbitrage-toolbar" class="mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-slate-900/80 p-3" role="toolbar" aria-label="Herramientas de combustible y arbitraje de bunkers">
+                            <div id="bunker-arbitrage-toolbar" class="mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-slate-900/80 p-3" role="toolbar" aria-label="Herramientas de combustible terrestre">
                                 <div class="min-w-0 flex-1">
                                     <h3 id="fuel-prices-title" class="text-xs font-black uppercase tracking-[0.14em] text-slate-300">Consumo de Gasóleo (Diésel / AdBlue)</h3>
                                     <p id="bunker-market-sync-status" class="mt-1 inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-500" aria-live="polite">
                                         <i id="bunker-market-stale-warning" class="fa-solid fa-triangle-exclamation hidden text-amber-400" aria-hidden="true"></i>
-                                        <span id="bunker-market-sync-label">Mercado pendiente de sincronización manual</span>
+                                        <span id="bunker-market-sync-label">Tarifas de combustible terrestre sincronizadas (/api-land-data)</span>
                                     </p>
-                                </div>
-                                <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
-                                    <button id="btn-consult-bunker" type="button" onclick="syncBunkerIndexMarket()" class="inline-flex items-center gap-2 rounded-lg border border-sky-700 bg-slate-950 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-sky-400 transition-colors hover:bg-sky-900/50 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:opacity-50">
-                                        <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i>
-                                        <span>Sincronizar Oil Price API</span>
-                                    </button>
-                                    <button id="btn-search-bunker-arbitrage" type="button" onclick="searchProfitableBunkerDiversions()" class="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-[10px] font-black uppercase tracking-wide text-slate-950 shadow-lg shadow-emerald-950/30 transition hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:cursor-wait disabled:opacity-60">
-                                        <i class="fa-solid fa-route" aria-hidden="true"></i>
-                                        <span>Buscar Desvíos Rentables</span>
-                                    </button>
                                 </div>
                             </div>
                             <div id="bunker-arbitrage-results" class="mb-4 hidden flex-wrap gap-2" aria-live="polite"></div>
                             <p id="bunker-arbitrage-feedback" class="mb-4 hidden rounded-lg border px-3 py-2 text-xs font-semibold" role="status"></p>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div class="input-group">
                                     <label class="flex justify-between items-center w-full">
-                                        <span id="label-price-vlsfo" class="text-emerald-400 font-bold">PRECIO DIÉSEL (€/L)</span>
-                                        <a href="https://www.bunkerindex.com/" target="_blank" class="text-indigo-400 hover:text-indigo-300" title="Ver cotización de carburantes"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                                        <span id="label-price-diesel" class="text-emerald-400 font-bold">PRECIO DIÉSEL (€/L)</span>
                                     </label>
-                                    <input type="number" id="price-sea" class="input-gc required-use-highlight text-emerald-300 font-bold" value="1.45" step="0.01" placeholder="€/L" oninput="markManualBunkerPrice(this); runEngine()">
+                                    <input type="number" id="price-sea" class="input-gc text-emerald-300 font-bold" value="1.48" step="0.01" placeholder="€/L" readonly>
                                 </div>
                                 <div class="input-group">
                                     <label class="flex justify-between items-center w-full">
-                                        <span id="label-price-ifo" class="text-emerald-400 font-bold">PRECIO ADBLUE (€/L)</span>
-                                        <a href="https://www.bunkerindex.com/" target="_blank" class="text-indigo-400 hover:text-indigo-300" title="Ver cotización de aditivos"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                                        <span id="label-price-adblue" class="text-emerald-400 font-bold">PRECIO ADBLUE (€/L)</span>
                                     </label>
-                                    <input type="number" id="price-ifo" class="input-gc required-use-highlight text-emerald-300 font-bold" value="0.75" step="0.01" placeholder="€/L" oninput="markManualBunkerPrice(this); runEngine()">
-                                </div>
-                                <div class="input-group">
-                                    <label class="flex justify-between items-center w-full">
-                                        <span id="label-price-mgo" class="text-emerald-400 font-bold">PRECIO POR LITRO MEDIO (€/L)</span>
-                                        <a href="https://www.bunkerindex.com/" target="_blank" class="text-indigo-400 hover:text-indigo-300" title="Ver cotización de carburantes"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
-                                    </label>
-                                    <input type="number" id="price-port" class="input-gc required-use-highlight text-emerald-300 font-bold" value="1.48" step="0.01" placeholder="€/L" oninput="markManualBunkerPrice(this); runEngine()">
+                                    <input type="number" id="price-ifo" class="input-gc text-emerald-300 font-bold" value="0.72" step="0.01" placeholder="€/L" readonly>
                                 </div>
                             </div>
                             <p id="bunker-index-cache-label" class="-mt-2 mb-4 text-xs italic text-slate-500">Esperando cotización del día...</p>
@@ -9940,8 +9921,6 @@
                                 <label id="label-stevedoring" title="Costes de carga/descarga o transbordo">Carga / Descarga (€)</label>
                                 <input type="number" id="stevedoring-costs" class="input-gc text-purple-300 font-bold" value="0" step="any" oninput="runEngine()">
                             </div>
-                            <div id="crane-validation-alert" class="md:col-span-4 hidden rounded-lg border px-3 py-2 text-xs font-bold" role="status" aria-live="polite"></div>
-                            <div id="voyage-cost-data-alert" class="md:col-span-4 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800" role="status" aria-live="polite">Faltan datos operativos</div>
                             <div class="input-group">
                                 <label id="label-pda-misc">Extras / Gastos de Ruta (€)</label>
                                 <input type="number" id="pda-misc" class="input-gc" value="0" step="any" oninput="runEngine()">
@@ -9960,35 +9939,20 @@
                                 </select>
                             </div>
                             <div class="input-group">
-                                <label id="label-cargo-surcharge">Recargo Carga/Especial ($)</label>
+                                <label id="label-cargo-surcharge">Recargo Carga/Especial (€)</label>
                                 <input type="number" id="cargo-surcharge" class="input-gc text-red-300 font-bold" value="0" step="any" oninput="runEngine()">
                             </div>
                             <div id="contenedor-trincaje" class="input-group hidden">
-                                <label id="label-trincaje" class="text-red-300">Coste Trincaje ($)</label>
+                                <label id="label-trincaje" class="text-red-300">Coste Trincaje (€)</label>
                                 <input type="number" id="input-trincaje" class="input-gc text-red-300 font-bold" value="0" step="any" oninput="runEngine()">
                             </div>
                             <div id="contenedor-maniobra-especial" class="input-group hidden">
-                                <label id="label-maniobra-especial" class="text-red-300">Coste por Maniobra Especial ($)</label>
+                                <label id="label-maniobra-especial" class="text-red-300">Coste por Maniobra Especial (€)</label>
                                 <input type="number" id="coste-maniobra-especial" class="input-gc text-red-300 font-bold" value="0" step="any" oninput="runEngine()">
                             </div>
                             <div id="contenedor-dias-preparacion" class="input-group hidden">
                                 <label id="label-dias-preparacion" class="text-red-300">Días de preparación</label>
                                 <input type="number" id="dias-preparacion" class="input-gc text-red-300 font-bold" value="0" step="any" oninput="runEngine()">
-                            </div>
-                        </div>
-
-                        <!-- Parámetros OPEX Avanzados (Bandera y PSC) -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 border-t border-slate-800/80 pt-4">
-                            <div class="input-group">
-                                <label id="label-vessel-flag" class="text-orange-400 font-medium">Bandera del Buque (Flag)</label>
-                                <input type="text" id="vessel-flag" class="input-gc text-orange-300 font-bold" value="Panama" placeholder="ej. Panama, Spain, Germany" oninput="handleFlagOrPscChange()">
-                            </div>
-                            <div class="input-group">
-                                <label id="label-vessel-psc" class="text-orange-400 font-medium">Historial Inspecciones PSC (Deficiencias)</label>
-                                <select id="vessel-psc" class="input-gc text-orange-300 font-bold" onchange="handleFlagOrPscChange()">
-                                    <option value="low">Ninguna o Pocas Deficiencias / None or Low Deficiencies (≤3)</option>
-                                    <option value="frequent">Más de 3 Deficiencias en últimas 2 inspecciones / More than 3 Deficiencies in last 2 inspections (>3)</option>
-                                </select>
                             </div>
                         </div>
                     </div>
@@ -11949,7 +11913,7 @@
                                 </select>
                             </div>
                             <div class="space-y-2">
-                                <label class="block text-xs text-slate-500 font-semibold mb-1">Recargo Carga/Especial ($):</label>
+                                <label class="block text-xs text-slate-500 font-semibold mb-1">Recargo Carga/Especial (€):</label>
                                 <input type="text" id="gc-surcharge-val" class="w-full border rounded px-2 py-1 text-xs font-bold text-red-900" value="0" oninput="syncSurchargeToCalculator()">
                             </div>
                         </div>
@@ -15487,7 +15451,7 @@
             "Gastos PDA POD ($)": { en: "PDA POD Expenses ($)", fr: "Frais d'escale PDA POD ($)" },
             "Estiba/Terminal ($)": { en: "Stevedoring/Terminal ($)", fr: "Arrimage/Terminal ($)" },
             "Extras/Canal ($)": { en: "Extras/Canal ($)", fr: "Extras/Canal ($)" },
-            "Recargo Carga/Especial ($)": { en: "Cargo/Special Surcharge ($)", fr: "Surtaxe spéciale/cargaison ($)" },
+            "Recargo Carga/Especial (€)": { en: "Cargo/Special Surcharge (€)", fr: "Surtaxe spéciale/cargaison (€)" },
             "Aplicar Recargo ETS": { en: "Apply ETS Surcharge", fr: "Appliquer la surtaxe ETS" },
             "Precio Carbono UE": { en: "EU Carbon Price", fr: "Prix du carbone de l'UE" },
             "Margen Armador": { en: "Owner's Margin", fr: "Marge de l'armateur" },
@@ -15538,7 +15502,7 @@
             "Tarifa de Flete y Términos": { en: "Freight Rate & Terms", fr: "Taux de fret & Conditions" },
             "Estadías y Ritmos (Laytime)": { en: "Demurrage & Laytime Rates", fr: "Surestaries & Cadences (Laytime)" },
             "Flete de Venta ($):": { en: "Selling Freight ($):", fr: "Fret de vente ($) :" },
-            "Recargo Carga/Especial ($):": { en: "Special / Cargo Surcharge ($):", fr: "Surtaxe spéciale / cargaison ($) :" },
+            "Recargo Carga/Especial (€):": { en: "Special / Cargo Surcharge (€):", fr: "Surtaxe spéciale / cargaison (€) :" },
             "Ritmo de Carga (Laytime Load):": { en: "Loading Rate (Laytime Load):", fr: "Cadence de chargement :" },
             "Ritmo de Descarga (Laytime Disch):": { en: "Discharging Rate (Laytime Disch):", fr: "Cadence de déchargement :" },
             "Detalles Contract Addendum": { en: "Contract Addendum Details", fr: "Détails de l'addendum contractuel" },
@@ -17171,7 +17135,7 @@
                 num('cons-sea') > 0 &&
                 num('cons-port') > 0 &&
                 num('price-sea') > 0 &&
-                num('price-port') > 0 &&
+                (num('price-port') > 0 || num('price-sea') > 0) &&
                 num('opex-daily') > 0 &&
                 num('margin-owner') > 0 &&
                 num('margin-charterer') > 0
@@ -36069,6 +36033,46 @@ function setIsGeoInputOpen(isNextOpen) {
             });
         }
 
+        async function loadLandFuelPrices() {
+            try {
+                const response = await fetch('/api-land-data');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.success) {
+                        const dieselInput = document.getElementById('price-sea');
+                        const adBlueInput = document.getElementById('price-ifo');
+                        if (dieselInput && data.dieselPrice !== undefined) {
+                            dieselInput.value = Number(data.dieselPrice).toFixed(2);
+                        }
+                        if (adBlueInput && data.adBluePrice !== undefined) {
+                            adBlueInput.value = Number(data.adBluePrice).toFixed(2);
+                        }
+                        const cacheLabel = document.getElementById('bunker-index-cache-label');
+                        if (cacheLabel) {
+                            cacheLabel.textContent = `Precios de combustible terrestre sincronizados (/api-land-data)`;
+                        }
+                        const syncStatus = document.getElementById('bunker-market-sync-label');
+                        if (syncStatus) {
+                            syncStatus.textContent = `Tarifas oficiales diésel y AdBlue activas (${data.source || 'SSOT'})`;
+                        }
+                        if (typeof runEngine === 'function') {
+                            runEngine();
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('Error al cargar precios de /api-land-data:', err);
+            }
+        }
+        window.loadLandFuelPrices = loadLandFuelPrices;
+        if (typeof document !== 'undefined') {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', loadLandFuelPrices, { once: true });
+            } else {
+                loadLandFuelPrices();
+            }
+        }
+
         function readBunkerArbitrageRoute() {
             const ladenRoute = State.routeGeometry?.routes?.laden;
             const routeCoordinates = normalizeMaritimeRouteCoordinates(ladenRoute?.coordinates || ladenRoute?.nodes || []);
@@ -38058,7 +38062,7 @@ function scheduleReactiveEngine() {
             const cPort = parseFloat(document.getElementById('cons-port').value) || 0;
             const cAnchorage = parseFloat(document.getElementById('cons-anchorage')?.value) || cPort;
             const cAnchorageAux = parseFloat(document.getElementById('cons-anchorage-aux')?.value) || 2.0;
-            const pPort = parseFloat(document.getElementById('price-port').value) || 0;
+            const pPort = parseFloat(document.getElementById('price-port')?.value) || parseFloat(document.getElementById('price-sea')?.value) || 0;
             
             const opex = parseFloat(document.getElementById('opex-daily').value) || 0;
             const tipoCargaOperativa = normalizarTipoCarga();
