@@ -277,19 +277,19 @@
         };
         const formatMoney = (value, decimals = 0) => {
             const amount = Number(value);
-            if (!Number.isFinite(amount)) return '$0';
+            if (!Number.isFinite(amount)) return '0 €';
             const sign = amount > 0 ? '+' : '';
-            return `${sign}${amount.toLocaleString('en-US', {
+            return `${sign}${amount.toLocaleString('es-ES', {
                 style: 'currency',
-                currency: 'USD',
+                currency: 'EUR',
                 minimumFractionDigits: decimals,
                 maximumFractionDigits: decimals
             })}`;
         };
-        const formatRate = (value) => `$${Math.max(0, toNumber(value)).toFixed(2)} / MT`;
+        const formatRate = (value) => `${Math.max(0, toNumber(value)).toFixed(2)} €/km`;
         const formatDays = (value) => `${Math.max(0, toNumber(value)).toFixed(1)} días`;
-        const formatTons = (value) => `${Math.max(0, toNumber(value)).toLocaleString('en-US', { maximumFractionDigits: 0 })} MT`;
-        const formatDailyRate = (value) => Math.max(0, toNumber(value)).toLocaleString('en-US', { maximumFractionDigits: 0 });
+        const formatTons = (value) => `${Math.max(0, toNumber(value)).toLocaleString('es-ES', { maximumFractionDigits: 0 })} t`;
+        const formatDailyRate = (value) => Math.max(0, toNumber(value)).toLocaleString('es-ES', { maximumFractionDigits: 0 });
         const formatOperationalDuration = (hours) => {
             const normalizedHours = Math.max(0, toNumber(hours));
             const roundedHours = Math.round(normalizedHours);
@@ -354,7 +354,7 @@
             setText('exec-tce', `${formatMoney(0)} / día`);
             setText('exec-sell-freight', formatRate(0));
             setText('exec-charterer-profit', formatMoney(0));
-            setText('exec-spread-mt', `${formatMoney(0, 2)} / MT`);
+            setText('exec-spread-mt', `${formatMoney(0, 2)} / km`);
             setText('exec-risk-level', 'N/D');
             setText('exec-insight-text', 'Introduce POL, POD y volumen de carga para generar el análisis ejecutivo.');
             return true;
@@ -370,7 +370,7 @@
         setText('exec-cargo-type', calcResults.cargoType || 'Carga no definida');
         setText('exec-load-rate', formatDailyRate(calcResults.loadRate));
         setText('exec-disch-rate', formatDailyRate(calcResults.dischargeRate));
-        setText('exec-vessel-type', calcResults.vesselType || 'Buque no definido');
+        setText('exec-vessel-type', calcResults.vesselType || 'Vehículo estándar');
         setText('exec-sea-days', formatDays(calcResults.seaDays));
         setText('exec-port-days', formatDays(calcResults.portDays));
         setText('exec-total-days', formatDays(calcResults.totalDays));
@@ -378,7 +378,7 @@
         setText('exec-tce', `${formatMoney(calcResults.tce)} / día`);
         setText('exec-sell-freight', formatRate(calcResults.sellFreight));
         setText('exec-charterer-profit', formatMoney(calcResults.chartererProfit));
-        setText('exec-spread-mt', `${formatMoney(toNumber(calcResults.sellFreight) - toNumber(calcResults.buyFreight), 2)} / MT`);
+        setText('exec-spread-mt', `${formatMoney(toNumber(calcResults.sellFreight) - toNumber(calcResults.buyFreight), 2)} / km`);
 
         const riskLevel = ['BAJO', 'MODERADO', 'ALTO'].includes(riskData.riskLevel) ? riskData.riskLevel : 'BAJO';
         const riskElement = documentRef.getElementById('exec-risk-level');

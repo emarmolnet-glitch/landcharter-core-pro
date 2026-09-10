@@ -194,10 +194,10 @@ const COST_PLUS_INPUTS: Array<{
   label: string;
   suffix: string;
 }> = [
-  { key: 'daysSea', label: 'Días de mar', suffix: 'días' },
-  { key: 'daysPort', label: 'Días de puerto', suffix: 'días' },
-  { key: 'bunkerCost', label: 'Coste combustible', suffix: 'USD' },
-  { key: 'portCosts', label: 'Peajes y Dietas', suffix: 'USD' },
+  { key: 'daysSea', label: 'Conducción', suffix: 'días' },
+  { key: 'daysPort', label: 'Descanso', suffix: 'días' },
+  { key: 'bunkerCost', label: 'Coste combustible', suffix: '€' },
+  { key: 'portCosts', label: 'Peajes y Dietas', suffix: '€' },
   { key: 'cargoVolume', label: 'Carga Útil (kg)', suffix: 'kg' },
 ];
 
@@ -207,18 +207,18 @@ const INPUTS: Array<{
   suffix: string;
   step?: string;
 }> = [
-  { key: 'tceTarget', label: 'TCE objetivo', suffix: 'USD/día' },
-  { key: 'daysSea', label: 'Días de mar', suffix: 'días', step: '0.1' },
-  { key: 'daysPort', label: 'Días de puerto', suffix: 'días', step: '0.1' },
-  { key: 'seaFuelConsumption', label: 'Consumo mar', suffix: 't/d', step: 'any' },
-  { key: 'portFuelConsumption', label: 'Consumo puerto', suffix: 't/d', step: 'any' },
-  { key: 'portCosts', label: 'Peajes y Dietas', suffix: 'USD' },
+  { key: 'tceTarget', label: 'TCE objetivo', suffix: '€/día' },
+  { key: 'daysSea', label: 'Conducción', suffix: 'días', step: '0.1' },
+  { key: 'daysPort', label: 'Descanso', suffix: 'días', step: '0.1' },
+  { key: 'seaFuelConsumption', label: 'Consumo conducción', suffix: 't/d', step: 'any' },
+  { key: 'portFuelConsumption', label: 'Consumo paradas', suffix: 't/d', step: 'any' },
+  { key: 'portCosts', label: 'Peajes y Dietas', suffix: '€' },
   { key: 'cargoVolume', label: 'Carga Útil (kg)', suffix: 'kg' },
-  { key: 'bunkerDailyPortCost', label: 'Bunker diario en puerto', suffix: 'USD/día' },
+  { key: 'bunkerDailyPortCost', label: 'Bunker diario en paradas', suffix: '€/día' },
   { key: 'totalCo2Emissions', label: 'Emisiones CO2 ETS', suffix: 'tCO2', step: '0.1' },
-  { key: 'euaPrice', label: 'Precio EUA', suffix: 'USD/t', step: '0.01' },
+  { key: 'euaPrice', label: 'Precio EUA', suffix: '€/t', step: '0.01' },
   { key: 'etsCoverage', label: 'Cobertura ETS', suffix: 'factor', step: '0.5' },
-  { key: 'opexDaily', label: 'Costes Fijos (Chófer/Amort.)', suffix: 'USD/día' },
+  { key: 'opexDaily', label: 'Costes Fijos (Chófer/Amort.)', suffix: '€/día' },
   { key: 'contractShipments', label: 'Número de embarques COA', suffix: 'viajes', step: '1' },
   { key: 'ownerMarginPercent', label: 'Margen armador', suffix: '%' },
   { key: 'chartererMarginPercent', label: 'Margen fletador', suffix: '%' },
@@ -394,15 +394,15 @@ export function getVesselClass(dwt: number): Pick<VesselCategory, 'categoryName'
 
 export const getVesselCategory = getVesselClass;
 
-const currencyFormatter = new Intl.NumberFormat('en-US', {
+const currencyFormatter = new Intl.NumberFormat('es-ES', {
   style: 'currency',
-  currency: 'USD',
+  currency: 'EUR',
   maximumFractionDigits: 2,
 });
 
-const wholeCurrencyFormatter = new Intl.NumberFormat('en-US', {
+const wholeCurrencyFormatter = new Intl.NumberFormat('es-ES', {
   style: 'currency',
-  currency: 'USD',
+  currency: 'EUR',
   maximumFractionDigits: 0,
 });
 
@@ -1704,9 +1704,9 @@ export function ReverseTceCalculator({
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
                   {[
-                    ['vlsfoPrice', 'PRECIO VLSFO (MAR)', 'USD/t', vlsfoPrice],
-                    ['ifoPrice', 'PRECIO IFO 380 (SCRUBBER)', 'USD/t', ifoPrice],
-                    ['mgoPrice', 'PRECIO MGO (PUERTO)', 'USD/t', mgoPrice],
+                    ['vlsfoPrice', 'PRECIO VLSFO (MAR)', '€/t', vlsfoPrice],
+                    ['ifoPrice', 'PRECIO IFO 380 (SCRUBBER)', '€/t', ifoPrice],
+                    ['mgoPrice', 'PRECIO MGO (PUERTO)', '€/t', mgoPrice],
                   ].map(([key, label, suffix, priceValue]) => (
                     <div key={key}>
                       <label htmlFor={`reverse-${key}`} className="mb-1.5 block text-[11px] font-black uppercase tracking-wide text-slate-500">
@@ -1848,7 +1848,7 @@ export function ReverseTceCalculator({
                   <p className="mt-1 text-3xl font-black tracking-tight text-slate-950">
                     {currencyFormatter.format(results.minFreightRate)}
                   </p>
-                  <p className="mt-1 text-xs font-bold text-slate-500">USD / MT</p>
+                  <p className="mt-1 text-xs font-bold text-slate-500">€ / t</p>
                   <p className="mt-2 text-xs font-bold text-orange-700">
                     Target protegido con escenario Pesimista +10% BunkerIndex.
                   </p>
@@ -1857,7 +1857,7 @@ export function ReverseTceCalculator({
                   </p>
                   {results.etsTotalCost > 0 ? (
                     <p className="mt-2 text-sm font-semibold text-gray-500">
-                      Incluye recargo ETS: +{currencyFormatter.format(results.etsCostPerMt)} /MT
+                      Incluye recargo ETS: +{currencyFormatter.format(results.etsCostPerMt)} / t
                     </p>
                   ) : (
                     <p className="mt-2 text-sm font-semibold text-gray-500">Sin exposición ETS</p>
@@ -1891,7 +1891,7 @@ export function ReverseTceCalculator({
                             : 'border-emerald-200 text-emerald-700'
                         }`}
                       />
-                      <p className="mt-1 text-xs font-bold text-slate-500">USD / MT</p>
+                      <p className="mt-1 text-xs font-bold text-slate-500">€ / t</p>
                       <p className="mt-1 text-xs font-bold text-slate-500">
                         Basado en Benchmark Mercado como TCE objetivo de la calculadora inversa.
                       </p>
@@ -1931,21 +1931,21 @@ export function ReverseTceCalculator({
                           </div>
                           <div className="flex items-start justify-between gap-3">
                             <p className="text-[11px] font-black uppercase text-slate-500">Flete Mínimo Calculadora Inversa</p>
-                            <p className="font-black text-slate-950">{currencyFormatter.format(results.minFreightRate)} /MT</p>
+                            <p className="font-black text-slate-950">{currencyFormatter.format(results.minFreightRate)} / t</p>
                           </div>
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-[11px] font-black uppercase text-blue-900">Flete Sugerido Armador (Compra)</p>
                               <p className="text-xs font-bold text-slate-500">Flete mínimo derivado del Benchmark × (1 + {results.ownerMarginPercent}%)</p>
                             </div>
-                            <p className="font-black text-blue-900">{currencyFormatter.format(results.suggestedOwnerSale)} /MT</p>
+                            <p className="font-black text-blue-900">{currencyFormatter.format(results.suggestedOwnerSale)} / t</p>
                           </div>
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-[11px] font-black uppercase text-emerald-700">Venta Sugerida Fletador</p>
                               <p className="text-xs font-bold text-slate-500">Compra armador × (1 + {results.chartererMarginPercent}%)</p>
                             </div>
-                            <p className="font-black text-emerald-700">{currencyFormatter.format(results.suggestedChartererSale)} /MT</p>
+                            <p className="font-black text-emerald-700">{currencyFormatter.format(results.suggestedChartererSale)} / t</p>
                           </div>
                         </div>
                       </div>
@@ -1977,10 +1977,10 @@ export function ReverseTceCalculator({
                       >
                         <div className="flex items-center justify-between gap-3">
                           <span className="font-black uppercase text-slate-700">{scenario.label}</span>
-                          <span className="font-black text-slate-950">{currencyFormatter.format(scenario.targetPrice)} /MT</span>
+                          <span className="font-black text-slate-950">{currencyFormatter.format(scenario.targetPrice)} / t</span>
                         </div>
                         <div className="mt-1 flex items-center justify-between gap-3 font-semibold text-slate-500">
-                          <span>Break-even ponderado {currencyFormatter.format(scenario.breakEvenAverage)} /MT</span>
+                          <span>Break-even ponderado {currencyFormatter.format(scenario.breakEvenAverage)} / t</span>
                           <span>{results.contractShipments} embarques · Bunker/viaje {wholeCurrencyFormatter.format(scenario.bunkerCost)}</span>
                         </div>
                       </div>
@@ -2039,7 +2039,7 @@ export function ReverseTceCalculator({
                   <p className="mt-1 text-3xl font-black tracking-tight text-slate-950">
                     {wholeCurrencyFormatter.format(results.demurrageRate)}
                   </p>
-                  <p className="mt-1 text-xs font-bold text-slate-500">USD / Día</p>
+                  <p className="mt-1 text-xs font-bold text-slate-500">€ / Día</p>
                   {results.isDemurrageRiskAdjusted ? (
                     <p className="mt-2 text-xs font-bold text-orange-700">
                       Base {wholeCurrencyFormatter.format(results.demurrageBase)} + riesgo {wholeCurrencyFormatter.format(results.demurrageRiskAdjustment)}/día
@@ -2305,7 +2305,7 @@ export function CostPlusCalculator({
             </label>
             <div className="flex overflow-hidden rounded-lg border border-slate-300 bg-white focus-within:border-amber-600 focus-within:ring-2 focus-within:ring-amber-600/15">
               <input id="cost-plus-daily-opex" type="number" step="any" value={values.dailyOpex} onChange={(event) => updateNumber('dailyOpex', event.target.value)} className="min-w-0 flex-1 border-0 px-3 py-2.5 text-sm font-bold text-slate-900 outline-none" />
-              <span className="flex min-w-[5.75rem] items-center justify-center border-l border-slate-200 bg-slate-50 px-2 text-[11px] font-bold uppercase text-slate-500">USD/día</span>
+              <span className="flex min-w-[5.75rem] items-center justify-center border-l border-slate-200 bg-slate-50 px-2 text-[11px] font-bold uppercase text-slate-500">€/día</span>
             </div>
           </div>
 
@@ -2335,7 +2335,7 @@ export function CostPlusCalculator({
                       values.marginType === type ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
-                    {type === 'fixed' ? '$' : '%'}
+                    {type === 'fixed' ? '€' : '%'}
                   </button>
                 ))}
               </div>
@@ -2371,12 +2371,12 @@ export function CostPlusCalculator({
           <p id="cost-plus-min-freight-rate" className="mt-1 text-4xl font-black tracking-tight text-sky-950">
             {currencyFormatter.format(results.selectedRate)}
           </p>
-          <p className="mt-1 text-xs font-bold text-sky-700">USD / MT</p>
+          <p className="mt-1 text-xs font-bold text-sky-700">€ / t</p>
           <div className="mt-4 space-y-1 border-t border-sky-100 pt-3 text-sm font-semibold text-sky-800">
             <p>Coste Total Riesgo: <span id="cost-plus-total-costs">{wholeCurrencyFormatter.format(results.totalCosts)}</span></p>
             <p className="text-xs font-bold text-sky-700">Incluye posicionamiento, ETS y ajustes globales cuando aplican.</p>
             <p>Beneficio Neto Proyectado: <span id="cost-plus-calculated-margin">{wholeCurrencyFormatter.format(results.projectedProfit)}</span></p>
-            <p>Demurrage ($/d): <span id="cost-plus-demurrage-rate">{wholeCurrencyFormatter.format(results.demurrageRate)}</span></p>
+            <p>Demurrage (€/d): <span id="cost-plus-demurrage-rate">{wholeCurrencyFormatter.format(results.demurrageRate)}</span></p>
           </div>
         </div>
 
