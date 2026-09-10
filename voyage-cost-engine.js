@@ -1,9 +1,9 @@
 (function (root) {
     'use strict';
 
-    const moneyFormatter = new Intl.NumberFormat('en-US', {
+    const moneyFormatter = new Intl.NumberFormat('es-ES', {
         style: 'currency',
-        currency: 'USD',
+        currency: 'EUR',
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
@@ -1432,8 +1432,8 @@
                     scenario: batch.best,
                     variant: 'best',
                     eyebrow: 'Escenario Óptimo · Best Case',
-                    formula: `+10% ritmo carga/descarga · -5% bunker`,
-                    delta: `${batch.best.savedPortDays.toFixed(2)} días ahorrados · ${moneyFormatter.format(Math.abs(batch.best.breakEvenDelta))}/MT menos`
+                    formula: `Tránsito optimizado · -5% Variación precio Diésel`,
+                    delta: `${moneyFormatter.format(Math.abs(batch.best.breakEvenDelta))}/km menos`
                 },
                 {
                     scenario: batch.base,
@@ -1446,8 +1446,8 @@
                     scenario: batch.stress,
                     variant: 'stress',
                     eyebrow: 'Escenario Estrés · Worst Case',
-                    formula: `+2 días en puerto · +5% bunker${forecast.weatherRiskDetected ? ' · alerta de oleaje' : ''}`,
-                    delta: `+${moneyFormatter.format(Math.max(0, batch.stress.breakEvenDelta))}/MT vs. base`
+                    formula: `Desviación de Peajes (+15%) · +5% Variación precio Diésel${forecast.weatherRiskDetected ? ' · alerta meteorológica' : ''}`,
+                    delta: `+${moneyFormatter.format(Math.max(0, batch.stress.breakEvenDelta))}/km vs. base`
                 }
             ];
             tbody.innerHTML = `
@@ -1455,7 +1455,7 @@
                     ${scenarioCards.map(({ scenario, variant, eyebrow, formula, delta }) => `
                         <article class="sensitivity-card sensitivity-card--${variant}">
                             <div class="sensitivity-card__eyebrow"><span class="sensitivity-card__dot"></span>${eyebrow}</div>
-                            <div class="sensitivity-card__value">${moneyFormatter.format(scenario.projectedBreakEven)}<span class="sensitivity-card__unit">/ MT</span></div>
+                            <div class="sensitivity-card__value">${moneyFormatter.format(scenario.projectedBreakEven)}<span class="sensitivity-card__unit">/ km</span></div>
                             <div class="sensitivity-card__formula">${formula}</div>
                             <div class="sensitivity-card__delta">${delta}</div>
                         </article>
@@ -1467,7 +1467,7 @@
                             <div class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Termómetro de negociación</div>
                             <div class="mt-1 text-xs font-bold text-slate-700">Posición actual frente al coste máximo proyectado</div>
                         </div>
-                        <div class="font-mono text-xs font-black text-red-700">Exposición: +${moneyFormatter.format(Math.max(0, stressBreakEven - baseBreakEven))}/MT</div>
+                        <div class="font-mono text-xs font-black text-red-700">Exposición: +${moneyFormatter.format(Math.max(0, stressBreakEven - baseBreakEven))}/km</div>
                     </div>
                     <div class="negotiation-thermometer__track"><span class="negotiation-thermometer__marker" aria-hidden="true"></span></div>
                     <div class="negotiation-thermometer__labels">
