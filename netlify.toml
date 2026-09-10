@@ -78,6 +78,11 @@
   force = true
 
 [[redirects]]
+  from = "/api-land-data"
+  to = "/.netlify/functions/api-land-data"
+  status = 200
+
+[[redirects]]
   from = "/api/dossiers/*"
   to = "/.netlify/functions/dossiers/:splat"
   status = 200
