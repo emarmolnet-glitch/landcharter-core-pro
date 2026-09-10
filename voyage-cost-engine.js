@@ -1198,7 +1198,7 @@
         const suggestedFreight = calculateRequiredFreight(moderateNetProfit, cargoQuantity);
         const recommendation = analyzeStressFactor(batch.base, batch.moderate);
         const cargoLabel = cargoQuantity > 0
-            ? `${cargoQuantity.toLocaleString('en-US', { maximumFractionDigits: 2 })} MT`
+            ? `${cargoQuantity.toLocaleString('es-ES', { maximumFractionDigits: 2 })} t`
             : 'carga no informada';
 
         panel.className = 'rounded-xl border border-amber-300 bg-amber-50 p-5 shadow-sm no-print';
@@ -1218,7 +1218,7 @@
                     <div class="mt-4 grid gap-3 md:grid-cols-[220px_1fr]">
                         <div class="rounded-lg border border-amber-200 bg-white p-3">
                             <div class="text-[10px] font-black uppercase text-slate-500">Ajuste de flete sugerido</div>
-                            <div id="smart-advisor-freight" class="mt-1 mono text-2xl font-black text-slate-950">${moneyFormatter.format(suggestedFreight)}<span class="text-sm text-slate-500">/MT</span></div>
+                            <div id="smart-advisor-freight" class="mt-1 mono text-2xl font-black text-slate-950">${moneyFormatter.format(suggestedFreight)}<span class="text-sm text-slate-500">/ t</span></div>
                             <div class="mt-1 text-[10px] font-semibold text-slate-500">Calculado sobre ${cargoLabel}</div>
                         </div>
                         <div class="rounded-lg border border-amber-200 bg-white p-3">

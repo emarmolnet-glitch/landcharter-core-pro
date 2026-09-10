@@ -66,11 +66,11 @@ test('3. Resultados y Simulador reflejan Coste por Km, Precio total del Viaje y 
   assert.match(indexSource, /Target \/ Contraoferta \(Coste por Km \/ Precio total del Viaje\)/);
   assert.match(indexSource, /Spread de Negociación \(Coste por Km\)/);
 
-  // Margen Neto del Viaje (€ o $) sustituye TCE Proyectado
-  assert.match(indexSource, /Margen Neto del Viaje \(€ o \$\)/);
-  assert.match(indexSource, /id="res-tce-label"[^>]*>Margen Neto del Viaje \(€ o \$\): \$0<\/div>/);
-  assert.match(indexSource, /id="negotiation-owner-tce"[^>]*>Margen Neto del Viaje \(€ o \$\): \$0<\/span>/);
-  assert.match(indexSource, /id="negotiation-target-tce"[^>]*>Margen Neto del Viaje \(€ o \$\): \$0<\/span>/);
+  // Margen Neto del Viaje sustituye TCE Proyectado y consolida Euros (€)
+  assert.match(indexSource, /Margen Neto del Viaje/);
+  assert.match(indexSource, /id="res-tce-label"[^>]*>Margen Neto del Viaje \(€\): 0 €<\/div>/);
+  assert.match(indexSource, /id="negotiation-owner-tce"[^>]*>Margen Neto del Viaje: 0 €<\/span>/);
+  assert.match(indexSource, /id="negotiation-target-tce"[^>]*>Margen Neto del Viaje: 0 €<\/span>/);
 });
 
 test('4. Apartado 2: Purga total de términos marítimos y adaptación a logística terrestre', async () => {
