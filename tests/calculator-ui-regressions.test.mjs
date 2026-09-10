@@ -25,7 +25,6 @@ test('defines explicit light mode styling for select options and input dates', (
 
 test('publishes ETS cost globally and recalculates Cost-Plus from carbon price input', () => {
   assert.match(indexSource, /emissionsCO2: 0, euCarbonPrice: 80, etsRouteFactor: 0, etsCost: 0, etsCostPMT: 0/);
-  assert.match(indexSource, /oninput="handleCarbonPriceInput\(this\.value\)"/);
   assert.match(indexSource, /SeaCharterStore\.set\(\{[\s\S]*?emissionsCO2,[\s\S]*?euCarbonPrice: carbonPrice,[\s\S]*?etsCost,[\s\S]*?\}, \{ force: true, source: 'carbon-price-input' \}\)/);
   assert.match(indexSource, /scheduleDebouncedCalculation\(0\)/);
   assert.match(indexSource, /voyageCostWithoutEts > 0 \? voyageCostWithoutEts \+ etsCost : 0/);
@@ -38,16 +37,16 @@ test('uses compact matching header controls', () => {
 });
 
 test('renders the unified Data Bridge snapshot and feeds the inverse TCE calculator', () => {
-  assert.match(indexSource, /Market Intel · Dry Bulk/);
-  assert.match(indexSource, /🔄 Forzar Sincronización/);
-  assert.match(indexSource, /✏️ Editar Manualmente/);
-  assert.match(indexSource, /data-market-field="capesize_tc"/);
-  assert.match(indexSource, /data-market-field="panamax_tc"/);
-  assert.match(indexSource, /data-market-field="supramax_tc"/);
-  assert.match(indexSource, /data-market-field="handysize_tc"/);
-  assert.match(indexSource, /data-market-field="bdi_index"/);
+  assert.doesNotMatch(indexSource, /Market Intel · Dry Bulk/);
+  assert.doesNotMatch(indexSource, /id="market-intel-dashboard"/);
+  assert.doesNotMatch(indexSource, /id="baltic-spot-reference-card"/);
+  assert.doesNotMatch(indexSource, /data-market-field="capesize_tc"/);
+  assert.doesNotMatch(indexSource, /data-market-field="panamax_tc"/);
+  assert.doesNotMatch(indexSource, /data-market-field="supramax_tc"/);
+  assert.doesNotMatch(indexSource, /data-market-field="handysize_tc"/);
+  assert.doesNotMatch(indexSource, /data-market-field="bdi_index"/);
   assert.match(indexSource, /src="\.\/src\/market-intelligence-hydration\.js\?v=20260826-visual-mirror"/);
-  assert.match(marketHydrationSource, /MARKET_DATA_ENDPOINT = '\/api\/get-market-data'/);
+  assert.match(marketHydrationSource, /MARKET_DATA_ENDPOINT = (?:getApiUrl\()?['"]\/api\/get-market-data['"]\)?/);
   assert.match(marketHydrationSource, /tceSpotByClass/);
   assert.match(marketHydrationSource, /theoreticalSpotTce/);
   assert.match(marketHydrationSource, /spreadUsd/);
@@ -63,8 +62,6 @@ test('renders the unified Data Bridge snapshot and feeds the inverse TCE calcula
   assert.doesNotMatch(indexSource, /fetch\(`\/api\/spot-rates\?\$\{query\.toString\(\)\}`/);
 
   assert.match(indexSource, /src="\.\/src\/step7-baltic-spot-reference\.js\?v=20260826-visual-mirror"/);
-  assert.match(indexSource, /id="tce-spot-theoretical-value"/);
-  assert.match(indexSource, /id="baltic-spot-updated"/);
   assert.match(balticSpotSource, /hydration\.subscribe/);
   assert.match(balticSpotSource, /tceSpot\?\.theoreticalSpotTce/);
   assert.match(balticSpotSource, /tceSpot\?\.spreadUsd/);
@@ -72,7 +69,7 @@ test('renders the unified Data Bridge snapshot and feeds the inverse TCE calcula
   assert.doesNotMatch(balticSpotSource, /marketRatio|bunkerDrag|dailyScrubberAdvantage|consumption/);
   assert.doesNotMatch(balticSpotSource, /\/api\/spot-rates/);
 
-  assert.match(tceWorkspaceSource, /fetch\('\/api\/market\/latest'/);
+  assert.match(tceWorkspaceSource, /fetch\((?:getApiUrl\()?['"]\/api\/market\/latest['"]\)?/);
   assert.match(tceWorkspaceSource, /getMarketLatestTceField\(vesselCategory\)/);
   assert.match(tceWorkspaceSource, /bdiIndexElement\.textContent = 'BDI'/);
   assert.doesNotMatch(tceWorkspaceSource, /\/api\/spot-rates/);

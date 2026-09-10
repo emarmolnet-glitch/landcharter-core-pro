@@ -220,8 +220,8 @@ const INPUTS: Array<{
   { key: 'etsCoverage', label: 'Cobertura ETS', suffix: 'factor', step: '0.5' },
   { key: 'opexDaily', label: 'Costes Fijos (Chófer/Amort.)', suffix: '€/día' },
   { key: 'contractShipments', label: 'Número de embarques COA', suffix: 'viajes', step: '1' },
-  { key: 'ownerMarginPercent', label: 'Margen armador', suffix: '%' },
-  { key: 'chartererMarginPercent', label: 'Margen fletador', suffix: '%' },
+  { key: 'ownerMarginPercent', label: 'Margen transportista', suffix: '%' },
+  { key: 'chartererMarginPercent', label: 'Margen agencia', suffix: '%' },
 ];
 
 const SYNCED_REVERSE_FIELDS = new Set<keyof ReverseCalculatorState>([
@@ -1878,13 +1878,13 @@ export function ReverseTceCalculator({
                   <div className="mt-3 grid gap-3">
                     <div>
                       <p className="text-[11px] font-black uppercase text-slate-500">
-                        Venta Sugerida Fletador (Target Price)
+                        Venta Sugerida Agencia (Target Price)
                       </p>
                       <input
                         type="number"
                         readOnly
                         value={results.suggestedChartererSale}
-                        aria-label="Venta Sugerida Fletador"
+                        aria-label="Venta Sugerida Agencia"
                         className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-2xl font-black outline-none ${
                           results.isSuggestedSaleBelowTceTarget
                             ? 'border-red-200 text-red-700'
@@ -1935,15 +1935,15 @@ export function ReverseTceCalculator({
                           </div>
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <p className="text-[11px] font-black uppercase text-blue-900">Flete Sugerido Armador (Compra)</p>
+                              <p className="text-[11px] font-black uppercase text-blue-900">Flete Sugerido Transportista (Compra)</p>
                               <p className="text-xs font-bold text-slate-500">Flete mínimo derivado del Benchmark × (1 + {results.ownerMarginPercent}%)</p>
                             </div>
                             <p className="font-black text-blue-900">{currencyFormatter.format(results.suggestedOwnerSale)} / t</p>
                           </div>
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <p className="text-[11px] font-black uppercase text-emerald-700">Venta Sugerida Fletador</p>
-                              <p className="text-xs font-bold text-slate-500">Compra armador × (1 + {results.chartererMarginPercent}%)</p>
+                              <p className="text-[11px] font-black uppercase text-emerald-700">Venta Sugerida Agencia</p>
+                              <p className="text-xs font-bold text-slate-500">Compra transportista × (1 + {results.chartererMarginPercent}%)</p>
                             </div>
                             <p className="font-black text-emerald-700">{currencyFormatter.format(results.suggestedChartererSale)} / t</p>
                           </div>
@@ -2236,7 +2236,7 @@ export function CostPlusCalculator({
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-black uppercase tracking-wide text-slate-900">
-              Cost-Plus Coaster
+              ESCANDALLO DE COSTES (COST-PLUS)
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               Calcula el flete mínimo desde OPEX, costes directos y margen comercial.
