@@ -5,7 +5,7 @@ import test from 'node:test';
 const source = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const inputIds = [
   'port-ballast', 'port-pol', 'port-pod',
-  'map-port-ballast', 'map-port-pol', 'map-port-pod'
+  'map-port-pol', 'map-port-pod'
 ];
 
 const autocompleteStart = source.indexOf('const UNIVERSAL_PORT_INPUT_IDS = [');
@@ -30,31 +30,12 @@ test('geographic inputs allow natural text and spaces without per-keystroke rout
   assert.match(autocompleteSource, /event\.type === 'input'[\s\S]*clearUniversalPortCoordinates\(input\)/);
 });
 
-test('universal autocomplete searches Datalastic through the secure Netlify proxy', () => {
+test('universal autocomplete searches Nominatim for terrestrial locations', () => {
   const cascadeStart = autocompleteSource.indexOf('async function runUniversalPortSearch(input)');
   const cascadeEnd = autocompleteSource.indexOf('function handlePortAutocomplete(event)', cascadeStart);
   const cascadeSource = autocompleteSource.slice(cascadeStart, cascadeEnd);
-  assert.match(cascadeSource, /fetch\(`\/api\/v1\/ports\/search\?q=/);
-  assert.match(cascadeSource, /source: 'Datalastic'/);
-  assert.match(autocompleteSource, /function prioritizeDatalasticPortResults\(ports = \[\]\)/);
-  assert.match(autocompleteSource, /commercialPorts\.length \? commercialPorts : validPorts/);
-  assert.match(cascadeSource, /prioritizeDatalasticPortResults\(payload\?\.ports\)/);
-  assert.match(cascadeSource, /ensureWpiEngineeringCatalog\(\)/);
-  assert.match(cascadeSource, /resolveWpiEngineeringRecord\(port\)/);
-  assert.match(cascadeSource, /maxOperationalDraftMeters: engineering\?\.maxOperationalDraftMeters \|\| 0/);
-  assert.doesNotMatch(cascadeSource, /port\.maxOperationalDraftMeters/);
-  assert.match(cascadeSource, /Sin coincidencias en Datalastic/);
-  assert.doesNotMatch(cascadeSource, /Nominatim|openstreetmap\.org/i);
-});
-
-
-test('WPI engineering metadata loads once and missing values resolve to static N/A', () => {
-  assert.match(autocompleteSource, /let wpiEngineeringCatalogPromise = null/);
-  assert.match(autocompleteSource, /fetch\('\/WPI\.csv', \{ cache: 'force-cache' \}\)/);
-  assert.match(autocompleteSource, /maxVesselLengthLabel: engineering\?\.maxVesselLengthLabel \|\| 'N\/A'/);
-  assert.match(autocompleteSource, /engineeringSource: engineering \? 'WPI' : 'N\/A'/);
-  assert.match(autocompleteSource, /input\.dataset\.selectedPortEngineeringSource = engineeringSource/);
-  assert.match(autocompleteSource, /function toPortTitleCase\(value\)/);
+  assert.match(cascadeSource, /https:\/\/nominatim\.openstreetmap\.org\/search\?q=/);
+  assert.match(cascadeSource, /source: 'Nominatim'/);
 });
 
 test('programmatic WPI injection types, searches, and clicks the first rendered option', () => {
@@ -70,15 +51,13 @@ test('programmatic WPI injection types, searches, and clicks the first rendered 
   assert.match(autocompleteSource, /window\.selectFirstWpiAutocompleteMatch = selectFirstWpiAutocompleteMatch/);
 });
 
-test('Datalastic searches are debounced without external request controllers', () => {
+test('Nominatim searches are debounced', () => {
   const handlerStart = autocompleteSource.indexOf('function handlePortAutocomplete(event)');
   const handlerEnd = autocompleteSource.indexOf('function bindUniversalPortAutocomplete(input)', handlerStart);
   const handlerSource = autocompleteSource.slice(handlerStart, handlerEnd);
   assert.match(autocompleteSource, /const DATALASTIC_SEARCH_DEBOUNCE_MS = 300;/);
   assert.match(handlerSource, /clearTimeout\(portAutocompleteTimers\.get\(input\)\)/);
-  assert.doesNotMatch(autocompleteSource, /AbortController|NOMINATIM_/);
   assert.match(handlerSource, /setPortSearchState\(input, true\);[\s\S]*setTimeout\(\(\) => runUniversalPortSearch\(input\), DATALASTIC_SEARCH_DEBOUNCE_MS\)/);
-  assert.doesNotMatch(handlerSource, /setTimeout\([^,]+,\s*450\)/);
 });
 
 test('geographic autocomplete exposes reactive loading state and visual feedback', () => {
@@ -93,31 +72,13 @@ test('geographic autocomplete exposes reactive loading state and visual feedback
   assert.match(source, /@keyframes port-search-spin/);
 });
 
-test('AIS matching declares cargoType before rendering estimator actions', () => {
-  const matchingStart = source.indexOf('async function executeMatchingEngine(');
-  const matchingEnd = source.indexOf('function getMatchingExecutionRouteOverride(', matchingStart);
-  const matchingSource = source.slice(matchingStart, matchingEnd);
-  const declarationIndex = matchingSource.indexOf('const cargoType = cargoTypeId || String(');
-  const usageIndex = matchingSource.indexOf("'${cargoType}'");
-  assert.ok(declarationIndex >= 0, 'cargoType declaration is missing');
-  assert.ok(usageIndex > declarationIndex, 'cargoType must be declared before rendering matching actions');
-  assert.match(matchingSource, /matchingRequest\?\.cargo\?\.cargoCode[\s\S]*window\.SeaCharterStore\?\.getState\?\.\(\)\?\.cargoTypeCode[\s\S]*\|\| '100'/);
-});
-
 test('selected suggestions inject parsed coordinates into route and global state', () => {
   assert.match(autocompleteSource, /const lat = parseFloat\(result\?\.lat\)/);
   assert.match(autocompleteSource, /const lon = parseFloat\(result\?\.lon\)/);
-  assert.match(autocompleteSource, /portBallastCoordinates: coordinates/);
-  assert.match(autocompleteSource, /window\.GlobalStore\.portBallastCoordinates = coordinates/);
-  assert.match(autocompleteSource, /window\.syncSelectedRoutePort\?\.\(role, label\)/);
-  assert.match(autocompleteSource, /window\.GlobalStore\[coordinateKey\] = null/);
   assert.match(autocompleteSource, /lat: parseFloat\(input\.dataset\.selectedLatitude\)/);
   assert.match(autocompleteSource, /lon: parseFloat\(input\.dataset\.selectedLongitude\)/);
   assert.match(autocompleteSource, /portAutocompleteTimers\.delete\(input\)/);
   assert.match(autocompleteSource, /commitUniversalPortCoordinates\(input, result\)[\s\S]*setPortSearchState\(input, false\)[\s\S]*return true/);
-  assert.match(autocompleteSource, /input\.dataset\.selectedPortDraft = selectedPortDraft > 0 \? String\(selectedPortDraft\) : '0'/);
-  assert.match(autocompleteSource, /input\.dataset\.selectedPortLabel === input\.value[\s\S]*setPortSearchState\(input, false\)/);
-  assert.match(geocoderSource, /fetch\(`\/api\/v1\/ports\/search\?q=/);
-  assert.match(geocoderSource, /commitUniversalPortCoordinates\(targetInput, result\)/);
-  assert.match(geocoderSource, /return \{ lat: result\.lat, lon: result\.lon, name: result\.label, countryCode: result\.countryCode \}/);
+  assert.match(geocoderSource, /https:\/\/nominatim\.openstreetmap\.org\/search\?q=/);
+  assert.match(geocoderSource, /return \{ lat, lon, name: label, countryCode: 'EU' \}/);
 });

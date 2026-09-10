@@ -548,7 +548,7 @@ export default function RouteConfigurator({ onConfirm }: RouteConfiguratorProps)
           <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-teal-700">Datalastic Port Intelligence</p>
           <h3 className="mt-1 text-sm font-semibold text-slate-900">Validación reactiva de profundidad y calado</h3>
           <p className="mt-1 text-xs text-slate-600">
-            <span className="font-bold text-slate-800">{selection.role}</span>
+            <span className="font-bold text-slate-800">{selection.role === 'POL' ? 'Origen' : selection.role === 'POD' ? 'Destino' : selection.role}</span>
             {" · "}{selection.portName || "Sin puerto seleccionado"}
             {selection.portUnlocode ? ` · ${selection.portUnlocode}` : ""}
             {selection.actualDraft > 0
@@ -563,14 +563,14 @@ export default function RouteConfigurator({ onConfirm }: RouteConfiguratorProps)
           disabled={!canValidate}
           className="inline-flex min-w-40 items-center justify-center rounded-lg border border-teal-800 bg-teal-800 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-sm transition hover:border-teal-700 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-600/30 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
         >
-          {isLoading ? "Verificando..." : `Validar ${selection.role}`}
+          {isLoading ? "Verificando..." : `Validar ${selection.role === 'POL' ? 'Origen' : selection.role === 'POD' ? 'Destino' : selection.role}`}
         </button>
       </div>
 
       <div className="space-y-3 p-4" aria-live="polite">
         {!validation && !error && !isLoading && (
           <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-            La auditoría sigue el último puerto POL o POD seleccionado y se actualiza cuando cambia la ruta o el calado.
+            La auditoría sigue la última ubicación Origen o Destino seleccionada y se actualiza cuando cambia la ruta o el calado.
           </div>
         )}
 
@@ -609,7 +609,7 @@ export default function RouteConfigurator({ onConfirm }: RouteConfiguratorProps)
                 </span>
                 <div>
                   <strong className="text-sm text-slate-900">{validation.portName}</strong>
-                  <p className="mt-0.5 text-[10px] uppercase tracking-[0.16em] text-slate-500">Matriz de riesgo · WPI · {selection.role}</p>
+                  <p className="mt-0.5 text-[10px] uppercase tracking-[0.16em] text-slate-500">Matriz de riesgo · WPI · {selection.role === 'POL' ? 'Origen' : selection.role === 'POD' ? 'Destino' : selection.role}</p>
                 </div>
               </div>
               <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-widest ${isCleared
@@ -663,7 +663,8 @@ export default function RouteConfigurator({ onConfirm }: RouteConfiguratorProps)
           type="button"
           onClick={() => void confirmCharterParty()}
           disabled={!canConfirm}
-          className="w-full rounded-lg border border-teal-800 bg-teal-800 px-4 py-3 text-xs font-extrabold uppercase tracking-[0.12em] text-white transition hover:border-teal-700 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-600/30 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+          className="w-full rounded-lg border border-teal-800 bg-teal-800 px-4 py-3 text-xs font-extrabold uppercase tracking-[0.12em] text-white transition hover:border-teal-700 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-600/30 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 hidden"
+          style={{ display: 'none' }}
         >
           {isSaving ? "Guardando Charter Party..." : "Confirmar y Generar Charter Party"}
         </button>

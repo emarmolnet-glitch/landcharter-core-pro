@@ -707,6 +707,9 @@
     </script>
     <!-- FontAwesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Leaflet 2D Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <!-- El renderer cartográfico se carga bajo demanda al abrir Mapa, Radar AIS o Tracking. -->
     <link rel="stylesheet" href="./assets/css/contextual-feedback.css?v=20260717-ui-hotfix">
     <link rel="stylesheet" href="./ais-market-reference-widget.css?v=20260721">
@@ -9026,18 +9029,14 @@
                     </div>
                     <div class="space-y-3">
                         <div class="input-group">
-                            <label data-i18n="map_label_ballast">Puerto previo (Lastre)</label>
-                            <input type="text" id="map-port-ballast" class="input-gc" placeholder="Ej: Puerto Rico" autocomplete="off" inputmode="text" spellcheck="false">
+                            <label data-i18n="map_label_pol">Origen</label>
+                            <input type="text" id="map-port-pol" class="input-gc" placeholder="Ej: Madrid" autocomplete="off" inputmode="text" spellcheck="false">
                         </div>
                         <div class="input-group">
-                            <label data-i18n="map_label_pol">Puerto de carga (POL)</label>
-                            <input type="text" id="map-port-pol" class="input-gc" placeholder="Ej: Buenos Aires" autocomplete="off" inputmode="text" spellcheck="false">
+                            <label data-i18n="map_label_pod">Destino</label>
+                            <input type="text" id="map-port-pod" class="input-gc" placeholder="Ej: París" autocomplete="off" inputmode="text" spellcheck="false">
                         </div>
-                        <div class="input-group">
-                            <label data-i18n="map_label_pod">Puerto de descarga (POD)</label>
-                            <input type="text" id="map-port-pod" class="input-gc" placeholder="Ej: Monopoli" autocomplete="off" inputmode="text" spellcheck="false">
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 hidden" style="display: none;">
                             <div class="input-group">
                                 <label>Laydays (Inicio)</label>
                                 <input type="date" id="map-laycan-date" class="input-gc">
@@ -9048,17 +9047,15 @@
                             </div>
                         </div>
                         <button id="btn-map-locate-route" onclick="runOnDemandMapRouteWorkflow(this)" class="btn-light-action w-full text-xs font-bold py-2 rounded">
-                            <i class="fa-solid fa-route mr-1"></i> Calcular ruta marítima y actualizar ecosistema
+                            <i class="fa-solid fa-route mr-1"></i> Calcular ruta terrestre y actualizar ecosistema
                         </button>
                     </div>
                 </section>
                 <div id="nlp-input-widget-root"></div>
-                <div id="map-route-summary" class="map-route-summary-overlay grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 text-xs">
-                        <div class="w-full border border-slate-200 rounded p-3"><span class="block text-slate-500 uppercase">Lastre</span><strong id="sync-ballast-label">TBA</strong></div>
-                        <div class="w-full border border-slate-200 rounded p-3"><span class="block text-slate-500 uppercase">POL</span><strong id="sync-pol-label">TBA</strong></div>
-                        <div class="w-full border border-slate-200 rounded p-3"><span class="block text-slate-500 uppercase">POD</span><strong id="sync-pod-label">TBA</strong></div>
-                        <div id="sync-miles-card" class="w-full border border-slate-200 rounded p-3" title="Lastre: 0 NM | Carga: 0 NM"><span class="block text-slate-500 uppercase">Millas</span><strong id="sync-miles-label">0 NM</strong><small id="sync-miles-breakdown">L: 0 | C: 0</small></div>
-                        <div class="w-full border border-slate-200 rounded p-3"><span class="block text-slate-500 uppercase">Laycan</span><strong id="sync-laycan-label">TBA</strong></div>
+                <div id="map-route-summary" class="map-route-summary-overlay grid grid-cols-2 md:grid-cols-3 text-xs">
+                        <div class="w-full border border-slate-200 rounded p-3"><span class="block text-slate-500 uppercase">Origen</span><strong id="sync-pol-label">TBA</strong></div>
+                        <div class="w-full border border-slate-200 rounded p-3"><span class="block text-slate-500 uppercase">Destino</span><strong id="sync-pod-label">TBA</strong></div>
+                        <div id="sync-miles-card" class="w-full border border-slate-200 rounded p-3" title="Distancia: 0 km"><span class="block text-slate-500 uppercase">Kilómetros</span><strong id="sync-miles-label">0 km</strong><small id="sync-miles-breakdown">0 km</small></div>
                 </div>
             </div>
         </div>
@@ -9348,7 +9345,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
                             <div class="input-group">
                                 <label class="flex items-center min-h-[28px]">
-                                    <span id="label-vessel-name-real">Nombre del Buque</span>
+                                    <span id="label-vessel-name-real">Tipo de Vehículo</span>
                                 </label>
                                 <div class="relative flex items-center w-full">
                                     <input type="text" id="nombre-buque-calculadora" class="input-gc font-bold text-white pr-8 w-full" value="TBN" oninput="updateSection2LocalState('nombre-buque-calculadora', this.value); autoClassifySpecialtyFromInputs()">
@@ -9358,10 +9355,10 @@
                                 </div>
                             </div>
                             <div class="input-group">
-                                <label id="label-vessel-dwt" class="text-blue-400 flex items-center min-h-[28px]">Capacidad DWT (TM)</label>
+                                <label id="label-vessel-dwt" class="text-blue-400 flex items-center min-h-[28px]">Carga Útil (kg)</label>
                                 <input type="number" id="vessel-dwt" class="input-gc font-bold text-blue-300" value="0" step="any" oninput="updateSection2LocalState('vessel-dwt', this.value); handleDWTChange(true, false)" onblur="detectVesselSegmentFromInputs()">
                             </div>
-                            <div class="input-group">
+                            <div class="input-group hidden" style="display: none;">
                                 <label for="vessel-has-scrubber-no" class="text-blue-400 flex items-center gap-1 min-h-[28px]">
                                     Scrubber
                                     <span class="field-tooltip-trigger" tabindex="0" role="button" aria-label="Un scrubber limpia los gases de escape y permite usar IFO 380 en navegación. Si eliges Sí, el coste de consumo en mar se calcula con PRECIO IFO 380 (SCRUBBER); si eliges No, se calcula con VLSFO.">
@@ -9384,7 +9381,7 @@
                                     <button type="button" id="nav-strategy-full" onclick="setNavigationStrategy('full', false)" class="rounded-md px-2 py-1 text-[10px] font-black uppercase text-slate-400 hover:text-white">Full-Speed</button>
                                 </div>
                             </div>
-                            <div class="input-group">
+                            <div class="input-group hidden" style="display: none;">
                                 <label id="label-spd-ballast" class="flex items-center min-h-[28px]">Velocidad Lastre (Knts)</label>
                                 <input type="number" id="spd-ballast" class="input-gc" value="11.5" step="any" oninput="markSpeedManualOverride(this)">
                                 <div id="spd-ballast-smart-default" class="hidden mt-1.5 w-fit items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-800 shadow-sm" role="status" aria-live="polite">
@@ -9396,7 +9393,7 @@
 
                         <!-- FILA DE ESPECIFICACIONES TÉCNICAS (ANCHO COMPLETO) -->
                         <div id="vessel-identity-meta" class="w-full flex flex-row items-center justify-between gap-4 mt-4 mb-4 col-span-full" aria-label="Especificaciones técnicas editables del buque">
-                            <div class="flex-1 flex items-center bg-white border border-gray-300 rounded px-2 py-1 h-9 shadow-sm">
+                            <div class="flex-1 flex items-center bg-white border border-gray-300 rounded px-2 py-1 h-9 shadow-sm hidden" style="display: none;">
                                 <span class="text-[10px] font-bold text-slate-500 mr-1 uppercase tracking-wider whitespace-nowrap">IMO:</span>
                                 <input type="text" id="vessel-identity-imo" class="w-full text-right text-xs text-slate-800 bg-transparent focus:outline-none" value="" placeholder="-" aria-label="IMO" inputmode="numeric" maxlength="7" oninput="handleManualVesselUpdate('imo', this.value)" onblur="fetchVesselByImo(this.value)" onkeydown="handleVesselImoKeyDown(event)">
                                 <span id="vessel-imo-loading-indicator" class="hidden ml-2 text-sky-600" role="status" aria-live="polite">
@@ -9404,7 +9401,7 @@
                                     <span class="sr-only">Cargando datos del buque</span>
                                 </span>
                             </div>
-                            <div class="flex-1 flex items-center bg-white border border-gray-300 rounded px-2 py-1 h-9 shadow-sm">
+                            <div class="flex-1 flex items-center bg-white border border-gray-300 rounded px-2 py-1 h-9 shadow-sm hidden" style="display: none;">
                                 <span class="text-[10px] font-bold text-slate-500 mr-1 uppercase tracking-wider whitespace-nowrap">BANDERA:</span>
                                 <input type="text" id="vessel-identity-flag" class="w-full text-right text-xs text-slate-800 bg-transparent focus:outline-none" value="" placeholder="-" aria-label="Bandera" oninput="handleManualVesselUpdate('flag', this.value)">
                             </div>
@@ -9424,7 +9421,7 @@
                                 <span class="text-[10px] font-bold text-slate-500 mr-1 uppercase tracking-wider whitespace-nowrap">BEAM (m):</span>
                                 <input type="number" id="vessel-identity-beam" class="w-full text-right text-xs text-slate-800 bg-transparent focus:outline-none" value="" placeholder="0.0" aria-label="Manga máxima BEAM en metros" min="0" step="0.01" oninput="handleManualVesselUpdate('beam', this.value)">
                             </div>
-                            <div class="flex-1 flex items-center bg-white border border-gray-300 rounded px-2 py-1 h-9 shadow-sm">
+                            <div class="flex-1 flex items-center bg-white border border-gray-300 rounded px-2 py-1 h-9 shadow-sm hidden" style="display: none;">
                                 <span class="text-[10px] font-bold text-slate-500 mr-1 uppercase tracking-wider whitespace-nowrap">AÑO:</span>
                                 <input type="number" id="vessel-identity-year" class="w-full text-right text-xs text-slate-800 bg-transparent focus:outline-none" value="" placeholder="-" aria-label="Año de construcción" min="1800" max="2100" step="1" oninput="handleManualVesselUpdate('year_built', this.value)">
                             </div>
@@ -9799,7 +9796,7 @@
                                 <label id="label-vessel-net-tonnage" class="text-blue-400">SCNT / PCUMS</label>
                                 <input type="number" id="vessel-net-tonnage" class="input-gc font-bold text-blue-300" value="0" step="1" oninput="updateSection2LocalState('vessel-net-tonnage', this.value)">
                             </div>
-                            <div class="input-group">
+                            <div class="input-group hidden" style="display: none;">
                                 <label id="label-current-draft" class="text-blue-400">Calado Actual (m)</label>
                                 <input type="number" id="current-draft" class="input-gc font-bold text-blue-300" value="0" step="0.01" oninput="updateSection2LocalState('current-draft', this.value)">
                             </div>
@@ -10275,9 +10272,9 @@
                                 </div>
                             </div>
                             <input type="hidden" id="cons-anchorage-aux" value="2.0">
-                            <div class="flex justify-between"><span id="label-opex-cost-basis" class="font-bold">OPEX Total:</span> <span id="res-cost-opex" class="font-bold text-[#334155]">$0</span></div>
+                            <div class="flex justify-between"><span id="label-opex-cost-basis" class="font-bold">Costes Fijos (Chófer/Amort.) Total:</span> <span id="res-cost-opex" class="font-bold text-[#334155]">$0</span></div>
                             <div class="flex justify-between"><span id="label-capex-cost-basis" class="font-bold">CAPEX / Depreciación:</span> <span id="res-cost-capex" class="font-bold text-[#334155]">$0</span></div>
-                            <div class="flex justify-between items-center"><span id="label-pda-cost-basis" class="font-bold flex items-center gap-1">PDAs/Puertos <button type="button" onclick="openPdaManualEditModal()" class="inline-flex items-center gap-0.5 text-[10px] font-extrabold text-sky-600 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-1.5 py-0.5 rounded shadow-sm transition" title="Calculado algorítmicamente a partir de GT y LOA. Clic para editar costes">✨ Auto</button>:</span> <span id="res-cost-pda" onclick="openPdaManualEditModal()" class="font-bold text-[#334155] cursor-pointer hover:text-sky-600 transition" title="Clic para modificar costes de puerto">$0</span></div>
+                            <div class="flex justify-between items-center"><span id="label-pda-cost-basis" class="font-bold flex items-center gap-1">Peajes y Dietas <button type="button" onclick="openPdaManualEditModal()" class="inline-flex items-center gap-0.5 text-[10px] font-extrabold text-sky-600 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-1.5 py-0.5 rounded shadow-sm transition" title="Calculado algorítmicamente a partir de GT y LOA. Clic para editar costes">✨ Auto</button>:</span> <span id="res-cost-pda" onclick="openPdaManualEditModal()" class="font-bold text-[#334155] cursor-pointer hover:text-sky-600 transition" title="Clic para modificar costes de puerto">$0</span></div>
                             <div id="stevedoring-cost-breakdown" class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
                                 <div class="flex justify-between gap-3"><span class="font-bold">Estiba a cargo del armador:</span> <strong id="res-cost-stevedoring" class="text-[#334155]">$0</strong></div>
                                 <p id="res-cost-stevedoring-note" class="mt-0.5 text-[10px] leading-snug text-slate-500">FIOS: coste $0 para el armador; la estiba corresponde al fletador.</p>
@@ -10382,7 +10379,7 @@
                                 <div id="coa-kpis" class="hidden grid grid-cols-1 md:grid-cols-3 gap-2 text-xs mono">
                                     <div class="rounded border border-slate-200 bg-white p-2"><span class="block text-slate-500 uppercase font-bold">Break-Even Promedio</span><strong id="res-coa-breakeven" class="text-emerald-700">$0.00/TM</strong></div>
                                     <div class="rounded border border-slate-200 bg-white p-2"><span class="block text-slate-500 uppercase font-bold">Ahorro vs Spot</span><strong id="res-coa-ahorro" class="text-blue-700">$0</strong></div>
-                                    <div class="rounded border border-slate-200 bg-white p-2"><span class="block text-slate-500 uppercase font-bold">PDA Diluido</span><strong id="res-coa-pda" class="text-slate-900">$0</strong></div>
+                                    <div class="rounded border border-slate-200 bg-white p-2"><span class="block text-slate-500 uppercase font-bold">Peajes y Dietas Diluido</span><strong id="res-coa-pda" class="text-slate-900">$0</strong></div>
                                 </div>
                                 <div id="coa-scenarios" class="hidden grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
                                     <div class="rounded border border-emerald-200 bg-emerald-50 p-2">
@@ -10697,11 +10694,11 @@
                                 <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
                                     <div>
                                         <div class="text-[10px] font-black uppercase tracking-wide text-amber-800">Cost-Plus Coaster</div>
-                                        <div class="mt-0.5 text-[10px] font-semibold text-slate-500">Cálculo desde OPEX, bunker, puertos y margen comercial.</div>
+                                        <div class="mt-0.5 text-[10px] font-semibold text-slate-500">Cálculo desde Costes Fijos (Chófer/Amort.), combustible, peajes y dietas y margen comercial.</div>
                                     </div>
                                     <div class="flex flex-wrap items-center gap-2">
                                         <button id="btn-sync-cost-plus-route" type="button" onclick="syncCostPlusFromRoute(true)" class="rounded border border-[#32D6C3] bg-[#32D6C3] px-2 py-1 text-[10px] font-bold uppercase text-white shadow-sm transition hover:border-[#29b8a9] hover:bg-[#29b8a9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#32D6C3] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400" disabled>Sincronizar con Ruta</button>
-                                        <span class="rounded bg-white px-2 py-1 text-[10px] font-black uppercase text-amber-700 shadow-sm">Modo Coaster: Cálculo Cost-Plus (OPEX)</span>
+                                        <span class="rounded bg-white px-2 py-1 text-[10px] font-black uppercase text-amber-700 shadow-sm">Modo Coaster: Cálculo Cost-Plus (Costes Fijos)</span>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.25fr)_minmax(14rem,0.75fr)]">
@@ -10715,7 +10712,7 @@
                                         </div>
                                         <div class="grid grid-cols-2 gap-2">
                                             <div>
-                                                <label for="cost-plus-daily-opex" class="mb-1 block text-[10px] font-black uppercase text-slate-500">OPEX diario</label>
+                                                <label for="cost-plus-daily-opex" class="mb-1 block text-[10px] font-black uppercase text-slate-500">Costes Fijos (Chófer/Amort.)</label>
                                                 <input type="number" id="cost-plus-daily-opex" class="input-gc bg-white text-slate-900 border-slate-300 font-bold text-right" value="4500" min="0" step="any" oninput="calculateCostPlusFreight()">
                                             </div>
                                             <div id="cost-plus-target-margin-container" class="transition-opacity">
@@ -11005,7 +11002,7 @@
                                             <div class="mt-2 space-y-1 text-[10px] text-slate-400">
                                                 <div class="flex justify-between gap-2"><span>Ingreso Bruto</span><strong id="res-owner-gross-revenue" class="mono text-slate-200">$0</strong></div>
                                                 <div class="flex justify-between gap-2"><span>Viaje + ETS + Ajustes</span><strong id="res-owner-voyage-costs" class="mono text-red-300">$0</strong></div>
-                                                <div class="flex justify-between gap-2"><span>Costes Operativos (OPEX/CAPEX)</span><strong id="res-owner-opex-capex" class="mono text-orange-300">$0</strong></div>
+                                                <div class="flex justify-between gap-2"><span>Costes Fijos (Chófer/Amort.)</span><strong id="res-owner-opex-capex" class="mono text-orange-300">$0</strong></div>
                                                 <div class="flex justify-between gap-2 border-t border-slate-800 pt-1 font-bold"><span>Beneficio Neto Final</span><strong id="res-owner-final-net" class="mono text-emerald-300">$0</strong></div>
                                             </div>
                                         </details>
@@ -11216,7 +11213,7 @@
                             <div class="border-b border-slate-800 bg-slate-950/35 p-5">
                                 <div class="mb-2 flex items-center justify-between gap-3">
                                     <span class="text-[10px] font-black uppercase tracking-wide text-slate-400">Auto-Simulacion Rapida por Distancia</span>
-                                    <span id="shadow-auto-source" class="text-[10px] font-bold text-slate-500">PDA base: $0</span>
+                                    <span id="shadow-auto-source" class="text-[10px] font-bold text-slate-500">Peajes y Dietas base: $0</span>
                                 </div>
                                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
                                     <button type="button" class="shadow-distance-btn rounded-lg border border-cyan-500/40 bg-cyan-950/35 px-3 py-2 text-xs font-black uppercase text-cyan-100 transition hover:border-cyan-300 hover:bg-cyan-900/50" data-distance-nm="1000">Corto <span class="mono text-cyan-300">1000 MN</span></button>
@@ -11265,7 +11262,7 @@
                                     <div class="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-[10px] text-slate-400">
                                         <div class="flex justify-between gap-3"><span>Beneficio Neto Viaje 1</span><strong id="shadow-base-profit" class="mono text-slate-200">$0</strong></div>
                                         <div class="mt-1 flex justify-between gap-3"><span>Dias Viaje 1</span><strong id="shadow-base-days" class="mono text-slate-200">0</strong></div>
-                                        <div class="mt-1 flex justify-between gap-3"><span>OPEX diario</span><strong id="shadow-base-daily" class="mono text-slate-200">$0</strong></div>
+                                        <div class="mt-1 flex justify-between gap-3"><span>Costes Fijos (Chófer/Amort.) diario</span><strong id="shadow-base-daily" class="mono text-slate-200">$0</strong></div>
                                     </div>
                                 </div>
                                 <div class="space-y-3">
@@ -15385,12 +15382,12 @@
             "map_label_ballast": { es: "Puerto previo (Lastre)", en: "Previous Port (Ballast)", fr: "Port précédent (Ballast)" },
             "Puerto previo (Lastre)": { es: "Puerto previo (Lastre)", en: "Previous Port (Ballast)", fr: "Port précédent (Ballast)" },
 
-            "map_label_pol": { es: "Origen (Población / CP)", en: "Origin (Town / Zip)", fr: "Origine (Ville / CP)" },
-            "Puerto de carga (POL)": { es: "Origen (Población / CP)", en: "Origin (Town / Zip)", fr: "Origine (Ville / CP)" },
+            "map_label_pol": { es: "Origen", en: "Origin", fr: "Origine" },
+            "Puerto de carga (POL)": { es: "Origen", en: "Origin", fr: "Origine" },
             "Origen (Población / CP)": { es: "Origen (Población / CP)", en: "Origin (Town / Zip)", fr: "Origine (Ville / CP)" },
 
-            "map_label_pod": { es: "Destino (Población / CP)", en: "Destination (Town / Zip)", fr: "Destination (Ville / CP)" },
-            "Puerto de descarga (POD)": { es: "Destino (Población / CP)", en: "Destination (Town / Zip)", fr: "Destination (Ville / CP)" },
+            "map_label_pod": { es: "Destino", en: "Destination", fr: "Destination" },
+            "Puerto de descarga (POD)": { es: "Destino", en: "Destination", fr: "Destination" },
             "Destino (Población / CP)": { es: "Destino (Población / CP)", en: "Destination (Town / Zip)", fr: "Destination (Ville / CP)" },
 
             "label_port_ballast": { es: "Ubicación Previa / Retorno", en: "Previous Location / Return", fr: "Emplacement précédent / Retour" },
@@ -17695,21 +17692,12 @@
         }
 
         function updateRouteSummary() {
-            const ballastMiles = Number(State.distBallast) || 0;
-            const ladenMiles = Number(State.distLaden) || 0;
-            const totalMiles = Number(State.totalMiles) || ballastMiles + ladenMiles;
-            const laycanStart = [State.laycanDate, State.laycanTime].filter(Boolean).join(' ');
-            const cancelling = [State.cancellingDate, State.cancellingTime].filter(Boolean).join(' ');
-            const laycan = State.laycanDate && State.cancellingDate
-                ? `${laycanStart} / ${cancelling}`
-                : (laycanStart || cancelling || 'TBA');
+            const totalKm = Number(State.totalMiles) || Number(State.distLaden) || 0;
             const pairs = {
-                'sync-ballast-label': State.portBallast || 'TBA',
                 'sync-pol-label': State.pol || 'TBA',
                 'sync-pod-label': State.pod || 'TBA',
-                'sync-miles-label': `${Math.round(totalMiles).toLocaleString('en-US')} NM`,
-                'sync-miles-breakdown': `L: ${Math.round(ballastMiles).toLocaleString('en-US')} | C: ${Math.round(ladenMiles).toLocaleString('en-US')}`,
-                'sync-laycan-label': laycan
+                'sync-miles-label': `${Math.round(totalKm).toLocaleString('es-ES')} km`,
+                'sync-miles-breakdown': `${Math.round(totalKm).toLocaleString('es-ES')} km`
             };
             Object.entries(pairs).forEach(([id, value]) => {
                 const el = document.getElementById(id);
@@ -17717,7 +17705,7 @@
             });
             const milesCard = document.getElementById('sync-miles-card');
             if (milesCard) {
-                milesCard.title = `Total: ${Math.round(totalMiles).toLocaleString('en-US')} NM | Lastre: ${Math.round(ballastMiles).toLocaleString('en-US')} NM | Carga: ${Math.round(ladenMiles).toLocaleString('en-US')} NM`;
+                milesCard.title = `Distancia total: ${Math.round(totalKm).toLocaleString('es-ES')} km`;
             }
         }
 
@@ -17854,9 +17842,7 @@
         }
 
         function stopRouteGlobeRotation() {
-            if (!window.GlobalFleetGlobe?.setAutoRotate) return;
-            window.GlobalFleetGlobe.setAutoRotate(false, 'main');
-            window.GlobalFleetGlobe.setAutoRotate(false, 'density');
+            // No-op en modo terrestre 2D Leaflet
         }
 
       async function refreshDataBridgeMasterStatsOnDemand() {
@@ -18238,95 +18224,135 @@ async function runOnDemandMapRouteWorkflow(button) {
     try {
         if (!captureRouteStateFromMapInputs()) return;
 
-        const portBallast = String(document.getElementById('map-port-ballast')?.value || State.portBallast || '').trim();
-        const pol = String(document.getElementById('map-port-pol')?.value || State.pol || '').trim();
-        const pod = String(document.getElementById('map-port-pod')?.value || State.pod || '').trim();
+        const polInput = document.getElementById('map-port-pol');
+        const podInput = document.getElementById('map-port-pod');
+        const pol = String(polInput?.value || State.pol || '').trim();
+        const pod = String(podInput?.value || State.pod || '').trim();
         if (!pol || !pod) {
-            throw new Error('POL y POD son obligatorios para calcular la ruta marítima.');
+            throw new Error('Origen y Destino son obligatorios para calcular la ruta terrestre.');
         }
 
-        stopRouteGlobeRotation();
-        window.CoreNetworkGuard?.close?.('routing');
-        const routeTimeout = new Promise((_, reject) => {
-            routeTimeoutId = window.setTimeout(() => reject(new Error('La API de rutas excedió el tiempo máximo de respuesta.')), 45_000);
-        });
-        const routeResult = await Promise.race([
-            calculateVoyageRouteService({ portBallast, pol, pod, geocode: true }),
-            routeTimeout
-        ]);
+        // Obtener coordenadas de origen y destino
+        let polCoords = {
+            lat: parseFloat(polInput?.dataset?.selectedLatitude),
+            lon: parseFloat(polInput?.dataset?.selectedLongitude)
+        };
+        let podCoords = {
+            lat: parseFloat(podInput?.dataset?.selectedLatitude),
+            lon: parseFloat(podInput?.dataset?.selectedLongitude)
+        };
 
-        const ladenCoordinates = normalizeMaritimeRouteCoordinates(routeResult?.routes?.laden?.coordinates);
-        if (!routeResult?.coordinates?.pol || !routeResult?.coordinates?.pod || ladenCoordinates.length < 2) {
-            throw new Error('La API de rutas no devolvió una geometría marítima válida para POL y POD.');
+        if (!Number.isFinite(polCoords.lat) || !Number.isFinite(polCoords.lon)) {
+            const resolvedPol = await getCoordinates(pol);
+            if (resolvedPol) polCoords = { lat: resolvedPol.lat, lon: resolvedPol.lon };
+        }
+        if (!Number.isFinite(podCoords.lat) || !Number.isFinite(podCoords.lon)) {
+            const resolvedPod = await getCoordinates(pod);
+            if (resolvedPod) podCoords = { lat: resolvedPod.lat, lon: resolvedPod.lon };
         }
 
-        applyRouteServiceResult(routeResult);
-        renderMasterRouteMap(routeResult);
+        if (!Number.isFinite(polCoords.lat) || !Number.isFinite(polCoords.lon) || !Number.isFinite(podCoords.lat) || !Number.isFinite(podCoords.lon)) {
+            throw new Error('No se pudieron obtener las coordenadas de Origen y Destino.');
+        }
+
+        // OSRM API fetch
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${polCoords.lon},${polCoords.lat};${podCoords.lon},${podCoords.lat}?overview=full&geometries=geojson`;
+        const osrmResponse = await fetch(osrmUrl, { headers: { Accept: 'application/json' } });
+        const osrmData = await osrmResponse.json();
+        if (!osrmResponse.ok || !osrmData.routes || !osrmData.routes.length) {
+            throw new Error('OSRM no pudo calcular la ruta terrestre.');
+        }
+
+        const route = osrmData.routes[0];
+        const distanceMeters = Number(route.distance) || 0;
+        const distanceKm = Math.round(distanceMeters / 1000);
+        const geojsonCoordinates = route.geometry?.coordinates || [];
+        // Convert [lon, lat] from GeoJSON to Leaflet [lat, lon]
+        const leafletRoutePoints = geojsonCoordinates.map(coord => [coord[1], coord[0]]);
+
+        // Asegurar que el mapa esté disponible
+        if (!map) {
+            await initMap();
+        }
+
+        // Dibujar en Leaflet
+        if (map && typeof L !== 'undefined') {
+            if (window._currentOsrmRouteLayer) {
+                try { map.removeLayer(window._currentOsrmRouteLayer); } catch (_) {}
+            }
+            if (window._currentOsrmMarkers) {
+                window._currentOsrmMarkers.forEach(m => { try { map.removeLayer(m); } catch (_) {} });
+            }
+            window._currentOsrmMarkers = [];
+
+            if (leafletRoutePoints.length > 0) {
+                window._currentOsrmRouteLayer = L.polyline(leafletRoutePoints, {
+                    color: '#0f766e',
+                    weight: 5,
+                    opacity: 0.9,
+                    lineCap: 'round',
+                    lineJoin: 'round'
+                }).addTo(map);
+
+                // Marcadores minimalistas compactos (14x14px con borde blanco stroke)
+                const minimalDotIconOrigin = L.divIcon({
+                    className: 'minimal-route-dot-origin',
+                    html: '<div style="width: 14px; height: 14px; background-color: #0f172a; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;"></div>',
+                    iconSize: [14, 14],
+                    iconAnchor: [7, 7]
+                });
+                const minimalDotIconDest = L.divIcon({
+                    className: 'minimal-route-dot-dest',
+                    html: '<div style="width: 14px; height: 14px; background-color: #0f766e; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;"></div>',
+                    iconSize: [14, 14],
+                    iconAnchor: [7, 7]
+                });
+
+                const m1 = L.marker([polCoords.lat, polCoords.lon], { icon: minimalDotIconOrigin }).addTo(map).bindPopup(`<b>Origen:</b> ${pol}`);
+                const m2 = L.marker([podCoords.lat, podCoords.lon], { icon: minimalDotIconDest }).addTo(map).bindPopup(`<b>Destino:</b> ${pod}<br><b>Distancia:</b> ${distanceKm} km`);
+                window._currentOsrmMarkers.push(m1, m2);
+
+                try {
+                    map.fitBounds(window._currentOsrmRouteLayer.getBounds(), { padding: [50, 50] });
+                } catch (_) {}
+            }
+        }
+
+        // Notificar a componentes React (LazyGlobeMap)
+        window.dispatchEvent(new CustomEvent('osrm:route-updated', {
+            detail: {
+                routePoints: leafletRoutePoints,
+                origin: { lat: polCoords.lat, lon: polCoords.lon, name: pol },
+                destination: { lat: podCoords.lat, lon: podCoords.lon, name: pod },
+                distanceKm
+            }
+        }));
+
+        // Actualizar estado global y resumen
+        State.totalMiles = distanceKm;
+        State.distLaden = distanceKm;
+        State.distBallast = 0;
+        State.pol = pol;
+        State.pod = pod;
+        if (window.GlobalStore) {
+            window.GlobalStore.totalMiles = distanceKm;
+            window.GlobalStore.distLaden = distanceKm;
+            window.GlobalStore.distBallast = 0;
+            window.GlobalStore.pol = pol;
+            window.GlobalStore.pod = pod;
+        }
+
+        // Sincronizar input de distancia si existe
+        const distTotalInput = document.getElementById('dist-total') || document.getElementById('distance-total') || document.getElementById('input-distance-km');
+        if (distTotalInput) {
+            distTotalInput.value = distanceKm;
+            distTotalInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
         updateRouteSummary();
         syncGlobalStateToForms();
-        if (typeof applyPortIntelligenceToSmartCalculations === 'function') applyPortIntelligenceToSmartCalculations();
         if (typeof runEngine === 'function') runEngine();
-        if (typeof syncGencon === 'function') syncGencon();
-        if (typeof syncAsbatankvoy === 'function') syncAsbatankvoy();
         if (typeof syncCalculatorAndMatching === 'function') syncCalculatorAndMatching('calculator');
-        stopRouteGlobeRotation();
-        window.SeaAssistantAlerts?.evaluateCurrentContext?.();
-
-        window.updateDataBridgeTransportStatus?.('connected');
-
-        // --- LLAMADA AL ESCUDO DE CONGESTIÓN ---
-        if (pod) {
-            try {
-                const congestionData = await fetchPortCongestionShield({
-                    portUnlocode: pod,
-                    vesselImo: window.currentSelectedVesselImo || 9876543,
-                    demurrageRateUsd: 15000,
-                    distanceNm: window.currentCalculatedDistance || 1200,
-                    nominalSpeedKnots: 12.0
-                });
-                if (congestionData) {
-                    renderTceWithCongestionShield(
-                        window.currentCalculatedTce || 20000, 
-                        window.currentCalculatedDays || 10, 
-                        congestionData
-                    );
-                }
-            } catch (err) {
-                console.warn("No se pudo cargar el Predictive Congestion Shield:", err);
-            }
-        }
-        // ----------------------------------------
-
-        // Auto-ejecución en la Calculadora (Validar Especificaciones / Calcular)
-        try {
-            if (typeof window.handleMasterValidationAndCalculate === 'function') {
-                await window.handleMasterValidationAndCalculate();
-            } else if (typeof handleMasterValidationAndCalculate === 'function') {
-                await handleMasterValidationAndCalculate();
-            } else {
-                const validateBtn = document.getElementById('btn-validate-section2-executive') || document.getElementById('btn-validate-section2');
-                validateBtn?.click?.();
-            }
-        } catch (calcError) {
-            console.warn('[runOnDemandMapRouteWorkflow] Error en auto-ejecución de la calculadora:', calcError);
-        }
-
-        // Sincronización completa del Dashboard de Densidad y Algoritmo de Flete Justo AIS
-        try {
-            if (typeof window.renderDensitySnapshotFromGlobalStore === 'function') {
-                window.renderDensitySnapshotFromGlobalStore();
-            }
-            if (typeof window.calculateAndDisplayAisFreight === 'function') {
-                window.calculateAndDisplayAisFreight();
-            }
-        } catch (densitySyncError) {
-            console.warn('[runOnDemandMapRouteWorkflow] Error en sincronización de Densidad:', densitySyncError);
-        }
-
-        void Promise.allSettled([
-            window.restorePersistentDataBridgeConnection?.() ?? Promise.resolve(false),
-            refreshDataBridgeMasterStatsOnDemand()
-        ]);
     } catch (error) {
         console.error('[Core PRO] Falló la actualización manual de ruta y ecosistema.', error);
         if (typeof showToast === 'function') showToast(error?.message || 'No se pudo completar la actualización manual.', false, 'error');
@@ -27928,50 +27954,47 @@ function createRouteAnchorElement(type) {
                 return;
             }
 
-            setPortSearchState(input, true, 'Buscando en Datalastic...');
-            renderPortAutocomplete(input, [], 'Buscando en Datalastic...');
+            setPortSearchState(input, true, 'Buscando en Nominatim...');
+            renderPortAutocomplete(input, [], 'Buscando en Nominatim...');
             try {
-                const [response] = await Promise.all([
-                    fetch(`/api/v1/ports/search?q=${encodeURIComponent(query)}`, {
-                        headers: { Accept: 'application/json' }
-                    }),
-                    ensureWpiEngineeringCatalog()
-                ]);
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(payload?.error || 'Datalastic no disponible');
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json`, {
+                    headers: { Accept: 'application/json' }
+                });
+                const payload = await response.json().catch(() => ([]));
+                if (!response.ok && !Array.isArray(payload)) throw new Error('Nominatim no disponible');
                 if (input.value !== query) {
                     if (input.dataset.selectedPortLabel === input.value) setPortSearchState(input, false);
                     return;
                 }
-                const localResults = await Promise.all(prioritizeDatalasticPortResults(payload?.ports).map(async port => {
-                    const engineering = await resolveWpiEngineeringRecord(port);
-                    const countryCode = String(port.countryCode || 'XX').toUpperCase();
-                    const placeName = toPortTitleCase(port.portName);
+                const items = Array.isArray(payload) ? payload : [];
+                const localResults = items.slice(0, 8).map(item => {
+                    const placeName = item.display_name?.split(',')[0] || query;
+                    const countryCode = (item.address?.country_code || item.display_name?.split(',').pop() || 'EU').trim().toUpperCase();
                     return {
-                        label: toPortTitleCase(port.officialLabel || `${placeName} (${countryCode})`),
-                        placeName,
-                        countryCode,
-                        lat: port.latitude,
-                        lon: port.longitude,
-                        source: 'Datalastic',
-                        uuid: port.uuid,
-                        unlocode: port.unlocode,
-                        indexNo: engineering?.indexNo || null,
-                        maxOperationalDraftMeters: engineering?.maxOperationalDraftMeters || 0,
-                        maxVesselLengthLabel: engineering?.maxVesselLengthLabel || 'N/A',
-                        cargoDepth: engineering?.cargoDepth || '',
-                        channelDepth: engineering?.channelDepth || '',
-                        depthCode: engineering?.depthCode || '',
-                        engineeringSource: engineering ? 'WPI' : 'N/A',
-                        port
+                        label: item.display_name || placeName,
+                        placeName: placeName,
+                        countryCode: countryCode,
+                        lat: parseFloat(item.lat),
+                        lon: parseFloat(item.lon),
+                        source: 'Nominatim',
+                        uuid: String(item.osm_id || item.place_id || ''),
+                        unlocode: '',
+                        indexNo: null,
+                        maxOperationalDraftMeters: 0,
+                        maxVesselLengthLabel: 'N/A',
+                        cargoDepth: '',
+                        channelDepth: '',
+                        depthCode: '',
+                        engineeringSource: 'N/A',
+                        port: { name: placeName, lat: parseFloat(item.lat), lon: parseFloat(item.lon) }
                     };
-                }));
+                });
                 setPortSearchState(input, false);
-                renderPortAutocomplete(input, localResults, localResults.length ? '' : 'Sin coincidencias en Datalastic');
+                renderPortAutocomplete(input, localResults, localResults.length ? '' : 'Sin coincidencias');
             } catch (error) {
-                console.warn('[Input Geográfico] No se pudo consultar Datalastic.', error);
+                console.warn('[Input Geográfico] No se pudo consultar Nominatim.', error);
                 setPortSearchState(input, false);
-                renderPortAutocomplete(input, [], 'Datalastic no disponible');
+                renderPortAutocomplete(input, [], 'Búsqueda no disponible');
             }
         }
 
@@ -29962,7 +29985,9 @@ function setIsGeoInputOpen(isNextOpen) {
         function destroyRouteMap() {
             if (routeMapMountFrameId) cancelAnimationFrame(routeMapMountFrameId);
             routeMapMountFrameId = null;
-            window.GlobalFleetGlobe?.destroy?.('main');
+            if (map && typeof map.remove === 'function') {
+                try { map.remove(); } catch (_) {}
+            }
             map = null;
             window.map = null;
         }
@@ -29971,51 +29996,33 @@ function setIsGeoInputOpen(isNextOpen) {
             let mapView = document.getElementById('view-map');
             if (!mapView || mapView.classList.contains('hidden')) return;
             try {
-                await ensureMapCartographyLoaded();
-            } catch (_) {
-                return;
-            }
-            mapView = document.getElementById('view-map');
-            if (!mapView || mapView.classList.contains('hidden')) return;
-            try {
                 const mapContainer = document.getElementById('map-container');
                 if (!mapContainer) return;
                 if (map) {
-                    try { resizeRouteMap(map); } catch (_) {}
+                    try { if (typeof map.invalidateSize === 'function') map.invalidateSize(); } catch (_) {}
                     return;
                 }
-                const mapBounds = mapContainer.getBoundingClientRect();
-                if (mapBounds.width <= 1 || mapBounds.height <= 1) {
-                    mapContainer.dataset.renderKey = 'loading';
-                    if (!routeMapMountFrameId) {
-                        routeMapMountFrameId = requestAnimationFrame(() => {
-                            routeMapMountFrameId = null;
-                            try { initMap(); } catch (err) { console.error('Error in rAF initMap:', err); }
-                        });
-                    }
-                    return;
-                }
-                mapContainer.dataset.renderKey = 'mounted';
-                const filteredVessels = (window.GlobalStore?.filteredVesselsInitialized)
-                    ? (window.GlobalStore?.getFilteredVessels?.() || [])
-                    : [];
-                const vessels = window.getCanonicalRadarRenderFleet?.(filteredVessels)
-                    || (Array.isArray(filteredVessels) ? filteredVessels : []);
-                if (window.GlobalFleetGlobe) {
-                    map = window.GlobalFleetGlobe.mount({
-                        containerId: 'map-container',
-                        vesselsData: vessels,
-                        renderKey: JSON.stringify(vessels),
-                        focusFirstVessel: false,
-                        focusActiveVesselOnMount: false
+                const skeleton = document.getElementById('map-skeleton');
+                if (skeleton) skeleton.style.display = 'none';
+
+                if (typeof L !== 'undefined' && typeof L.map === 'function') {
+                    map = L.map('map-container', {
+                        center: [50.5, 10.5],
+                        zoom: 4,
+                        preferCanvas: true
                     });
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                        maxZoom: 19
+                    }).addTo(map);
                     window.map = map;
-                    if (State?.routeGeometry) {
-                        try { window.GlobalFleetGlobe.setRouteResult(State.routeGeometry, 'main', { focus: false }); } catch (_) {}
+                    mapContainer.dataset.renderKey = 'mounted';
+                    if (window.MapController && typeof window.MapController.attachRouteMap === 'function') {
+                        window.MapController.attachRouteMap(map);
                     }
                 }
             } catch (err) {
-                console.error('Safe map initialization caught error:', err);
+                console.error('Safe Leaflet map initialization caught error:', err);
             }
         }
 
@@ -30033,41 +30040,19 @@ function setIsGeoInputOpen(isNextOpen) {
             }
 
             try {
-                const response = await fetch(`/api/v1/ports/search?q=${encodeURIComponent(query)}`, {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json`, {
                     headers: { Accept: 'application/json' }
                 });
-                const payload = await response.json().catch(() => ({}));
-                const port = prioritizeDatalasticPortResults(payload?.ports)[0] || null;
-                if (response.ok && port && Number.isFinite(Number(port.latitude)) && Number.isFinite(Number(port.longitude))) {
-                    const engineering = await resolveWpiEngineeringRecord(port);
-                    const countryCode = String(port.countryCode || 'XX').toUpperCase();
-                    const placeName = toPortTitleCase(port.portName);
-                    const result = {
-                        label: toPortTitleCase(port.officialLabel || `${placeName} (${countryCode})`),
-                        placeName,
-                        countryCode,
-                        lat: Number(port.latitude),
-                        lon: Number(port.longitude),
-                        source: 'Datalastic',
-                        uuid: port.uuid,
-                        unlocode: port.unlocode,
-                        indexNo: engineering?.indexNo || null,
-                        maxOperationalDraftMeters: engineering?.maxOperationalDraftMeters || 0,
-                        maxVesselLengthLabel: engineering?.maxVesselLengthLabel || 'N/A',
-                        cargoDepth: engineering?.cargoDepth || '',
-                        channelDepth: engineering?.channelDepth || '',
-                        depthCode: engineering?.depthCode || '',
-                        engineeringSource: engineering ? 'WPI' : 'N/A',
-                        port
-                    };
-                    const targetInput = ['port-pol', 'port-pod', 'port-ballast']
-                        .map(id => document.getElementById(id))
-                        .find(input => input?.value === query);
-                    if (targetInput) commitUniversalPortCoordinates(targetInput, result);
-                    return { lat: result.lat, lon: result.lon, name: result.label, countryCode: result.countryCode };
+                const payload = await response.json().catch(() => ([]));
+                const item = Array.isArray(payload) ? payload[0] : null;
+                if (item && Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lon))) {
+                    const lat = Number(item.lat);
+                    const lon = Number(item.lon);
+                    const label = item.display_name || query;
+                    return { lat, lon, name: label, countryCode: 'EU' };
                 }
             } catch (error) {
-                console.warn('[Input Geográfico] Datalastic no pudo resolver las coordenadas.', error);
+                console.warn('[Input Geográfico] Nominatim no pudo resolver las coordenadas.', error);
             }
             return null;
         }
