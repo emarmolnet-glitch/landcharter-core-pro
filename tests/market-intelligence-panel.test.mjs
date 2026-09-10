@@ -116,13 +116,14 @@ test('passes the calculated freight only at the panel invocation boundary', () =
 
 test('keeps the complete commercial negotiation section intact', () => {
     const sectionStart = indexSource.indexOf('8. NEGOCIACIÓN COMERCIAL');
-    const sectionEnd = indexSource.indexOf('9. ANÁLISIS', sectionStart);
+    const sectionEnd = indexSource.indexOf('9. ANÁLISIS', sectionStart) !== -1 ? indexSource.indexOf('9. ANÁLISIS', sectionStart) : indexSource.indexOf('9. MATRIZ', sectionStart);
     const sectionSource = indexSource.slice(sectionStart, sectionEnd > sectionStart ? sectionEnd : undefined);
 
     assert.ok(sectionStart >= 0);
     assert.match(sectionSource, /id="freight-rate"/);
     assert.match(sectionSource, /id="freight-sell"/);
-    assert.match(sectionSource, /id="comtrade-competitiveness-radar"/);
+    assert.doesNotMatch(sectionSource, /id="comtrade-competitiveness-radar"/);
+    assert.doesNotMatch(sectionSource, /id="ais-market-reference-widget"/);
     assert.match(sectionSource, /id="market-intelligence-panel"/);
     assert.match(sectionSource, /data-mi-value="fleteCalculado"/);
 });
@@ -152,26 +153,19 @@ test('keeps section eight vertical, full-width and commercially ordered', () => 
     const blocks = verticalContainer.childNodes.filter((node) => node.tagName);
     const purchaseInput = findElement(sectionEight, (node) => getAttribute(node, 'id') === 'freight-rate');
     const saleInput = findElement(sectionEight, (node) => getAttribute(node, 'id') === 'freight-sell');
-    const demurrageInput = findElement(sectionEight, (node) => getAttribute(node, 'id') === 'demurrage-rate');
-    const dispatchToggle = findElement(sectionEight, (node) => getAttribute(node, 'id') === 'dispatch-clause-active');
+    const standstillInput = findElement(sectionEight, (node) => getAttribute(node, 'id') === 'demurrage-rate');
     const purchaseCard = closestElement(purchaseInput, (node) => hasClass(node, 'rounded-xl') && hasClass(node, 'bg-white'));
     const saleCard = closestElement(saleInput, (node) => hasClass(node, 'rounded-xl') && hasClass(node, 'bg-slate-50'));
-    const dispatchCard = closestElement(dispatchToggle, (node) => hasClass(node, 'border-red-200'));
-    const purchaseGrid = dispatchCard.parentNode;
-    const demurrageField = closestElement(demurrageInput, (node) => node.parentNode === purchaseGrid);
-    const purchaseFields = purchaseGrid.childNodes.filter((node) => node.tagName);
 
-    assert.equal(blocks.length, 5);
+    assert.equal(blocks.length, 3);
     assert.ok(findElement(blocks[0], (node) => getAttribute(node, 'id') === 'freight-rate'));
     assert.ok(findElement(blocks[1], (node) => getAttribute(node, 'id') === 'negotiation-bottom-line-title'));
-    assert.ok(findElement(blocks[2], (node) => getAttribute(node, 'id') === 'ais-market-reference-widget'));
-    assert.ok(findElement(blocks[3], (node) => getAttribute(node, 'id') === 'comtrade-competitiveness-radar'));
-    assert.equal(getAttribute(blocks[4], 'id'), 'market-intelligence-panel');
+    assert.equal(getAttribute(blocks[2], 'id'), 'market-intelligence-panel');
     assert.ok(hasClass(blocks[2], 'w-full'));
-    assert.ok(hasClass(blocks[3], 'w-full'));
-    assert.ok(hasClass(blocks[4], 'w-full'));
     assert.ok(purchaseCard);
     assert.ok(saleCard);
-    assert.equal(purchaseGrid.parentNode, purchaseCard);
-    assert.equal(purchaseFields.indexOf(dispatchCard), purchaseFields.indexOf(demurrageField) + 1);
+    assert.ok(standstillInput);
+    assert.doesNotMatch(indexSource, /id="ais-market-reference-widget"/);
+    assert.doesNotMatch(indexSource, /id="comtrade-competitiveness-radar"/);
+    assert.doesNotMatch(indexSource, /id="dispatch-clause-active"/);
 });

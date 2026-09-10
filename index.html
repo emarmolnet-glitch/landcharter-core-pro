@@ -10683,37 +10683,11 @@
                                 <input type="number" id="lumpsum-override" class="input-gc h-9 rounded border border-slate-300 bg-white px-2 text-sm font-bold text-slate-900" placeholder="None" step="any" oninput="runEngine()">
                             </div>
 
-                            <!-- Demurrage -->
+                            <!-- Paralizaciones Carretera -->
                             <div>
-                                <label id="label-demurrage-rate" class="mb-1 block text-[10px] font-bold uppercase text-emerald-700 transition-colors duration-300">Demurrage ($/d)</label>
-                                <div class="flex">
-                                    <input type="number" id="demurrage-rate" class="input-gc h-9 rounded-r-none text-sm font-bold text-slate-900 transition-colors duration-300" value="10000" step="any" oninput="updateDemurrageExposureAlert(); runEngine()">
-                                    <button id="btn-estimate-demurrage" onclick="sugerirDemoraAutomatica(true)" class="rounded-r-md border border-red-200 bg-red-50 px-2 text-red-700 transition hover:bg-red-100" title="Sugerir Demurrage desde TCE actual"><i class="fa-solid fa-rotate-right"></i></button>
-                                </div>
-                                <!-- ASBATANKVOY Delay Hours input (only relevant for Liquid Bulk / ASBATANKVOY) -->
-                                <div id="asb-delay-hours-container" class="mt-2 hidden rounded-lg border border-red-200 bg-slate-50 p-2">
-                                    <div class="flex items-center justify-between">
-                                        <label class="cursor-pointer text-[10px] font-bold uppercase text-slate-600">Horas Demora (Delay Hrs)</label>
-                                        <input type="number" id="asb-delay-hours-main" class="h-6 w-14 rounded border border-red-200 bg-white px-1 py-0.5 text-center text-xs font-bold text-red-700 outline-none" value="0" step="0.5" oninput="syncDelayHours('main')">
-                                    </div>
-                                    <p class="mt-1 text-[9px] leading-tight text-slate-500">Horas acumuladas de demora para el flete neto de ASBATANKVOY.</p>
-                                </div>
+                                <label id="label-demurrage-rate" class="mb-1 block text-[10px] font-bold uppercase text-emerald-700 transition-colors duration-300">PARALIZACIONES (€/H)</label>
+                                <input type="number" id="demurrage-rate" class="input-gc h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm font-bold text-slate-900 transition-colors duration-300" value="50" step="any" oninput="runEngine()">
                             </div>
-
-                            <!-- Dispatch Calculation Clause -->
-                            <div class="rounded-lg border border-red-200 bg-slate-50 p-3">
-                                    <div class="flex items-center justify-between">
-                                        <div class="flex items-center gap-1.5">
-                                            <input type="checkbox" id="dispatch-clause-active" class="h-3.5 w-3.5 cursor-pointer rounded border-slate-300 bg-white text-red-600 focus:ring-red-500" onchange="runEngine()" checked>
-                                            <label for="dispatch-clause-active" id="label-dispatch-clause" class="cursor-pointer text-[10px] font-bold uppercase text-red-700 transition-colors duration-300">Cláusula Despacho</label>
-                                        </div>
-                                        <div class="flex items-center gap-1">
-                                            <input type="number" id="dispatch-pct" class="h-5 w-10 rounded border border-red-200 bg-white px-1 py-0.5 text-center text-[9px] font-bold text-red-700 outline-none transition-colors duration-300" value="50" min="0" max="100" oninput="runEngine()">
-                                            <span class="text-[9px] font-bold text-slate-500">%</span>
-                                        </div>
-                                    </div>
-                                    <p class="mt-1 text-[9px] leading-tight text-slate-500">Recompensa/multa de despacho (50%) si la operation finaliza antes del laytime acordado.</p>
-                                </div>
                                     </div>
                                 </div>
 
@@ -10769,67 +10743,44 @@
                                 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
                                     <article class="min-h-52 rounded-xl border border-indigo-500/40 bg-slate-900 p-5 text-center shadow-lg sm:p-6">
                                         <div class="mb-2 flex items-center justify-center gap-1.5">
-                                            <div id="label-owner-profit-header" class="text-[11px] text-slate-400 font-bold uppercase">Beneficio Armador</div>
-                                            <span id="owner-profit-tooltip" class="cursor-help text-[11px] text-slate-500" title="El Beneficio Neto descuenta el Coste Total Riesgo global del viaje.">ℹ️</span>
+                                            <div id="label-owner-profit-header" class="text-[11px] text-slate-400 font-bold uppercase">MARGEN NETO TRANSPORTISTA</div>
+                                            <span id="owner-profit-tooltip" class="cursor-help text-[11px] text-slate-500" title="El Margen Neto descuenta el Coste Total Riesgo global del viaje.">ℹ️</span>
                                         </div>
-                                        <div class="text-4xl font-bold text-indigo-400 mono leading-none" id="res-net-profit-owner">$0</div>
-                                        <div class="mt-2 text-[10px] text-slate-400" id="res-net-profit-owner-daily">Beneficio Neto Diario: $0 / día</div>
+                                        <div class="text-4xl font-bold text-indigo-400 mono leading-none" id="res-net-profit-owner">0 €</div>
+                                        <div class="mt-2 text-[10px] text-slate-400" id="res-net-profit-owner-daily">Margen Neto Diario: 0 € / día</div>
                                         <button id="btn-open-shadow-estimator" type="button" class="mt-3 inline-flex items-center justify-center gap-2 rounded-md border border-indigo-500/40 bg-indigo-950/30 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-indigo-200 transition hover:border-indigo-400 hover:bg-indigo-900/50 focus:outline-none focus:ring-2 focus:ring-indigo-400/50">
                                             <i class="fa-solid fa-route"></i>
-                                            Simular Viaje Siguiente (Armador)
+                                            Simular Viaje Siguiente (Transportista)
                                         </button>
-                                        <div class="mt-3 border-t border-slate-800 pt-2 transition-all duration-300 text-2xl font-black text-indigo-300" id="res-tce-label">Margen Neto del Viaje (€ o $): $0</div>
+                                        <div class="mt-3 border-t border-slate-800 pt-2 transition-all duration-300 text-2xl font-black text-indigo-300" id="res-tce-label">Margen Neto del Viaje (€): 0 €</div>
                                         <details id="owner-net-breakdown" class="mt-3 border-t border-slate-800 pt-2 text-left">
-                                            <summary class="cursor-pointer text-[10px] font-black uppercase text-indigo-300">Desglose Neto Armador</summary>
+                                            <summary class="cursor-pointer text-[10px] font-black uppercase text-indigo-300">Desglose Neto Transportista</summary>
                                             <div class="mt-2 space-y-1 text-[10px] text-slate-400">
-                                                <div class="flex justify-between gap-2"><span>Ingreso Bruto</span><strong id="res-owner-gross-revenue" class="mono text-slate-200">$0</strong></div>
-                                                <div class="flex justify-between gap-2"><span>Viaje + ETS + Ajustes</span><strong id="res-owner-voyage-costs" class="mono text-red-300">$0</strong></div>
-                                                <div class="flex justify-between gap-2"><span>Costes Fijos (Chófer/Amort.)</span><strong id="res-owner-opex-capex" class="mono text-orange-300">$0</strong></div>
-                                                <div class="flex justify-between gap-2 border-t border-slate-800 pt-1 font-bold"><span>Beneficio Neto Final</span><strong id="res-owner-final-net" class="mono text-emerald-300">$0</strong></div>
+                                                <div class="flex justify-between gap-2"><span>Ingreso Bruto</span><strong id="res-owner-gross-revenue" class="mono text-slate-200">0 €</strong></div>
+                                                <div class="flex justify-between gap-2"><span>Viaje + Peajes + Ajustes</span><strong id="res-owner-voyage-costs" class="mono text-red-300">0 €</strong></div>
+                                                <div class="flex justify-between gap-2"><span>Costes Fijos (Chófer/Amort.)</span><strong id="res-owner-opex-capex" class="mono text-orange-300">0 €</strong></div>
+                                                <div class="flex justify-between gap-2 border-t border-slate-800 pt-1 font-bold"><span>Margen Neto Final</span><strong id="res-owner-final-net" class="mono text-emerald-300">0 €</strong></div>
                                             </div>
                                         </details>
                                     </article>
 
                                     <article class="min-h-52 rounded-xl border border-emerald-500/40 bg-slate-900 p-5 text-center shadow-lg sm:p-6">
-                                        <div id="label-charter-profit-header" class="text-[11px] text-slate-400 font-bold uppercase mb-1">Arbitraje Comercial (Fletador)</div>
-                                        <div class="text-4xl font-black text-emerald-400 mono leading-none" id="res-net-profit-charterer">$0</div>
-                                        <div id="label-risk-free-profit" class="text-[10px] text-slate-500 mt-2">Beneficio Libre de Riesgo</div>
+                                        <div id="label-charter-profit-header" class="text-[11px] text-slate-400 font-bold uppercase mb-1">MARGEN NETO AGENCIA</div>
+                                        <div class="text-4xl font-black text-emerald-400 mono leading-none" id="res-net-profit-charterer">0 €</div>
+                                        <div id="label-risk-free-profit" class="text-[10px] text-slate-500 mt-2">Margen Libre de Riesgo</div>
                                         <details id="charterer-net-breakdown" class="mt-3 border-t border-slate-800 pt-2 text-left">
-                                            <summary class="cursor-pointer text-[10px] font-black uppercase text-emerald-300">Desglose Neto Fletador</summary>
+                                            <summary class="cursor-pointer text-[10px] font-black uppercase text-emerald-300">Desglose Neto Agencia</summary>
                                             <div class="mt-2 space-y-1 text-[10px] text-slate-400">
-                                                <div class="flex justify-between gap-2"><span>Ingresos Venta (Cliente)</span><strong id="res-charterer-gross-revenue" class="mono text-slate-200">$0</strong></div>
-                                                <div class="flex justify-between gap-2"><span>Coste Fletamento (Pago Armador)</span><strong id="res-charterer-freight-cost" class="mono text-red-300">$0</strong></div>
-                                                <div class="flex justify-between gap-2"><span>Comisiones (Brokerage)</span><strong id="res-charterer-commission-cost" class="mono text-red-300">$0</strong></div>
-                                                <div class="flex justify-between gap-2 border-t border-slate-800 pt-1 font-bold"><span>Beneficio Neto Fletador</span><strong id="res-charterer-final-net" class="mono text-emerald-300">$0</strong></div>
+                                                <div class="flex justify-between gap-2"><span>Ingresos Venta (Cliente)</span><strong id="res-charterer-gross-revenue" class="mono text-slate-200">0 €</strong></div>
+                                                <div class="flex justify-between gap-2"><span>Coste Porte (Pago Transportista)</span><strong id="res-charterer-freight-cost" class="mono text-red-300">0 €</strong></div>
+                                                <div class="flex justify-between gap-2"><span>Comisiones (Intermediación)</span><strong id="res-charterer-commission-cost" class="mono text-red-300">0 €</strong></div>
+                                                <div class="flex justify-between gap-2 border-t border-slate-800 pt-1 font-bold"><span>Margen Neto Agencia</span><strong id="res-charterer-final-net" class="mono text-emerald-300">0 €</strong></div>
                                             </div>
                                         </details>
                                         <div id="owner-purchase-effectiveness" class="mt-3 rounded-md border border-slate-700 bg-slate-950/40 px-2 py-1.5 text-[10px] font-bold text-slate-400">Efectividad de Compra: -</div>
                                     </article>
                                 </div>
                             </section>
-
-                            <!-- BLOQUE 3: REFERENCIA DE MERCADO AIS -->
-                            <section class="w-full rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-sm sm:p-6" aria-labelledby="negotiation-market-intelligence-title">
-                                <div class="mb-4">
-                                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Contexto Externo</p>
-                                    <h3 id="negotiation-market-intelligence-title" class="mt-1 text-base font-black text-slate-900">Referencia de Mercado AIS</h3>
-                                </div>
-                                <aside id="ais-market-reference-widget"></aside>
-                            </section>
-
-                            <!-- BLOQUE 4: RADAR DE COMPETITIVIDAD UN COMTRADE -->
-                                    <details open class="group w-full min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                                        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-4 font-semibold text-slate-900 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-500 sm:px-5">
-                                            <span class="min-w-0">
-                                                <span class="block text-sm font-black">Radar de Competitividad UN Comtrade</span>
-                                                <span class="mt-0.5 block text-[10px] font-normal text-slate-500">Comparativa internacional de referencias comerciales</span>
-                                            </span>
-                                            <i class="fa-solid fa-chevron-down shrink-0 text-xs text-slate-500 transition-transform duration-200 group-open:rotate-180" aria-hidden="true"></i>
-                                        </summary>
-                                        <div class="border-t border-slate-200 p-4 sm:p-5">
-                                            <div id="comtrade-competitiveness-radar" aria-busy="false"></div>
-                                        </div>
-                                    </details>
 
                             <!-- BLOQUE 5: PANEL DE INTELIGENCIA DE MERCADO -->
                     <section id="market-intelligence-panel" class="no-print w-full min-w-0 overflow-hidden rounded-xl border border-teal-800 bg-slate-50 shadow-lg shadow-slate-950/10" aria-labelledby="market-intelligence-title">
@@ -10850,16 +10801,16 @@
                                 <article class="rounded-lg border border-teal-800 bg-white p-4 shadow-sm">
                                     <label for="market-intelligence-client-offer" class="text-xs font-bold uppercase tracking-wider text-teal-900">Oferta Cliente</label>
                                     <div class="mt-2 flex items-end gap-2">
-                                        <span class="pb-1 font-mono text-lg font-bold text-teal-900">$</span>
+                                        <span class="pb-1 font-mono text-lg font-bold text-teal-900">€</span>
                                         <input id="market-intelligence-client-offer" data-mi-offer-input type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" class="min-w-0 flex-1 border-0 border-b-2 border-slate-300 bg-transparent px-0 py-1 font-mono text-2xl font-bold text-teal-900 outline-none transition-colors placeholder:text-slate-300 focus:border-teal-800 focus:ring-0" aria-describedby="market-intelligence-client-offer-unit">
-                                        <span id="market-intelligence-client-offer-unit" class="pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">USD / MT</span>
+                                        <span id="market-intelligence-client-offer-unit" class="pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">€ / t</span>
                                     </div>
                                 </article>
                                 <article class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                                     <span class="text-xs font-bold uppercase tracking-wider text-teal-900">Flete Calculado</span>
                                     <div class="mt-2 flex items-end gap-2">
-                                        <strong class="font-mono text-2xl font-bold text-teal-900" data-mi-value="fleteCalculado">$0.00</strong>
-                                        <span class="pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">USD / MT</span>
+                                        <strong class="font-mono text-2xl font-bold text-teal-900" data-mi-value="fleteCalculado">0.00 €</strong>
+                                        <span class="pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">€ / t</span>
                                     </div>
                                 </article>
                                 <article class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -10878,35 +10829,8 @@
                                     <span class="absolute top-1/2 hidden h-5 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_0_3px_rgba(34,211,238,0.35)] transition-transform duration-300" data-mi-marker="fleteCalculado" aria-hidden="true"></span>
                                 </div>
                                 <div class="mt-3 flex justify-between text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                                    <span>Backhaul</span><span>COA</span><span>Spot</span>
+                                    <span>Retorno</span><span>Contrato</span><span>Inmediato</span>
                                 </div>
-                            </div>
-
-                            <div class="grid grid-cols-1 gap-3 lg:grid-cols-3" aria-label="Referencias de mercado marítimo">
-                                <article class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-slate-200 border-l-2 border-l-green-600 bg-white p-4 shadow-sm">
-                                    <span class="grid h-9 w-9 place-items-center rounded-lg border border-green-600 text-green-700"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
-                                    <div class="min-w-0">
-                                        <h3 class="text-xs font-bold uppercase tracking-wider text-teal-900">Mercado Spot</h3>
-                                        <p class="mt-1 text-[11px] leading-4 text-slate-500">Disponibilidad inmediata ajustada por búnker y costes.</p>
-                                    </div>
-                                    <strong class="font-mono text-lg font-bold text-teal-900" data-mi-value="spot">$0.00</strong>
-                                </article>
-                                <article class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-slate-200 border-l-2 border-l-yellow-500 bg-white p-4 shadow-sm">
-                                    <span class="grid h-9 w-9 place-items-center rounded-lg border border-yellow-500 text-yellow-700"><i class="fa-solid fa-briefcase" aria-hidden="true"></i></span>
-                                    <div class="min-w-0">
-                                        <h3 class="text-xs font-bold uppercase tracking-wider text-teal-900">Mercado COA</h3>
-                                        <p class="mt-1 text-[11px] leading-4 text-slate-500">Contrato de volumen a largo plazo.</p>
-                                    </div>
-                                    <strong class="font-mono text-lg font-bold text-teal-900" data-mi-value="coa">$0.00</strong>
-                                </article>
-                                <article class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-slate-200 border-l-2 border-l-red-600 bg-white p-4 shadow-sm">
-                                    <span class="grid h-9 w-9 place-items-center rounded-lg border border-red-600 text-red-700"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i></span>
-                                    <div class="min-w-0">
-                                        <h3 class="text-xs font-bold uppercase tracking-wider text-teal-900">Mercado Backhaul</h3>
-                                        <p class="mt-1 text-[11px] leading-4 text-slate-500">Viaje de retorno para cobertura de costes.</p>
-                                    </div>
-                                    <strong class="font-mono text-lg font-bold text-teal-900" data-mi-value="backhaul">$0.00</strong>
-                                </article>
                             </div>
 
                             <div class="rounded-lg border border-slate-200 border-l-4 border-l-slate-500 bg-white p-4 shadow-sm" data-mi-alert-state="pending" role="status">
@@ -10916,13 +10840,13 @@
                                 </div>
                             </div>
                             <div class="hidden rounded-lg border border-slate-200 border-l-4 border-l-red-600 bg-white p-4 shadow-sm" data-mi-alert-state="backhaul" role="status">
-                                <div class="flex items-start gap-3"><span class="grid h-9 w-9 flex-none place-items-center rounded-full border border-red-600 text-red-700"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i></span><div><strong class="text-xs font-black uppercase tracking-wider text-red-700">Zona Backhaul</strong><p class="mt-1 text-xs leading-5 text-slate-600">El flete del cliente está en ZONA BACKHAUL. Tu margen de arbitraje está a salvo, el cliente compara con un retorno vacío.</p></div></div>
+                                <div class="flex items-start gap-3"><span class="grid h-9 w-9 flex-none place-items-center rounded-full border border-red-600 text-red-700"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i></span><div><strong class="text-xs font-black uppercase tracking-wider text-red-700">Zona Retorno</strong><p class="mt-1 text-xs leading-5 text-slate-600">El flete del cliente está en ZONA RETORNO. Tu margen de arbitraje está a salvo, el cliente compara con un retorno vacío.</p></div></div>
                             </div>
                             <div class="hidden rounded-lg border border-slate-200 border-l-4 border-l-yellow-500 bg-white p-4 shadow-sm" data-mi-alert-state="coa" role="status">
-                                <div class="flex items-start gap-3"><span class="grid h-9 w-9 flex-none place-items-center rounded-full border border-yellow-500 text-yellow-700"><i class="fa-solid fa-briefcase" aria-hidden="true"></i></span><div><strong class="text-xs font-black uppercase tracking-wider text-yellow-700">Zona COA</strong><p class="mt-1 text-xs leading-5 text-slate-600">Oferta en ZONA COA. El cliente exige precios de largo volumen. Destacar inmediatez y disponibilidad.</p></div></div>
+                                <div class="flex items-start gap-3"><span class="grid h-9 w-9 flex-none place-items-center rounded-full border border-yellow-500 text-yellow-700"><i class="fa-solid fa-briefcase" aria-hidden="true"></i></span><div><strong class="text-xs font-black uppercase tracking-wider text-yellow-700">Zona Contrato</strong><p class="mt-1 text-xs leading-5 text-slate-600">Oferta en ZONA CONTRATO. El cliente exige precios de largo volumen. Destacar inmediatez y disponibilidad.</p></div></div>
                             </div>
                             <div class="hidden rounded-lg border border-slate-200 border-l-4 border-l-green-600 bg-white p-4 shadow-sm" data-mi-alert-state="spot" role="status">
-                                <div class="flex items-start gap-3"><span class="grid h-9 w-9 flex-none place-items-center rounded-full border border-green-600 text-green-700"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span><div><strong class="text-xs font-black uppercase tracking-wider text-green-700">Mercado Spot</strong><p class="mt-1 text-xs leading-5 text-slate-600">La oferta del cliente es competitiva en el mercado SPOT actual.</p></div></div>
+                                <div class="flex items-start gap-3"><span class="grid h-9 w-9 flex-none place-items-center rounded-full border border-green-600 text-green-700"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span><div><strong class="text-xs font-black uppercase tracking-wider text-green-700">Mercado Inmediato</strong><p class="mt-1 text-xs leading-5 text-slate-600">La oferta del cliente es competitiva en el mercado actual.</p></div></div>
                             </div>
                         </div>
                     </section>
@@ -38865,56 +38789,56 @@ function scheduleReactiveEngine() {
                 }
             }
 
-            document.getElementById('res-net-profit-owner').innerText = `$${netProfitOwner.toLocaleString('en-US', {maximumFractionDigits:0})}`;
+            document.getElementById('res-net-profit-owner').innerText = `${netProfitOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
             document.getElementById('res-net-profit-owner').className = netProfitOwner >= 0 ? "text-4xl font-bold text-emerald-400 mono leading-none" : "text-4xl font-bold text-red-500 mono leading-none";
             updateCargoRateArbitrageAlert(netProfitOwner);
             const netProfitOwnerDailyEl = document.getElementById('res-net-profit-owner-daily');
-            if (netProfitOwnerDailyEl) netProfitOwnerDailyEl.innerText = `Beneficio Neto Diario: $${netProfitOwnerDaily.toLocaleString('en-US', {maximumFractionDigits:0})} / día`;
-            document.getElementById('res-tce-label').innerText = `Margen Neto del Viaje (€ o $): $${tceTotal.toLocaleString('en-US', {maximumFractionDigits:0})} (Diario: $${tceOwner.toLocaleString('en-US', {maximumFractionDigits:0})} / día)`;
+            if (netProfitOwnerDailyEl) netProfitOwnerDailyEl.innerText = `Margen Neto Diario: ${netProfitOwnerDaily.toLocaleString('es-ES', {maximumFractionDigits:0})} € / día`;
+            document.getElementById('res-tce-label').innerText = `Margen Neto del Viaje (€): ${tceTotal.toLocaleString('es-ES', {maximumFractionDigits:0})} € (Diario: ${tceOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} € / día)`;
             const ownerProfitTooltip = document.getElementById('owner-profit-tooltip');
-            if (ownerProfitTooltip) ownerProfitTooltip.title = `Beneficio Neto Armador = Ingresos del viaje - Coste Total Riesgo global. La base incluye bunkers, puertos, OPEX, CAPEX, ETS y ajustes operativos aplicables. Clase: ${ownerClassAnalysis?.shipClass?.label || 'Buque estándar'}.`;
+            if (ownerProfitTooltip) ownerProfitTooltip.title = `Margen Neto Transportista = Ingresos del viaje - Costes operativos y peajes.`;
             const ownerGrossRevenueEl = document.getElementById('res-owner-gross-revenue');
             const ownerVoyageCostsEl = document.getElementById('res-owner-voyage-costs');
             const ownerOpexCapexEl = document.getElementById('res-owner-opex-capex');
             const ownerFinalNetEl = document.getElementById('res-owner-final-net');
             if (ownerGrossRevenueEl) {
-                ownerGrossRevenueEl.innerText = `$${voyageRevenues.toLocaleString('en-US', {maximumFractionDigits:0})}`;
-                ownerGrossRevenueEl.title = `Ingresos del viaje = flete bruto + recargos aplicables`;
+                ownerGrossRevenueEl.innerText = `${voyageRevenues.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
+                ownerGrossRevenueEl.title = `Ingresos del viaje = porte bruto + recargos aplicables`;
             }
             const sharedVoyageCosts = Math.max(0, sharedTotalCosts - ownerOperatingCapitalCosts);
             if (ownerVoyageCostsEl) {
-                ownerVoyageCostsEl.innerText = `$${sharedVoyageCosts.toLocaleString('en-US', {maximumFractionDigits:0})}`;
-                ownerVoyageCostsEl.title = `Bunkers, puertos, ETS y ajustes operativos incluidos en la base global`;
+                ownerVoyageCostsEl.innerText = `${sharedVoyageCosts.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
+                ownerVoyageCostsEl.title = `Combustible, peajes y dietas incluidos en la base global`;
             }
             if (ownerOpexCapexEl) {
-                ownerOpexCapexEl.innerText = `$${ownerOperatingCapitalCosts.toLocaleString('en-US', {maximumFractionDigits:0})}`;
-                ownerOpexCapexEl.title = `OPEX $${Math.round(totalOpex).toLocaleString('en-US')} + CAPEX $${Math.round(totalCapex).toLocaleString('en-US')}`;
+                ownerOpexCapexEl.innerText = `${ownerOperatingCapitalCosts.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
+                ownerOpexCapexEl.title = `Costes fijos chófer/amortización: ${Math.round(totalOpex + totalCapex).toLocaleString('es-ES')} €`;
             }
             if (ownerFinalNetEl) {
-                ownerFinalNetEl.innerText = `$${netProfitOwner.toLocaleString('en-US', {maximumFractionDigits:0})}`;
+                ownerFinalNetEl.innerText = `${netProfitOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
                 ownerFinalNetEl.className = netProfitOwner >= 0 ? 'mono text-emerald-300' : 'mono text-red-300';
             }
 
-            document.getElementById('res-net-profit-charterer').innerText = `$${netProfitCharterer.toLocaleString('en-US', {maximumFractionDigits:0})}`;
+            document.getElementById('res-net-profit-charterer').innerText = `${netProfitCharterer.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
             document.getElementById('res-net-profit-charterer').className = netProfitCharterer >= 0 ? "text-xl font-black text-emerald-400 mono" : "text-xl font-black text-red-500 mono";
             const chartererGrossRevenueEl = document.getElementById('res-charterer-gross-revenue');
             const chartererFreightCostEl = document.getElementById('res-charterer-freight-cost');
             const chartererCommissionCostEl = document.getElementById('res-charterer-commission-cost');
             const chartererFinalNetEl = document.getElementById('res-charterer-final-net');
             if (chartererGrossRevenueEl) {
-                chartererGrossRevenueEl.innerText = `$${grossRevCharterer.toLocaleString('en-US', {maximumFractionDigits:0})}`;
-                chartererGrossRevenueEl.title = `Total Venta = ${freightSell.toFixed(2)} USD/MT × ${multiplier.toLocaleString('en-US')} TM`;
+                chartererGrossRevenueEl.innerText = `${grossRevCharterer.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
+                chartererGrossRevenueEl.title = `Total Venta = ${freightSell.toFixed(2)} €/t × ${multiplier.toLocaleString('es-ES')} t`;
             }
             if (chartererFreightCostEl) {
-                chartererFreightCostEl.innerText = `-$${grossRevOwner.toLocaleString('en-US', {maximumFractionDigits:0})}`;
-                chartererFreightCostEl.title = `Total Compra = ${freightBuy.toFixed(2)} USD/MT × ${multiplier.toLocaleString('en-US')} TM`;
+                chartererFreightCostEl.innerText = `-${grossRevOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
+                chartererFreightCostEl.title = `Total Compra = ${freightBuy.toFixed(2)} €/t × ${multiplier.toLocaleString('es-ES')} t`;
             }
             if (chartererCommissionCostEl) {
-                chartererCommissionCostEl.innerText = `-$${chartererCommissionCost.toLocaleString('en-US', {maximumFractionDigits:0})}`;
+                chartererCommissionCostEl.innerText = `-${chartererCommissionCost.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
                 chartererCommissionCostEl.title = `Total Comisiones = ${commPct}% sobre ingresos de venta`;
             }
             if (chartererFinalNetEl) {
-                chartererFinalNetEl.innerText = `$${netProfitCharterer.toLocaleString('en-US', {maximumFractionDigits:0})}`;
+                chartererFinalNetEl.innerText = `${netProfitCharterer.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
                 chartererFinalNetEl.className = netProfitCharterer >= 0 ? 'mono text-emerald-300' : 'mono text-red-300';
             }
             const effectivenessEl = document.getElementById('owner-purchase-effectiveness');
@@ -39282,7 +39206,7 @@ function scheduleReactiveEngine() {
                 cargoType: State.cargoType,
                 cargoTypeCode: State.cargoTypeCode,
                 freightRate: State.freightRate,
-                freightSell: State.freightSell,
+                freightSell: (State && State.freightSell),
                 fleteUnitario: State.fleteUnitario,
                 fleteEstimado: State.fleteEstimado,
                 breakEven: State.breakEven,
