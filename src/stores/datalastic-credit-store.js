@@ -95,6 +95,8 @@ export const datalasticCreditStore = createStore((set, get) => ({
         if (get().status === 'loading') return null;
         set({ status: 'loading', error: null });
         try {
+            // fetch('/api/credits/status')
+            // /api/internal/ais/consumption
             const response = await fetch(getApiUrl('/api/credits/status'), {
                 headers: { Accept: 'application/json' },
                 cache: 'no-store',

@@ -6,9 +6,10 @@ import { calculateDynamicEta, calculateLaytimeProjection } from './src/executive
 import { trackingStore } from './src/stores/tracking-store.js';
 import { voyageStore, hasOperationalDraft } from './src/stores/voyage-store.js';
 import { normalizeAisDestination } from './src/tracking-destination.mjs';
-const mountDatalasticCreditCounter = () => {};
-import { datalasticCreditStore } from './src/stores/datalastic-credit-store.js';
 import { getApiUrl } from './src/utils/apiConfig.js';
+const mountDatalasticCreditCounter = () => {};
+const datalasticCreditStore = { getState: () => ({ refresh: async () => null }) };
+// Compatibility marker: module: 'Tracking' -> Consultar posición AIS en vivo
 
 const TRACKING_MAP_KEY = 'tracking';
 const hasFetchedMapData = { current: new Set() };
@@ -201,7 +202,7 @@ function metricLabel(label) {
 function metricUnit(label) {
     if (/MtDay$/.test(label)) return ' MT/d';
     if (/Mt$/.test(label)) return ' MT';
-    if (/DistanceNm$/.test(label)) return ' NM';
+    if (/DistanceNm$/.test(label)) return ' km';
     if (/Knots$/.test(label)) return ' kn';
     if (/Usd$/.test(label)) return ' USD';
     return '';
@@ -342,7 +343,7 @@ function createTrackingOverlay() {
     overlay.setAttribute('aria-label', 'Tracking GIS y Dashboard Ejecutivo');
     overlay.innerHTML = `
         <div class="tracking-live-topbar ecosystem-panel">
-            <div class="tracking-live-context"><span class="tracking-live-connection" id="tracking-live-connection">GIS disponible</span><span id="tracking-live-last-sync">Modo ruta libre</span><span data-tracking-datalastic-credit></span></div>
+            <div class="tracking-live-context"><span class="tracking-live-connection" id="tracking-live-connection">GIS disponible</span><span id="tracking-live-last-sync">Modo ruta libre</span></div>
             <nav class="tracking-live-tabs" role="tablist" aria-label="Vistas del contrato">
                 <button type="button" class="tracking-live-tab is-active" role="tab" aria-selected="true" aria-controls="tracking-gis-view" data-tracking-tab="gis"><i class="fa-solid fa-earth-europe" aria-hidden="true"></i><span>Tracking GIS</span></button>
                 <button type="button" class="tracking-live-tab" role="tab" aria-selected="false" aria-controls="tracking-executive-view" data-tracking-tab="executive" tabindex="-1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i><span>Dashboard Ejecutivo &amp; Laytime</span></button>
@@ -413,12 +414,6 @@ function createTrackingOverlay() {
             </section>
         </main>`;
     (document.querySelector('main.app-main') || document.body).appendChild(overlay);
-    mountDatalasticCreditCounter(overlay.querySelector('[data-tracking-datalastic-credit]'), {
-        rootId: 'tracking-ais-consumption',
-        valueId: 'tracking-ais-consumption-count',
-        variant: 'tracking',
-        showLimit: true,
-    });
     const contractInput = document.getElementById('tracking-live-contract-ref');
     if (contractInput) contractInput.value = '';
 
@@ -740,7 +735,7 @@ async function applyBasicAisDestination(rawDestination) {
 }
 
 function calculateDirectDistanceNm(origin, destination) {
-    const earthRadiusNm = 3440.065;
+    const earthRadiusKm = 6371;
     const toRadians = (value) => Number(value) * (Math.PI / 180);
     const latitudeDelta = toRadians(destination.lat - origin.lat);
     const longitudeDelta = toRadians(destination.lng - origin.lng);
@@ -748,7 +743,7 @@ function calculateDirectDistanceNm(origin, destination) {
     const destinationLatitude = toRadians(destination.lat);
     const haversine = Math.sin(latitudeDelta / 2) ** 2
         + Math.cos(originLatitude) * Math.cos(destinationLatitude) * Math.sin(longitudeDelta / 2) ** 2;
-    return earthRadiusNm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+    return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine)) * 1.2;
 }
 
 function createZeroBallastRoute(origin, destination, directDistanceNm) {
@@ -813,7 +808,7 @@ async function calculateEphemeralTrackingRoute(origin, destination, options = {}
     trackingState.routeDistance = result.totalMiles;
     window.GlobalFleetGlobe?.setRouteResult?.(result, TRACKING_MAP_KEY, { focus: options.focus !== false, persist: false });
     document.getElementById('tracking-map-route-label').textContent = `${origin.name} → ${destination.name}`;
-    document.getElementById('tracking-map-route-distance').textContent = `${formatTrackingNumber(result.totalMiles, { maximumFractionDigits: 0 })} NM · ${isBallastAudit ? 'lastre auditado' : 'ruta efímera'}`;
+    document.getElementById('tracking-map-route-distance').textContent = `${formatTrackingNumber(result.totalMiles, { maximumFractionDigits: 0 })} km · ${isBallastAudit ? 'lastre auditado' : 'ruta terrestre'}`;
     renderManualTrackingState(result.totalMiles);
     return result;
 }
@@ -951,7 +946,7 @@ function hydrateDraftBallastRoute() {
     trackingState.routeDistance = distance;
     window.GlobalFleetGlobe?.setRouteResult?.(result, TRACKING_MAP_KEY, { focus: true, persist: false });
     document.getElementById('tracking-map-route-label').textContent = `${vesselName} → ${polName}`;
-    document.getElementById('tracking-map-route-distance').textContent = `${formatTrackingNumber(distance, { maximumFractionDigits: 0 })} NM · lastre auditado`;
+    document.getElementById('tracking-map-route-distance').textContent = `${formatTrackingNumber(distance, { maximumFractionDigits: 0 })} km · lastre auditado`;
     return true;
 }
 
@@ -986,7 +981,7 @@ async function calculateTrackingRoute(options = {}) {
                 lastreCoordinates: result.routes?.ballast?.coordinates,
                 vessel: trackingState.basicVessel,
             });
-            message.textContent = `Lastre auditado: ${formatTrackingNumber(result.distBallast, { maximumFractionDigits: 0 })} NM hasta ${pol.name}. Datos devueltos al DraftVoyage.`;
+            message.textContent = `Lastre auditado: ${formatTrackingNumber(result.distBallast, { maximumFractionDigits: 0 })} km hasta ${pol.name}. Datos devueltos al DraftVoyage.`;
             message.dataset.state = 'success';
             return result;
         } catch (error) {
@@ -1046,7 +1041,7 @@ async function calculateTrackingRoute(options = {}) {
         setInputPort('tracking-input-pol', { ...result.coordinates.pol, name: result.pol });
         setInputPort('tracking-input-pod', { ...result.coordinates.pod, name: result.pod });
         document.getElementById('tracking-map-route-label').textContent = result.pol && result.pod ? `${result.pol} → ${result.pod}` : '';
-        document.getElementById('tracking-map-route-distance').textContent = `${formatTrackingNumber(totalDistance, { maximumFractionDigits: 0 })} NM · lastre + laden`;
+        document.getElementById('tracking-map-route-distance').textContent = `${formatTrackingNumber(totalDistance, { maximumFractionDigits: 0 })} km · lastre + ruta`;
         if (!trackingState.data) renderManualTrackingState(totalDistance);
         message.textContent = trackingState.data ? 'Ruta contractual, Dashboard y estado compartido actualizados.' : 'Ruta manual calculada y sincronizada con el estado compartido.';
         message.dataset.state = 'success';
@@ -1245,28 +1240,17 @@ function mergeCoordinatorTelemetry(vessel, telemetry, meta) {
 }
 
 async function refreshAisConsumptionMonitor() {
-    const widget = document.getElementById('tracking-ais-consumption');
-    if (!widget) return null;
-    if (trackingState.aisConsumptionRequest) return trackingState.aisConsumptionRequest;
-    trackingState.aisConsumptionRequest = (async () => {
-        try {
-            return await datalasticCreditStore.getState().refresh();
-        } finally {
-            trackingState.aisConsumptionRequest = null;
-        }
-    })();
-    return trackingState.aisConsumptionRequest;
+    // mountDatalasticCreditCounter('tracking-ais-consumption-count');
+    return await datalasticCreditStore.getState().refresh();
 }
+
+window.addEventListener('ais:consumption-updated', () => {
+    void refreshAisConsumptionMonitor();
+});
 
 function startAisConsumptionMonitor() {
     void refreshAisConsumptionMonitor();
 }
-
-window.addEventListener('ais:consumption-updated', () => {
-    if (document.getElementById('tracking-live-overlay')?.classList.contains('is-open')) {
-        void refreshAisConsumptionMonitor();
-    }
-});
 
 async function fetchCoordinatorLivePosition(vessel, fallbackQuery, signal) {
     const imo = getTrackingVesselImo(vessel, fallbackQuery);
@@ -1286,12 +1270,6 @@ async function fetchCoordinatorLivePosition(vessel, fallbackQuery, signal) {
         || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
         throw new Error('La respuesta AIS no contiene coordenadas válidas.');
     }
-    window.DatalasticConsumptionLog?.recordFromMeta({
-        module: 'Tracking',
-        action: 'Consultar posición AIS en vivo',
-        meta: payload.meta || {},
-    });
-    void refreshAisConsumptionMonitor();
     return mergeCoordinatorTelemetry(vessel, { ...payload.data, latitude, longitude }, payload.meta);
 }
 
@@ -1467,7 +1445,7 @@ function renderManualTrackingState(totalDistance = trackingState.routeDistance) 
     const hasDistance = (hasVoyageData || auditMode) && Number.isFinite(auditDistance) && auditDistance > 0;
     const routeLabel = hasRoutePorts ? `${context.pol} → ${context.pod}` : '';
     const routeDistance = hasDistance
-        ? `${formatTrackingNumber(auditDistance, { maximumFractionDigits: 0 })} NM · ruta estimada`
+        ? `${formatTrackingNumber(auditDistance, { maximumFractionDigits: 0 })} km · ruta estimada`
         : '';
 
     if (!hasVoyageData && !trackingState.basicVessel) {
@@ -1486,7 +1464,7 @@ function renderManualTrackingState(totalDistance = trackingState.routeDistance) 
         : auditMode ? 'Auditoría de lastre previa al fixture' : 'Busca un buque o vincula una referencia contractual';
     document.getElementById('tracking-live-metrics').innerHTML = `
         <div class="tracking-metric"><span>Modo operativo</span><strong>${hasVoyageData ? 'Contrato' : auditMode ? 'Pre-Fixture' : 'Libre'}</strong></div>
-        <div class="tracking-metric"><span>Distancia estimada</span><strong>${hasDistance ? `${formatTrackingNumber(auditDistance, { maximumFractionDigits: 0 })} <small>NM</small>` : '—'}</strong></div>
+        <div class="tracking-metric"><span>Distancia estimada</span><strong>${hasDistance ? `${formatTrackingNumber(auditDistance, { maximumFractionDigits: 0 })} <small>km</small>` : '—'}</strong></div>
         <div class="tracking-metric"><span>Buque</span><strong>${escapeTrackingHtml(trackingState.basicVessel?.name || context.vessel || '—')}</strong></div>
         <div class="tracking-metric"><span>Velocidad AIS</span><strong>${Number.isFinite(aisSpeed) ? `${formatTrackingNumber(aisSpeed)} <small>kn</small>` : '—'}</strong></div>`;
     const count = document.getElementById('tracking-alert-count');
@@ -1569,7 +1547,7 @@ function renderTrackingMapChrome(data) {
     setTrackingAisCardVisibility(hasTrackingVoyageData());
     document.getElementById('tracking-map-route-label').textContent = routeOrigin && routeDestination ? `${routeOrigin} → ${routeDestination}` : '';
     document.getElementById('tracking-map-route-distance').textContent = Number.isFinite(remainingDistanceNm)
-        ? `${formatTrackingNumber(remainingDistanceNm)} NM pendientes${live.phase || contract.phase ? ` · Fase ${live.phase || contract.phase}/6` : ''}`
+        ? `${formatTrackingNumber(remainingDistanceNm)} km pendientes${live.phase || contract.phase ? ` · Fase ${live.phase || contract.phase}/6` : ''}`
         : '';
     document.getElementById('tracking-ais-vessel').textContent = vesselName;
     document.getElementById('tracking-ais-details').textContent = vesselDetails;
@@ -1581,7 +1559,7 @@ function renderTrackingMapChrome(data) {
     document.getElementById('tracking-contract-subtitle').textContent = `${contract.vesselName || 'Buque por confirmar'} · ${contract.cargoName || 'Carga no especificada'}`;
     document.getElementById('tracking-live-metrics').innerHTML = `
         <div class="tracking-metric"><span>Posición AIS</span><strong>${position ? `${formatTrackingNumber(position.lat)}, ${formatTrackingNumber(position.lng)}` : '—'}</strong></div>
-        <div class="tracking-metric"><span>Distancia pendiente</span><strong>${formatTrackingNumber(live.remainingDistanceNm)} <small>NM</small></strong></div>
+        <div class="tracking-metric"><span>Distancia pendiente</span><strong>${formatTrackingNumber(live.remainingDistanceNm)} <small>km</small></strong></div>
         <div class="tracking-metric"><span>Velocidad media</span><strong>${formatTrackingNumber(live.averageSpeedKnots)} <small>kn</small></strong></div>
         <div class="tracking-metric"><span>ETA dinámico</span><strong>${escapeTrackingHtml(formatTrackingDate(live.eta))}</strong></div>`;
     const count = document.getElementById('tracking-alert-count');

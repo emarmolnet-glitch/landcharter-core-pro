@@ -478,14 +478,15 @@
         const start = normalizeRoutePoint(origin);
         const end = normalizeRoutePoint(destination);
         if (!start || !end) return null;
-        const earthRadiusNm = 3440.065;
+        const earthRadiusKm = 6371; // Radio de la Tierra en km
         const deltaLat = toRadians(end.lat - start.lat);
         const deltaLng = toRadians(end.lng - start.lng);
         const startLat = toRadians(start.lat);
         const endLat = toRadians(end.lat);
         const haversine = Math.sin(deltaLat / 2) ** 2
             + Math.cos(startLat) * Math.cos(endLat) * Math.sin(deltaLng / 2) ** 2;
-        return earthRadiusNm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(Math.max(0, 1 - haversine)));
+        // Distancia terrestre adaptada con sinuosidad de carretera (~1.2)
+        return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(Math.max(0, 1 - haversine))) * 1.2;
     }
 
     function getVesselTacticalMetrics(view, vessel) {
@@ -523,9 +524,9 @@
 
     function getVesselTacticalLabel(view, vessel) {
         const metrics = getVesselTacticalMetrics(view, vessel);
-        const name = escapeTooltipText(vessel?.name || vessel?.vesselName || 'Buque sin nombre');
+        const name = escapeTooltipText(vessel?.name || vessel?.vesselName || 'Vehículo sin nombre');
         const distance = Number.isFinite(metrics.distanceNm)
-            ? `${Math.round(metrics.distanceNm).toLocaleString('en-US')} NM`
+            ? `${Math.round(metrics.distanceNm).toLocaleString('en-US')} km`
             : 'N/D';
         const heading = Number.isFinite(vessel?.heading)
             ? `${Math.round(vessel.heading)}° ${escapeTooltipText(vessel.headingSource || '')}`.trim()
@@ -533,10 +534,10 @@
         const imo = String(vessel?.imo || '').trim();
         const dwt = Number(vessel?.dwt);
         const registry = [
-            imo && imo !== 'N/A' ? `IMO ${escapeTooltipText(imo)}` : '',
-            Number.isFinite(dwt) && dwt > 0 ? `DWT ${Math.round(dwt).toLocaleString('en-US')}` : ''
+            imo && imo !== 'N/A' ? `ID ${escapeTooltipText(imo)}` : '',
+            Number.isFinite(dwt) && dwt > 0 ? `Carga ${Math.round(dwt).toLocaleString('en-US')} kg` : ''
         ].filter(Boolean).join(' · ');
-        return `<div class="global-fleet-tooltip global-fleet-tooltip--tactical"><strong>${name}</strong>${registry ? `<span>${registry}</span>` : ''}<span>Distancia al POL · ${distance}</span><span>ETA al POL · ${formatEtaDays(metrics.etaDays)}</span><span>Rumbo · ${heading}</span></div>`;
+        return `<div class="global-fleet-tooltip global-fleet-tooltip--tactical"><strong>${name}</strong>${registry ? `<span>${registry}</span>` : ''}<span>Distancia al Origen · ${distance}</span><span>ETA al Origen · ${formatEtaDays(metrics.etaDays)}</span><span>Rumbo · ${heading}</span></div>`;
     }
 
     function createVesselThreeObject(view, vessel) {

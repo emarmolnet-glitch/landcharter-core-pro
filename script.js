@@ -5,14 +5,15 @@
 
 console.log("Land Charter Core PRO: Ultimate Engine Loaded.");
 
-// 1. DISTANCE CALCULATION (GEOFENCING)
-function calculateDistanceNM(lat1, lon1, lat2, lon2) { 
-const R = 3440.065; 
+// 1. DISTANCE CALCULATION (GEOFENCING TERRESTRE)
+function calculateDistanceKM(lat1, lon1, lat2, lon2) { 
+const R = 6371; // Radio terrestre en km
 const dLat = (lat2 - lat1) * Math.PI / 180; 
 const dLon = (lon2 - lon1) * Math.PI / 180; 
 const a = Math.sin(dLat / 2)**2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2)**2; 
-return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))) * 1.2;
 }
+const calculateDistanceNM = calculateDistanceKM;
 
 // 2. PROCESSING ENGINE (THE MASTER LOGIC)
 async function executeMatchMotor(RadarList) { 
@@ -92,7 +93,7 @@ return `
 
 <h3>${buque.nombre || "Buque"} | Confianza: ${buque.nivel}</h3>
 
-<p><strong>Distancia:</strong> ${buque.distancia.toFixed(0)} NM</p>
+<p><strong>Distancia:</strong> ${buque.distancia.toFixed(0)} km</p>
 
 <p><strong>Estado:</strong> ${buque.diagnostico.estado || "Under Tracking"}</p>
 
@@ -172,6 +173,7 @@ return defaultResponse;
 
 // Expose definitions globally and support Node.js exports for integration and test safety
 const globalObj = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : {});
+globalObj.calculateDistanceKM = calculateDistanceKM;
 globalObj.calculateDistanceNM = calculateDistanceNM;
 globalObj.executeMatchMotor = executeMatchMotor;
 globalObj.renderFicha = renderFicha;
@@ -179,6 +181,7 @@ globalObj.auditOperationAI = auditOperationAI;
 
 if (typeof module !== 'undefined' && module.exports) {
 module.exports = {
+calculateDistanceKM,
 calculateDistanceNM,
 executeMatchMotor,
 renderFicha,

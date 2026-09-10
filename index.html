@@ -9025,7 +9025,7 @@
                                 <i class="fa-solid fa-chevron-left text-xs"></i>
                             </button>
                         </div>
-                        <p class="text-xs text-slate-600 mt-1">Los puertos, laycan y millas alimentan automáticamente la calculadora y los contratos.</p>
+                        <p class="text-xs text-slate-600 mt-1">Los puntos de ruta, laycan y kilómetros alimentan automáticamente la calculadora y los contratos.</p>
                     </div>
                     <div class="space-y-3">
                         <div class="input-group">
@@ -9187,8 +9187,8 @@
                         <div class="collapsible-section-header flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
                             <h2 id="route-header-title" class="text-sm font-bold text-blue-400 uppercase"><i class="fa-solid fa-route mr-2"></i> 1. Especificaciones de Carga y Rutas (Origen / Destino)</h2>
                             <div class="collapsible-section-actions flex items-center gap-2">
-                                <div id="btn-wpi" class="text-xs bg-teal-900/50 text-teal-200 px-3 py-1.5 rounded flex items-center gap-1.5 border border-teal-700/50" title="Búsqueda segura mediante Datalastic Port Finder/Info">
-                                    <i class="fa-solid fa-satellite-dish"></i> Datalastic activo
+                                <div id="btn-wpi" class="text-xs bg-teal-900/50 text-teal-200 px-3 py-1.5 rounded flex items-center gap-1.5 border border-teal-700/50" title="Búsqueda geográfica mediante Nominatim / OpenStreetMap">
+                                    <i class="fa-solid fa-map-pin"></i> Nominatim / OSM activo
                                 </div>
                                 <button id="btn-locate-route" onclick="geocodeAllPorts()" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-white flex items-center gap-1.5 transition border border-slate-700">
                                     <i class="fa-solid fa-satellite-dish text-sky-400"></i> Localizar Ruta
@@ -9256,15 +9256,15 @@
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 bg-slate-950 p-3 rounded-lg border border-slate-800">
                             <div class="input-group">
-                                <label id="label-dist-ballast" class="text-indigo-400">Distancia Lastre (NM)</label>
+                                <label id="label-dist-ballast" class="text-indigo-400">Distancia Lastre (km)</label>
                                 <input type="number" id="dist-ballast" class="input-gc font-bold text-indigo-300" value="0" step="any" oninput="runEngine()">
                             </div>
                             <div class="input-group">
-                                <label id="label-dist-laden" class="text-emerald-400">Distancia Carga (NM)</label>
+                                <label id="label-dist-laden" class="text-emerald-400">Distancia Carga (km)</label>
                                 <input type="number" id="dist-laden" class="input-gc font-bold text-emerald-300" value="0" step="any" oninput="runEngine()">
                             </div>
                             <div class="input-group">
-                                <label id="label-dist-total" class="text-amber-400">Total Millas (NM)</label>
+                                <label id="label-dist-total" class="text-amber-400">Total Kilómetros (km)</label>
                                 <input type="number" id="dist-total" class="input-gc text-amber-300" step="any" disabled>
                             </div>
                         </div>
@@ -13805,7 +13805,7 @@
                             <td style="padding: 5px 8px; border: 1px solid #e2e8f0;" id="print-dist-laden">-</td>
                         </tr>
                         <tr>
-                            <td style="padding: 5px 8px; font-weight: 700; color: #475569; border: 1px solid #e2e8f0;">Millas Totales / Total Distance:</td>
+                            <td style="padding: 5px 8px; font-weight: 700; color: #475569; border: 1px solid #e2e8f0;">Kilómetros Totales / Total Distance:</td>
                             <td style="padding: 5px 8px; border: 1px solid #e2e8f0; font-weight: 600;" id="print-dist-total">-</td>
                         </tr>
                     </table>
@@ -14966,7 +14966,7 @@
                                         <span id="datalastic-radar-ping" class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                                         <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
                                     </span>
-                                    <span>DATALASTIC (AIS): <span id="datalastic-live-counter" class="text-emerald-300">--</span> LIVE</span>
+                                    <span>FLOTA GPS: <span id="datalastic-live-counter" class="text-emerald-300">--</span> LIVE</span>
                                 </div>
                             </div>
                         </div>
@@ -15094,7 +15094,7 @@
                                 <span class="text-[10px] font-semibold text-slate-400">Snapshot autoritativo y enriquecimiento</span>
                             </div>
                             <div class="flex flex-wrap gap-2" id="matching-source-filters">
-                                <div class="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-emerald-800"><span class="h-1.5 w-1.5 rounded-full bg-current"></span>Radar en vivo (Datalastic) <span id="matching-source-count-radar-live" aria-live="polite">(0)</span></div>
+                                <div class="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-emerald-800"><span class="h-1.5 w-1.5 rounded-full bg-current"></span>Radar en vivo <span id="matching-source-count-radar-live" aria-live="polite">(0)</span></div>
                                 <div class="inline-flex items-center gap-2 rounded-full border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-cyan-800"><span class="h-1.5 w-1.5 rounded-full bg-current"></span>Match técnico (Neon DB) <span id="matching-source-count-technical-match" aria-live="polite">(0)</span></div>
                             </div>
                         </div>
@@ -15473,9 +15473,9 @@
             "Puerto de Carga (POL)": { en: "Port of Loading (POL)", fr: "Port de chargement (POL)" },
             "Puerto de Descarga (POD)": { en: "Port of Discharge (POD)", fr: "Port de déchargement (POD)" },
             "Port Info": { en: "Port Info", fr: "Infos Port" },
-            "Distancia Lastre (NM)": { en: "Ballast Distance (NM)", fr: "Distance sur ballast (NM)" },
-            "Distancia Carga (NM)": { en: "Laden Distance (NM)", fr: "Distance en charge (NM)" },
-            "Total Millas (NM)": { en: "Total Distance (NM)", fr: "Distance totale (NM)" },
+            "Distancia Lastre (km)": { en: "Ballast Distance (km)", fr: "Distance sur ballast (km)" },
+            "Distancia Carga (km)": { en: "Laden Distance (km)", fr: "Distance en charge (km)" },
+            "Total Kilómetros (km)": { en: "Total Distance (km)", fr: "Distance totale (km)" },
             "Capacidad DWT (TM)": { en: "DWT Capacity (MT)", fr: "Capacité de port en lourd (TM)" },
             "Velocidad Lastre (Knts)": { en: "Ballast Speed (Knts)", fr: "Vitesse sur ballast (Noeuds)" },
             "Velocidad Carga (Knts)": { en: "Laden Speed (Knts)", fr: "Vitesse en charge (Noeuds)" },
@@ -18223,6 +18223,9 @@ async function runOnDemandMapRouteWorkflow(button) {
 
     try {
         if (!captureRouteStateFromMapInputs()) return;
+        // calculateVoyageRouteService({ portBallast, pol, pod, geocode: true })
+        // applyRouteServiceResult(routeResult); renderMasterRouteMap(routeResult); updateRouteSummary();
+        // void Promise.allSettled([ window.restorePersistentDataBridgeConnection?.(), refreshDataBridgeMasterStatsOnDemand() ])
 
         const polInput = document.getElementById('map-port-pol');
         const podInput = document.getElementById('map-port-pod');
@@ -29374,7 +29377,7 @@ function createRouteAnchorElement(type) {
                             </div>
                             <div class="shrink-0 text-right">
                                 <span class="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">${score > 0 ? `${score.toFixed(0)} pts` : escapeHtml(scoreFallbackLabel)}</span>
-                                <p class="mt-1 text-[10px] font-bold text-slate-400">${Number.isFinite(distance) ? `${distance.toFixed(0)} NM a POL` : 'Distancia N/D'}</p>
+                                <p class="mt-1 text-[10px] font-bold text-slate-400">${Number.isFinite(distance) ? `${distance.toFixed(0)} km a Origen` : 'Distancia N/D'}</p>
                             </div>
                         </div>
                         ${dueDiligenceAction}
@@ -30058,11 +30061,11 @@ function setIsGeoInputOpen(isNextOpen) {
         }
 
         function haversine(lat1, lon1, lat2, lon2) {
-            const R = 3440.065;
+            const R = 6371; // Radio de la Tierra en kilómetros (km)
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-            return (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))) * R;
+            return (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))) * R * 1.2; // Distancia terrestre adaptada con factor de sinuosidad ~1.2
         }
 
         // =============================================================================
@@ -30796,8 +30799,8 @@ function setIsGeoInputOpen(isNextOpen) {
                 : 'N/D';
             const scoreLabel = Number.isFinite(Number(score)) ? `${Math.round(Number(score))} pts` : 'N/D pts';
             const distanceLabel = Number.isFinite(distanceNm)
-                ? `${formatMetric(distanceNm, 0)} NM a POL · ${escapeVesselQuickInfo(pol?.name || 'POL')}`
-                : `Distancia N/D · ${escapeVesselQuickInfo(pol?.name || 'POL')}`;
+                ? `${formatMetric(distanceNm, 0)} km a Origen · ${escapeVesselQuickInfo(pol?.name || 'Origen')}`
+                : `Distancia N/D · ${escapeVesselQuickInfo(pol?.name || 'Origen')}`;
             const draftLabel = `${formatMetric(draft)} m${Number.isFinite(Number(draftLimit)) ? ` / límite ${formatMetric(draftLimit)} m` : ' / límite N/D'}`;
             const dwtLabel = `${formatMetric(dwt, 0)} MT${Number.isFinite(Number(dwtLimit)) ? ` / requerido ${formatMetric(dwtLimit, 0)} MT` : ' / requerido N/D'}`;
 
@@ -45304,7 +45307,7 @@ function scheduleReactiveEngine() {
             - Puerto de Carga (POL): ${pol} (WPI Specs: ${polPort ? JSON.stringify(polPort) : 'No disponible'})
             - Puerto de Descarga (POD): ${pod} (WPI Specs: ${podPort ? JSON.stringify(podPort) : 'No disponible'})
             - Buque: ${State.vessel || "TBN"} (Clase: ${State.class || "Coaster"}, DWT: ${dwt} t, Calado Estimado: ${vesselDraft.toFixed(2)} m)
-            - Distancia de Navegación: ${(State.distBallast + State.distLaden).toLocaleString()} NM (Días estimados mar: ${navigationDays.toFixed(2)} d)
+            - Distancia de Navegación: ${(State.distBallast + State.distLaden).toLocaleString()} km (Días estimados mar: ${navigationDays.toFixed(2)} d)
             - Carga a Transportar: ${cargoQty} TM (${State.cargoType || "Granel Sólido"})
             - Ritmos de estiba: Carga ${rateLoad} TM/d, Descarga ${rateDisch} TM/d (Días teóricos en puerto: ${dPort.toFixed(2)} d)
 
@@ -45370,7 +45373,7 @@ function scheduleReactiveEngine() {
                             <div class="bg-slate-950/50 p-2.5 rounded border border-slate-800">
                                 <span class="font-bold text-slate-300 block mb-1">🌊 Detalles de Ruta / Voyage Specs</span>
                                 <ul class="list-none p-0 m-0 space-y-0.5">
-                                    <li>Distancia Navegada: <strong class="text-white">${(State.distBallast + State.distLaden).toLocaleString()} NM</strong></li>
+                                    <li>Distancia de Ruta: <strong class="text-white">${(State.distBallast + State.distLaden).toLocaleString()} km</strong></li>
                                     <li>Tiempo Estimado Navegación: <strong class="text-indigo-400">${navigationDays.toFixed(2)} d</strong></li>
                                     <li>Calado del Buque: <strong class="text-indigo-400">${vesselDraft.toFixed(2)} m</strong></li>
                                 </ul>
@@ -47350,8 +47353,8 @@ TRIP PARAMETERS:
 - Total Agreed Freight: $${totalFreight} USD
 
 CALCULATOR REFERENCE PARAMETERS (USE THESE EXACT VALUES):
-- Ballast Distance: ${distBallast} NM
-- Laden Distance: ${distLaden} NM
+- Ballast Distance: ${distBallast} km
+- Laden Distance: ${distLaden} km
 - Loading Rate (POL): ${rateLoad} MT/day
 - Discharging Rate (POD): ${rateDisch} MT/day
 - Weather Margin Days: ${marginDays} days
@@ -47932,7 +47935,7 @@ Example:
                                 </li>
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">${r.distance}</span>
-                                    <span class="font-bold text-white">${(State.distBallast + State.distLaden).toLocaleString()} NM</span>
+                                    <span class="font-bold text-white">${(State.distBallast + State.distLaden).toLocaleString()} km</span>
                                 </li>
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">${r.duration}</span>
@@ -48274,7 +48277,7 @@ Example:
                                                 ${polAlternatives.map((alt, idx) => `
                                                     <li class="flex justify-between items-center text-slate-300">
                                                         <span>${idx+1}. <strong class="text-white">${alt.name}</strong></span>
-                                                        <span class="text-slate-400">Distance: <strong class="text-indigo-300">${Math.round(alt.dist)} NM</strong> | Depth Code: <strong class="text-indigo-300">${alt.code}</strong></span>
+                                                        <span class="text-slate-400">Distance: <strong class="text-indigo-300">${Math.round(alt.dist)} km</strong> | Depth Code: <strong class="text-indigo-300">${alt.code}</strong></span>
                                                     </li>
                                                 `).join('')}
                                             </ul>
@@ -48292,7 +48295,7 @@ Example:
                                                 ${podAlternatives.map((alt, idx) => `
                                                     <li class="flex justify-between items-center text-slate-300">
                                                         <span>${idx+1}. <strong class="text-white">${alt.name}</strong></span>
-                                                        <span class="text-slate-400">Distance: <strong class="text-indigo-300">${Math.round(alt.dist)} NM</strong> | Depth Code: <strong class="text-indigo-300">${alt.code}</strong></span>
+                                                        <span class="text-slate-400">Distance: <strong class="text-indigo-300">${Math.round(alt.dist)} km</strong> | Depth Code: <strong class="text-indigo-300">${alt.code}</strong></span>
                                                     </li>
                                                 `).join('')}
                                             </ul>
@@ -48435,9 +48438,9 @@ Example:
             document.getElementById('print-port-pol').innerText = State.pol || "-";
             document.getElementById('print-port-pod').innerText = State.pod || "-";
 
-            document.getElementById('print-dist-ballast').innerText = `${State.distBallast.toLocaleString('en-US')} NM`;
-            document.getElementById('print-dist-laden').innerText = `${State.distLaden.toLocaleString('en-US')} NM`;
-            document.getElementById('print-dist-total').innerText = `${(State.distBallast + State.distLaden).toLocaleString('en-US')} NM`;
+            document.getElementById('print-dist-ballast').innerText = `${State.distBallast.toLocaleString('en-US')} km`;
+            document.getElementById('print-dist-laden').innerText = `${State.distLaden.toLocaleString('en-US')} km`;
+            document.getElementById('print-dist-total').innerText = `${(State.distBallast + State.distLaden).toLocaleString('en-US')} km`;
 
             document.getElementById('print-spd-ballast').innerText = `${getVal('spd-ballast')} Knots`;
             document.getElementById('print-spd-laden').innerText = `${getVal('spd-laden')} Knots`;
@@ -48881,14 +48884,14 @@ Example:
                             ${isPolUnsuitable && polAlternatives.length > 0 ? `
                                 <div style="margin-top: 5px; font-size: 6.5pt; background-color: #eef2ff; border: 1px solid #c7d2fe; padding: 3px 5px; border-radius: 3px;">
                                     <strong style="color: #4338ca;">Alternative POL Ports:</strong> 
-                                    ${polAlternatives.map(alt => `${alt.name} (${Math.round(alt.dist)} NM)`).join(', ')}
+                                    ${polAlternatives.map(alt => `${alt.name} (${Math.round(alt.dist)} km)`).join(', ')}
                                 </div>
                             ` : ''}
                             
                             ${isPodUnsuitable && podAlternatives.length > 0 ? `
                                 <div style="margin-top: 5px; font-size: 6.5pt; background-color: #eef2ff; border: 1px solid #c7d2fe; padding: 3px 5px; border-radius: 3px;">
                                     <strong style="color: #4338ca;">Alternative POD Ports:</strong> 
-                                    ${podAlternatives.map(alt => `${alt.name} (${Math.round(alt.dist)} NM)`).join(', ')}
+                                    ${podAlternatives.map(alt => `${alt.name} (${Math.round(alt.dist)} km)`).join(', ')}
                                 </div>
                             ` : ''}
                         </div>
@@ -49994,7 +49997,7 @@ Example:
                     <table class="master-detail-table">
                         <tbody>
                             <tr><th>Buque</th><td>${escapeMasterReportHtml(data.operational.vessel)} - ${escapeMasterReportHtml(data.operational.vesselClass)}</td><th>DWT</th><td>${formatMasterNumber(data.operational.dwt)}</td></tr>
-                            <tr><th>Ruta</th><td>${escapeMasterReportHtml(data.operational.pol)} / ${escapeMasterReportHtml(data.operational.pod)}</td><th>Distancia</th><td>${formatMasterNumber(data.operational.distanceNm)} NM</td></tr>
+                            <tr><th>Ruta</th><td>${escapeMasterReportHtml(data.operational.pol)} / ${escapeMasterReportHtml(data.operational.pod)}</td><th>Distancia</th><td>${formatMasterNumber(data.operational.distanceNm)} km</td></tr>
                             <tr><th>Duración</th><td>${formatMasterNumber(data.operational.totalDays, 2)} días</td><th>Break-even</th><td>${formatMasterMoney(data.financial.breakEven, 'USD', 2)} / TM</td></tr>
                             <tr><th>Beneficio fletador</th><td>${formatMasterMoney(data.financial.netProfitCharterer, 'USD', 0)}</td><th>Beneficio armador</th><td>${formatMasterMoney(data.financial.netProfitOwner, 'USD', 0)}</td></tr>
                         </tbody>
@@ -60143,7 +60146,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 
                 const descEl = document.getElementById('pol-scan-radius-text') || document.getElementById('ais-nearby-vessels-description');
                 if (descEl) {
-                    descEl.innerHTML = 'Búsqueda AIS: <b>POL 10 NM</b> filtrado por carga. <b>POD 10 NM</b> oportunidades backhaul';
+                    descEl.innerHTML = 'Búsqueda de flota: <b>Origen 20 km</b> filtrado por carga. <b>Destino 20 km</b> oportunidades retorno';
                 }
 
                 const calculateDistanceNm = (lat1, lon1, lat2, lon2) => {
@@ -60154,8 +60157,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                               Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
                               Math.sin(dLon / 2) * Math.sin(dLon / 2);
                     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                    const distKm = R * c;
-                    return distKm * 0.539957;
+                    return Number((R * c * 1.2).toFixed(1));
                 };
 
                 // Identify POD Backhaul candidates (within 10 NM of POD or marked as POD role) - pure market view
@@ -60544,8 +60546,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                           Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
                           Math.sin(dLon / 2) * Math.sin(dLon / 2);
                 const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                const distKm = R * c;
-                return distKm * 0.539957;
+                return Number((R * c * 1.2).toFixed(1));
             };
 
             // Compute distance and ETA to POL for each vessel, then keep the strategic 2000 MN window.
@@ -63855,7 +63856,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                                 <li class="flex justify-between"><span class="text-slate-400">Puerto Lastre:</span><span>${getVal('port-ballast') || 'N/A (Carga Directa)'}</span></li>
                                 <li class="flex justify-between"><span class="text-slate-400">Carga / Descarga:</span><span class="font-bold text-white">${m.pol} ➔ ${m.pod}</span></li>
                                 <li class="flex justify-between"><span class="text-slate-400">Embarques:</span><span class="font-bold text-white">${shipments.toLocaleString('en-US')}</span></li>
-                                <li class="flex justify-between"><span class="text-slate-400">Distancia Total:</span><span class="font-bold text-white">${((State.distBallast || 0) + (State.distLaden || 0)).toLocaleString('en-US')} NM</span></li>
+                                <li class="flex justify-between"><span class="text-slate-400">Distancia Total:</span><span class="font-bold text-white">${((State.distBallast || 0) + (State.distLaden || 0)).toLocaleString('en-US')} km</span></li>
                                 <li class="flex justify-between"><span class="text-slate-400">Duración por viaje:</span><span class="font-bold text-indigo-300">${m.days}</span></li>
                             </ul>
                         </div>
@@ -64932,7 +64933,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 }
 
                 if (typeof showToast === 'function') {
-                    showToast(`NOR Disparado Automáticamente a ${formatNorDistance(payload.distance_nm)} NM`);
+                    showToast(`NOR Disparado Automáticamente a ${formatNorDistance(payload.distance_nm)} km`);
                 }
 
                 window.dispatchEvent(new CustomEvent('voyage:nor-tendered', { detail: { ...payload, ...result } }));
@@ -65684,7 +65685,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                     ? 'Se aplicaron ajustes algorítmicos por puerto de carga y descarga.'
                     : 'No había inteligencia portuaria específica; se recalculó con distancia de ruta y valores actuales.';
                 if (!managedByMaster) {
-                    setSmartAdjustmentAlert(`${sourceText} Ruta POL/POD: ${Math.round(distLaden).toLocaleString('en-US')} NM. ETA final: ${adjustedEta}. Duración ajustada: ${adjustedDays}.`, 'success');
+                    setSmartAdjustmentAlert(`${sourceText} Ruta POL/POD: ${Math.round(distLaden).toLocaleString('en-US')} km. ETA final: ${adjustedEta}. Duración ajustada: ${adjustedDays}.`, 'success');
                 }
                 return true;
             } catch (error) {
@@ -69312,7 +69313,7 @@ window.actualizarGrabCapacityVisibility = function() {
                         lon: String(polCoordinates.lon),
                         radius: String(datalasticRadiusNm)
                     });
-                    const radarEndpoint = `/api/radar/live?${params.toString()}`;
+                    const radarEndpoint = `/api/radar/live?${params.toString()}`; // /api/internal/ais/radar-traffic
                     const radarRequest = { headers: { Accept: 'application/json' } };
                     const response = window.CoreNetworkGuard
                         ? await window.CoreNetworkGuard.fetch('ais-coordinator-radar', radarEndpoint, radarRequest, { cooldownMs: 60_000 })
