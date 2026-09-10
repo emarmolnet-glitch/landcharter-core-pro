@@ -1701,7 +1701,7 @@
                 input.classList.toggle('bg-white', isEstimated);
                 input.classList.toggle('border-sky-400', isEstimated);
                 input.classList.toggle('text-blue-700', isEstimated);
-                input.title = isEstimated ? 'Valor estimado por SeaCharter Core PRO basado en DWT' : '';
+                input.title = isEstimated ? 'Valor estimado por Land Charter Core PRO basado en DWT' : '';
             });
 
             const opexBadge = this.el('opex-auto-estimated-badge');

@@ -1,5 +1,5 @@
 /**
- * Absolute API and Environment Configuration for SeaCharter Core PRO.
+ * Absolute API and Environment Configuration for Land Charter Core PRO.
  * Resolves local file:// and Electron calls to the absolute Netlify production endpoint
  * while preserving relative paths for web browser deployments on Netlify.
  */

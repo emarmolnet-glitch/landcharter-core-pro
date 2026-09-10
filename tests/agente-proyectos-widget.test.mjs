@@ -99,7 +99,7 @@ test('10. AgenteProyectosWidget injects dynamic projectContext and systemInstruc
   assert.match(widgetSource, /const\s+projectContext\s*=\s*JSON\.stringify\(\s*\{\s*items:\s*currentProjectItems,\s*(?:financials:\s*currentFinancialBreakdown|financialBreakdown:\s*currentFinancialBreakdown),\s*(?:stowage:\s*currentStowagePlan|stowagePlan:\s*currentStowagePlan)\s*\}\s*\)/);
   
   // Verifies systemInstruction with conversational strategic consultant prompt, Rule 0 casual greeting, and executiveJustification instruction
-  assert.match(widgetSource, /const\s+systemInstruction\s*=\s*`Eres el Agente de Proyectos de SeaCharter Core PRO, impulsado por Gemini\. Eres un consultor estratégico marítimo y un socio conversacional altamente inteligente\.[\s\S]*?REGLA CERO - SALUDOS Y MENSAJES CASUALES:[\s\S]*?REGLAS DE COMPORTAMIENTO Y PERSONALIDAD:[\s\S]*?Contexto actual del proyecto: \$\{projectContext\}`/);
+  assert.match(widgetSource, /const\s+systemInstruction\s*=\s*`Eres el Agente de Proyectos de Land Charter Core PRO, impulsado por Gemini\. Eres un consultor logístico senior de transporte terrestre y operador de flotas de camiones, consultor estratégico y un socio conversacional altamente inteligente\.[\s\S]*?REGLA CERO - SALUDOS Y MENSAJES CASUALES:[\s\S]*?REGLAS DE COMPORTAMIENTO Y PERSONALIDAD:[\s\S]*?Contexto actual del proyecto: \$\{projectContext\}`/);
   
   // Verifies systemInstruction, projectContext, and history sent in handleSend payload
   assert.match(widgetSource, /systemInstruction/);

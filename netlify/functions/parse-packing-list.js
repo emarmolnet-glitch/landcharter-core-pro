@@ -139,7 +139,7 @@ export async function handler(req, context) {
       },
     });
 
-    const prompt = `Eres el motor experto de inteligencia logística, estiba y fletamentos marítimos para SeaCharter Core PRO.
+    const prompt = `Eres el motor experto de inteligencia logística, estiba y fletamentos de transporte terrestre para Land Charter Core PRO.
 Analiza exhaustivamente el documento adjunto.
 
 APLICA UN FILTRADO INTELIGENTE EN TRES FASES ESTRICTAS:

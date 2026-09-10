@@ -42,7 +42,7 @@ export function buildDataBridgeSyncPayload(rawData = {}, timestamp = new Date().
             id: readValue(operation.id),
             timestamp,
             status: 'finalized',
-            source: 'SeaCharter Core PRO - Dual Mode',
+            source: 'Land Charter Core PRO - Dual Mode',
         },
         trading_terms: {
             cargo_qty_mt: readValue(cargo.tonnage),

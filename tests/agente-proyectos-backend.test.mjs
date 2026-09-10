@@ -70,14 +70,14 @@ test('2. buildAgenteProyectosSystemInstruction includes REGLA CERO, behavioral r
 
   const prompt = buildAgenteProyectosSystemInstruction(sampleContext);
 
-  assert.match(prompt, /Eres el Agente de Proyectos de SeaCharter Core PRO, impulsado por Gemini\./);
-  assert.match(prompt, /Eres un consultor estratégico marítimo y un socio conversacional altamente inteligente\./);
+  assert.match(prompt, /Eres el Agente de Proyectos de Land Charter Core PRO, impulsado por Gemini\./);
+  assert.match(prompt, /Eres un consultor logístico senior de transporte terrestre y operador de flotas de camiones/);
   assert.match(prompt, /REGLA CERO - SALUDOS Y MENSAJES CASUALES:/);
   assert.match(prompt, /¡PROHIBIDO! No escupas desgloses financieros, costes ni datos del JSON/);
   assert.match(prompt, /1\. LIBERTAD ESTRATÉGICA Y CONVERSACIONAL:/);
   assert.match(prompt, /buscar cualquier dato en la web en tiempo real/);
   assert.match(prompt, /2\. OPINIÓN CRÍTICA Y ASESORAMIENTO:/);
-  assert.match(prompt, /cruza la información con la web si es necesario, y da tu recomendación profesional como un bróker senior\./);
+  assert.match(prompt, /cruza la información con la web si es necesario, y da tu recomendación profesional como un operador de flotas/);
   assert.match(prompt, /3\. TONO NATURAL:/);
   assert.match(prompt, /CONTEXTO EN VIVO DEL PROYECTO \(USO INTERNO\):/);
   assert.match(prompt, /NUNCA expongas el JSON crudo en tu respuesta\./);

@@ -24,7 +24,7 @@ test('header removes long subtitle under the title', () => {
 test('header title font size is reduced to compact scale', () => {
   assert.match(
     indexSource,
-    /<h1 class="text-xs md:text-sm font-bold text-white tracking-tight">SeaCharter Core PRO <span[^>]*>RODAHMAR ENGINE<\/span><\/h1>/,
+    /<h1 class="text-xs md:text-sm font-bold text-white tracking-tight">Land Charter Core PRO <span[^>]*>RODAHMAR ROAD ENGINE<\/span><\/h1>/,
     'Header title font size must be reduced to text-xs md:text-sm'
   );
 });

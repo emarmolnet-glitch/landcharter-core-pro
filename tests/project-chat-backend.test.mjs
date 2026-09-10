@@ -100,7 +100,7 @@ test('3. buildAgenteProyectosSystemInstruction establishes strategic consultant 
   });
   const prompt = buildAgenteProyectosSystemInstruction(context);
 
-  assert.match(prompt, /consultor estratégico marítimo/);
+  assert.match(prompt, /consultor logístico senior de transporte terrestre/);
   assert.match(prompt, /REGLA CERO - SALUDOS Y MENSAJES CASUALES/);
   assert.match(prompt, /1\. LIBERTAD ESTRATÉGICA Y CONVERSACIONAL/);
   assert.match(prompt, /2\. OPINIÓN CRÍTICA Y ASESORAMIENTO/);

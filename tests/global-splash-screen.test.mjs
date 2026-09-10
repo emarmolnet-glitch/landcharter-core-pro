@@ -8,7 +8,7 @@ const controllerSource = readFileSync(new URL('../src/global-splash-screen.js', 
 test('global splash covers the complete interface from the first body paint', () => {
   assert.match(indexSource, /<body class="[^"]*bg-slate-900[^"]*" data-app-ready="false" aria-busy="true">/);
   assert.match(indexSource, /id="global-splash-screen" class="fixed inset-0 z-50 bg-slate-900"/);
-  assert.match(indexSource, /SeaCharter Core PRO - Iniciando motor\.\.\./);
+  assert.match(indexSource, /Land Charter Core PRO - Iniciando motor\.\.\./);
   assert.match(indexSource, /#global-splash-screen \{[\s\S]*position: fixed;[\s\S]*inset: 0;[\s\S]*z-index: 2147483000 !important;/);
 });
 

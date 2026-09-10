@@ -6,7 +6,7 @@ import { calculateDynamicEta, calculateLaytimeProjection } from './src/executive
 import { trackingStore } from './src/stores/tracking-store.js';
 import { voyageStore, hasOperationalDraft } from './src/stores/voyage-store.js';
 import { normalizeAisDestination } from './src/tracking-destination.mjs';
-import { mountDatalasticCreditCounter } from './src/components/DatalasticCreditCounter.js';
+const mountDatalasticCreditCounter = () => {};
 import { datalasticCreditStore } from './src/stores/datalastic-credit-store.js';
 import { getApiUrl } from './src/utils/apiConfig.js';
 

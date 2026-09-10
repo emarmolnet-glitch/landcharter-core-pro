@@ -941,7 +941,7 @@ class DualTradingCharteringView extends HTMLElement {
                                 <path d="M3 17h18M5 17l2 3h10l2-3M7 14l5-9 5 9M12 5v9"/>
                             </svg>
                         </span>
-                        <span>SeaCharter Core PRO</span>
+                        <span>Land Charter Core PRO</span>
                     </div>
                     <a class="back-link" href="./index.html">
                         <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

@@ -2053,6 +2053,60 @@ function calculateUniversalStowagePlan(items = [], orderTotals = null, options =
     executiveJustification,
   };
 
+  // Motor de Cubicación de Camiones y Metros Lineales (LDM) y Reparto de Pesos por Eje
+  const totalWeightMT = analyzedItems.reduce((acc, it) => acc + (it.totalWtMT || 0), 0) || Number(orderTotals?.totalWeightTons) || 0;
+  const totalWeightKg = Math.round(totalWeightMT * 1000);
+  let totalLdmCalculated = 0;
+  for (const it of analyzedItems) {
+    const qty = it.quantity || 1;
+    const l = it.lengthM || 1.2;
+    const w = it.widthM || 0.8;
+    totalLdmCalculated += ((l * w) / 2.4) * qty;
+  }
+  if (!totalLdmCalculated || totalLdmCalculated <= 0) {
+    totalLdmCalculated = Math.max(0.4, Math.round((totalWeightKg / 1800) * 10) / 10);
+  }
+  totalLdmCalculated = Math.round(totalLdmCalculated * 100) / 100;
+
+  const euroPalletsCount = Math.max(1, Math.ceil(totalLdmCalculated / 0.4));
+  const industrialPalletsCount = Math.max(1, Math.ceil(totalLdmCalculated / 0.5));
+  const trucksRequired = Math.max(1, Math.ceil(Math.max(totalLdmCalculated / 13.6, totalWeightMT / 24)));
+  const payloadPerTruckKg = Math.min(24000, Math.round(totalWeightKg / trucksRequired));
+
+  const steeringAxleKg = Math.min(7500, Math.round(4800 + payloadPerTruckKg * 0.15));
+  const driveAxleKg = Math.min(11500, Math.round(2700 + payloadPerTruckKg * 0.35));
+  const trailerTridemKg = Math.min(24000, Math.round(7000 + payloadPerTruckKg * 0.50));
+  const totalMmaKg = steeringAxleKg + driveAxleKg + trailerTridemKg;
+
+  stowagePlan.truckLdmOptimization = {
+    standardTrailer: 'Semirremolque Tauliner Estándar (13.60m x 2.48m x 2.70m, 91 m³)',
+    maxLdmPerTrailer: 13.6,
+    maxPayloadKgPerTrailer: 24000,
+    calculatedLdm: totalLdmCalculated,
+    euroPalletsCapacity: 33,
+    industrialPalletsCapacity: 26,
+    euroPalletsEquivalence: euroPalletsCount,
+    industrialPalletsEquivalence: industrialPalletsCount,
+    trucksRequired,
+    ldmOccupancyPct: Math.min(100, Math.round(((totalLdmCalculated / trucksRequired) / 13.6) * 100)),
+    payloadOccupancyPct: Math.min(100, Math.round((payloadPerTruckKg / 24000) * 100)),
+    axleLoadDistribution: {
+      steeringAxleKg,
+      driveAxleKg,
+      trailerTridemKg,
+      totalMmaKg,
+      maxLegalMmaKg: 40000,
+      isCompliant: totalMmaKg <= 40000 && steeringAxleKg <= 7500 && driveAxleKg <= 11500 && trailerTridemKg <= 24000,
+    },
+    warehouseOperations: {
+      loadingTimeHours: 2.0,
+      unloadingTimeHours: 2.0,
+      legalFreeTimeHours: 2.0,
+      detentionHourlyPenaltyEur: 40.0,
+      detentionPenaltyEur: 0.0,
+    }
+  };
+
   // Generación matricial del croquis ASCII
   stowagePlan.asciiCroquis = generateDynamicStowageAscii(stowagePlan);
 
@@ -2789,8 +2843,41 @@ function calculateFinancialBreakdown(items = [], orderTotals, charteringAssessme
 
   const formatCurrency = (val) => `${currency === 'USD' ? '$' : ''}${Number(val || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 
+  // Desglose Financiero de Transporte por Carretera (Land Charter Core PRO)
+  const distRoadKm = Math.round(Number(options.distanceKm || (options.distanceNm ? options.distanceNm * 1.852 : 850)) || 850);
+  const costPerKmBase = 1.35;
+  const fuelSurchargePerKm = 0.22;
+  const costPerKmTotal = Number((costPerKmBase + fuelSurchargePerKm).toFixed(2));
+  const kmRunningCostEur = Math.round(distRoadKm * costPerKmTotal);
+  const highwayTollsEur = Math.round(distRoadKm * 0.18);
+  const roadTransitDays = Math.max(1, Math.ceil(distRoadKm / 650));
+  const driverDietCostEur = roadTransitDays * 75;
+  const loadWaitHours = Number(options.loadingRate) || 2;
+  const dischWaitHours = Number(options.dischargingRate) || 2;
+  const warehouseDetentionPenaltyEur = Math.max(0, (loadWaitHours - 2) * 40) + Math.max(0, (dischWaitHours - 2) * 40);
+  const roadOperationalCostEur = kmRunningCostEur + highwayTollsEur + driverDietCostEur + warehouseDetentionPenaltyEur;
+  const roadMarginPercentage = Number(marginPercentage || 18);
+  const roadFreightSalePriceEur = Math.round(roadOperationalCostEur * (1 + roadMarginPercentage / 100));
+
+  const roadTransportBreakdown = {
+    distanceKm: distRoadKm,
+    costPerKm: costPerKmBase,
+    fuelSurchargePerKm,
+    totalCostPerKm: costPerKmTotal,
+    distanceCostEur: kmRunningCostEur,
+    tollCostsEur: highwayTollsEur,
+    transitDays: roadTransitDays,
+    driverDietEur: driverDietCostEur,
+    warehouseWaitPenaltyEur: warehouseDetentionPenaltyEur,
+    totalCostRoadEur: roadOperationalCostEur,
+    marginPercentage: roadMarginPercentage,
+    roadFreightSalePriceEur,
+    salesPricePerKm: Number((roadFreightSalePriceEur / Math.max(1, distRoadKm)).toFixed(2)),
+  };
+
   const summaryLines = [
-    `📊 DESGLOSE FINANCIERO SEPARADO (SEACHARTER CORE PRO):`,
+    `📊 DESGLOSE FINANCIERO SEPARADO (LAND CHARTER CORE PRO):`,
+    `🚚 Transporte por Carretera: ${formatCurrency(roadOperationalCostEur)} (${distRoadKm} km @ ${costPerKmTotal.toFixed(2)} €/km + Peajes: ${highwayTollsEur} € + Dietas: ${driverDietCostEur} €) · Venta: ${formatCurrency(roadFreightSalePriceEur)} (${roadTransportBreakdown.salesPricePerKm.toFixed(2)} €/km)`,
     `🌊 Subtotal Flete Marítimo / TCE: ${formatCurrency(oceanFreightSubtotal)} (${isUnderThreshold ? 'Grupaje LCL' : 'Fletamento Completo'}) · ${flete_unitario_usd_mt.toFixed(2)} USD/MT`,
     `🏗️ Subtotal Costes FOB y Operativa Portuaria: ${formatCurrency(fobPortOperationsSubtotal)} (Manipulación muelle, estiba/trincaje, tasas, seguro y servicios asociados)`,
     `💵 Ratios Unitarios Operativos (USD/MT):`,
@@ -2851,6 +2938,7 @@ function calculateFinancialBreakdown(items = [], orderTotals, charteringAssessme
     },
     demurrage: demurrage || null,
     rotationBreakdown: assessment?.rotationBreakdown || assessment?.timeCharterEquivalent || null,
+    roadTransportBreakdown,
     totalCostAllIn,
     totalQuotationAllIn,
     salePriceAllIn: totalQuotationAllIn,
@@ -3350,7 +3438,7 @@ export async function handler(req, context) {
       },
     });
 
-    const prompt = `Eres el motor experto de inteligencia logística, estiba y fletamentos marítimos para SeaCharter Core PRO.
+    const prompt = `Eres el motor experto de inteligencia logística, estiba y fletamentos de transporte terrestre para Land Charter Core PRO.
 Analiza exhaustivamente el documento adjunto o la orden en lenguaje natural / texto plano enviada desde el widget conversacional.
 
 DETECCIÓN AUTOMÁTICA DE IDIOMAS Y NORMALIZACIÓN LOGÍSTICA:

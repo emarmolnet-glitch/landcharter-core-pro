@@ -35,7 +35,7 @@ test('builds the exact Dual Mode Data Bridge contract', () => {
             id: 'RDM/2026-0604',
             timestamp: '2026-07-18T12:00:00.000Z',
             status: 'finalized',
-            source: 'SeaCharter Core PRO - Dual Mode',
+            source: 'Land Charter Core PRO - Dual Mode',
         },
         trading_terms: {
             cargo_qty_mt: 18500,

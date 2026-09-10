@@ -120,7 +120,7 @@ export function exportCommercialRecapPdf(rawData = {}) {
     document.setTextColor(...COLORS.white);
     document.setFont('helvetica', 'bold');
     document.setFontSize(9);
-    document.text('SEACHARTER CORE PRO', PAGE.margin, 15);
+    document.text('LAND CHARTER CORE PRO', PAGE.margin, 15);
     document.setFontSize(22);
     document.text('Commercial Recap', PAGE.margin, 27);
     document.setFont('helvetica', 'normal');
@@ -204,7 +204,7 @@ export function exportCommercialRecapPdf(rawData = {}) {
     document.setFont('helvetica', 'normal');
     document.setFontSize(7);
     document.text('Documento generado desde una fotografía de solo lectura de la sesión activa.', PAGE.margin, 279);
-    document.text('SeaCharter Core PRO', PAGE.width - PAGE.margin, 279, { align: 'right' });
+    document.text('Land Charter Core PRO', PAGE.width - PAGE.margin, 279, { align: 'right' });
 
     document.save(createFileName());
     return document;

@@ -664,7 +664,7 @@ export function useHeaderVisibility(defaultVisible = true) {
 }
 
 /**
- * Main Application / Layout wrapper component for SeaCharter Core PRO.
+ * Main Application / Layout wrapper component for Land Charter Core PRO.
  */
 export function AppLayout({ children, currentView: initialView = 'MAP', defaultHeaderVisible = true }) {
   useSeaCharterSync();

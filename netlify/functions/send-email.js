@@ -4,7 +4,7 @@
  * Requiere RESEND_API_KEY en el entorno; RESEND_FROM_EMAIL es opcional.
  */
 const RESEND_API_URL = "https://api.resend.com/emails";
-const DEFAULT_FROM_ADDRESS = "SeaCharter Core PRO <no-reply@seacharter.app>";
+const DEFAULT_FROM_ADDRESS = "Land Charter Core PRO <no-reply@seacharter.app>";
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_SUBJECT_CHARS = 500;
 const MAX_BODY_CHARS = 100_000;

@@ -18,14 +18,10 @@ test('header modules use the required visual order and stable text identifiers',
   const primaryModulesSource = source.slice(modulesStart, modulesEnd);
 
   assert.equal(primaryModulesSource, `const PRIMARY_MODULES = [
-            { id: 'map', label: 'Mapa' },
-            { id: 'estimator', label: 'Calculadora' },
-            { id: 'dossiers', label: 'Dossiers' },
+            { id: 'forwarders', label: 'Proyectos' },
+            { id: 'estimator', label: 'Calculadora LDM' },
+            { id: 'map', label: 'Rutas Terrestres' },
             { id: 'decisiones', label: 'Decisiones' },
-            { id: 'compatibilidad', label: 'Compatibilidad' },
-            { id: 'tracking', label: 'Tracking', presentation: 'module-overlay' },
-            { id: 'ais', label: 'Densidad' },
-            { id: 'gencon', label: 'Editor' },
             { id: 'auditor', label: 'Auditoría' },
         ];`);
   assert.doesNotMatch(primaryModulesSource, /\[[0-9]+\]|id:\s*[0-9]+/);
