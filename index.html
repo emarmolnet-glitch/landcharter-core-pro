@@ -9102,22 +9102,21 @@
                         </div>
                     </div>
 
-                    <!-- TARJETA: MERCANCÍA Y RITMOS -->
+                    <!-- TARJETA: CARGA Y TIEMPOS -->
                     <div class="bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
-                        <h4 class="text-xs text-slate-400 font-bold uppercase mb-3 tracking-wider">📦 Resumen de Mercancía y Ritmos</h4>
+                        <h4 class="text-xs text-slate-400 font-bold uppercase mb-3 tracking-wider">📦 Resumen de Carga y Tiempos</h4>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-600">
-                            <div>Volumen: <strong class="text-slate-800 text-base" id="exec-cargo-qty">0 MT</strong> (<span id="exec-cargo-type">N/D</span>)</div>
-                            <div>Ritmo Carga: <strong class="text-slate-800 text-base" id="exec-load-rate">0</strong> MT/día</div>
-                            <div>Ritmo Desc.: <strong class="text-slate-800 text-base" id="exec-disch-rate">0</strong> MT/día</div>
+                            <div>Volumen: <strong class="text-slate-800 text-base" id="exec-cargo-qty">0 t</strong> (<span id="exec-cargo-type">N/D</span>)</div>
+                            <div class="md:col-span-2">Ratio Carga / Descarga: <strong class="text-slate-800 text-base" id="exec-load-rate">0</strong> / <strong class="text-slate-800 text-base" id="exec-disch-rate">0</strong> <span class="text-xs text-slate-500 font-medium">pallets/h o t/h</span></div>
                         </div>
                     </div>
 
                     <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl shadow-sm">
-                        <h4 class="text-xs text-slate-400 font-bold uppercase mb-3 tracking-wider">⏱️ Buque y Duración Operativa</h4>
+                        <h4 class="text-xs text-slate-400 font-bold uppercase mb-3 tracking-wider">⏱️ Vehículo y Tiempos de Ruta</h4>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-slate-600">
-                            <div>Tipo: <strong class="block text-slate-800" id="exec-vessel-type">N/D</strong></div>
-                            <div>Navegación: <strong class="block text-slate-800" id="exec-sea-days">0.0 días</strong></div>
-                            <div>Puerto: <strong class="block text-slate-800" id="exec-port-days">0.0 días</strong></div>
+                            <div>Vehículo: <strong class="block text-slate-800" id="exec-vessel-type">N/D</strong></div>
+                            <div>Conducción: <strong class="block text-slate-800" id="exec-sea-days">0.0 días</strong></div>
+                            <div>Descanso: <strong class="block text-slate-800" id="exec-port-days">0.0 días</strong></div>
                             <div>Total: <strong class="block text-slate-800" id="exec-total-days">0.0 días</strong></div>
                         </div>
                     </div>
@@ -9131,11 +9130,11 @@
                             </h4>
                             <div class="mb-4">
                                 <span class="block text-xs text-slate-500 font-medium mb-1 uppercase tracking-wide">Coste de Compra / Porte (Coste por Km)</span>
-                                <span class="text-2xl font-black text-slate-800" id="exec-buy-freight">$0.00 /Km</span>
+                                <span class="text-2xl font-black text-slate-800" id="exec-buy-freight">0.00 €/km</span>
                             </div>
                             <div>
-                                <span class="block text-xs text-slate-500 font-medium mb-1 uppercase tracking-wide">Margen Neto del Viaje (€ o $)</span>
-                                <span class="text-xl font-bold text-emerald-600" id="exec-tce">$0</span>
+                                <span class="block text-xs text-slate-500 font-medium mb-1 uppercase tracking-wide">Margen Neto del Viaje (€)</span>
+                                <span class="text-xl font-bold text-emerald-600" id="exec-tce">0 €</span>
                             </div>
                         </div>
 
@@ -9146,12 +9145,12 @@
                             </h4>
                             <div class="mb-4">
                                 <span class="block text-xs text-blue-600 font-medium mb-1 uppercase tracking-wide">Precio total del Viaje (Cliente)</span>
-                                <span class="text-2xl font-black text-blue-900" id="exec-sell-freight">$0.00 /Km</span>
+                                <span class="text-2xl font-black text-blue-900" id="exec-sell-freight">0.00 €/km</span>
                             </div>
                             <div>
                                 <span class="block text-xs text-blue-600 font-medium mb-1 uppercase tracking-wide">Beneficio Total Agencia</span>
-                                <span class="text-xl font-bold text-blue-700" id="exec-charterer-profit">$0</span>
-                                <span class="mt-2 block text-xs font-semibold text-blue-600">Spread: <span id="exec-spread-mt">$0.00 /Km</span></span>
+                                <span class="text-xl font-bold text-blue-700" id="exec-charterer-profit">0 €</span>
+                                <span class="mt-2 block text-xs font-semibold text-blue-600">Spread: <span id="exec-spread-mt">0.00 €/km</span></span>
                             </div>
                         </div>
                     </div>
@@ -9630,12 +9629,12 @@
                                 </div>
                             </div>
                             <div id="contenedor-gruas-pol" class="input-group hidden" style="display: none;">
-                                <label id="label-ritmo-nominal-pol" class="text-action-required flex items-center min-h-[24px]">Nº Grúas POL</label>
-                                <input type="number" id="ritmo_nominal_pol" class="input-gc action-required-field text-action-required font-bold" value="0" placeholder="0" min="0" step="1" required oninput="updateCraneCountDraft('pol', this.value)">
+                                <label id="label-ritmo-nominal-pol" class="flex items-center min-h-[24px]">Nº Grúas POL</label>
+                                <input type="number" id="ritmo_nominal_pol" class="input-gc font-bold" value="0" placeholder="0" min="0" step="1" oninput="updateCraneCountDraft('pol', this.value)">
                             </div>
                             <div id="contenedor-gruas-pod" class="input-group hidden" style="display: none;">
-                                <label id="label-ritmo-nominal-pod" class="text-action-required flex items-center min-h-[24px]">Nº Grúas POD</label>
-                                <input type="number" id="ritmo_nominal_pod" class="input-gc action-required-field text-action-required font-bold" value="0" placeholder="0" min="0" step="1" required oninput="updateCraneCountDraft('pod', this.value)">
+                                <label id="label-ritmo-nominal-pod" class="flex items-center min-h-[24px]">Nº Grúas POD</label>
+                                <input type="number" id="ritmo_nominal_pod" class="input-gc font-bold" value="0" placeholder="0" min="0" step="1" oninput="updateCraneCountDraft('pod', this.value)">
                             </div>
                         </div>
 
@@ -63338,22 +63337,17 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         }
 
         function actualizarCampoGruasPuerto(side = 'pol') {
-            const metodo = side === 'pod' ? getMetodoDescargaActual() : getMetodoEstibaActual();
-            const usesCranes = metodoPuertoUsaGruas(metodo);
             const containerId = side === 'pod' ? 'contenedor-gruas-pod' : 'contenedor-gruas-pol';
             const inputId = side === 'pod' ? 'ritmo_nominal_pod' : 'ritmo_nominal_pol';
             const container = document.getElementById(containerId);
             const input = document.getElementById(inputId);
             if (container) {
-                container.classList.toggle('hidden', !usesCranes);
-                container.style.display = usesCranes ? '' : 'none';
+                container.classList.add('hidden');
+                container.style.display = 'none';
             }
             if (!input) return;
-            input.required = usesCranes;
-            input.disabled = !usesCranes;
-            if (usesCranes && (parseFloat(input.value) || 0) < 1) {
-                input.value = String(calcularGruasSugeridasPuerto(side));
-            }
+            input.required = false;
+            input.disabled = true;
         }
 
         function recalcularDiasPuerto(targetSide = null) {

@@ -130,7 +130,7 @@ test('executive dashboard sync tolerates hidden DOM and formats risk state', () 
   assert.match(elements.get('exec-insight-text').textContent, /naturaleza de la carga \(Big Bags\).*grúas del buque \(Geared\).*supervisión especial de estiba/i);
   assert.match(elements.get('exec-insight-text').textContent, /12\.0 h a turnos ordinarios y 36\.0 h a Overtime/i);
   assert.match(elements.get('exec-insight-text').textContent, /1 de 7 muelles/i);
-  assert.match(elements.get('exec-insight-text').textContent, /coste incremental de \$1,250\.00 en la PDA por recargos operativos \(FHEX\/SHEX\)\.$/i);
+  assert.match(elements.get('exec-insight-text').textContent, /coste incremental de (1250,00\s*€|\$1,250\.00) en la PDA por recargos operativos \(FHEX\/SHEX\)\.$/i);
 });
 
 test('executive insight requests technical rates when the voyage lacks effective rhythms', () => {
@@ -187,9 +187,9 @@ test('executive dashboard stays neutral until POL, POD and cargo are defined', (
   assert.equal(elements.get('exec-pol').textContent, 'N/D');
   assert.equal(elements.get('exec-pod').textContent, 'N/D');
   assert.equal(elements.get('exec-operation-status').textContent, 'OPERACIÓN PENDIENTE');
-  assert.equal(elements.get('exec-cargo-qty').textContent, '0 MT');
+  assert.equal(elements.get('exec-cargo-qty').textContent, '0 t');
   assert.equal(elements.get('exec-total-days').textContent, '0.0 días');
-  assert.equal(elements.get('exec-charterer-profit').textContent, '$0');
+  assert.match(elements.get('exec-charterer-profit').textContent, /^0\s*€$/);
   assert.equal(elements.get('exec-risk-level').textContent, 'N/D');
   assert.match(elements.get('exec-insight-text').textContent, /Introduce POL, POD y volumen de carga/i);
 });
