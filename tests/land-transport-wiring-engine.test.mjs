@@ -22,6 +22,7 @@ test('1. Auto-Fetch de Data Bridge (Init): llamada a /api-land-data y guardado d
   // React App.jsx defines useLandDataBridgeSync with useEffect calling /api-land-data
   assert.match(appJsxSource, /useLandDataBridgeSync/, 'App.jsx must define useLandDataBridgeSync');
   assert.match(appJsxSource, /fetch\(getApiUrl\(['"]\/api-land-data['"]\)\)/, 'App.jsx must fetch /api-land-data');
+  assert.match(appJsxSource, /fetch\(getApiUrl\(['"]\/\.netlify\/functions\/api-land-data['"]\)\)/, 'App.jsx must fetch /.netlify/functions/api-land-data');
   assert.match(appJsxSource, /setDieselPrice/, 'App.jsx must set dieselPrice');
   assert.doesNotMatch(appJsxSource, /data\.adBluePrice/, 'App.jsx must not extract adBluePrice');
 

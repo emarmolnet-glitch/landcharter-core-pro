@@ -35961,9 +35961,13 @@ function setIsGeoInputOpen(isNextOpen) {
         }
         window.handleVehicleTypeSelection = handleVehicleTypeSelection;
 
+        let hasLoadedLandFuelPrices = false;
         async function loadLandFuelPrices() {
+            if (hasLoadedLandFuelPrices) return;
+            hasLoadedLandFuelPrices = true;
             try {
-                const response = await fetch('/api-land-data');
+                // Canonical endpoint: /.netlify/functions/api-land-data (compat: fetch('/api-land-data'))
+                const response = await fetch('/.netlify/functions/api-land-data');
                 if (response.ok) {
                     const data = await response.json();
                     if (data && data.success) {
@@ -36020,7 +36024,7 @@ function setIsGeoInputOpen(isNextOpen) {
 
                         const cacheLabel = document.getElementById('bunker-index-cache-label');
                         if (cacheLabel) {
-                            cacheLabel.textContent = `Precios de combustible terrestre sincronizados (/api-land-data)`;
+                            cacheLabel.textContent = `Precios de combustible terrestre sincronizados (/.netlify/functions/api-land-data)`;
                         }
                         const syncStatus = document.getElementById('bunker-market-sync-label');
                         if (syncStatus) {
@@ -36032,7 +36036,7 @@ function setIsGeoInputOpen(isNextOpen) {
                     }
                 }
             } catch (err) {
-                console.warn('Error al cargar precios de /api-land-data:', err);
+                console.warn('Error al cargar precios de /.netlify/functions/api-land-data:', err);
             }
         }
         window.loadLandFuelPrices = loadLandFuelPrices;

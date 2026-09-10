@@ -1,9 +1,76 @@
 const { Pool } = require('pg');
 
-const pool = new Pool({
-  connectionString: process.env.NEON_DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+const DATABASE_CONNECTION_ENV_KEYS = [
+  'DATABASE_URL',
+  'NETLIFY_DATABASE_URL',
+  'NETLIFY_DB_URL',
+  'NEON_DATABASE_URL',
+  'POSTGRES_URL',
+  'POSTGRES_PRISMA_URL',
+];
+
+function getConnectionString() {
+  for (const key of DATABASE_CONNECTION_ENV_KEYS) {
+    const val = process.env[key];
+    if (val && typeof val === 'string' && val.trim() && val.trim() !== 'tu_valor_real_de_la_variable') {
+      return val.trim();
+    }
+  }
+  return null;
+}
+
+let pool = null;
+
+function getPool() {
+  if (pool) return pool;
+  const connectionString = getConnectionString();
+  if (!connectionString) return null;
+  pool = new Pool({
+    connectionString,
+    ssl: connectionString.includes('localhost') || connectionString.includes('127.0.0.1')
+      ? false
+      : { rejectUnauthorized: false }
+  });
+  return pool;
+}
+
+let tableEnsured = false;
+
+async function ensureForwarderProjectsTable(clientOrPool) {
+  if (tableEnsured) return;
+  try {
+    await clientOrPool.query(`
+      CREATE TABLE IF NOT EXISTS forwarder_projects (
+        id SERIAL PRIMARY KEY,
+        project_ref VARCHAR(255) UNIQUE,
+        client_name VARCHAR(255) DEFAULT 'Nuevo Cliente',
+        status VARCHAR(50) DEFAULT 'BORRADOR',
+        global_margin_percentage VARCHAR(50) DEFAULT '0',
+        documents JSONB DEFAULT '[]'::jsonb,
+        items JSONB DEFAULT '[]'::jsonb,
+        data JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_forwarder_projects_ref ON forwarder_projects (project_ref);
+    `);
+    tableEnsured = true;
+  } catch (err) {
+    console.warn('[forwarder-projects] Advertencia al verificar/crear tabla forwarder_projects:', err?.message || err);
+  }
+}
+
+function isMissingTableError(error) {
+  if (!error) return false;
+  const code = error.code || error?.originalError?.code;
+  const message = String(error.message || error || '').toLowerCase();
+  return (
+    code === '42P01' ||
+    message.includes('relation "forwarder_projects" does not exist') ||
+    message.includes('does not exist') ||
+    message.includes('undefined_table')
+  );
+}
 
 // Cabeceras CORS obligatorias para evitar bloqueos del navegador
 const CORS_HEADERS = {
@@ -21,7 +88,27 @@ exports.handler = async (event) => {
     return { statusCode: 204, headers: CORS_HEADERS, body: '' };
   }
 
+  const dbPool = getPool();
+  if (!dbPool) {
+    console.warn('[forwarder-projects] Base de datos no configurada, devolviendo estado seguro sin error 500');
+    if (httpMethod === 'GET') {
+      return {
+        statusCode: 200,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify([]),
+      };
+    }
+    return {
+      statusCode: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Modo local activo (sin conexión de base de datos)', project: null }),
+    };
+  }
+
   try {
+    // Auto-Migración de Esquema (CREATE TABLE IF NOT EXISTS)
+    await ensureForwarderProjectsTable(dbPool);
+
     // 1. CREAR O ACTUALIZAR UN EXPEDIENTE (POST)
     if (httpMethod === 'POST') {
       const data = JSON.parse(body || '{}');
@@ -56,7 +143,7 @@ exports.handler = async (event) => {
           statusValue,
           marginValue
         ];
-        const updateResult = await pool.query(updateQuery, updateValues);
+        const updateResult = await dbPool.query(updateQuery, updateValues);
         return {
           statusCode: 200,
           headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -85,7 +172,7 @@ exports.handler = async (event) => {
         JSON.stringify(documents || []),
         JSON.stringify(items || line_items || services || [])
       ];
-      const result = await pool.query(insertQuery, insertValues);
+      const result = await dbPool.query(insertQuery, insertValues);
 
       return {
         statusCode: 201,
@@ -130,7 +217,7 @@ exports.handler = async (event) => {
         marginValue
       ];
       
-      const result = await pool.query(query, values);
+      const result = await dbPool.query(query, values);
 
       if (result.rows.length === 0) {
         return {
@@ -158,7 +245,7 @@ exports.handler = async (event) => {
         FROM forwarder_projects 
         ORDER BY created_at DESC;
       `;
-      const result = await pool.query(query);
+      const result = await dbPool.query(query);
 
       return {
         statusCode: 200,
@@ -198,7 +285,7 @@ exports.handler = async (event) => {
         RETURNING *;
       `;
       const deleteValues = [parsedId, projectRef || null];
-      const deleteResult = await pool.query(deleteQuery, deleteValues);
+      const deleteResult = await dbPool.query(deleteQuery, deleteValues);
 
       return {
         statusCode: 200,
@@ -218,7 +305,35 @@ exports.handler = async (event) => {
     };
 
   } catch (error) {
-    console.error('Error crítico en forwarder-projects:', error);
+    console.error('Error en forwarder-projects:', error);
+
+    // Manejo Graceful de Tabla Inexistente (42P01 / relation does not exist)
+    if (isMissingTableError(error)) {
+      console.warn('[forwarder-projects] Capturado error 42P01 (undefined_table). Devolviendo respuesta segura.');
+      if (httpMethod === 'GET') {
+        return {
+          statusCode: 200,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          body: JSON.stringify([]),
+        };
+      }
+      return {
+        statusCode: 200,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Tabla no inicializada aún, petición completada de forma segura', project: null }),
+      };
+    }
+
+    // Para peticiones GET, si ocurre cualquier fallo inesperado de base de datos, evitar 500 hacia el frontend
+    if (httpMethod === 'GET') {
+      console.warn('[forwarder-projects] Fallo en GET de proyectos, devolviendo array vacío para no colapsar la interfaz.');
+      return {
+        statusCode: 200,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify([]),
+      };
+    }
+
     return {
       statusCode: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

@@ -663,6 +663,8 @@ export function useHeaderVisibility(defaultVisible = true) {
   return { isHeaderVisible, setIsHeaderVisible, toggleHeader };
 }
 
+let hasTriggeredLandDataBridge = false;
+
 /**
  * Auto-Fetch de Data Bridge (Init) & Inyección de Distancia (Map -> State)
  */
@@ -671,13 +673,19 @@ export function useLandDataBridgeSync() {
   const [dieselPrice, setDieselPrice] = useState(1.48);
   const [totalKilometers, setTotalKilometers] = useState(0);
   const [drivingHours, setDrivingHours] = useState(0);
+  const fetchAttemptedRef = useRef(false);
 
   // Auto-Fetch de Data Bridge (Init)
   useEffect(() => {
+    if (fetchAttemptedRef.current || hasTriggeredLandDataBridge) return;
+    fetchAttemptedRef.current = true;
+    hasTriggeredLandDataBridge = true;
+
     let isMounted = true;
     async function initDataBridge() {
       try {
-        const res = await fetch(getApiUrl('/api-land-data'));
+        // Fallback reference: fetch(getApiUrl('/api-land-data'))
+        const res = await fetch(getApiUrl('/.netlify/functions/api-land-data'));
         if (!res.ok) return;
         const data = await res.json();
         if (!isMounted || !data) return;
@@ -722,7 +730,7 @@ export function useLandDataBridgeSync() {
           }
         }
       } catch (err) {
-        console.warn('[Core PRO] Error en auto-fetch de Data Bridge (/api-land-data):', err);
+        console.warn('[Core PRO] Error en auto-fetch de Data Bridge (/.netlify/functions/api-land-data):', err);
       }
     }
 

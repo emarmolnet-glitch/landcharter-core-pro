@@ -2128,10 +2128,13 @@ export function CostPlusCalculator({
   const [renderRefreshTick, setRenderRefreshTick] = useState(0);
 
   // Auto-Fetch de Data Bridge (Init)
+  const hasFetchedLandBridgeRef = useRef(false);
   useEffect(() => {
+    if (hasFetchedLandBridgeRef.current) return;
+    hasFetchedLandBridgeRef.current = true;
     async function initLandDataBridge() {
       try {
-        const res = await fetch('/api-land-data');
+        const res = await fetch('/.netlify/functions/api-land-data');
         if (res.ok) {
           const data = await res.json();
           if (data && data.success) {
