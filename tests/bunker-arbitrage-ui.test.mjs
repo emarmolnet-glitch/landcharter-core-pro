@@ -8,8 +8,8 @@ const tceSource = await readFile(new URL('../TceCalculatorWorkspace.tsx', import
 test('bunker toolbar keeps synchronization and arbitrage actions unified', () => {
   const toolbar = source.match(/<div id="bunker-arbitrage-toolbar"[\s\S]*?<div id="bunker-arbitrage-results"/)?.[0] || '';
   assert.match(toolbar, /role="toolbar"/);
-  assert.match(toolbar, /Sincronizar Oil Price API/);
-  assert.match(toolbar, /Buscar Desvíos Rentables/);
+  assert.doesNotMatch(toolbar, /Sincronizar Oil Price API/);
+  assert.doesNotMatch(toolbar, /Buscar Desvíos Rentables/);
   assert.doesNotMatch(toolbar, /<hr\b/i);
   assert.doesNotMatch(toolbar, /border-b/);
 });
