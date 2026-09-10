@@ -9002,7 +9002,7 @@
                                 <div class="absolute h-3 w-3 rounded-full bg-cyan-400"></div>
                             </div>
                             <h2 class="text-2xl font-bold tracking-wide text-white">Land Charter Core PRO</h2>
-                            <p class="mt-3 text-sm text-cyan-400 animate-pulse font-medium">Iniciando motor cartográfico y datos AIS...</p>
+                            <p class="mt-3 text-sm text-cyan-400 animate-pulse font-medium">Iniciando motor de rutas terrestres (OSRM)...</p>
                             <div class="mt-8 w-64 h-1.5 bg-slate-800 rounded-full overflow-hidden" aria-hidden="true">
                                 <div class="h-full bg-cyan-500 w-full animate-pulse"></div>
                             </div>
@@ -9347,8 +9347,14 @@
                                     <span id="label-vessel-name-real">Tipo de Vehículo</span>
                                 </label>
                                 <div class="relative flex items-center w-full">
-                                    <input type="text" id="nombre-buque-calculadora" class="input-gc font-bold text-white pr-8 w-full" value="TBN" oninput="updateSection2LocalState('nombre-buque-calculadora', this.value); autoClassifySpecialtyFromInputs()">
-                                    <button type="button" id="btn-vessel-specs-real-2" onclick="searchLocalVesselDataBridge()" class="absolute right-2 text-slate-400 hover:text-sky-400 transition" title="Buscar buque en Data Bridge (Local)" aria-label="Buscar datos reales del buque">
+                                    <input type="text" id="nombre-buque-calculadora" list="vehicle-types-datalist" class="input-gc font-bold text-white pr-8 w-full" value="Lona Estándar" oninput="updateSection2LocalState('nombre-buque-calculadora', this.value); handleVehicleTypeSelection(this.value); autoClassifySpecialtyFromInputs()" onchange="handleVehicleTypeSelection(this.value)">
+                                    <datalist id="vehicle-types-datalist">
+                                        <option value="Frigorífico">Frigorífico · 34.0 L/100km · 22t</option>
+                                        <option value="Lona Estándar">Lona Estándar · 31.5 L/100km · 24t</option>
+                                        <option value="Mega Lona">Mega Lona · 33.0 L/100km · 24t</option>
+                                        <option value="Tren de Carretera">Tren de Carretera · 42.0 L/100km · 44t</option>
+                                    </datalist>
+                                    <button type="button" id="btn-vessel-specs-real-2" onclick="searchLocalVesselDataBridge()" class="absolute right-2 text-slate-400 hover:text-sky-400 transition" title="Buscar vehículo en Data Bridge (Local)" aria-label="Buscar datos reales del vehículo">
                                         <i class="fa-solid fa-magnifying-glass text-xs"></i>
                                     </button>
                                 </div>
@@ -17974,7 +17980,10 @@ async function runOnDemandMapRouteWorkflow(button) {
 
         const route = osrmData.routes[0];
         const distanceMeters = Number(route.distance) || 0;
+        const totalKilometers = distanceMeters / 1000;
         const distanceKm = Math.round(distanceMeters / 1000);
+        const durationSeconds = Number(route.duration) || 0;
+        const drivingHours = durationSeconds / 3600;
         const geojsonCoordinates = route.geometry?.coordinates || [];
         // Convert [lon, lat] from GeoJSON to Leaflet [lat, lon]
         const leafletRoutePoints = geojsonCoordinates.map(coord => [coord[1], coord[0]]);
@@ -18027,28 +18036,57 @@ async function runOnDemandMapRouteWorkflow(button) {
             }
         }
 
-        // Notificar a componentes React (LazyGlobeMap)
+        // Notificar a componentes React (LazyGlobeMap, TceCalculator, etc.)
         window.dispatchEvent(new CustomEvent('osrm:route-updated', {
             detail: {
                 routePoints: leafletRoutePoints,
                 origin: { lat: polCoords.lat, lon: polCoords.lon, name: pol },
                 destination: { lat: podCoords.lat, lon: podCoords.lon, name: pod },
-                distanceKm
+                distanceKm,
+                totalKilometers,
+                drivingHours,
+                route
             }
         }));
 
-        // Actualizar estado global y resumen
+        // Inyección de Distancia (Map -> State): guardar totalKilometers y drivingHours en estado reactivo
+        State.totalKilometers = totalKilometers;
+        State.drivingHours = drivingHours;
         State.totalMiles = distanceKm;
         State.distLaden = distanceKm;
         State.distBallast = 0;
         State.pol = pol;
         State.pod = pod;
         if (window.GlobalStore) {
+            window.GlobalStore.totalKilometers = totalKilometers;
+            window.GlobalStore.drivingHours = drivingHours;
             window.GlobalStore.totalMiles = distanceKm;
             window.GlobalStore.distLaden = distanceKm;
             window.GlobalStore.distBallast = 0;
             window.GlobalStore.pol = pol;
             window.GlobalStore.pod = pod;
+        }
+
+        if (typeof SeaCharterStore !== 'undefined' && typeof SeaCharterStore.set === 'function') {
+            SeaCharterStore.set({
+                totalKilometers,
+                drivingHours,
+                distLaden: distanceKm,
+                distTotal: distanceKm,
+                distanceKm,
+                totalMiles: distanceKm
+            });
+        }
+
+        const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
+        if (vStore) {
+            if (typeof vStore.setRouteDistanceAndDuration === 'function') {
+                vStore.setRouteDistanceAndDuration(totalKilometers, drivingHours);
+            } else if (typeof vStore.setTotalKilometers === 'function') {
+                vStore.setTotalKilometers(totalKilometers, drivingHours);
+            } else if (typeof window.VoyageStore?.setState === 'function') {
+                window.VoyageStore.setState({ totalKilometers, drivingHours });
+            }
         }
 
         // Sincronizar input de distancia si existe
@@ -18069,7 +18107,6 @@ async function runOnDemandMapRouteWorkflow(button) {
         // Auto-calcular descansos de tacógrafo según horas de conducción OSRM (CE 561/2006)
         const deltaInput = document.getElementById('delta-historico');
         if (deltaInput && (parseFloat(deltaInput.value) === 0 || deltaInput.dataset.autoTacografo === 'true')) {
-            const drivingHours = (distanceKm > 0) ? (distanceKm / 75) : 0;
             const tacografoPausas = Math.floor(drivingHours / 4.5) * 0.75;
             const tacografoDescansos = Math.floor(drivingHours / 9) * 11;
             deltaInput.value = Math.round((tacografoPausas + tacografoDescansos) * 10) / 10;
@@ -35114,6 +35151,17 @@ function setIsGeoInputOpen(isNextOpen) {
             showToast("Consultando memoria local y Data Bridge...", true);
 
             try {
+                // Comprobar si coincide con un vehículo terrestre del Data Bridge
+                const matchedLandVehicle = handleVehicleTypeSelection(vesselName);
+                if (matchedLandVehicle) {
+                    showToast(`✅ Vehículo terrestre seleccionado: ${matchedLandVehicle.name} (${matchedLandVehicle.consumptionPer100Km} L/100km · ${(matchedLandVehicle.payloadKg / 1000).toFixed(0)}t)`);
+                    if (btn) {
+                        btn.innerHTML = originalContent;
+                        btn.disabled = false;
+                    }
+                    return;
+                }
+
                 const storeVessel = findCompleteVesselInGlobalStore(vesselName);
                 let data = null;
                 let networkError = null;
@@ -35584,17 +35632,6 @@ function setIsGeoInputOpen(isNextOpen) {
             }
         }
 
-        window.hydrateBunkerIndexData = function() {
-            const cache = readBunkerIndexCache({ allowStale: true });
-            if (cache) {
-                applyBunkerIndexData(cache);
-                return true;
-            }
-            updateBunkerIndexCacheLabel('');
-            updateBunkerMarketSyncStatus(null);
-            return false;
-        }
-
         function normalizeBunkerMarketPayload(payload, options = {}) {
             const routeRegion = options.routeRegion || getCurrentBunkerRegionContext();
             const requestedRegion = normalizeBunkerRegionName(options.detectedRegion || routeRegion.region || 'World');
@@ -35812,27 +35849,182 @@ function setIsGeoInputOpen(isNextOpen) {
             });
         }
 
+        function updateVehicleTypesDatalist(vehicleTypes) {
+            if (!Array.isArray(vehicleTypes) || typeof document === 'undefined') return;
+            let datalist = document.getElementById('vehicle-types-datalist');
+            if (!datalist) {
+                datalist = document.createElement('datalist');
+                datalist.id = 'vehicle-types-datalist';
+                document.body.appendChild(datalist);
+            }
+            datalist.innerHTML = '';
+            vehicleTypes.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v.name;
+                opt.label = `${v.name} · ${v.consumptionPer100Km} L/100km · ${(v.payloadKg / 1000).toFixed(0)}t`;
+                datalist.appendChild(opt);
+            });
+            const inputBuque = document.getElementById('nombre-buque-calculadora');
+            if (inputBuque && !inputBuque.getAttribute('list')) {
+                inputBuque.setAttribute('list', 'vehicle-types-datalist');
+            }
+        }
+        window.updateVehicleTypesDatalist = updateVehicleTypesDatalist;
+
+        function handleVehicleTypeSelection(selectedNameOrId, options = {}) {
+            if (!selectedNameOrId) return null;
+            const vehicleTypes = (State.vehicleTypes && State.vehicleTypes.length) ? State.vehicleTypes : (window.LAND_VEHICLE_TYPES || [
+                { id: 'lona_estandar', name: 'Lona Estándar', payloadKg: 24000, consumptionPer100Km: 31.5 },
+                { id: 'frigorifico', name: 'Frigorífico', payloadKg: 22000, consumptionPer100Km: 34.0 },
+                { id: 'mega_lona', name: 'Mega Lona', payloadKg: 24000, consumptionPer100Km: 33.0 },
+                { id: 'tren_carretera', name: 'Tren de Carretera', payloadKg: 44000, consumptionPer100Km: 42.0 },
+            ]);
+
+            const query = String(selectedNameOrId).toLowerCase().trim();
+            const matched = vehicleTypes.find(v => {
+                const vName = v.name.toLowerCase();
+                const vId = (v.id || '').toLowerCase();
+                return vName === query || vId === query ||
+                    (query.includes('frigo') && vName.includes('frigo')) ||
+                    (query.includes('mega') && vName.includes('mega')) ||
+                    (query.includes('tren') && vName.includes('tren')) ||
+                    (query.includes('lona') && !query.includes('mega') && vName.includes('lona'));
+            });
+
+            if (matched) {
+                State.vehicleType = matched.name;
+                State.vehicleConsumption = matched.consumptionPer100Km;
+                State.consSea = matched.consumptionPer100Km;
+                State.dwt = matched.payloadKg;
+                State.payloadKg = matched.payloadKg;
+                State.cargaUtil = matched.payloadKg;
+
+                const inputBuque = document.getElementById('nombre-buque-calculadora');
+                if (inputBuque && inputBuque.value !== matched.name && query === (matched.id || '').toLowerCase()) {
+                    inputBuque.value = matched.name;
+                }
+
+                const consInput = document.getElementById('cons-sea');
+                if (consInput) {
+                    consInput.value = matched.consumptionPer100Km;
+                }
+                const netCons = document.getElementById('net-cons-indicator');
+                if (netCons) {
+                    netCons.textContent = `Consumo Medio Estimado: ${matched.consumptionPer100Km} L/100km`;
+                }
+
+                const dwtInput = document.getElementById('vessel-dwt');
+                if (dwtInput) {
+                    dwtInput.value = matched.payloadKg;
+                }
+                const dwtMetaInput = document.getElementById('vessel-identity-dwt');
+                if (dwtMetaInput) {
+                    dwtMetaInput.value = matched.payloadKg;
+                }
+
+                const badge = document.getElementById('vessel-badge');
+                if (badge) badge.textContent = matched.name;
+                const execVessel = document.getElementById('exec-vessel-type');
+                if (execVessel) execVessel.textContent = matched.name;
+
+                if (typeof SeaCharterStore !== 'undefined' && typeof SeaCharterStore.set === 'function') {
+                    SeaCharterStore.set({
+                        vehicleType: matched.name,
+                        vehicleConsumption: matched.consumptionPer100Km,
+                        consSea: matched.consumptionPer100Km,
+                        dwt: matched.payloadKg,
+                        payloadKg: matched.payloadKg,
+                        cargaUtil: matched.payloadKg
+                    });
+                }
+
+                const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
+                if (vStore) {
+                    if (typeof vStore.selectVehicleType === 'function') {
+                        vStore.selectVehicleType(matched);
+                    } else if (typeof vStore.patchSection2Vessel === 'function') {
+                        vStore.patchSection2Vessel({
+                            name: matched.name,
+                            dwt: matched.payloadKg,
+                            fuel_consumption_laden: matched.consumptionPer100Km,
+                            vessel_class: matched.name
+                        });
+                    }
+                }
+
+                if (!options.deferEngine && typeof runEngine === 'function') {
+                    runEngine();
+                }
+                return matched;
+            }
+            return null;
+        }
+        window.handleVehicleTypeSelection = handleVehicleTypeSelection;
+
         async function loadLandFuelPrices() {
             try {
                 const response = await fetch('/api-land-data');
                 if (response.ok) {
                     const data = await response.json();
                     if (data && data.success) {
+                        const dieselPrice = Number(data.dieselPrice) || 1.48;
                         const dieselInput = document.getElementById('price-sea');
-                        const adBlueInput = document.getElementById('price-ifo');
                         if (dieselInput && data.dieselPrice !== undefined) {
-                            dieselInput.value = Number(data.dieselPrice).toFixed(2);
+                            dieselInput.value = dieselPrice.toFixed(2);
                         }
-                        if (adBlueInput && data.adBluePrice !== undefined) {
-                            adBlueInput.value = Number(data.adBluePrice).toFixed(2);
+                        // Guardar precio oficial del diésel en el estado (dieselPrice). NO extraer AdBlue (no existe en payload)
+                        State.dieselPrice = dieselPrice;
+                        if (data.tollCostPerKm !== undefined) {
+                            State.tollCostPerKm = Number(data.tollCostPerKm);
                         }
+                        if (data.fixedDailyCost !== undefined) {
+                            State.fixedDailyCost = Number(data.fixedDailyCost);
+                        }
+                        if (Array.isArray(data.vehicleTypes)) {
+                            State.vehicleTypes = data.vehicleTypes;
+                            window.LAND_VEHICLE_TYPES = data.vehicleTypes;
+                            updateVehicleTypesDatalist(data.vehicleTypes);
+                        }
+
+                        if (typeof SeaCharterStore !== 'undefined' && typeof SeaCharterStore.set === 'function') {
+                            SeaCharterStore.set({
+                                dieselPrice,
+                                tollCostPerKm: State.tollCostPerKm || 0.19,
+                                fixedDailyCost: State.fixedDailyCost || 350,
+                                vehicleTypes: State.vehicleTypes || []
+                            });
+                        }
+
+                        const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
+                        if (vStore) {
+                            vStore.setDieselPrice?.(dieselPrice);
+                            if (typeof window.VoyageStore?.setState === 'function') {
+                                window.VoyageStore.setState((s) => ({
+                                    draft: {
+                                        ...s.draft,
+                                        dieselPrice,
+                                        tollCostPerKm: State.tollCostPerKm || 0.19,
+                                        fixedDailyCost: State.fixedDailyCost || 350,
+                                        vehicleTypes: State.vehicleTypes || []
+                                    }
+                                }));
+                            }
+                        }
+
+                        // Mapear vehículo inicial en Módulo 2
+                        const currentVehicleInput = document.getElementById('nombre-buque-calculadora');
+                        const currentVehicleName = currentVehicleInput?.value || State.vehicleType || 'Lona Estándar';
+                        if (typeof handleVehicleTypeSelection === 'function') {
+                            handleVehicleTypeSelection(currentVehicleName, { deferEngine: true });
+                        }
+
                         const cacheLabel = document.getElementById('bunker-index-cache-label');
                         if (cacheLabel) {
                             cacheLabel.textContent = `Precios de combustible terrestre sincronizados (/api-land-data)`;
                         }
                         const syncStatus = document.getElementById('bunker-market-sync-label');
                         if (syncStatus) {
-                            syncStatus.textContent = `Tarifas oficiales diésel y AdBlue activas (${data.source || 'SSOT'})`;
+                            syncStatus.textContent = `Tarifas oficiales diésel activas (${data.source || 'SSOT'})`;
                         }
                         if (typeof runEngine === 'function') {
                             runEngine();
@@ -38181,6 +38373,41 @@ function scheduleReactiveEngine() {
             const totalCapex = isZeroCalculation ? 0 : (totalDays * capexDaily);
             const ownerOperatingCapitalCosts = totalOpex + totalCapex;
 
+            // MOTOR DE CÁLCULO TERRESTRE (Cost-Plus Terrestre)
+            const landTotalKilometers = isZeroCalculation ? 0 : (
+                Number(State.totalKilometers)
+                || (Number(distBal) + Number(distLaden))
+                || (Number(document.getElementById('dist-total')?.value) || 0)
+            );
+            const landVehicleConsumption = Number(State.vehicleConsumption)
+                || Number(State.consSea)
+                || parseFloat(document.getElementById('cons-sea')?.value)
+                || 31.5;
+            const landDieselPrice = Number(State.dieselPrice)
+                || parseFloat(document.getElementById('price-sea')?.value)
+                || 1.48;
+            const landTollCostPerKm = Number(State.tollCostPerKm)
+                || (Number(window.LAND_DATA_BRIDGE?.tollCostPerKm) || 0.19);
+            const landFixedDailyCost = Number(State.fixedDailyCost)
+                || parseFloat(document.getElementById('opex-daily')?.value)
+                || 350;
+            const landDrivingHours = isZeroCalculation ? 0 : (
+                Number(State.drivingHours)
+                || (landTotalKilometers > 0 ? (landTotalKilometers / 75) : 0)
+                || (totalDays > 0 ? (totalDays * 24) : 0)
+            );
+
+            // Reescritura del Motor de Cálculo (Cost-Plus Terrestre):
+            // fuelCost = (totalKilometers / 100) * vehicleConsumption * dieselPrice
+            // tollCost = totalKilometers * tollCostPerKm (fallback 0.19 €/km)
+            // fixedCost = (drivingHours / 24) * fixedDailyCost (fallback 350 €/día)
+            // totalTripCost = fuelCost + tollCost + fixedCost
+            const fuelCost = isZeroCalculation ? 0 : ((landTotalKilometers / 100) * landVehicleConsumption * landDieselPrice);
+            const tollCost = isZeroCalculation ? 0 : (landTotalKilometers * landTollCostPerKm);
+            const fixedCost = isZeroCalculation ? 0 : ((landDrivingHours / 24) * landFixedDailyCost);
+            const totalTripCost = isZeroCalculation ? 0 : (fuelCost + tollCost + fixedCost);
+            const landBreakEvenPerKm = (landTotalKilometers > 0 && totalTripCost > 0) ? (totalTripCost / landTotalKilometers) : 0;
+
             // EMISSIONS CALCULATION (CO₂):
             // Formula: Emissions_tCO₂ = Total_Fuel_Consumption * 3.11
             const totalConsumption = isZeroCalculation ? 0 : ((T_sea * cSea) + (T_portFuel * cPort) + anchorageFuelTons + anchorageAuxFuelTons);
@@ -38255,7 +38482,12 @@ function scheduleReactiveEngine() {
                 marginLabel.classList.toggle('text-[#334155]', marginDays > 0);
             }
 
-            document.getElementById('res-cost-bunker').innerText = `€${Math.round(totalBunkers).toLocaleString('es-ES')}`;
+            const displayFuelCost = isZeroCalculation ? 0 : (fuelCost > 0 ? fuelCost : totalBunkers);
+            const displayFixedCost = isZeroCalculation ? 0 : (fixedCost > 0 ? fixedCost : totalOpex);
+            const displayTollCost = isZeroCalculation ? 0 : (tollCost > 0 ? tollCost : smartPortExpenses);
+            const displayTotalTripCost = isZeroCalculation ? 0 : (totalTripCost > 0 ? totalTripCost : adjustedCostTotal);
+
+            document.getElementById('res-cost-bunker').innerText = `€${Math.round(displayFuelCost).toLocaleString('es-ES')}`;
             const inverseFuelStrategyEl = document.getElementById('inverse-fuel-strategy-label');
             if (inverseFuelStrategyEl) {
                 inverseFuelStrategyEl.textContent = getFuelStrategyText();
@@ -38269,8 +38501,17 @@ function scheduleReactiveEngine() {
                     el.innerText = `${tons.toFixed(2)} t · €${Math.round(cost).toLocaleString('es-ES')}`;
                 }
             };
-            setFuelBreakdown('res-fuel-nav', navFuelTons, routeConsumptionCost + extraEcaCost);
-            setFuelBreakdown('res-fuel-port', portFuelTons, portConsumptionCost);
+            setFuelBreakdown('res-fuel-nav', navFuelTons, displayFuelCost);
+            setFuelBreakdown('res-fuel-port', portFuelTons, 0);
+            const resFuelNavEl = document.getElementById('res-fuel-nav');
+            if (resFuelNavEl && resFuelNavEl.dataset.manualOverride !== 'true') {
+                const fuelLitersTotal = (landTotalKilometers / 100) * landVehicleConsumption;
+                resFuelNavEl.innerText = `${fuelLitersTotal.toFixed(1)} L · €${Math.round(displayFuelCost).toLocaleString('es-ES')}`;
+            }
+            const resFuelPortEl = document.getElementById('res-fuel-port');
+            if (resFuelPortEl && resFuelPortEl.dataset.manualOverride !== 'true') {
+                resFuelPortEl.innerText = `0.0 L · €0`;
+            }
             if (isPolSeca || isPodSeca) {
                 document.getElementById('res-cost-bunker').classList.remove('text-red-400');
                 document.getElementById('res-cost-bunker').classList.add('text-amber-400');
@@ -38285,11 +38526,11 @@ function scheduleReactiveEngine() {
             updateSecaIndicator('seca-pol-indicator', idxLoad, isPolSeca);
             updateSecaIndicator('seca-pod-indicator', idxDisch, isPodSeca);
 
-            document.getElementById('res-cost-opex').innerText = `€${Math.round(totalOpex).toLocaleString('es-ES')}`;
+            document.getElementById('res-cost-opex').innerText = `€${Math.round(displayFixedCost).toLocaleString('es-ES')}`;
             const capexCostEl = document.getElementById('res-cost-capex');
             if (capexCostEl) {
-                capexCostEl.innerText = `€${Math.round(totalCapex).toLocaleString('es-ES')}`;
-                capexCostEl.title = `${ownerClassAnalysis?.shipClass?.label || 'Clase estándar'}: €${Math.round(capexDaily).toLocaleString('es-ES')}/día x ${totalDays.toFixed(2)} h`;
+                capexCostEl.innerText = `€0`;
+                capexCostEl.title = `${ownerClassAnalysis?.shipClass?.label || 'Clase estándar'}: €0`;
             }
             let pdaPolVal = parseFloat(document.getElementById('pda-pol')?.value) || State.pdaPol || 0;
             let pdaPodVal = parseFloat(document.getElementById('pda-pod')?.value) || State.pdaPod || 0;
@@ -38344,10 +38585,10 @@ function scheduleReactiveEngine() {
 
             const pdaEl = document.getElementById('res-cost-pda');
             if (pdaEl) {
-                pdaEl.innerText = `€${Math.round(smartPortExpenses).toLocaleString('es-ES')}`;
+                pdaEl.innerText = `€${Math.round(displayTollCost).toLocaleString('es-ES')}`;
             }
             renderStevedoringCostBreakdown(stevedoringAllocation, operationalRisk);
-            document.getElementById('res-cost-total').innerText = `€${Math.round(adjustedCostTotal).toLocaleString('es-ES')}`;
+            document.getElementById('res-cost-total').innerText = `€${Math.round(displayTotalTripCost).toLocaleString('es-ES')}`;
 
             // Toggle delay hours container in main left panel
             const asbDelayContainer = document.getElementById('asb-delay-hours-container');
@@ -38471,15 +38712,73 @@ function scheduleReactiveEngine() {
                 cargo
             });
 
-            const breakEvenArmadorDisplay = breakEven;
-            document.getElementById('res-breakeven').innerText = `$${breakEvenArmadorDisplay.toFixed(2)}`;
+            const breakEvenArmadorDisplay = landBreakEvenPerKm > 0 ? landBreakEvenPerKm : (landTotalKilometers > 0 && displayTotalTripCost > 0 ? displayTotalTripCost / landTotalKilometers : breakEven);
+            document.getElementById('res-breakeven').innerText = `€${breakEvenArmadorDisplay.toFixed(2)} /Km`;
             const baseCostBreakEvenEl = document.getElementById('res-cost-base-break-even');
             if (baseCostBreakEvenEl) {
-                baseCostBreakEvenEl.innerText = `$${breakEvenArmadorDisplay.toFixed(2)} /MT`;
+                baseCostBreakEvenEl.innerText = `€${breakEvenArmadorDisplay.toFixed(2)} /Km · Total: €${Math.round(displayTotalTripCost).toLocaleString('es-ES')}`;
             }
             const breakEvenBreakdownEl = document.getElementById('res-breakeven-breakdown');
             if (breakEvenBreakdownEl) {
-                breakEvenBreakdownEl.innerText = `Incluye: BEP Base $${bepBase.toFixed(2)} + ETS $${etsBreakEvenImpact.toFixed(2)} + Riesgo Temporal $${temporalRiskImpact.toFixed(2)}`;
+                breakEvenBreakdownEl.innerText = `Combustible: €${Math.round(displayFuelCost).toLocaleString('es-ES')} · Peajes: €${Math.round(displayTollCost).toLocaleString('es-ES')} · Fijos: €${Math.round(displayFixedCost).toLocaleString('es-ES')}`;
+            }
+
+            State.totalKilometers = landTotalKilometers;
+            State.drivingHours = landDrivingHours;
+            State.fuelCost = displayFuelCost;
+            State.tollCost = displayTollCost;
+            State.fixedCost = displayFixedCost;
+            State.totalTripCost = displayTotalTripCost;
+            State.totalCosts = displayTotalTripCost;
+            State.costTotal = displayTotalTripCost;
+            State.breakEven = breakEvenArmadorDisplay;
+            State.breakEvenArmador = breakEvenArmadorDisplay;
+            State.breakEvenFreight = breakEvenArmadorDisplay;
+            State.totalBunkers = displayFuelCost;
+            State.costBunkers = displayFuelCost;
+            State.portExpenses = displayTollCost;
+            State.costPda = displayTollCost;
+            State.adjustedCostPda = displayTollCost;
+            State.totalOpex = displayFixedCost;
+            State.costOpex = displayFixedCost;
+            State.costCapex = 0;
+            State.costBreakdown = {
+                ...(State.costBreakdown || {}),
+                bunkers: displayFuelCost,
+                fuelCost: displayFuelCost,
+                tollCost: displayTollCost,
+                pda: displayTollCost,
+                fixedCost: displayFixedCost,
+                opex: displayFixedCost,
+                totalTripCost: displayTotalTripCost
+            };
+            State.voyageFinancials = {
+                totalVoyageCost: displayTotalTripCost,
+                baseVoyageCost: displayTotalTripCost,
+                breakEvenFreight: breakEvenArmadorDisplay,
+                breakEvenTotal: displayTotalTripCost,
+                cargoQty: cargo
+            };
+            if (typeof SeaCharterStore !== 'undefined' && typeof SeaCharterStore.set === 'function') {
+                SeaCharterStore.set({
+                    totalKilometers: landTotalKilometers,
+                    drivingHours: landDrivingHours,
+                    fuelCost: displayFuelCost,
+                    tollCost: displayTollCost,
+                    fixedCost: displayFixedCost,
+                    totalTripCost: displayTotalTripCost,
+                    totalCosts: displayTotalTripCost,
+                    costTotal: displayTotalTripCost,
+                    breakEven: breakEvenArmadorDisplay,
+                    breakEvenArmador: breakEvenArmadorDisplay,
+                    breakEvenFreight: breakEvenArmadorDisplay
+                });
+            }
+            const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
+            if (vStore) {
+                if (typeof vStore.setRouteDistanceAndDuration === 'function') {
+                    vStore.setRouteDistanceAndDuration(landTotalKilometers, landDrivingHours);
+                }
             }
             const coaCostesDiluidoContrato = operacionModo === 'COA' && !isZeroCalculation
                 ? ((pdaDiluidoPorViaje + (tugTotalCost * COA_PDA_DILUTION_FACTOR)) * coaNumEmbarques)
@@ -67513,25 +67812,6 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             if (typeof updateCargoMetricsUi === 'function') updateCargoMetricsUi();
             actualizarGrabCapacityVisibility();
             initVoyageEstimatorTooltips();
-            hydrateBunkerIndexData();
-            const applyHydratedBunkers = snapshot => {
-                const bunkers = snapshot?.bunkers;
-                if (!bunkers || ![bunkers.vlsfo, bunkers.hsfo, bunkers.mgo].every(price => Number(price) > 0)) return;
-                applyBunkerIndexData({
-                    vlsfo: Number(bunkers.vlsfo),
-                    ifo380: Number(bunkers.hsfo),
-                    mgo: Number(bunkers.mgo),
-                    date: bunkers.updatedAt || getTodayBunkerLabel(),
-                    cachedAt: Date.now(),
-                    regionalPrices: { World: { vlsfo: Number(bunkers.vlsfo), ifo380: Number(bunkers.hsfo), mgo: Number(bunkers.mgo) } },
-                    detectedRegion: bunkers.region || 'World',
-                    selectedRegion: bunkers.region || 'World',
-                    marketDataFound: true,
-                    fallbackUsed: false
-                });
-            };
-            window.addEventListener('seacharter:market-intelligence-hydrated', event => applyHydratedBunkers(event.detail?.snapshot));
-            applyHydratedBunkers(window.MarketIntelligenceHydration?.getSnapshot?.());
             ['port-pol', 'port-pod'].forEach((id) => {
                 const portInput = document.getElementById(id);
                 if (!portInput) return;

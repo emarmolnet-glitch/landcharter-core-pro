@@ -12,7 +12,7 @@ function getSplashElements() {
 
 function isGlobeMounted(mapContainer) {
     if (!mapContainer || mapContainer.dataset.renderKey !== 'mounted') return false;
-    return Boolean(mapContainer.querySelector('canvas'));
+    return Boolean(mapContainer.querySelector('canvas') || mapContainer.querySelector('.leaflet-container') || mapContainer.classList.contains('leaflet-container'));
 }
 
 function requestInitialGlobeMount() {

@@ -9,13 +9,7 @@ const GLOBE_MODULE_URL = new URL('GlobalFleetGlobe.js?v=20260904-vessel-html-mar
 let cartographyPromise = null;
 
 function ensureStylesheet() {
-  if (document.getElementById(GLOBE_STYLES_ID)) return;
-  const stylesheet = document.createElement('link');
-  stylesheet.id = GLOBE_STYLES_ID;
-  stylesheet.rel = 'stylesheet';
-  // Aplicamos la misma regla infalible para el CSS
-  stylesheet.href = new URL('assets/css/density-globe.css?v=20260904-vessel-html-marker', document.baseURI).href;
-  document.head.appendChild(stylesheet);
+  // Purga de estilos marítimos del globo 3D
 }
 
 function loadClassicScript(id, src) {
