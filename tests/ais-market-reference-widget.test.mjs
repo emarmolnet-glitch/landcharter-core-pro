@@ -72,9 +72,8 @@ test('AIS widget uses the calculator card surface instead of dark stacked blocks
   assert.doesNotMatch(widgetStyles, /linear-gradient\(145deg/);
 });
 
-test('commercial negotiation mounts the isolated AIS widget module', () => {
-  assert.match(indexSource, /<script type="module" src="\.\/AisMarketReferenceWidget\.ts"><\/script>/);
-  assert.match(indexSource, /<aside id="ais-market-reference-widget"><\/aside>/);
+test('commercial negotiation purges the isolated AIS widget module for road transport', () => {
+  assert.doesNotMatch(indexSource, /<aside id="ais-market-reference-widget"><\/aside>/);
 });
 
 test('AIS market rates remain pending until AIS data or an active vessel confirms availability', () => {

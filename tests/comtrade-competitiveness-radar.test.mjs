@@ -41,9 +41,8 @@ test('Comtrade service uses the Netlify proxy and seven-day browser cache', () =
   assert.match(functionSource, /statusCode: 429/);
 });
 
-test('competitiveness radar mounts inside commercial negotiation', () => {
-  assert.match(indexSource, /src\/comtrade-radar-entry\.ts/);
-  assert.match(indexSource, /id="comtrade-competitiveness-radar"/);
+test('competitiveness radar is purged from commercial negotiation for road transport', () => {
+  assert.doesNotMatch(indexSource, /id="comtrade-competitiveness-radar"/);
   assert.match(entrySource, /ComtradeCompetitivenessRadar\(root\)/);
   assert.doesNotMatch(componentSource, /value="252310"/);
   assert.match(componentSource, /Selecciona una especificación de carga/);

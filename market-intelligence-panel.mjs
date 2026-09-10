@@ -67,7 +67,7 @@ export function evaluateMarketOffer(value) {
 function formatRate(value) {
     return value === null
         ? '-'
-        : `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        : `${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 }
 
 function readInputRate(id) {
@@ -115,7 +115,7 @@ function renderDelta(root, data) {
     const delta = data.fleteCalculado !== null && data.ofertaCliente !== null
         ? data.fleteCalculado - data.ofertaCliente
         : null;
-    setText(root, '[data-mi-delta-value]', delta === null ? '-' : `${delta >= 0 ? '+' : '-'}$${Math.abs(delta).toFixed(2)} /MT`);
+    setText(root, '[data-mi-delta-value]', delta === null ? '-' : `${delta >= 0 ? '+' : '-'}${Math.abs(delta).toFixed(2)} €/t`);
     setText(
         root,
         '[data-mi-delta-caption]',
@@ -132,14 +132,14 @@ function renderRadar(root, data) {
     const scaleMax = values.length ? Math.max(...values, 1) * 1.12 : null;
     const marker = root.querySelector('[data-mi-marker="fleteCalculado"]');
 
-    setText(root, '[data-mi-scale]', scaleMax === null ? 'Escala pendiente' : `$0 — $${scaleMax.toFixed(2)} /MT`);
+    setText(root, '[data-mi-scale]', scaleMax === null ? 'Escala pendiente' : `0 € — ${scaleMax.toFixed(2)} €/t`);
     if (!marker) return;
 
     const hasPosition = data.fleteCalculado !== null && scaleMax !== null;
     marker.classList.toggle('hidden', !hasPosition);
     if (hasPosition) {
         marker.style.left = `${Math.min(100, Math.max(0, (data.fleteCalculado / scaleMax) * 100))}%`;
-        marker.title = `Flete calculado: ${formatRate(data.fleteCalculado)} /MT`;
+        marker.title = `Flete calculado: ${formatRate(data.fleteCalculado)} / t`;
     }
 }
 
