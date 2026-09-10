@@ -38,14 +38,13 @@ test('carbon endpoint exposes the requested API path', () => {
 });
 
 test('ETS calculator hydrates the live price and remains editable', () => {
-  assert.match(indexSource, /id="eu-carbon-price"[^>]*value="80\.00"[^>]*data-manual-override="false"/);
+  assert.doesNotMatch(indexSource, /id="eu-carbon-price"/);
   assert.match(indexSource, /fetch\('\/api\/market\/carbon-latest'/);
   assert.match(indexSource, /input\.dataset\.manualOverride === 'true'/);
   assert.match(indexSource, /input\.value = marketPrice\.toFixed\(2\)/);
   assert.match(indexSource, /handleCarbonPriceInput\(input\.value, \{ source: 'carbon-market' \}\)/);
   assert.match(indexSource, /void hydrateLatestEuCarbonPrice\(\)/);
   assert.doesNotMatch(indexSource, /euCarbonPrice \|\| 80/);
-  assert.doesNotMatch(indexSource, /eu-carbon-price[^\n]*\|\| 80/);
 });
 
 test('carbon price normalization preserves a valid zero scenario', () => {

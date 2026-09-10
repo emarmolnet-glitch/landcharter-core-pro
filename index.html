@@ -10232,8 +10232,8 @@
                             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-3">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div class="inline-flex rounded-md border border-slate-300 bg-white p-1 text-xs font-black uppercase">
-                                        <button id="btn-mode-spot" type="button" onclick="setOperacionModo('SPOT', { refreshReport: true })" class="px-3 py-1.5 rounded bg-[#1E3A8A] text-white transition">SPOT</button>
-                                        <button id="btn-mode-coa" type="button" onclick="setOperacionModo('COA', { refreshReport: true })" class="px-3 py-1.5 rounded text-slate-600 transition">COA</button>
+                                        <button id="btn-mode-spot" type="button" onclick="setOperacionModo('SPOT', { refreshReport: true })" class="px-3 py-1.5 rounded bg-[#1E3A8A] text-white transition">Viaje Único</button>
+                                        <button id="btn-mode-coa" type="button" onclick="setOperacionModo('COA', { refreshReport: true })" class="px-3 py-1.5 rounded text-slate-600 transition">Contrato Regular</button>
                                     </div>
                                     <button id="btn-export-coa" type="button" onclick="generarReporteCOA()" class="hidden bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-md transition shadow">
                                         <i class="fa-solid fa-file-excel mr-1"></i> Generar Excel COA
@@ -10266,8 +10266,8 @@
                                                         <tr>
                                                             <th class="py-1 pr-2">Perfil</th>
                                                             <th class="py-1 pr-2">Fletador</th>
-                                                            <th class="py-1 pr-2 text-right">Margen Armador</th>
-                                                            <th class="py-1 pr-2 text-right">Margen Fletador</th>
+                                                            <th class="py-1 pr-2 text-right">Margen Transportista</th>
+                                                            <th class="py-1 pr-2 text-right">Margen Agencia</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody id="coa-client-profile-table" class="divide-y divide-slate-100">
@@ -10364,15 +10364,15 @@
                                             </div>
                                             <div class="flex items-start justify-between gap-3">
                                                 <div>
-                                                    <div class="text-[10px] font-black uppercase text-[#1E3A8A]">Flete Sugerido Armador (Compra)</div>
-                                                    <div id="coa-owner-purchase-formula" class="text-[10px] font-semibold text-slate-400">Flete mínimo × (1 + margen armador)</div>
+                                                    <div class="text-[10px] font-black uppercase text-[#1E3A8A]">Flete Sugerido Transportista (Compra)</div>
+                                                    <div id="coa-owner-purchase-formula" class="text-[10px] font-semibold text-slate-400">Flete mínimo × (1 + margen transportista)</div>
                                                 </div>
                                                 <div id="coa-detail-owner-purchase" class="mono text-sm font-black text-[#1E3A8A]">$0.00 /TM</div>
                                             </div>
                                             <div class="flex items-start justify-between gap-3">
                                                 <div>
-                                                    <div class="text-[10px] font-black uppercase text-emerald-700">Venta Sugerida Fletador (Target Price)</div>
-                                                    <div id="coa-charterer-target-formula" class="text-[10px] font-semibold text-slate-400">Compra armador × (1 + margen fletador)</div>
+                                                    <div class="text-[10px] font-black uppercase text-emerald-700">Venta Sugerida Agencia (Target Price)</div>
+                                                    <div id="coa-charterer-target-formula" class="text-[10px] font-semibold text-slate-400">Compra transportista × (1 + margen agencia)</div>
                                                 </div>
                                                 <div id="coa-detail-charterer-target" class="mono text-sm font-black text-emerald-700">$0.00 /TM</div>
                                             </div>
@@ -10398,87 +10398,6 @@
                                         <div id="res-market-benchmark-alert" class="mt-1 inline-flex rounded px-2 py-1 text-[10px] font-black uppercase bg-slate-200 text-slate-600">Sin referencia</div>
                                     </div>
                                 </div>
-                                <section id="market-intel-dashboard" class="mt-3 rounded-xl border border-slate-800 bg-slate-950 p-3 text-white shadow-lg shadow-slate-950/10" aria-labelledby="market-intel-dashboard-title">
-                                    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                                        <div class="min-w-0">
-                                            <div class="flex flex-wrap items-center gap-2">
-                                                <h3 id="market-intel-dashboard-title" class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-300">Market Intel · Dry Bulk</h3>
-                                                <span id="market-intel-update-badge" class="inline-flex rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-slate-400">Esperando actualización</span>
-                                            </div>
-                                            <p id="market-intel-status" class="mt-1 text-[10px] font-semibold text-slate-400" aria-live="polite">Consultando la última referencia disponible.</p>
-                                        </div>
-                                        <div class="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Controles de actualización de Market Intel">
-                                            <button id="btn-market-force-sync" type="button" onclick="forceMarketIntelSync()" class="inline-flex items-center justify-center rounded-lg border border-sky-500/60 bg-sky-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-sky-200 transition hover:bg-sky-500/20 focus:outline-none focus:ring-2 focus:ring-sky-400/40 disabled:cursor-wait disabled:opacity-60">🔄 Forzar Sincronización</button>
-                                            <button id="btn-market-manual-edit" type="button" onclick="toggleMarketIntelManualEdit()" class="inline-flex items-center justify-center rounded-lg border border-amber-400/60 bg-amber-400/10 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-amber-200 transition hover:bg-amber-400/20 focus:outline-none focus:ring-2 focus:ring-amber-300/40 disabled:cursor-wait disabled:opacity-60">✏️ Editar Manualmente</button>
-                                        </div>
-                                    </div>
-                                    <div class="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-5">
-                                        <label class="group rounded-lg border border-slate-800 bg-slate-900/80 p-2 transition focus-within:border-sky-400">
-                                            <span class="block text-[9px] font-black uppercase tracking-wider text-slate-400">Capesize</span>
-                                            <span class="mt-1 flex items-baseline gap-1"><span class="text-[10px] font-bold text-slate-500">$</span><input id="market-intel-capesize-tc" data-market-field="capesize_tc" type="number" min="0" step="any" readonly class="min-w-0 w-full bg-transparent text-right font-mono text-sm font-black text-white outline-none read-only:cursor-default"><span class="text-[8px] font-bold uppercase text-slate-500">/día</span></span>
-                                        </label>
-                                        <label class="group rounded-lg border border-slate-800 bg-slate-900/80 p-2 transition focus-within:border-sky-400">
-                                            <span class="block text-[9px] font-black uppercase tracking-wider text-slate-400">Panamax</span>
-                                            <span class="mt-1 flex items-baseline gap-1"><span class="text-[10px] font-bold text-slate-500">$</span><input id="market-intel-panamax-tc" data-market-field="panamax_tc" type="number" min="0" step="any" readonly class="min-w-0 w-full bg-transparent text-right font-mono text-sm font-black text-white outline-none read-only:cursor-default"><span class="text-[8px] font-bold uppercase text-slate-500">/día</span></span>
-                                        </label>
-                                        <label class="group rounded-lg border border-slate-800 bg-slate-900/80 p-2 transition focus-within:border-sky-400">
-                                            <span class="block text-[9px] font-black uppercase tracking-wider text-slate-400">Supramax</span>
-                                            <span class="mt-1 flex items-baseline gap-1"><span class="text-[10px] font-bold text-slate-500">$</span><input id="market-intel-supramax-tc" data-market-field="supramax_tc" type="number" min="0" step="any" readonly class="min-w-0 w-full bg-transparent text-right font-mono text-sm font-black text-white outline-none read-only:cursor-default"><span class="text-[8px] font-bold uppercase text-slate-500">/día</span></span>
-                                        </label>
-                                        <label class="group rounded-lg border border-slate-800 bg-slate-900/80 p-2 transition focus-within:border-sky-400">
-                                            <span class="block text-[9px] font-black uppercase tracking-wider text-slate-400">Handysize</span>
-                                            <span class="mt-1 flex items-baseline gap-1"><span class="text-[10px] font-bold text-slate-500">$</span><input id="market-intel-handysize-tc" data-market-field="handysize_tc" type="number" min="0" step="any" readonly class="min-w-0 w-full bg-transparent text-right font-mono text-sm font-black text-white outline-none read-only:cursor-default"><span class="text-[8px] font-bold uppercase text-slate-500">/día</span></span>
-                                        </label>
-                                        <label class="group col-span-2 rounded-lg border border-sky-500/30 bg-sky-500/10 p-2 transition focus-within:border-sky-300 lg:col-span-1">
-                                            <span class="flex items-center justify-between gap-2 text-[9px] font-black uppercase tracking-wider text-sky-300"><span>BDI Index</span><span id="market-intel-bdi-updated" class="text-[8px] font-semibold normal-case tracking-normal text-sky-200/60">Fecha N/D</span></span>
-                                            <span class="mt-1 flex items-baseline gap-1"><input id="market-intel-bdi-index" data-market-field="bdi_index" type="number" min="0" step="any" readonly class="min-w-0 w-full bg-transparent text-right font-mono text-sm font-black text-white outline-none read-only:cursor-default"><span class="text-[8px] font-bold uppercase text-sky-300/70">pts</span></span>
-                                        </label>
-                                    </div>
-                                </section>
-                                <div id="baltic-spot-reference-card" class="mt-3 overflow-hidden rounded-xl border border-sky-200 bg-white shadow-sm" aria-live="polite">
-                                    <div class="border-b border-sky-100 bg-gradient-to-r from-sky-50 via-white to-emerald-50 px-3 py-2.5">
-                                        <div class="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide text-sky-900">
-                                            <span class="inline-flex h-5 w-5 items-center justify-center rounded bg-sky-100 text-sky-700" aria-hidden="true"><i class="fa-solid fa-chart-line text-[9px]"></i></span>
-                                            Market Intelligence · Espejo Data Bridge
-                                        </div>
-                                        <div class="mt-1 text-[10px] font-semibold leading-relaxed text-slate-500">BDI y TCE Spot Teórico recibidos de la misma instantánea, sin recálculo local.</div>
-                                    </div>
-                                    <div class="grid gap-px bg-slate-200 md:grid-cols-[0.8fr_1.2fr]">
-                                        <section class="bg-white p-3" aria-labelledby="baltic-spot-index">
-                                            <div class="flex items-start justify-between gap-3">
-                                                <div>
-                                                    <div id="baltic-spot-index" class="text-[10px] font-black uppercase tracking-[0.18em] text-sky-700">BDI</div>
-                                                    <div id="baltic-spot-updated" class="mt-1 text-[9px] font-semibold text-slate-400">Fecha no disponible</div>
-                                                </div>
-                                                <div class="text-right">
-                                                    <div id="baltic-spot-value" class="mono text-xl font-black text-slate-950">—</div>
-                                                    <div id="baltic-spot-variation" class="mt-0.5 text-[10px] font-black text-slate-400">Variación N/D</div>
-                                                </div>
-                                            </div>
-                                            <div id="baltic-spot-status" class="mt-2 inline-flex rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-500">Esperando datos</div>
-                                        </section>
-                                        <section id="tce-spot-theoretical-card" class="bg-white p-3" aria-labelledby="tce-spot-theoretical-title">
-                                            <div class="flex flex-wrap items-start justify-between gap-3">
-                                                <div>
-                                                    <div id="tce-spot-theoretical-title" class="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-800">TCE Spot Teórico</div>
-                                                    <div id="tce-spot-theoretical-class" class="mt-1 text-xs font-black text-slate-800">Clase no detectada</div>
-                                                    <div id="tce-spot-theoretical-updated" class="mt-0.5 text-[9px] font-semibold text-slate-400">Fecha no disponible</div>
-                                                </div>
-                                                <div class="text-right">
-                                                    <div id="tce-spot-theoretical-value" class="mono text-xl font-black text-slate-950">—</div>
-                                                    <div class="mt-0.5 text-[9px] font-bold uppercase text-slate-400">USD / día</div>
-                                                </div>
-                                            </div>
-                                            <div class="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2">
-                                                <div id="tce-spot-theoretical-spread" class="text-[10px] font-black text-slate-500">Brecha no disponible</div>
-                                                <div class="flex flex-wrap items-center gap-1.5">
-                                                    <span id="tce-spot-theoretical-fuel" class="rounded bg-slate-100 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-slate-500">Combustible N/D</span>
-                                                    <span id="tce-spot-theoretical-status" class="rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-slate-500">Esperando datos</span>
-                                                </div>
-                                            </div>
-                                        </section>
-                                    </div>
-                                </div>
                                 <div class="mt-3 border-t border-slate-200 pt-2">
                                     <label for="market-calibration-factor" class="text-[10px] text-slate-500 uppercase font-black flex items-center gap-1">
                                         Factor de Calibración de Mercado
@@ -10501,23 +10420,6 @@
                                         <button id="btn-apply-market-adjustment" type="button" onclick="applyMarketAdjustedMargin()" class="shrink-0 rounded bg-orange-600 px-2.5 py-1.5 text-[10px] font-black uppercase text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500">
                                             Aplicar
                                         </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Router de Pricing por tamaño de buque -->
-                            <div id="vessel-pricing-router-card" class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs shadow-sm">
-                                <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-                                    <div>
-                                        <div class="text-[10px] font-black uppercase tracking-wide text-slate-700">Router de Pricing por DWT</div>
-                                        <div id="vessel-pricing-router-status" class="mt-0.5 text-[10px] font-semibold text-slate-500">Selecciona automáticamente la calculadora según tamaño del buque.</div>
-                                    </div>
-                                    <div class="flex flex-wrap items-center justify-end gap-2">
-                                        <button id="btn-force-refresh-calculations" type="button" onclick="forceRefreshCalculations(true)" class="inline-flex items-center gap-1 rounded-md border border-teal-300 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-teal-800 shadow-sm transition hover:border-teal-500 hover:bg-teal-50" title="Reinicializar datos actuales y repintar ETA, Cost-Plus, TCE y Benchmark">
-                                            <i class="fa-solid fa-arrows-rotate"></i>
-                                            <span>Actualizar Cálculos</span>
-                                        </button>
-                                        <span id="vessel-pricing-router-badge" class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-[10px] font-black text-blue-950 shadow-sm">Auto</span>
                                     </div>
                                 </div>
                             </div>
@@ -10607,16 +10509,16 @@
                                 </div>
                             </div>
 
-                            <!-- Calculadora Cost-Plus Coaster -->
-                            <div id="cost-plus-card" class="hidden rounded-lg border border-amber-200 bg-amber-50/80 p-3 text-xs shadow-sm">
+                            <!-- Calculadora Escandallo de Costes (Cost-Plus) -->
+                            <div id="cost-plus-card" class="rounded-lg border border-amber-200 bg-amber-50/80 p-3 text-xs shadow-sm">
                                 <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
                                     <div>
-                                        <div class="text-[10px] font-black uppercase tracking-wide text-amber-800">Cost-Plus Coaster</div>
+                                        <div class="text-[10px] font-black uppercase tracking-wide text-amber-800">ESCANDALLO DE COSTES (COST-PLUS)</div>
                                         <div class="mt-0.5 text-[10px] font-semibold text-slate-500">Cálculo desde Costes Fijos (Chófer/Amort.), combustible, peajes y dietas y margen comercial.</div>
                                     </div>
                                     <div class="flex flex-wrap items-center gap-2">
                                         <button id="btn-sync-cost-plus-route" type="button" onclick="syncCostPlusFromRoute(true)" class="rounded border border-[#32D6C3] bg-[#32D6C3] px-2 py-1 text-[10px] font-bold uppercase text-white shadow-sm transition hover:border-[#29b8a9] hover:bg-[#29b8a9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#32D6C3] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400" disabled>Sincronizar con Ruta</button>
-                                        <span class="rounded bg-white px-2 py-1 text-[10px] font-black uppercase text-amber-700 shadow-sm">Modo Coaster: Cálculo Cost-Plus (Costes Fijos)</span>
+                                        <span class="rounded bg-white px-2 py-1 text-[10px] font-black uppercase text-amber-700 shadow-sm">Modo Terrestre: Escandallo de Costes (Cost-Plus)</span>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.25fr)_minmax(14rem,0.75fr)]">
@@ -10638,17 +10540,17 @@
                                                 <div class="flex overflow-hidden rounded-md border border-slate-300 bg-white focus-within:border-amber-500 focus-within:ring-2 focus-within:ring-amber-500/20">
                                                     <input type="number" id="cost-plus-target-margin" class="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-right text-xs font-black text-slate-900 outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" value="15" min="0" step="any" oninput="calculateCostPlusFreight()">
                                                     <div class="flex border-l border-slate-200 bg-slate-100 p-0.5">
-                                                        <button id="cost-plus-margin-fixed" type="button" onclick="setCostPlusMarginType('fixed')" class="h-7 w-8 rounded text-xs font-black text-slate-500 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-50">$</button>
+                                                        <button id="cost-plus-margin-fixed" type="button" onclick="setCostPlusMarginType('fixed')" class="h-7 w-8 rounded text-xs font-black text-slate-500 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-50">€</button>
                                                         <button id="cost-plus-margin-percentage" type="button" onclick="setCostPlusMarginType('percentage')" class="h-7 w-8 rounded bg-white text-xs font-black text-slate-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">%</button>
                                                     </div>
                                                 </div>
                                             </div>
                                             <div>
-                                                <label for="cost-plus-days-sea" class="mb-1 block text-[10px] font-black uppercase text-slate-500">Días mar</label>
+                                                <label for="cost-plus-days-sea" class="mb-1 block text-[10px] font-black uppercase text-slate-500">HORAS CONDUCCIÓN</label>
                                                 <input type="number" id="cost-plus-days-sea" class="input-gc bg-white text-slate-900 border-slate-300 font-bold text-right" value="4" min="0" step="any" oninput="calculateCostPlusFreight()">
                                             </div>
                                             <div>
-                                                <label for="cost-plus-days-port" class="mb-1 block text-[10px] font-black uppercase text-slate-500">Días puerto</label>
+                                                <label for="cost-plus-days-port" class="mb-1 block text-[10px] font-black uppercase text-slate-500">HORAS MUELLE/ESPERA</label>
                                                 <input type="number" id="cost-plus-days-port" class="input-gc bg-white text-slate-900 border-slate-300 font-bold text-right" value="6" min="0" step="any" oninput="calculateCostPlusFreight()">
                                             </div>
                                             <div>
@@ -10656,7 +10558,7 @@
                                                 <input type="number" id="cost-plus-bunker-cost" class="input-gc bg-white text-slate-900 border-slate-300 font-bold text-right" value="25000" min="0" step="any" oninput="calculateCostPlusFreight()">
                                             </div>
                                             <div>
-                                                <label for="cost-plus-port-costs" class="mb-1 block text-[10px] font-black uppercase text-slate-500">Gastos puerto</label>
+                                                <label for="cost-plus-port-costs" class="mb-1 block text-[10px] font-black uppercase text-slate-500">PEAJES Y DIETAS</label>
                                                 <input type="number" id="cost-plus-port-costs" class="input-gc bg-white text-slate-900 border-slate-300 font-bold text-right" value="18000" min="0" step="any" oninput="calculateCostPlusFreight()">
                                             </div>
                                             <div class="md:col-span-2">
@@ -10671,60 +10573,22 @@
                                     </div>
                                     <div class="rounded-md border border-sky-200 bg-sky-50 p-3 shadow-sm ring-1 ring-sky-100">
                                         <div id="cost-plus-box-title" class="text-[10px] font-black uppercase text-sky-700">COSTE POR KM Y PRECIO TOTAL DEL VIAJE (COST-PLUS)</div>
-                                        <div id="cost-plus-min-freight-rate" class="mono mt-1 text-2xl font-black text-sky-950">$12.65 /Km</div>
+                                        <div id="cost-plus-min-freight-rate" class="mono mt-1 text-2xl font-black text-sky-950">12.65 € /Km</div>
                                         <div class="mt-3 space-y-1 border-t border-sky-100 pt-2 text-sm font-semibold text-sky-800">
-                                            <div>Coste Total Riesgo: <span id="cost-plus-total-costs">$0</span></div>
+                                            <div>Coste Total Riesgo: <span id="cost-plus-total-costs">0 €</span></div>
                                             <div id="cost-plus-total-costs-breakdown" class="text-[10px] font-bold text-sky-700">Base global compartida con Negociación.</div>
                                             <div id="cost-plus-contingency-warning" class="hidden rounded border border-orange-200 bg-orange-50 px-2 py-1 text-[10px] font-bold text-orange-700"></div>
-                                            <div>Beneficio Neto Proyectado: <span id="cost-plus-calculated-margin">$13,200</span></div>
-                                            <div>Demurrage ($/d): <span id="cost-plus-demurrage-rate">$5,625</span></div>
+                                            <div>Beneficio Neto Proyectado: <span id="cost-plus-calculated-margin">13,200 €</span></div>
+                                            <div>Paralizaciones (€/h): <span id="cost-plus-demurrage-rate">5,625 €</span></div>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-
-                            <!-- Costes y Recargos ETS / CO₂ -->
-                            <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/60 space-y-2 mt-2">
-                                <div class="flex justify-between items-center border-b border-slate-700 pb-1.5 mb-1.5">
-                                    <span id="label-ets-charges-title" class="text-xs font-bold text-indigo-400 uppercase flex items-center gap-1"><i class="fa-solid fa-leaf text-emerald-400"></i> Costes y Recargos ETS / CO₂</span>
-                                    <span class="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-mono font-bold" id="res-ets-emissions">0.0 tCO₂</span>
-                                </div>
-                                <div class="grid grid-cols-2 gap-2 text-xs">
-                                    <div>
-                                        <label id="label-ets-route-type" class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Tipo de Ruta ETS</label>
-                                        <select id="ets-route-type" class="w-full bg-slate-950 border border-slate-700 text-white text-xs rounded px-1.5 py-1 outline-none font-bold" onchange="runEngine()">
-                                            <option value="1">Intra-UE (100%)</option>
-                                            <option value="0.5">Entrada/Salida UE (50%)</option>
-                                            <option value="0">Internacional - No UE (0%)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label id="label-apply-ets-checkbox" class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Aplicar Recargo ETS</label>
-                                        <select id="apply-ets-surcharge" class="w-full bg-slate-950 border border-slate-700 text-white text-xs rounded px-1.5 py-1 outline-none font-bold" onchange="runEngine()">
-                                            <option value="NO">NO (Consolidado All-In)</option>
-                                            <option value="YES">SÍ (Itemizado)</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-2 gap-2 text-xs">
-                                    <div>
-                                        <label id="label-co2-price" class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Precio Carbono UE</label>
-                                        <div class="flex items-center bg-slate-950 border border-slate-700 rounded px-1.5">
-                                            <input type="number" id="eu-carbon-price" class="w-full bg-transparent text-white text-xs outline-none py-1 text-right font-mono" value="80.00" step="any" min="0" data-manual-override="false" oninput="handleCarbonPriceInput(this.value)">
-                                            <span class="text-slate-500 text-[10px] ml-1">USD/t</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="text-[10px] text-slate-400 flex justify-between items-center mt-1 pt-1 border-t border-slate-800/40">
-                                    <span id="label-co2-surcharge-total">Costo Total ETS Estimado:</span>
-                                    <span id="res-ets-total-cost" class="font-bold text-white font-mono">$0.00</span>
                                 </div>
                             </div>
 
                             <!-- Armador Sugerido -->
                             <div class="flex items-center gap-3">
                                 <div class="w-1/3">
-                                    <label id="label-owner-margin" class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Margen Armador</label>
+                                    <label id="label-owner-margin" class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Margen Transportista</label>
                                     <div class="flex items-center bg-slate-900 border border-slate-700 rounded px-2">
                                         <input type="number" id="margin-owner" class="w-full bg-transparent text-white text-sm outline-none py-1 text-right" value="15" step="any" oninput="runEngine()">
                                         <span class="text-slate-500 text-xs mx-1">%</span>
@@ -10733,23 +10597,23 @@
                                     </div>
                                 </div>
                                 <div class="w-2/3 bg-slate-900 border border-slate-700 p-2 rounded text-right">
-                                    <div id="label-suggested-owner" class="text-[10px] text-slate-400 uppercase">Venta Sugerida Armador</div>
-                                    <div id="res-sug-owner" class="text-lg font-bold text-emerald-400 mono">$0.00</div>
+                                    <div id="label-suggested-owner" class="text-[10px] text-slate-400 uppercase">Venta Sugerida Transportista</div>
+                                    <div id="res-sug-owner" class="text-lg font-bold text-emerald-400 mono">0.00 €</div>
                                 </div>
                             </div>
 
                             <!-- Fletador Sugerido -->
                             <div class="flex items-center gap-3">
                                 <div class="w-1/3">
-                                    <label id="label-charterer-margin" class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Margen Fletador</label>
+                                    <label id="label-charterer-margin" class="text-[10px] text-slate-400 font-bold uppercase block mb-1">Margen Agencia</label>
                                     <div class="flex items-center bg-slate-900 border border-slate-700 rounded px-2">
                                         <input type="number" id="margin-charterer" class="w-full bg-transparent text-white text-sm outline-none py-1 text-right" value="10" step="any" oninput="runEngine()">
                                         <span class="text-slate-500 text-xs ml-1">%</span>
                                     </div>
                                 </div>
                                 <div class="w-2/3 bg-slate-900 border border-slate-700 p-2 rounded text-right">
-                                    <div id="label-suggested-charterer" class="text-[10px] text-slate-400 uppercase">Venta Sugerida Fletador</div>
-                                    <div id="res-sug-charterer" class="text-lg font-bold text-emerald-400 mono">$0.00</div>
+                                    <div id="label-suggested-charterer" class="text-[10px] text-slate-400 uppercase">Venta Sugerida Agencia</div>
+                                    <div id="res-sug-charterer" class="text-lg font-bold text-emerald-400 mono">0.00 €</div>
                                 </div>
                             </div>
                             <div id="ai-margin-proposal-note" class="hidden rounded-md border border-cyan-700/50 bg-cyan-950/40 px-3 py-2 text-[11px] font-semibold text-cyan-100 leading-relaxed"></div>
@@ -65986,9 +65850,9 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
 
         function formatInverseTceMoney(value, options = {}) {
             const { decimals = 0 } = options;
-            return value.toLocaleString('en-US', {
+            return value.toLocaleString('es-ES', {
                 style: 'currency',
-                currency: 'USD',
+                currency: 'EUR',
                 minimumFractionDigits: decimals,
                 maximumFractionDigits: decimals
             });
