@@ -10859,7 +10859,7 @@
                                 <h2 data-i18n="calc_risk_title" class="text-sm font-bold text-amber-300 uppercase">
                                     <i class="fa-solid fa-triangle-exclamation mr-2"></i> 9. MATRIZ DE RIESGO
                                 </h2>
-                                <div class="mt-0.5 text-[10px] text-slate-500">Simulador multi-variable de velocidad, clima y bunker sobre el break-even oficial</div>
+                                <div class="mt-0.5 text-[10px] text-slate-500">Simulador multi-variable de tráfico, clima y diésel sobre el break-even oficial</div>
                             </div>
                             <div class="collapsible-section-actions flex items-center gap-2">
                                 <span id="auto-risk-tooltip" class="hidden cursor-help text-[11px] font-black text-amber-200" title="Margen insuficiente">Margen insuficiente</span>
@@ -10911,7 +10911,7 @@
                         <div class="w-full max-w-3xl overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-2xl">
                             <div class="flex items-start justify-between gap-4 border-b border-slate-800 p-5">
                                 <div>
-                                    <h3 id="shadow-estimator-title" class="text-sm font-black uppercase tracking-wide text-indigo-200">Shadow Estimator Armador</h3>
+                                    <h3 id="shadow-estimator-title" class="text-sm font-black uppercase tracking-wide text-indigo-200">Shadow Estimator Transportista</h3>
                                     <p class="mt-1 text-[11px] text-slate-500">Los inputs viven solo mientras este modal esta abierto.</p>
                                 </div>
                                 <button id="btn-close-shadow-estimator" type="button" class="rounded-md border border-slate-700 bg-slate-950/60 px-3 py-2 text-[10px] font-black uppercase text-slate-300 transition hover:border-red-400 hover:text-red-200">Cerrar</button>
@@ -10919,12 +10919,12 @@
                             <div class="border-b border-slate-800 bg-slate-950/35 p-5">
                                 <div class="mb-2 flex items-center justify-between gap-3">
                                     <span class="text-[10px] font-black uppercase tracking-wide text-slate-400">Auto-Simulacion Rapida por Distancia</span>
-                                    <span id="shadow-auto-source" class="text-[10px] font-bold text-slate-500">Peajes y Dietas base: $0</span>
+                                    <span id="shadow-auto-source" class="text-[10px] font-bold text-slate-500">Peajes y Dietas base: 0 €</span>
                                 </div>
                                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                    <button type="button" class="shadow-distance-btn rounded-lg border border-cyan-500/40 bg-cyan-950/35 px-3 py-2 text-xs font-black uppercase text-cyan-100 transition hover:border-cyan-300 hover:bg-cyan-900/50" data-distance-nm="1000">Corto <span class="mono text-cyan-300">1000 MN</span></button>
-                                    <button type="button" class="shadow-distance-btn rounded-lg border border-indigo-500/40 bg-indigo-950/35 px-3 py-2 text-xs font-black uppercase text-indigo-100 transition hover:border-indigo-300 hover:bg-indigo-900/50" data-distance-nm="2000">Medio <span class="mono text-indigo-300">2000 MN</span></button>
-                                    <button type="button" class="shadow-distance-btn rounded-lg border border-amber-500/40 bg-amber-950/35 px-3 py-2 text-xs font-black uppercase text-amber-100 transition hover:border-amber-300 hover:bg-amber-900/50" data-distance-nm="3000">Largo <span class="mono text-amber-300">3000 MN</span></button>
+                                    <button type="button" class="shadow-distance-btn rounded-lg border border-cyan-500/40 bg-cyan-950/35 px-3 py-2 text-xs font-black uppercase text-cyan-100 transition hover:border-cyan-300 hover:bg-cyan-900/50" data-distance-nm="1000">Corto <span class="mono text-cyan-300">1000 km</span></button>
+                                    <button type="button" class="shadow-distance-btn rounded-lg border border-indigo-500/40 bg-indigo-950/35 px-3 py-2 text-xs font-black uppercase text-indigo-100 transition hover:border-indigo-300 hover:bg-indigo-900/50" data-distance-nm="2000">Medio <span class="mono text-indigo-300">2000 km</span></button>
+                                    <button type="button" class="shadow-distance-btn rounded-lg border border-amber-500/40 bg-amber-950/35 px-3 py-2 text-xs font-black uppercase text-amber-100 transition hover:border-amber-300 hover:bg-amber-900/50" data-distance-nm="3000">Largo <span class="mono text-amber-300">3000 km</span></button>
                                 </div>
                             </div>
                             <div class="grid grid-cols-1 gap-5 p-5 lg:grid-cols-2">
@@ -10957,34 +10957,34 @@
                                             <input id="shadow-hypothetical-freight" type="number" min="0" step="1000" class="input-gc w-full text-sm">
                                         </div>
                                         <div>
-                                            <label for="shadow-estimated-costs" class="mb-1 block text-[10px] font-black uppercase text-slate-400">Bunker + puertos</label>
+                                            <label for="shadow-estimated-costs" class="mb-1 block text-[10px] font-black uppercase text-slate-400">Diésel + peajes</label>
                                             <input id="shadow-estimated-costs" type="number" min="0" step="1000" class="input-gc w-full text-sm">
                                         </div>
                                     </div>
                                     <div>
-                                        <label for="shadow-break-even-freight" class="mb-1 block text-[10px] font-black uppercase text-emerald-300">Flete Minimo Necesario (Break-Even USD Total · Viaje 2 Hipotético)</label>
-                                        <input id="shadow-break-even-freight" type="number" min="0" step="1000" class="input-gc w-full text-sm font-black text-emerald-300" readonly title="Break-even TOTAL en USD del segundo viaje hipotético (relet). No es el break-even $/MT del viaje activo: ese lo publica el motor principal.">
+                                        <label for="shadow-break-even-freight" class="mb-1 block text-[10px] font-black uppercase text-emerald-300">Flete Minimo Necesario (Break-Even EUR Total · Viaje 2 Hipotético)</label>
+                                        <input id="shadow-break-even-freight" type="number" min="0" step="1000" class="input-gc w-full text-sm font-black text-emerald-300" readonly title="Break-even TOTAL en EUR del segundo viaje hipotético. No es el break-even € / t del viaje activo: ese lo publica el motor principal.">
                                     </div>
                                     <div class="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-[10px] text-slate-400">
-                                        <div class="flex justify-between gap-3"><span>Beneficio Neto Viaje 1</span><strong id="shadow-base-profit" class="mono text-slate-200">$0</strong></div>
+                                        <div class="flex justify-between gap-3"><span>Beneficio Neto Viaje 1</span><strong id="shadow-base-profit" class="mono text-slate-200">0 €</strong></div>
                                         <div class="mt-1 flex justify-between gap-3"><span>Dias Viaje 1</span><strong id="shadow-base-days" class="mono text-slate-200">0</strong></div>
-                                        <div class="mt-1 flex justify-between gap-3"><span>Costes Fijos (Chófer/Amort.) diario</span><strong id="shadow-base-daily" class="mono text-slate-200">$0</strong></div>
+                                        <div class="mt-1 flex justify-between gap-3"><span>Costes Fijos (Chófer/Amort.) diario</span><strong id="shadow-base-daily" class="mono text-slate-200">0 €</strong></div>
                                     </div>
                                 </div>
                                 <div class="space-y-3">
                                     <div class="rounded-lg border border-indigo-500/30 bg-indigo-950/20 p-4">
                                         <span class="block text-[10px] font-black uppercase text-indigo-300">Beneficio Viaje 2</span>
-                                        <strong id="shadow-result-trip2" class="mono mt-1 block text-2xl text-slate-100">$0</strong>
+                                        <strong id="shadow-result-trip2" class="mono mt-1 block text-2xl text-slate-100">0 €</strong>
                                     </div>
                                     <div class="rounded-lg border border-slate-700 bg-slate-950/40 p-4">
                                         <span class="block text-[10px] font-black uppercase text-slate-400">Beneficio consolidado</span>
-                                        <strong id="shadow-result-consolidated" class="mono mt-1 block text-2xl text-slate-100">$0</strong>
+                                        <strong id="shadow-result-consolidated" class="mono mt-1 block text-2xl text-slate-100">0 €</strong>
                                     </div>
                                     <div class="rounded-lg border border-slate-700 bg-slate-950/40 p-4">
                                         <span class="block text-[10px] font-black uppercase text-slate-400">TCE combinado</span>
-                                        <strong id="shadow-result-tce" class="mono mt-1 block text-2xl text-slate-100">$0 / dia</strong>
+                                        <strong id="shadow-result-tce" class="mono mt-1 block text-2xl text-slate-100">0 € / dia</strong>
                                     </div>
-                                    <div id="shadow-viability-alert" class="hidden rounded-lg border border-emerald-500/40 bg-emerald-950/40 p-3 text-xs font-bold text-emerald-200">Viable: El armador puede absorber la perdida inicial gracias al flete del viaje de retorno.</div>
+                                    <div id="shadow-viability-alert" class="hidden rounded-lg border border-emerald-500/40 bg-emerald-950/40 p-3 text-xs font-bold text-emerald-200">Viable: El transportista puede absorber la perdida inicial gracias al flete del viaje de retorno.</div>
                                 </div>
                             </div>
                         </div>
@@ -10999,16 +10999,16 @@
                             <span class="rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-cyan-700">Fletador</span>
                         </div>
 
-                        <p class="mb-4 max-w-3xl text-xs font-semibold leading-relaxed text-slate-600">Compara la petición del armador con tu contraoferta y mide el ahorro potencial sin cruzar el coste operativo mínimo del viaje.</p>
+                        <p class="mb-4 max-w-3xl text-xs font-semibold leading-relaxed text-slate-600">Compara la petición del transportista con tu contraoferta y mide el ahorro potencial sin cruzar el coste operativo mínimo del viaje.</p>
 
-                        <div class="mb-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm" aria-label="Parámetros del buque sincronizados con la negociación">
+                        <div class="mb-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm" aria-label="Parámetros del transporte sincronizados con la negociación">
                             <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                                 <div>
                                     <span class="block text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">Sincronización en tiempo real · Módulos 2 y 3</span>
-                                    <strong id="negotiation-vessel-sync-title" class="mt-1 block text-xs font-black text-slate-900">Esperando datos del buque</strong>
+                                    <strong id="negotiation-vessel-sync-title" class="mt-1 block text-xs font-black text-slate-900">Ruta Óptima - Diésel Terrestre</strong>
                                 </div>
                                 <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
-                                    <span id="negotiation-fuel-strategy" class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase text-slate-600">Combustible pendiente</span>
+                                    <span id="negotiation-fuel-strategy" class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase text-slate-600">DIÉSEL</span>
                                     <label for="negotiation-safety-factor" class="block min-w-[190px]">
                                         <span class="mb-1 block text-[9px] font-black uppercase tracking-wide text-slate-500">Factor de Seguridad / Contingencia (%)</span>
                                         <div class="flex items-center rounded-lg border border-slate-300 bg-white px-2 shadow-sm focus-within:border-cyan-500 focus-within:ring-2 focus-within:ring-cyan-500/10">
@@ -11021,19 +11021,19 @@
                             <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
                                 <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
                                     <span class="block text-[9px] font-bold uppercase text-slate-400">Estrategia / Velocidades</span>
-                                    <strong id="negotiation-navigation-summary" class="mt-1 block text-[11px] font-black text-slate-800">—</strong>
+                                    <strong id="negotiation-navigation-summary" class="mt-1 block text-[11px] font-black text-slate-800">Ruta Óptima · 0.0 / 0.0 km/h</strong>
                                 </div>
                                 <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
-                                    <span class="block text-[9px] font-bold uppercase text-slate-400">Días Reales TCE</span>
-                                    <strong id="negotiation-days-summary" class="mt-1 block text-[11px] font-black text-slate-800">—</strong>
+                                    <span class="block text-[9px] font-bold uppercase text-slate-400">Tiempos de Ruta</span>
+                                    <strong id="negotiation-days-summary" class="mt-1 block text-[11px] font-black text-slate-800">0.00 h · Conducción 0.00 · Muelle 0.00</strong>
                                 </div>
                                 <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
                                     <span class="block text-[9px] font-bold uppercase text-slate-400">Estrés Algorítmico</span>
-                                    <strong id="negotiation-contingency-summary" class="mt-1 block text-[11px] font-black text-slate-800">—</strong>
+                                    <strong id="negotiation-contingency-summary" class="mt-1 block text-[11px] font-black text-slate-800">Peajes 0 € · Fijos 0 €/d</strong>
                                 </div>
                                 <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
-                                    <span class="block text-[9px] font-bold uppercase text-slate-400">Exposición Demurrage</span>
-                                    <strong id="negotiation-demurrage-summary" class="mt-1 block text-[11px] font-black text-slate-800">—</strong>
+                                    <span class="block text-[9px] font-bold uppercase text-slate-400">Exposición Paralizaciones</span>
+                                    <strong id="negotiation-demurrage-summary" class="mt-1 block text-[11px] font-black text-slate-800">0.00 h · 0 €</strong>
                                 </div>
                             </div>
                         </div>
@@ -11048,7 +11048,7 @@
                                             <input id="negotiation-owner-offer" type="number" min="0" step="0.01" class="input-gc mono border-slate-300 bg-white text-lg font-black text-slate-900" placeholder="0.00" oninput="this.dataset.userEdited='true'; updateChartererNegotiationSimulator()">
                                             <span class="text-[10px] font-black uppercase text-slate-500">/Km</span>
                                         </div>
-                                        <span id="negotiation-owner-tce" class="mt-2 block border-t border-indigo-100 pt-2 text-xs font-bold text-sky-700">Margen Neto del Viaje (€ o $): $0</span>
+                                        <span id="negotiation-owner-tce" class="mt-2 block border-t border-indigo-100 pt-2 text-xs font-bold text-sky-700">Margen Neto del Viaje: 0 €</span>
                                         <div id="negotiation-suggested-floor" class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2" aria-live="polite" hidden>
                                             <span class="block text-[9px] font-black uppercase tracking-wide text-amber-700">Suelo Sugerido</span>
                                             <strong id="negotiation-suggested-floor-value" class="mono mt-0.5 block text-sm font-black text-amber-950"></strong>
@@ -11061,20 +11061,20 @@
                                             <input id="negotiation-charterer-target" type="number" min="0" step="0.01" class="input-gc mono border-slate-300 bg-white text-lg font-black text-slate-900" placeholder="0.00" oninput="this.dataset.userEdited='true'; updateChartererNegotiationSimulator()">
                                             <span class="text-[10px] font-black uppercase text-slate-500">/Km</span>
                                         </div>
-                                        <button id="negotiation-ai-suggestion" type="button" onclick="applySuggestedNegotiationTarget()" class="mt-2 inline-flex items-center gap-1.5 rounded-md border border-transparent px-1 py-1 text-left text-[11px] font-bold text-emerald-700 transition hover:border-emerald-200 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:text-slate-400" disabled><i class="fa-solid fa-bullseye" aria-hidden="true"></i><span>Sugerencia IA: €0.00 / Km (Margen +5%)</span></button>
-                                        <span id="negotiation-target-tce" class="mt-2 block border-t border-emerald-100 pt-2 text-xs font-bold text-sky-700">Margen Neto del Viaje (€ o $): $0</span>
+                                        <button id="negotiation-ai-suggestion" type="button" onclick="applySuggestedNegotiationTarget()" class="mt-2 inline-flex items-center gap-1.5 rounded-md border border-transparent px-1 py-1 text-left text-[11px] font-bold text-emerald-700 transition hover:border-emerald-200 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:text-slate-400" disabled><i class="fa-solid fa-bullseye" aria-hidden="true"></i><span>Sugerencia IA: 0.00 € / Km (Margen +5%)</span></button>
+                                        <span id="negotiation-target-tce" class="mt-2 block border-t border-emerald-100 pt-2 text-xs font-bold text-sky-700">Margen Neto del Viaje: 0 €</span>
                                     </div>
                                 </div>
 
                                 <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     <div class="rounded-lg border border-sky-200 bg-white p-3 shadow-sm">
                                         <span class="block text-[9px] font-black uppercase tracking-[0.16em] text-sky-700">Spread de Negociación (Coste por Km)</span>
-                                        <strong id="negotiation-spread-pmt" class="mono mt-1 block text-2xl font-black text-sky-950">$0.00 /Km</strong>
+                                        <strong id="negotiation-spread-pmt" class="mono mt-1 block text-2xl font-black text-sky-950">0.00 € /Km</strong>
                                         <span id="negotiation-spread-caption" class="mt-1 block text-[10px] font-semibold text-slate-600">Diferencia entre oferta y target.</span>
                                     </div>
                                     <div class="rounded-lg border border-blue-200 bg-white p-3 shadow-sm">
                                         <span class="block text-[9px] font-black uppercase tracking-[0.16em] text-blue-700">Ahorro Total Proyectado</span>
-                                        <strong id="negotiation-total-savings" class="mono mt-1 block text-2xl font-black text-blue-950">$0</strong>
+                                        <strong id="negotiation-total-savings" class="mono mt-1 block text-2xl font-black text-blue-950">0 €</strong>
                                         <span id="negotiation-cargo-caption" class="mt-1 block text-[10px] font-semibold text-slate-600">Calculado sobre el trayecto.</span>
                                     </div>
                                 </div>
@@ -11092,11 +11092,11 @@
                                     <div class="mt-4 flex items-end justify-between gap-3">
                                         <div>
                                             <span class="block text-[9px] font-bold uppercase text-slate-500">Break-Even (Coste por Km)</span>
-                                            <strong id="negotiation-break-even" class="mono mt-1 block text-xl font-black text-slate-950">$0.00 /Km</strong>
+                                            <strong id="negotiation-break-even" class="mono mt-1 block text-xl font-black text-slate-950">0.00 € /Km</strong>
                                             <span id="negotiation-algorithmic-reference" class="mt-1 block text-[9px] font-semibold text-slate-500">Basado en estimación algorítmica (ref: pendiente)</span>
                                             <span id="negotiation-safety-caption" class="mt-1 hidden text-[9px] font-black text-cyan-700">Contingencia aplicada: +0% sobre estimación IA</span>
                                         </div>
-                                        <span id="negotiation-target-delta" class="mono rounded-md bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">Δ $0.00</span>
+                                        <span id="negotiation-target-delta" class="mono rounded-md bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">Δ 0.00 €</span>
                                     </div>
                                     <p id="negotiation-friction-limit" class="mt-2 text-[10px] font-semibold leading-relaxed text-slate-500">Límite de Fricción: pendiente de Break-Even.</p>
                                     <p id="negotiation-viability-message" class="mt-4 rounded-lg border border-slate-200 bg-white p-3 text-xs font-bold leading-relaxed text-slate-600">Introduce una oferta y un target para evaluar la negociación.</p>
@@ -39530,13 +39530,13 @@ function scheduleReactiveEngine() {
                 Object.entries(localDefaults).forEach(([key, value]) => {
                     if (fields[key]) fields[key].value = value;
                 });
-                setText(outputs.baseProfit, '$0');
+                setText(outputs.baseProfit, '0 €');
                 setText(outputs.baseDays, '0');
-                setText(outputs.baseDaily, '$0');
-                setText(outputs.autoSource, 'PDA base: $0');
-                setText(outputs.trip2, '$0');
-                setText(outputs.consolidated, '$0');
-                setText(outputs.tce, '$0 / dia');
+                setText(outputs.baseDaily, '0 €');
+                setText(outputs.autoSource, 'Peajes y Dietas base: 0 €');
+                setText(outputs.trip2, '0 €');
+                setText(outputs.consolidated, '0 €');
+                setText(outputs.tce, '0 € / dia');
                 if (outputs.alert) outputs.alert.classList.add('hidden');
             };
 
@@ -44046,7 +44046,7 @@ function scheduleReactiveEngine() {
             const hasViabilityData = chartererTarget > 0 && breakEven > 0;
             const isViable = hasViabilityData && chartererTarget >= breakEven;
             const meterRatio = hasViabilityData ? Math.min(100, Math.max(4, (chartererTarget / breakEven) * 100)) : 0;
-            const money = (value, decimals = 0) => `$${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+            const money = (value, decimals = 0) => `${Math.abs(value).toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })} €`;
             const bunkerTotal = Math.max(0, Number(costBreakdown.bunkers ?? State.totalBunkers ?? State.costBunkers) || 0)
                 + Math.max(0, Number(costBreakdown.contingencyBunker) || 0);
             const portCostsTotal = Math.max(0, Number(costBreakdown.pda ?? State.adjustedCostPda ?? State.portExpenses ?? State.costPda) || 0);
@@ -44098,16 +44098,16 @@ function scheduleReactiveEngine() {
             const renderProjectedTce = (element, result, borderClass) => {
                 if (!element) return;
                 const tceValue = result.tceDaily;
-                element.textContent = `Margen Neto del Viaje (€ o $): ${tceValue < 0 ? '-' : ''}${money(tceValue)}`;
+                element.textContent = `Margen Neto del Viaje: ${tceValue < 0 ? '-' : ''}${money(tceValue)}`;
                 element.className = `mt-2 block border-t ${borderClass} pt-2 text-xs font-bold ${tceValue < 0 ? 'text-red-700' : 'text-sky-700'}`;
-                element.title = `Ingresos netos ${money(result.netRevenue)} - costes de viaje ${money(result.voyageCosts)} ÷ ${result.totalDays.toFixed(2)} días`;
+                element.title = `Ingresos netos ${money(result.netRevenue)} - costes de viaje ${money(result.voyageCosts)} ÷ ${result.totalDays.toFixed(2)} h`;
             };
 
             renderProjectedTce(ownerTceEl, ownerTce, 'border-indigo-100');
             renderProjectedTce(targetTceEl, targetTce, 'border-emerald-100');
             if (suggestionEl) {
                 suggestionEl.disabled = TargetSugerido <= 0;
-                const suggestionText = `Sugerencia IA: €${money(TargetSugerido, 2)} / Km (Margen +5%)`;
+                const suggestionText = `Sugerencia IA: ${money(TargetSugerido, 2)} / Km (Margen +5%)`;
                 const suggestionTextEl = typeof suggestionEl.querySelector === 'function' ? suggestionEl.querySelector('span') : null;
                 if (suggestionTextEl) suggestionTextEl.textContent = suggestionText;
                 else suggestionEl.textContent = suggestionText;
@@ -44125,13 +44125,13 @@ function scheduleReactiveEngine() {
             if (spreadCaptionEl) {
                 spreadCaptionEl.textContent = spreadPerMt >= 0
                     ? 'Ahorro unitario negociado frente a la petición inicial.'
-                    : 'El target supera la oferta inicial del armador.';
+                    : 'El target supera la oferta inicial del transportista.';
             }
             if (savingsEl) {
                 savingsEl.textContent = `${projectedSavings < 0 ? '-' : ''}${money(projectedSavings)}`;
                 savingsEl.className = `mono mt-1 block text-2xl font-black ${projectedSavings >= 0 ? 'text-blue-950' : 'text-red-700'}`;
             }
-            if (cargoCaptionEl) cargoCaptionEl.textContent = `Calculado sobre ${Math.round(cargo).toLocaleString('en-US')} TM.`;
+            if (cargoCaptionEl) cargoCaptionEl.textContent = `Calculado sobre ${Math.round(cargo).toLocaleString('es-ES')} t.`;
             if (breakEvenEl) breakEvenEl.textContent = `${money(breakEven, 2)} /Km`;
             if (targetDeltaEl) targetDeltaEl.textContent = `Δ ${targetDelta < 0 ? '-' : '+'}${money(targetDelta, 2)}`;
             if (viabilityMeterEl) viabilityMeterEl.style.width = `${meterRatio}%`;
@@ -44143,21 +44143,21 @@ function scheduleReactiveEngine() {
             }
 
             const currentNavigationStrategy = State.navigationStrategy || (typeof navigationStrategy !== 'undefined' ? navigationStrategy : 'eco');
-            const strategyLabel = String(currentNavigationStrategy).toUpperCase() === 'FULL' ? 'FULL-SPEED' : 'ECO-SPEED';
             const ballastSpeed = Math.max(0, Number(State.speedBallast ?? document.getElementById('spd-ballast')?.value) || 0);
             const ladenSpeed = Math.max(0, Number(State.speedLaden ?? document.getElementById('spd-laden')?.value) || 0);
-            const activeFuel = State.activeSeaFuel || (State.hasScrubber ? 'IFO 380' : 'VLSFO');
+            const activeFuel = 'DIÉSEL';
             const activeFuelPrice = Math.max(0, Number(State.activeSeaFuelPrice) || 0);
             const demurrageExposureDays = Math.max(0, Number(costBreakdown.demurrageExposureDays ?? State.demurrageExposure?.exposedDays) || 0);
-            if (vesselSyncTitleEl) vesselSyncTitleEl.textContent = `${strategyLabel} · ${State.hasScrubber ? 'Scrubber activo' : 'Sin scrubber'}`;
-            if (fuelStrategyEl) fuelStrategyEl.textContent = `${activeFuel}${activeFuelPrice > 0 ? ` · ${money(activeFuelPrice)} /t` : ''}`;
-            if (navigationSummaryEl) navigationSummaryEl.textContent = `${strategyLabel} · ${ballastSpeed.toFixed(1)} / ${ladenSpeed.toFixed(1)} kn`;
-            if (daysSummaryEl) daysSummaryEl.textContent = `${totalTceDays.toFixed(2)} d · Mar ${Math.max(0, Number(State.daysSea) || 0).toFixed(2)} · Puerto ${Math.max(0, Number(State.daysPort) || 0).toFixed(2)}`;
+            if (vesselSyncTitleEl) vesselSyncTitleEl.textContent = 'Ruta Óptima - Diésel Terrestre';
+            if (fuelStrategyEl) fuelStrategyEl.textContent = `${activeFuel}${activeFuelPrice > 0 ? ` · ${money(activeFuelPrice)} / t` : ''}`;
+            const routeStrategyLabel = String(currentNavigationStrategy).toUpperCase() === 'FULL' ? 'Ruta Rápida' : 'Ruta Óptima';
+            if (navigationSummaryEl) navigationSummaryEl.textContent = `${routeStrategyLabel} · ${ballastSpeed.toFixed(1)} / ${ladenSpeed.toFixed(1)} km/h`;
+            if (daysSummaryEl) daysSummaryEl.textContent = `${totalTceDays.toFixed(2)} h · Conducción ${Math.max(0, Number(State.daysSea) || 0).toFixed(2)} · Muelle ${Math.max(0, Number(State.daysPort) || 0).toFixed(2)}`;
             if (contingencySummaryEl) contingencySummaryEl.textContent = safetyFactorPct > 0
                 ? `+${safetyFactorPct.toFixed(1)}% · ${money(algorithmicStress.totalIncrement)} buffer`
-                : `PDA ${money(algorithmicStress.basePda)} · OPEX ${money(algorithmicDailyOpex)}/d`;
+                : `Peajes ${money(algorithmicStress.basePda)} · Fijos ${money(algorithmicDailyOpex)}/d`;
             if (demurrageSummaryEl) demurrageSummaryEl.textContent = demurrageExposureCost > 0
-                ? `${demurrageExposureDays.toFixed(2)} d · ${money(demurrageExposureCost)}`
+                ? `${demurrageExposureDays.toFixed(2)} h · ${money(demurrageExposureCost)}`
                 : 'Sin exposición calculada';
 
             if (!hasViabilityData) {
@@ -44175,7 +44175,7 @@ function scheduleReactiveEngine() {
                 if (viabilityMeterEl) viabilityMeterEl.className = 'h-full rounded-full bg-emerald-500 transition-all duration-300';
                 if (targetDeltaEl) targetDeltaEl.className = 'mono rounded-md bg-white px-2 py-1 text-[10px] font-black text-emerald-700';
                 if (viabilityMessageEl) {
-                    viabilityMessageEl.textContent = 'Target viable: la contraoferta cubre el coste operativo del armador.';
+                    viabilityMessageEl.textContent = 'Target viable: la contraoferta cubre el coste operativo del transportista.';
                     viabilityMessageEl.className = 'mt-4 rounded-lg border border-emerald-200 bg-white p-3 text-xs font-bold leading-relaxed text-emerald-700';
                 }
             } else {
@@ -44184,7 +44184,7 @@ function scheduleReactiveEngine() {
                 if (viabilityMeterEl) viabilityMeterEl.className = 'h-full rounded-full bg-red-500 transition-all duration-300';
                 if (targetDeltaEl) targetDeltaEl.className = 'mono rounded-md bg-white px-2 py-1 text-[10px] font-black text-red-700';
                 if (viabilityMessageEl) {
-                    viabilityMessageEl.textContent = 'Riesgo de rechazo: Oferta por debajo del coste operativo del armador.';
+                    viabilityMessageEl.textContent = 'Riesgo de rechazo: Oferta por debajo del coste operativo del transportista.';
                     viabilityMessageEl.className = 'mt-4 rounded-lg border border-red-200 bg-white p-3 text-xs font-bold leading-relaxed text-red-700';
                 }
             }
@@ -62998,7 +62998,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 text.textContent = `⚠️ Riesgo Operativo Detectado: El ritmo contractual exige ${exposure.contractualDays.toFixed(2)} días, pero el ritmo real de las grúas tomará ${exposure.realDays.toFixed(2)} días.`;
             }
             if (impact) {
-                impact.textContent = `Impacto Financiero: Exposición estimada a demoras: $${Math.round(exposure.financialExposure).toLocaleString('en-US')} USD. Este valor se restará del Beneficio Neto Armador en el escenario Moderado de la Matriz de Riesgo.`;
+                impact.textContent = `Impacto Financiero: Exposición estimada a paralizaciones: ${Math.round(exposure.financialExposure).toLocaleString('es-ES')} €. Este valor se restará del Margen Neto Transportista en el escenario Moderado de la Matriz de Riesgo.`;
             }
             State.demurrageExposure = exposure;
             return exposure;
