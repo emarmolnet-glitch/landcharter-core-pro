@@ -8,6 +8,10 @@ const responseHeaders = {
 };
 
 export const VEHICLE_TYPES = [
+  { id: 'lona_estandar', name: 'Lona Estándar', payloadKg: 24000, consumptionPer100Km: 31.5, dailyOpex: 340 },
+  { id: 'frigorifico', name: 'Frigorífico', payloadKg: 22000, consumptionPer100Km: 34.0, dailyOpex: 390 },
+  { id: 'mega_lona', name: 'Mega Lona', payloadKg: 24000, consumptionPer100Km: 33.0, dailyOpex: 350 },
+  { id: 'tren_carretera', name: 'Tren de Carretera', payloadKg: 44000, consumptionPer100Km: 42.0, dailyOpex: 450 },
   { id: 'tauliner', name: 'Trailer Tauliner (13.60m)', payloadKg: 24000, consumptionPer100Km: 31.5, dailyOpex: 340 },
   { id: 'frigo', name: 'Trailer Frigorífico', payloadKg: 22000, consumptionPer100Km: 34.0, dailyOpex: 390 },
   { id: 'cisterna', name: 'Cisterna Alimentaria / Química', payloadKg: 25000, consumptionPer100Km: 33.0, dailyOpex: 380 },

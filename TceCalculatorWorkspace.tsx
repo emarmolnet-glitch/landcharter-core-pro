@@ -419,20 +419,31 @@ export function calculateCoreFreight(
   options: { bunkerMultiplier?: number } = {},
 ) {
   if ('marginType' in values) {
-    const dailyOpex = safeNumber(values.dailyOpex);
+    const dailyOpex = safeNumber(values.dailyOpex) || (typeof window !== 'undefined' ? (window.State?.fixedDailyCost || 350) : 350);
     const targetMargin = safeNumber(values.targetMargin);
     const daysSea = safeNumber(values.daysSea);
     const daysPort = safeNumber(values.daysPort);
-    const bunkerCost = safeNumber(values.bunkerCost);
-    const portCosts = safeNumber(values.portCosts);
-    const cargoVolume = safeNumber(values.cargoVolume);
     const totalDays = daysSea + daysPort;
-    const totalOpex = dailyOpex * totalDays;
-    const totalCosts = totalOpex + bunkerCost + portCosts;
+    const totalKm = (typeof window !== 'undefined' ? (window.State?.totalKilometers || 0) : 0);
+    const vehicleConsumption = (typeof window !== 'undefined' ? (window.State?.vehicleConsumption || 31.5) : 31.5);
+    const dieselPrice = (typeof window !== 'undefined' ? (window.State?.dieselPrice || 1.48) : 1.48);
+    const tollCostPerKm = (typeof window !== 'undefined' ? (window.State?.tollCostPerKm || 0.19) : 0.19);
+    const drivingHours = (typeof window !== 'undefined' ? (window.State?.drivingHours || (totalKm > 0 ? totalKm / 75 : 0)) : 0);
+
+    const landFuelCost = (totalKm / 100) * vehicleConsumption * dieselPrice;
+    const landTollCost = totalKm * tollCostPerKm;
+    const landFixedCost = ((drivingHours > 0 ? drivingHours : totalDays * 24) / 24) * dailyOpex;
+    const landTotalTripCost = landFuelCost + landTollCost + landFixedCost;
+
+    const bunkerCost = totalKm > 0 ? landFuelCost : safeNumber(values.bunkerCost);
+    const portCosts = totalKm > 0 ? landTollCost : safeNumber(values.portCosts);
+    const cargoVolume = safeNumber(values.cargoVolume);
+    const totalOpex = totalKm > 0 ? landFixedCost : dailyOpex * totalDays;
+    const totalCosts = totalKm > 0 ? landTotalTripCost : totalOpex + bunkerCost + portCosts;
     const calculatedMargin =
       values.marginType === 'fixed' ? targetMargin : totalCosts * (targetMargin / 100);
     const targetRevenue = totalCosts + calculatedMargin;
-    const minFreightRate = cargoVolume > 0 ? roundMoney(totalCosts / cargoVolume) : 0;
+    const minFreightRate = totalKm > 0 ? roundMoney(totalCosts / totalKm) : (cargoVolume > 0 ? roundMoney(totalCosts / cargoVolume) : 0);
 
     return {
       totalDays,
@@ -441,6 +452,10 @@ export function calculateCoreFreight(
       calculatedMargin,
       targetRevenue,
       minFreightRate,
+      fuelCost: bunkerCost,
+      tollCost: portCosts,
+      fixedCost: totalOpex,
+      totalTripCost: totalCosts,
     };
   }
 
@@ -2111,6 +2126,33 @@ export function CostPlusCalculator({
   const [values, setValues] = useState<CostPlusCalculatorState>(COST_PLUS_DEFAULT_VALUES);
   const [priceStrategy, setPriceStrategy] = useState<'cost-plus' | 'market'>('cost-plus');
   const [renderRefreshTick, setRenderRefreshTick] = useState(0);
+
+  // Auto-Fetch de Data Bridge (Init)
+  useEffect(() => {
+    async function initLandDataBridge() {
+      try {
+        const res = await fetch('/api-land-data');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success) {
+            const dieselPrice = Number(data.dieselPrice) || 1.48;
+            const tollCostPerKm = Number(data.tollCostPerKm) || 0.19;
+            const fixedDailyCost = Number(data.fixedDailyCost) || 350;
+            if (typeof window !== 'undefined') {
+              window.State = window.State || {};
+              window.State.dieselPrice = dieselPrice;
+              window.State.tollCostPerKm = tollCostPerKm;
+              window.State.fixedDailyCost = fixedDailyCost;
+              if (data.vehicleTypes) window.State.vehicleTypes = data.vehicleTypes;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+    initLandDataBridge();
+  }, []);
   const syncedTotalCosts = syncedCostData?.totalCosts;
   const syncedTotalDays = syncedCostData?.totalDays;
   const syncedDistance = syncedCostData?.distance;

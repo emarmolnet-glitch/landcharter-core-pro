@@ -664,12 +664,119 @@ export function useHeaderVisibility(defaultVisible = true) {
 }
 
 /**
+ * Auto-Fetch de Data Bridge (Init) & Inyección de Distancia (Map -> State)
+ */
+export function useLandDataBridgeSync() {
+  const [landData, setLandData] = useState(null);
+  const [dieselPrice, setDieselPrice] = useState(1.48);
+  const [totalKilometers, setTotalKilometers] = useState(0);
+  const [drivingHours, setDrivingHours] = useState(0);
+
+  // Auto-Fetch de Data Bridge (Init)
+  useEffect(() => {
+    let isMounted = true;
+    async function initDataBridge() {
+      try {
+        const res = await fetch(getApiUrl('/api-land-data'));
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!isMounted || !data) return;
+
+        // Guarda el precio oficial del diésel en el estado (dieselPrice). NO intentes extraer precio de AdBlue
+        const dPrice = Number(data.dieselPrice) || 1.48;
+        const tollPerKm = Number(data.tollCostPerKm) || 0.19;
+        const fixedDaily = Number(data.fixedDailyCost) || 350;
+        const vehicleTypes = Array.isArray(data.vehicleTypes) ? data.vehicleTypes : [];
+
+        setLandData(data);
+        setDieselPrice(dPrice);
+
+        if (typeof window !== 'undefined') {
+          window.State = window.State || {};
+          window.State.dieselPrice = dPrice;
+          window.State.tollCostPerKm = tollPerKm;
+          window.State.fixedDailyCost = fixedDaily;
+          window.State.vehicleTypes = vehicleTypes;
+
+          window.SeaCharterStore?.set?.({
+            dieselPrice: dPrice,
+            tollCostPerKm: tollPerKm,
+            fixedDailyCost: fixedDaily,
+            vehicleTypes
+          });
+
+          const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
+          if (vStore) {
+            vStore.setDieselPrice?.(dPrice);
+            if (typeof window.VoyageStore?.setState === 'function') {
+              window.VoyageStore.setState((s) => ({
+                draft: {
+                  ...s.draft,
+                  dieselPrice: dPrice,
+                  tollCostPerKm: tollPerKm,
+                  fixedDailyCost: fixedDaily,
+                  vehicleTypes
+                }
+              }));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[Core PRO] Error en auto-fetch de Data Bridge (/api-land-data):', err);
+      }
+    }
+
+    initDataBridge();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Inyección de Distancia (Map -> State)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleRouteUpdated = (event) => {
+      const detail = event?.detail || {};
+      const distanceMeters = Number(detail.route?.distance) || 0;
+      const km = distanceMeters > 0 ? (distanceMeters / 1000) : (Number(detail.totalKilometers) || Number(detail.distanceKm) || 0);
+      const durationSeconds = Number(detail.route?.duration) || 0;
+      const hours = durationSeconds > 0 ? (durationSeconds / 3600) : (Number(detail.drivingHours) || (km > 0 ? km / 75 : 0));
+
+      setTotalKilometers(km);
+      setDrivingHours(hours);
+
+      window.State = window.State || {};
+      window.State.totalKilometers = km;
+      window.State.drivingHours = hours;
+
+      window.SeaCharterStore?.set?.({
+        totalKilometers: km,
+        drivingHours: hours,
+        distLaden: Math.round(km),
+        distTotal: Math.round(km),
+        distanceKm: Math.round(km)
+      });
+
+      const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
+      vStore?.setRouteDistanceAndDuration?.(km, hours);
+    };
+
+    window.addEventListener('osrm:route-updated', handleRouteUpdated);
+    return () => {
+      window.removeEventListener('osrm:route-updated', handleRouteUpdated);
+    };
+  }, []);
+
+  return { landData, dieselPrice, totalKilometers, drivingHours };
+}
+
+/**
  * Main Application / Layout wrapper component for Land Charter Core PRO.
  */
 export function AppLayout({ children, currentView: initialView = 'MAP', defaultHeaderVisible = true }) {
   useSeaCharterSync();
   useUrlImoAutoLookup();
   usePendingImoSync();
+  useLandDataBridgeSync();
 
   const [currentView, setCurrentView] = useState(initialView);
   const { isHeaderVisible, toggleHeader } = useHeaderVisibility(defaultHeaderVisible);

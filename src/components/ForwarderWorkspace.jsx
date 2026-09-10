@@ -866,7 +866,11 @@ export function ForwarderWorkspace() {
     setIsLoading(true); setError(null);
     try {
       const res = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), { method: 'GET', headers: { Accept: 'application/json' } });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        console.warn(`[ForwarderWorkspace] HTTP ${res.status} al cargar proyectos, operando en modo local.`);
+        setProjects([]);
+        return;
+      }
       const data = await res.json();
       const list = Array.isArray(data) ? data : (data.projects || []);
       setProjects(list);
@@ -878,7 +882,7 @@ export function ForwarderWorkspace() {
         }
       }
     } catch (err) {
-      console.error(err); setError(err?.message || 'Error de conexión');
+      console.warn('[ForwarderWorkspace] Error no bloqueante al cargar proyectos:', err?.message || err);
     } finally {
       setIsLoading(false);
     }

@@ -53,6 +53,19 @@ const EMPTY_DRAFT = Object.freeze({
     routeGeometry: null,
     weather: null,
     vessel: null,
+    totalKilometers: 0,
+    drivingHours: 0,
+    dieselPrice: 1.48,
+    vehicleType: 'Lona Estándar',
+    vehicleConsumption: 31.5,
+    payloadKg: 24000,
+    tollCostPerKm: 0.19,
+    fixedDailyCost: 350,
+    fuelCost: 0,
+    tollCost: 0,
+    fixedCost: 0,
+    totalTripCost: 0,
+    vehicleTypes: [],
     updatedAt: null,
     lastSource: '',
 });
@@ -548,6 +561,159 @@ export const voyageStore = createStore(subscribeWithSelector((set, get) => ({
             },
         };
     }),
+    setDieselPrice: (dieselPrice) => set((current) => {
+        const price = Number(dieselPrice) || 0;
+        const totalKm = current.draft.totalKilometers || 0;
+        const cons = current.draft.vehicleConsumption || 31.5;
+        const fuelCost = (totalKm / 100) * cons * price;
+        const tollCost = totalKm * (current.draft.tollCostPerKm || 0.19);
+        const fixedCost = ((current.draft.drivingHours || 0) / 24) * (current.draft.fixedDailyCost || 350);
+        const totalTripCost = fuelCost + tollCost + fixedCost;
+        return {
+            draft: {
+                ...current.draft,
+                dieselPrice: price,
+                fuelCost,
+                totalTripCost,
+                updatedAt: new Date().toISOString()
+            }
+        };
+    }),
+    setRouteDistanceAndDuration: (totalKilometers, drivingHours) => set((current) => {
+        const km = Number(totalKilometers) || 0;
+        const hours = Number(drivingHours) || (km > 0 ? km / 75 : 0);
+        const cons = current.draft.vehicleConsumption || 31.5;
+        const diesel = current.draft.dieselPrice || 1.48;
+        const tollPerKm = current.draft.tollCostPerKm || 0.19;
+        const fixedDaily = current.draft.fixedDailyCost || 350;
+        const fuelCost = (km / 100) * cons * diesel;
+        const tollCost = km * tollPerKm;
+        const fixedCost = (hours / 24) * fixedDaily;
+        const totalTripCost = fuelCost + tollCost + fixedCost;
+        return {
+            draft: {
+                ...current.draft,
+                totalKilometers: km,
+                distanceNm: km,
+                drivingHours: hours,
+                fuelCost,
+                tollCost,
+                fixedCost,
+                totalTripCost,
+                updatedAt: new Date().toISOString()
+            }
+        };
+    }),
+    setTotalKilometers: (totalKilometers, drivingHours) => get().setRouteDistanceAndDuration(totalKilometers, drivingHours),
+    selectVehicleType: (vehicleOrName) => set((current) => {
+        let matched = null;
+        const list = current.draft.vehicleTypes?.length ? current.draft.vehicleTypes : [
+            { id: 'lona_estandar', name: 'Lona Estándar', payloadKg: 24000, consumptionPer100Km: 31.5 },
+            { id: 'frigorifico', name: 'Frigorífico', payloadKg: 22000, consumptionPer100Km: 34.0 },
+            { id: 'mega_lona', name: 'Mega Lona', payloadKg: 24000, consumptionPer100Km: 33.0 },
+            { id: 'tren_carretera', name: 'Tren de Carretera', payloadKg: 44000, consumptionPer100Km: 42.0 },
+        ];
+        if (typeof vehicleOrName === 'object' && vehicleOrName !== null) {
+            matched = vehicleOrName;
+        } else {
+            const query = String(vehicleOrName || '').toLowerCase().trim();
+            matched = list.find(v => {
+                const name = v.name.toLowerCase();
+                const id = (v.id || '').toLowerCase();
+                return name === query || id === query ||
+                    (query.includes('frigo') && name.includes('frigo')) ||
+                    (query.includes('mega') && name.includes('mega')) ||
+                    (query.includes('tren') && name.includes('tren')) ||
+                    (query.includes('lona') && !query.includes('mega') && name.includes('lona'));
+            }) || list[0];
+        }
+        const cons = matched.consumptionPer100Km || 31.5;
+        const payload = matched.payloadKg || 24000;
+        const km = current.draft.totalKilometers || 0;
+        const diesel = current.draft.dieselPrice || 1.48;
+        const tollPerKm = current.draft.tollCostPerKm || 0.19;
+        const fixedDaily = current.draft.fixedDailyCost || 350;
+        const hours = current.draft.drivingHours || (km > 0 ? km / 75 : 0);
+        const fuelCost = (km / 100) * cons * diesel;
+        const tollCost = km * tollPerKm;
+        const fixedCost = (hours / 24) * fixedDaily;
+        const totalTripCost = fuelCost + tollCost + fixedCost;
+
+        return {
+            draft: {
+                ...current.draft,
+                vehicleType: matched.name,
+                vehicleConsumption: cons,
+                dwt: payload,
+                payloadKg: payload,
+                fuelCost,
+                tollCost,
+                fixedCost,
+                totalTripCost,
+                vessel: {
+                    ...(current.draft.vessel || {}),
+                    name: matched.name,
+                    dwt: payload,
+                    fuel_consumption_laden: cons,
+                    vessel_class: matched.name
+                },
+                updatedAt: new Date().toISOString()
+            }
+        };
+    }),
+    calculateLandCostPlus: () => {
+        const d = get().draft;
+        const km = d.totalKilometers || 0;
+        const cons = d.vehicleConsumption || 31.5;
+        const diesel = d.dieselPrice || 1.48;
+        const tollPerKm = d.tollCostPerKm || 0.19;
+        const fixedDaily = d.fixedDailyCost || 350;
+        const hours = d.drivingHours || (km > 0 ? km / 75 : 0);
+        const fuelCost = (km / 100) * cons * diesel;
+        const tollCost = km * tollPerKm;
+        const fixedCost = (hours / 24) * fixedDaily;
+        const totalTripCost = fuelCost + tollCost + fixedCost;
+        set((current) => ({
+            draft: {
+                ...current.draft,
+                fuelCost,
+                tollCost,
+                fixedCost,
+                totalTripCost,
+                updatedAt: new Date().toISOString()
+            }
+        }));
+        return { fuelCost, tollCost, fixedCost, totalTripCost };
+    },
+    fetchLandData: async () => {
+        try {
+            const res = await fetch('/api-land-data');
+            if (!res.ok) return null;
+            const data = await res.json();
+            if (data && data.success) {
+                // DO NOT extract adBluePrice per specification
+                const dieselPrice = Number(data.dieselPrice) || 1.48;
+                const tollCostPerKm = Number(data.tollCostPerKm) || 0.19;
+                const fixedDailyCost = Number(data.fixedDailyCost) || 350;
+                const vehicleTypes = Array.isArray(data.vehicleTypes) ? data.vehicleTypes : [];
+                set((current) => ({
+                    draft: {
+                        ...current.draft,
+                        dieselPrice,
+                        tollCostPerKm,
+                        fixedDailyCost,
+                        vehicleTypes,
+                        updatedAt: new Date().toISOString()
+                    }
+                }));
+                get().calculateLandCostPlus();
+                return data;
+            }
+        } catch (err) {
+            console.warn('voyageStore fetchLandData failed:', err);
+        }
+        return null;
+    },
     clearDraft: () => set({
         draft: { ...EMPTY_DRAFT, laycan: { ...EMPTY_DRAFT.laycan }, cargo: { ...EMPTY_DRAFT.cargo }, projectCargo: { ...EMPTY_DRAFT.projectCargo, dimensions: { ...EMPTY_DRAFT.projectCargo.dimensions } } },
     }),
@@ -555,3 +721,9 @@ export const voyageStore = createStore(subscribeWithSelector((set, get) => ({
 })));
 
 export const useVoyageStore = voyageStore;
+
+if (typeof window !== 'undefined') {
+    window.VoyageStore = voyageStore;
+    window.useVoyageStore = voyageStore;
+}
+

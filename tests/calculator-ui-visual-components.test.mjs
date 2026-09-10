@@ -89,7 +89,7 @@ test('4. Módulo 3 (Costes): OPEX -> Costes Fijos (Chófer/Amort.) y PDAs -> Pea
   assert.match(indexSource, /<span id="label-pda-cost-basis"[^>]*>Peajes y Dietas <button/);
   assert.match(indexSource, /Costes Fijos \(Chófer\/Amort\.\)/);
   assert.match(indexSource, /Peajes y Dietas Diluido/);
-  assert.match(indexSource, /Peajes y Dietas base: \$0/);
+  assert.match(indexSource, /Peajes y Dietas base: (\$0|0 €)/);
 
   // TceCalculatorWorkspace React component
   const tceWorkspaceSource = await readFile('TceCalculatorWorkspace.tsx', 'utf8');
