@@ -469,7 +469,7 @@
             () => `[INFO] ${getTimestamp()} - Base de datos de puertos locales ya está actualizada con la última revisión WPI.`,
             () => `[SYNC] ${getTimestamp()} - Descargando índice de bunkering para combustible VLSFO en Algeciras y Singapur...`,
             () => `[SUCCESS] ${getTimestamp()} - Precios de combustible VLSFO actualizados: $615.50/MT Algeciras.`,
-            () => `[INFO] ${getTimestamp()} - Publicando fletes actualizados al radar de SeaCharter Core PRO...`,
+            () => `[INFO] ${getTimestamp()} - Publicando fletes actualizados al radar de Land Charter Core PRO...`,
             () => `[SUCCESS] ${getTimestamp()} - Sincronización en tiempo real completada para este ciclo.`
         ];
 
@@ -896,7 +896,7 @@
                 rateCount += Math.floor(Math.random() * 8) + 1;
                 rateCountEl.textContent = rateCount.toLocaleString();
                 addLog(`[SUCCESS] ${getTimestamp()} - Se actualizaron ${Math.floor(Math.random() * 10) + 1} tarifas de fletes y ${Math.floor(Math.random() * 20) + 1} posiciones de buques.`);
-                addLog(`[INFO] ${getTimestamp()} - Transmisión de fletes a SeaCharter Core PRO finalizada con éxito.`);
+                addLog(`[INFO] ${getTimestamp()} - Transmisión de fletes a Land Charter Core PRO finalizada con éxito.`);
                 
                 syncStatusEl.textContent = isPaused ? 'PAUSADO' : 'CONECTADO';
                 syncStatusEl.className = isPaused ? 'text-xs font-semibold text-amber-400 console-font' : 'text-xs font-semibold text-emerald-400 console-font';

@@ -130,7 +130,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; connect-src * wss: https:; img-src * data: blob:; style-src * 'unsafe-inline';">
-    <title>SeaCharter Core PRO - Flujo Completo RODAHMAR</title>
+    <title>Land Charter Core PRO - Flujo Completo RODAHMAR ROAD</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <script>
         // Global State, Constants and Absolute API Shield for Electron & Netlify
@@ -709,7 +709,6 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <!-- El renderer cartográfico se carga bajo demanda al abrir Mapa, Radar AIS o Tracking. -->
     <link rel="stylesheet" href="./assets/css/contextual-feedback.css?v=20260717-ui-hotfix">
-    <link rel="stylesheet" href="./assets/css/datalastic-credit-counter.css?v=20260815-shared-balance">
     <link rel="stylesheet" href="./ais-market-reference-widget.css?v=20260721">
     <link rel="stylesheet" href="./compatibilidad.css">
     <link rel="stylesheet" href="./assets/css/sea-assistant.css?v=20260820-chat-footer">
@@ -723,7 +722,6 @@
     <script type="module" src="./market-intelligence-panel.mjs?v=20260810"></script>
     <script type="module" src="./map_loader.js?v=20260802-ais-heading"></script>
     <script type="module" src="./src/global-splash-screen.js?v=20260810-global-startup"></script>
-    <script type="module" src="./src/datalastic-credit-entry.js?v=20260815-shared-balance"></script>
     <script type="module" src="./src/sea-assistant-entry.js?v=20260820-chat-footer"></script>
     <script defer src="/aisstream-draft.js"></script>
     <!-- Maritime Routing Library -->
@@ -759,12 +757,10 @@
     </script>
     <script type="module" src="./src/vessel-master-class-registry.js"></script>
     <script type="module" src="./src/due-diligence-entry.js"></script>
-    <script type="module" src="./src/tracking-aisstream-entry.tsx"></script>
     <script defer src="./session-draft.js"></script>
     <script defer src="./dossiers.js"></script>
     <script type="module" src="./src/voyage-draft-entry.js"></script>
     <script type="module" src="./src/nlp-input-entry.jsx"></script>
-    <script type="module" src="./src/maritime-weather-entry.jsx"></script>
     <script type="module" src="./src/header-workflow-progress.js"></script>
     <script type="module" src="./src/comtrade-radar-entry.ts"></script>
     <script type="module" src="./src/market-intelligence-hydration.js?v=20260826-visual-mirror"></script>
@@ -5714,7 +5710,7 @@
             color: #212529 !important;
         }
 
-        /* SeaCharter Core PRO visual identity refresh */
+        /* Land Charter Core PRO visual identity refresh */
         body.theme-light {
             font-family: 'Inter', 'Roboto', sans-serif !important;
             background: var(--bg) !important;
@@ -8685,7 +8681,7 @@
 </head>
 <body class="theme-light bg-slate-900 h-screen flex flex-col overflow-hidden" data-app-ready="false" aria-busy="true">
 
-    <div id="global-splash-screen" class="fixed inset-0 z-50 bg-slate-900" role="status" aria-live="polite" aria-label="SeaCharter Core PRO iniciando">
+    <div id="global-splash-screen" class="fixed inset-0 z-50 bg-slate-900" role="status" aria-live="polite" aria-label="Land Charter Core PRO iniciando">
         <div class="global-splash__content">
             <div class="global-splash__mark" aria-hidden="true">
                 <span class="global-splash__ring"></span>
@@ -8695,8 +8691,8 @@
                     </svg>
                 </span>
             </div>
-            <p class="global-splash__title">SeaCharter Core PRO - Iniciando motor...</p>
-            <p id="global-splash-status" class="global-splash__status">Preparando cartografía WebGL</p>
+            <p class="global-splash__title">Land Charter Core PRO - Iniciando motor...</p>
+            <p id="global-splash-status" class="global-splash__status">Preparando logística terrestre...</p>
             <div class="global-splash__progress" aria-hidden="true"></div>
         </div>
     </div>
@@ -8705,24 +8701,24 @@
     <header class="app-header bg-white border-b border-slate-200 px-4 py-2 md:px-6 flex flex-col lg:flex-row items-center lg:items-center lg:justify-between gap-3 lg:gap-4 shadow-md shrink-0 no-print z-50">
         <div class="flex items-center gap-3">
             <div class="bg-blue-600 p-2 rounded-lg text-white shadow-lg">
-                <i class="fa-solid fa-ship text-base"></i>
+                <i class="fa-solid fa-truck text-base"></i>
             </div>
             <div>
-                <h1 class="text-xs md:text-sm font-bold text-white tracking-tight">SeaCharter Core PRO <span class="text-[9px] md:text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30 ml-1 md:ml-2">RODAHMAR ENGINE</span></h1>
+                <h1 class="text-xs md:text-sm font-bold text-white tracking-tight">Land Charter Core PRO <span class="text-[9px] md:text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30 ml-1 md:ml-2">RODAHMAR ROAD ENGINE</span></h1>
             </div>
         </div>
 
         <div class="module-tabs-wrapper flex items-center">
             <div id="connection-status-root"></div>
-            <!-- BUSCADOR DIRECTO DE BUQUES EN BASE DE DATOS NEON -->
+            <!-- BUSCADOR DIRECTO DE TRANSPORTE / CONTRATO -->
             <div id="header-vessel-search-container" class="relative inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 border border-slate-300 text-slate-700 text-xs shadow-2xs shrink-0 max-w-xs focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-sky-500 transition-all">
                 <i class="fa-solid fa-magnifying-glass text-[11px] text-slate-400"></i>
                 <input
                     type="text"
                     id="header-vessel-search-input"
                     class="bg-transparent font-sans text-xs font-semibold text-slate-800 focus:outline-none w-36 sm:w-44 placeholder:text-slate-400"
-                    placeholder="Buscar buque (IMO / Nombre)..."
-                    aria-label="Buscar buque en base de datos"
+                    placeholder="Buscar transporte / contrato (ID / Ref)..."
+                    aria-label="Buscar en base de datos"
                     onkeydown="if (event.key === 'Enter') handleHeaderVesselSearch(this.value);"
                 >
                 <button
@@ -9002,7 +8998,7 @@
                                 <div class="h-16 w-16 rounded-full border-4 border-cyan-500 border-t-transparent animate-spin"></div>
                                 <div class="absolute h-3 w-3 rounded-full bg-cyan-400"></div>
                             </div>
-                            <h2 class="text-2xl font-bold tracking-wide text-white">SeaCharter Core PRO</h2>
+                            <h2 class="text-2xl font-bold tracking-wide text-white">Land Charter Core PRO</h2>
                             <p class="mt-3 text-sm text-cyan-400 animate-pulse font-medium">Iniciando motor cartográfico y datos AIS...</p>
                             <div class="mt-8 w-64 h-1.5 bg-slate-800 rounded-full overflow-hidden" aria-hidden="true">
                                 <div class="h-full bg-cyan-500 w-full animate-pulse"></div>
@@ -9057,7 +9053,6 @@
                     </div>
                 </section>
                 <div id="nlp-input-widget-root"></div>
-                <div id="maritime-weather-panel-root"></div>
                 <div id="map-route-summary" class="map-route-summary-overlay grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 text-xs">
                         <div class="w-full border border-slate-200 rounded p-3"><span class="block text-slate-500 uppercase">Lastre</span><strong id="sync-ballast-label">TBA</strong></div>
                         <div class="w-full border border-slate-200 rounded p-3"><span class="block text-slate-500 uppercase">POL</span><strong id="sync-pol-label">TBA</strong></div>
@@ -11520,7 +11515,7 @@
                         <div>
                             <span class="fcl-kicker module-breadcrumbs">Definir Ruta -> Calcular Costes -> Resumen FCL</span>
                             <h2><i class="fa-solid fa-boxes-stacked mr-2"></i>Módulo de Contenedores FCL</h2>
-                            <p>Costes marítimos, gastos locales y demoras alineados con el flujo operativo de SeaCharter Core PRO.</p>
+                            <p>Costes marítimos, gastos locales y demoras alineados con el flujo operativo de Land Charter Core PRO.</p>
                         </div>
                         <div class="fcl-header-badge">
                             <span class="fcl-kicker">Data Bridge</span>
@@ -13133,7 +13128,7 @@
                                 <span id="doc-badge" class="hidden text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded border border-indigo-200"></span>
                             </div>
                             <p class="text-sm text-slate-600 mt-1">Resumen legal y comercial generado desde los puntos clave detectados por la auditoría.</p>
-                            <p class="text-xs text-slate-500 mt-1">ID Estimación: <span id="audit-report-ref-id" class="font-semibold text-slate-700">SeaCharter Core PRO - (Cargando...)</span></p>
+                            <p class="text-xs text-slate-500 mt-1">ID Estimación: <span id="audit-report-ref-id" class="font-semibold text-slate-700">Land Charter Core PRO - (Cargando...)</span></p>
                         </div>
                         <div class="flex items-center gap-2">
                             <button onclick="printAuditReport()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 transition whitespace-nowrap">
@@ -13695,7 +13690,7 @@
         <!-- Header -->
         <div style="border-bottom: 3px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
             <div>
-                <h1 style="font-size: 18pt; font-weight: 800; color: #1e3a8a; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">SeaCharter Core PRO</h1>
+                <h1 style="font-size: 18pt; font-weight: 800; color: #1e3a8a; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Land Charter Core PRO</h1>
                 <p style="font-size: 9pt; color: #475569; margin: 2px 0 0 0; font-weight: 600;">Informe Ejecutivo de Estimación de Viaje / Voyage Estimate Executive Report</p>
             </div>
             <div style="text-align: right;">
@@ -14008,7 +14003,7 @@
                 VI. EXENCIÓN DE RESPONSABILIDAD Y FIRMAS / DISCLAIMER & SIGNATURES
             </h2>
             <p style="font-size: 7.2pt; color: #64748b; line-height: 1.3; margin: 0 0 25px 0; text-align: justify;">
-                <strong>Nota legal:</strong> Este informe es una estimación generada de forma automatizada por el sistema SeaCharter Core PRO y el motor matemático RODAHMAR. Los cálculos se basan en distancias estimadas de navegación, consumos de combustible teóricos suministrados por el operador, y tarifas de búnker y puertos vigentes. Los valores reales pueden variar debido a condiciones climáticas adversas, demoras extraordinarias en terminales, variaciones de mercado o contingencias operativas imprevistas. Este documento sirve exclusivamente para el análisis preliminar de viabilidad comercial y no constituye un compromiso vinculante ni un contrato formal de transporte marítimo.
+                <strong>Nota legal:</strong> Este informe es una estimación generada de forma automatizada por el sistema Land Charter Core PRO y el motor matemático RODAHMAR. Los cálculos se basan en distancias estimadas de navegación, consumos de combustible teóricos suministrados por el operador, y tarifas de búnker y puertos vigentes. Los valores reales pueden variar debido a condiciones climáticas adversas, demoras extraordinarias en terminales, variaciones de mercado o contingencias operativas imprevistas. Este documento sirve exclusivamente para el análisis preliminar de viabilidad comercial y no constituye un compromiso vinculante ni un contrato formal de transporte marítimo.
             </p>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; text-align: center; margin-top: 15px;">
                 <div>
@@ -14030,7 +14025,7 @@
         <!-- Header -->
         <div style="border-bottom: 3px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
             <div>
-                <h1 style="font-size: 18pt; font-weight: 800; color: #1e3a8a; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">SeaCharter Core PRO</h1>
+                <h1 style="font-size: 18pt; font-weight: 800; color: #1e3a8a; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Land Charter Core PRO</h1>
                 <p style="font-size: 9pt; color: #475569; margin: 2px 0 0 0; font-weight: 600;">Informe de Auditoría de Contrato / Contract Audit Report</p>
             </div>
             <div style="text-align: right;">
@@ -14099,7 +14094,7 @@
         <!-- EXENCIÓN DE RESPONSABILIDAD -->
         <div style="margin-top: 30px; border-top: 1px solid #cbd5e1; padding-top: 10px; break-inside: avoid; page-break-inside: avoid;">
             <p style="font-size: 7.2pt; color: #64748b; line-height: 1.3; margin: 0; text-align: justify;">
-                <strong>Nota legal:</strong> Este informe es una auditoría automatizada generada por el sistema SeaCharter Core PRO mediante modelos de inteligencia artificial basados en los textos de contratos y addendums suministrados por el usuario. El análisis y las recomendaciones de cláusulas constituyen directrices de carácter estrictamente sugerido y referencial, destinadas a apoyar la mitigación de riesgos legales y comerciales de fletamento marítimo. No constituyen asesoramiento jurídico formal. Se recomienda encarecidamente verificar los términos finales con un asesor legal calificado antes de proceder a la firma de cualquier póliza de fletamento.
+                <strong>Nota legal:</strong> Este informe es una auditoría automatizada generada por el sistema Land Charter Core PRO mediante modelos de inteligencia artificial basados en los textos de contratos y addendums suministrados por el usuario. El análisis y las recomendaciones de cláusulas constituyen directrices de carácter estrictamente sugerido y referencial, destinadas a apoyar la mitigación de riesgos legales y comerciales de fletamento marítimo. No constituyen asesoramiento jurídico formal. Se recomienda encarecidamente verificar los términos finales con un asesor legal calificado antes de proceder a la firma de cualquier póliza de fletamento.
             </p>
         </div>
     </div>
@@ -14114,7 +14109,7 @@
                 <div class="absolute -bottom-24 -left-24 w-80 h-80 bg-slate-700 rounded-full opacity-50 blur-3xl"></div>
 
                 <div class="relative z-10 mb-8">
-                    <span class="text-[10px] font-bold tracking-widest text-slate-300 uppercase">SeaCharter Core PRO</span>
+                    <span class="text-[10px] font-bold tracking-widest text-slate-300 uppercase">Land Charter Core PRO</span>
                     <h2 class="text-3xl font-bold mt-2 leading-tight">Operativa<br>clara, datos<br>confiables.</h2>
                     <p class="text-sm mt-4 text-slate-300">Una referencia rápida para revisar flota, validar fichas y completar cada flujo.</p>
                 </div>
@@ -14276,7 +14271,7 @@
             <div class="px-5 py-6 sm:px-8 lg:px-12 overflow-y-auto flex-1">
                 <div id="ai-modal-loader" class="text-center py-8">
                     <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-slate-700 border-t-indigo-500 mb-4"></div>
-                    <p id="ai-modal-loader-text" class="text-indigo-400 font-mono animate-pulse text-sm">Actualizando datos del motor SeaCharter Core PRO...</p>
+                    <p id="ai-modal-loader-text" class="text-indigo-400 font-mono animate-pulse text-sm">Actualizando datos del motor Land Charter Core PRO...</p>
                 </div>
                 <div id="ai-modal-content" class="hidden text-slate-300 text-sm space-y-4 prose prose-invert max-w-none">
                     <!-- Contenido IA -->
@@ -15277,7 +15272,7 @@
                 "Temporada": "Season",
                 "Margen del Armador ajustado al": "Owner's Margin adjusted to",
                 "Por favor, introduce un nombre de buque real primero.": "Please enter a real vessel name first.",
-                "Actualizando datos del motor SeaCharter Core PRO...": "Updating SeaCharter Core PRO engine data...",
+                "Actualizando datos del motor Land Charter Core PRO...": "Updating Land Charter Core PRO engine data...",
                 "Especificaciones del buque": "Vessel specifications",
                 "cargadas": "loaded",
                 "La IA no pudo recuperar especificaciones reales. Usando estimaciones estándar.": "AI could not retrieve real specifications. Using standard estimates.",
@@ -15330,7 +15325,7 @@
                 "Temporada": "Saison",
                 "Margen del Armador ajustado al": "Marge de l'armateur ajustée à",
                 "Por favor, introduce un nombre de buque real primero.": "Veuillez d'abord saisir un nom de navire réel.",
-                "Actualizando datos del motor SeaCharter Core PRO...": "Mise à jour des données du moteur SeaCharter Core PRO...",
+                "Actualizando datos del motor Land Charter Core PRO...": "Mise à jour des données du moteur Land Charter Core PRO...",
                 "Especificaciones del buque": "Spécifications du navire",
                 "cargadas": "chargées",
                 "La IA no pudo recuperar especificaciones reales. Usando estimaciones estándar.": "L'IA n'a pas pu récupérer les spécifications réelles. Utilisation d'estimations standard.",
@@ -28613,17 +28608,16 @@ function createRouteAnchorElement(type) {
             showContainerModules: false,
         });
         const PRIMARY_MODULES = [
-            { id: 'map', label: 'Mapa' },
-            { id: 'estimator', label: 'Calculadora' },
-            { id: 'dossiers', label: 'Dossiers' },
+            { id: 'forwarders', label: 'Proyectos' },
+            { id: 'estimator', label: 'Calculadora LDM' },
+            { id: 'map', label: 'Rutas Terrestres' },
             { id: 'decisiones', label: 'Decisiones' },
-            { id: 'compatibilidad', label: 'Compatibilidad' },
-            { id: 'tracking', label: 'Tracking', presentation: 'module-overlay' },
-            { id: 'ais', label: 'Densidad' },
-            { id: 'gencon', label: 'Editor' },
             { id: 'auditor', label: 'Auditoría' },
         ];
         const OPTIONAL_MODULES = [
+            { id: 'dossiers', label: 'Dossiers' },
+            { id: 'compatibilidad', label: 'Compatibilidad' },
+            { id: 'gencon', label: 'Editor' },
             { id: 'fcl', label: 'FCL', preferenceKey: 'showContainerModules' },
             { id: 'asbatankvoy', label: 'Editor ASBATANKVOY' },
             { id: 'cbam', label: 'CBAM' },
@@ -28745,6 +28739,8 @@ function createRouteAnchorElement(type) {
             button.addEventListener('click', () => {
                 if (moduleConfig.presentation === 'module-overlay') {
                     window.openTrackingLive?.();
+                } else if (moduleConfig.id === 'forwarders' || moduleConfig.id === 'FORWARDERS') {
+                    switchTab('FORWARDERS');
                 } else {
                     switchTab(moduleConfig.id);
                 }
@@ -28771,23 +28767,25 @@ function createRouteAnchorElement(type) {
                     tabs.appendChild(createModuleButton(moduleConfig, 'primary'));
                 });
 
-                // Separador visual (línea vertical) y botón 💼 PROYECTOS a la derecha de AUDITORIA
+                // Separador visual (línea vertical) y compatibilidad para tab-btn-forwarders y 💼 PROYECTOS
                 const separator = document.createElement('div');
-                separator.className = 'w-px h-5 bg-slate-700/80 mx-1 self-center shrink-0';
+                separator.className = 'w-px h-5 bg-slate-700/80 mx-1 self-center shrink-0 hidden';
                 separator.setAttribute('aria-hidden', 'true');
                 tabs.appendChild(separator);
 
-                const forwarderBtn = document.createElement('button');
-                forwarderBtn.type = 'button';
-                forwarderBtn.id = 'tab-btn-forwarders';
-                forwarderBtn.dataset.moduleId = 'FORWARDERS';
-                forwarderBtn.className = 'tab-btn px-3 py-1.5 md:px-4 md:py-2 text-[10px] md:text-xs font-bold uppercase rounded-lg transition-all text-[#002060] hover:text-[#002060] whitespace-nowrap';
-                forwarderBtn.textContent = '💼 PROYECTOS';
-                forwarderBtn.setAttribute('aria-label', '💼 PROYECTOS');
-                forwarderBtn.addEventListener('click', () => {
-                    switchTab('FORWARDERS');
-                });
-                tabs.appendChild(forwarderBtn);
+                if (!tabs.querySelector('#tab-btn-forwarders')) {
+                    const forwarderBtn = document.createElement('button');
+                    forwarderBtn.type = 'button';
+                    forwarderBtn.id = 'tab-btn-forwarders';
+                    forwarderBtn.dataset.moduleId = 'FORWARDERS';
+                    forwarderBtn.className = 'tab-btn px-3 py-1.5 md:px-4 md:py-2 text-[10px] md:text-xs font-bold uppercase rounded-lg transition-all text-[#002060] hover:text-[#002060] whitespace-nowrap';
+                    forwarderBtn.textContent = '💼 PROYECTOS';
+                    forwarderBtn.setAttribute('aria-label', '💼 PROYECTOS');
+                    forwarderBtn.addEventListener('click', () => {
+                        switchTab('FORWARDERS');
+                    });
+                    tabs.appendChild(forwarderBtn);
+                }
             }
             if (mobileMenu) {
                 mobileMenu.innerHTML = '';
@@ -28797,21 +28795,6 @@ function createRouteAnchorElement(type) {
                     item.appendChild(createModuleButton(moduleConfig, 'mobile'));
                     mobileMenu.appendChild(item);
                 });
-
-                const mobileItem = document.createElement('li');
-                mobileItem.className = 'tools-dropdown-item';
-                const mobileBtn = document.createElement('button');
-                mobileBtn.type = 'button';
-                mobileBtn.id = 'mobile-tab-btn-forwarders';
-                mobileBtn.dataset.moduleId = 'FORWARDERS';
-                mobileBtn.className = 'tools-dropdown-action';
-                mobileBtn.textContent = '💼 PROYECTOS';
-                mobileBtn.addEventListener('click', () => {
-                    switchTab('FORWARDERS');
-                    closeMobileModuleNav();
-                });
-                mobileItem.appendChild(mobileBtn);
-                mobileMenu.appendChild(mobileItem);
             }
             updateMobileModuleNavLabel(activeNavigationModuleId);
         }
@@ -28820,11 +28803,11 @@ function createRouteAnchorElement(type) {
             const currentLabel = document.getElementById('mobile-module-nav-current');
             if (!currentLabel) return;
             if (tabId === 'FORWARDERS' || tabId === 'forwarders') {
-                currentLabel.textContent = '💼 PROYECTOS';
+                currentLabel.textContent = 'PROYECTOS';
                 return;
             }
             const currentModule = [...PRIMARY_MODULES, ...OPTIONAL_MODULES].find(moduleConfig => moduleConfig.id === tabId);
-            const rawLabel = currentModule?.label || 'Mapa';
+            const rawLabel = currentModule?.label || 'Proyectos';
             currentLabel.textContent = getLocalizedModuleLabel(rawLabel);
         }
 
@@ -29682,7 +29665,7 @@ function createRouteAnchorElement(type) {
 
             const originalTitle = document.title;
             const suffix = getSafePortsSuffix();
-            document.title = `SeaCharter Core PRO - ${reference}${suffix}`;
+            document.title = `Land Charter Core PRO - ${reference}${suffix}`;
 
             setTimeout(() => {
                 window.print();
@@ -32285,7 +32268,7 @@ function setIsGeoInputOpen(isNextOpen) {
             const speedBallast = Math.max(0, parseFloat(params.speedBallast) || 0);
             const speedLaden = Math.max(0, parseFloat(params.speedLaden) || 0);
             const segment = params.segment || 'Segmento detectado';
-            const source = params.source || 'SeaCharter Core PRO';
+            const source = params.source || 'Land Charter Core PRO';
             const shouldForce = params.force === true;
 
             [
@@ -32323,7 +32306,7 @@ function setIsGeoInputOpen(isNextOpen) {
                 segment: fallback.segment,
                 speedBallast: fallback.speedBallast,
                 speedLaden: fallback.speedLaden,
-                source: 'SeaCharter Core PRO fleet average',
+                source: 'Land Charter Core PRO fleet average',
                 force: false
             });
         }
@@ -32337,7 +32320,7 @@ function setIsGeoInputOpen(isNextOpen) {
                 segment: fallback.segment,
                 speedBallast: fallback.speedBallast,
                 speedLaden: fallback.speedLaden,
-                source: 'SeaCharter Core PRO fleet average',
+                source: 'Land Charter Core PRO fleet average',
                 force: false
             });
 
@@ -32349,7 +32332,7 @@ function setIsGeoInputOpen(isNextOpen) {
                     segment: data.segment || fallback.segment,
                     speedBallast: data.speedBallast || fallback.speedBallast,
                     speedLaden: data.speedLaden || fallback.speedLaden,
-                    source: data.source || 'SeaCharter Core PRO historical database',
+                    source: data.source || 'Land Charter Core PRO historical database',
                     force: false
                 });
             } catch (error) {
@@ -34022,7 +34005,7 @@ function setIsGeoInputOpen(isNextOpen) {
                 btn.disabled = true;
             });
 
-            showToast("Actualizando datos del motor SeaCharter Core PRO...", true);
+            showToast("Actualizando datos del motor Land Charter Core PRO...", true);
 
             try {
                 const prompt = `Busca en internet las especificaciones técnicas reales de capacidad, dimensiones y consumo para el buque llamado "${vesselName}".
@@ -41838,8 +41821,8 @@ function scheduleReactiveEngine() {
 
         function buildAuditHTMLTemplate(state) {
             const safeState = state || {};
-            const pol = String(safeState.pol || '');
-            const pod = String(safeState.pod || '');
+            const pol = String(safeState.pol || 'Algeciras');
+            const pod = String(safeState.pod || 'Rotterdam');
             const cargoQty = Number(safeState.cargoQty) || 0;
             const commodity = String(safeState.commodity || 'Siderúrgico / Carga General');
             const laycanDaysLeft = Number(safeState.laycanDaysLeft) || 10;
@@ -41899,7 +41882,7 @@ function scheduleReactiveEngine() {
                                 <strong style="font-size: 20px; color: #002060; text-transform: uppercase; letter-spacing: 0.02em;">Rodahmar Shipping SL</strong>
                             </div>
                             <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-top: 2px;">
-                                SeaCharter Core PRO · Decision Support System (DSS) · Audit Engine v2.4
+                                Land Charter Core PRO · Decision Support System (DSS) · Audit Engine v2.4
                             </div>
                             <h1 style="font-size: 15px; font-weight: 800; color: #1e293b; margin-top: 8px; margin-bottom: 0;">
                                 Auditoría de Riesgo Comercial, Viabilidad Operativa y Lógica DSS
@@ -42090,7 +42073,7 @@ function scheduleReactiveEngine() {
                     <div style="border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 20px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 9px; color: #64748b;">
                         <div>
                             <strong>RODAHMAR SHIPPING SL</strong> · Departamento de Fletamentos & Mesa de Riesgos (Chartering Desk)<br/>
-                            Documento generado automáticamente por el Motor DSS de SeaCharter Core PRO.
+                            Documento generado automáticamente por el Motor DSS de Land Charter Core PRO.
                         </div>
                         <div style="text-align: right;">
                             <div style="border-bottom: 1px solid #94a3b8; width: 140px; margin-bottom: 4px;"></div>
@@ -42201,8 +42184,8 @@ function scheduleReactiveEngine() {
 
         function buildAuditHTMLTemplate(state) {
             const safeState = state || {};
-            const pol = String(safeState.pol || '');
-            const pod = String(safeState.pod || '');
+            const pol = String(safeState.pol || 'Algeciras');
+            const pod = String(safeState.pod || 'Rotterdam');
             const cargoQty = Number(safeState.cargoQty) || 0;
             const commodity = String(safeState.commodity || 'Siderúrgico / Carga General');
             const laycanDaysLeft = Number(safeState.laycanDaysLeft) || 10;
@@ -42262,7 +42245,7 @@ function scheduleReactiveEngine() {
                                 <strong style="font-size: 20px; color: #002060; text-transform: uppercase; letter-spacing: 0.02em;">Rodahmar Shipping SL</strong>
                             </div>
                             <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-top: 2px;">
-                                SeaCharter Core PRO · Decision Support System (DSS) · Audit Engine v2.4
+                                Land Charter Core PRO · Decision Support System (DSS) · Audit Engine v2.4
                             </div>
                             <h1 style="font-size: 15px; font-weight: 800; color: #1e293b; margin-top: 8px; margin-bottom: 0;">
                                 Auditoría de Riesgo Comercial, Viabilidad Operativa y Lógica DSS
@@ -42453,7 +42436,7 @@ function scheduleReactiveEngine() {
                     <div style="border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 20px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 9px; color: #64748b;">
                         <div>
                             <strong>RODAHMAR SHIPPING SL</strong> · Departamento de Fletamentos & Mesa de Riesgos (Chartering Desk)<br/>
-                            Documento generado automáticamente por el Motor DSS de SeaCharter Core PRO.
+                            Documento generado automáticamente por el Motor DSS de Land Charter Core PRO.
                         </div>
                         <div style="text-align: right;">
                             <div style="border-bottom: 1px solid #94a3b8; width: 140px; margin-bottom: 4px;"></div>
@@ -43379,7 +43362,7 @@ function scheduleReactiveEngine() {
                             <div style="width:44px;height:44px;border:2px solid #002060;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#002060;font-size:18px;font-weight:900;">RS</div>
                             <div>
                             <div style="font-size:22px;font-weight:900;color:#002060;letter-spacing:.02em;">Rodahmar Shipping</div>
-                            <div style="font-size:11px;text-transform:uppercase;color:#64748b;font-weight:700;">SeaCharter Core PRO</div>
+                            <div style="font-size:11px;text-transform:uppercase;color:#64748b;font-weight:700;">Land Charter Core PRO</div>
                             </div>
                         </div>
                         <div style="text-align:right;font-size:12px;color:#475569;">
@@ -44594,7 +44577,7 @@ function scheduleReactiveEngine() {
         }
 
         // --- LLAMADAS IA GEMINI MODALES ---
-        function openAIModal(title, loaderText = "Actualizando datos del motor SeaCharter Core PRO...") {
+        function openAIModal(title, loaderText = "Actualizando datos del motor Land Charter Core PRO...") {
             document.getElementById('ai-modal').classList.remove('light-mode');
             document.getElementById('ai-modal-title').innerHTML = `<i class="fa-solid fa-microchip text-indigo-400 shrink-0"></i> <span class="truncate">${title}</span>`;
             const loaderTextEl = document.getElementById('ai-modal-loader-text');
@@ -45004,14 +44987,14 @@ function scheduleReactiveEngine() {
                 return alert("Escribe un nombre de puerto primero.");
             }
 
-            showToast("Actualizando datos del motor SeaCharter Core PRO...", true);
+            showToast("Actualizando datos del motor Land Charter Core PRO...", true);
 
             window.selectedPortInfoTerminals = window.selectedPortInfoTerminals || {};
             delete window.selectedPortInfoTerminals[inputId];
 
             let modalTitle = `Port Info: ${portName}`;
-            let loaderText = "Actualizando datos del motor SeaCharter Core PRO...";
-            let prompt = `Consulta Port Info para SeaCharter Core PRO.
+            let loaderText = "Actualizando datos del motor Land Charter Core PRO...";
+            let prompt = `Consulta Port Info para Land Charter Core PRO.
             PUERTO: ${portName}
             CARGA: ${cargoContext.tipo}
             MÉTODO DE ${cargoContext.operacion.toUpperCase()}: ${cargoContext.metodo}
@@ -45033,8 +45016,8 @@ function scheduleReactiveEngine() {
 
             if (currentLang === 'en') {
                 modalTitle = `Port Info: ${portName}`;
-                loaderText = "Updating SeaCharter Core PRO engine data...";
-                prompt = `SeaCharter Core PRO Port Info query.
+                loaderText = "Updating Land Charter Core PRO engine data...";
+                prompt = `Land Charter Core PRO Port Info query.
                 PORT: ${portName}
                 CARGO: ${cargoContext.tipo}
                 ${cargoContext.operacion.toUpperCase()} METHOD: ${cargoContext.metodo}
@@ -45055,8 +45038,8 @@ function scheduleReactiveEngine() {
                 }`;
             } else if (currentLang === 'fr') {
                 modalTitle = `Port Info : ${portName}`;
-                loaderText = "Mise à jour des données du moteur SeaCharter Core PRO...";
-                prompt = `Requête Port Info pour SeaCharter Core PRO.
+                loaderText = "Mise à jour des données du moteur Land Charter Core PRO...";
+                prompt = `Requête Port Info pour Land Charter Core PRO.
                 PORT : ${portName}
                 CARGAISON : ${cargoContext.tipo}
                 MÉTHODE DE ${cargoContext.operacion.toUpperCase()} : ${cargoContext.metodo}
@@ -45118,7 +45101,7 @@ function scheduleReactiveEngine() {
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             btn.disabled = true;
 
-            showToast("Actualizando datos del motor SeaCharter Core PRO...", true);
+            showToast("Actualizando datos del motor Land Charter Core PRO...", true);
 
             const prompt = `Actúa como un analista experto en transporte marítimo comercial.
             El usuario requiere transportar la siguiente carga: "${cargoName}"
@@ -45188,7 +45171,7 @@ function scheduleReactiveEngine() {
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             btn.disabled = true;
 
-            showToast("Actualizando datos del motor SeaCharter Core PRO...", true);
+            showToast("Actualizando datos del motor Land Charter Core PRO...", true);
 
             // 1. Calculations for variables
             const dwt = parseFloat(document.getElementById('vessel-dwt')?.value || 0);
@@ -45756,13 +45739,13 @@ function scheduleReactiveEngine() {
             
             const currentLang = document.getElementById('language-selector')?.value || 'es';
             let modalTitle = `Auditoría de Viabilidad Comercial`;
-            let loaderText = "Actualizando datos del motor SeaCharter Core PRO...";
+            let loaderText = "Actualizando datos del motor Land Charter Core PRO...";
             if (currentLang === 'en') {
                 modalTitle = `Commercial Feasibility Audit`;
-                loaderText = "Updating SeaCharter Core PRO engine data...";
+                loaderText = "Updating Land Charter Core PRO engine data...";
             } else if (currentLang === 'fr') {
                 modalTitle = `Audit de Faisabilité Commerciale`;
-                loaderText = "Mise à jour des données du moteur SeaCharter Core PRO...";
+                loaderText = "Mise à jour des données du moteur Land Charter Core PRO...";
             }
 
             if (dwt > 0 && cargo > 0 && dwt < cargo) {
@@ -45828,7 +45811,7 @@ function scheduleReactiveEngine() {
                 return;
             }
 
-            showToast("Actualizando datos del motor SeaCharter Core PRO...", true);
+            showToast("Actualizando datos del motor Land Charter Core PRO...", true);
             openAIModal(modalTitle, loaderText);
             document.getElementById('ai-modal').classList.add('light-mode');
             
@@ -47597,7 +47580,7 @@ Example:
         async function generateMarketReport() {
             try {
                 if (typeof showToast === 'function') {
-                    showToast('📊 Generando SeaCharter Core PRO Market Report (PDF)...', true);
+                    showToast('📊 Generando Land Charter Core PRO Market Report (PDF)...', true);
                 }
 
                 const btnAudit = document.getElementById('btn-market-report');
@@ -47632,7 +47615,7 @@ Example:
                     showToast('✅ Reporte de Mercado descargado exitosamente');
                 }
             } catch (err) {
-                console.error('Error al generar SeaCharter Core PRO Market Report:', err);
+                console.error('Error al generar Land Charter Core PRO Market Report:', err);
                 if (typeof showToast === 'function') {
                     showToast(`❌ Error al generar el reporte: ${err.message || err}`);
                 } else {
@@ -48058,7 +48041,7 @@ Example:
                                         <li><strong>${currentLang === 'es' ? 'Coste Extra OPEX' : 'Extra OPEX Cost'}:</strong> $${Math.round(State.smartAdjustments?.extraOpexCost || 0).toLocaleString()}</li>
                                         <li><strong>${currentLang === 'es' ? 'Bunker Extra Fondeo' : 'Extra Anchorage Bunker'}:</strong> $${Math.round(State.smartAdjustments?.anchorageBunkerCost || 0).toLocaleString()}</li>
                                     </ul>
-                                    <p class="text-emerald-400 font-bold">=> ${currentLang === 'es' ? 'Incremento por SeaCharter Core PRO' : 'SeaCharter Core PRO uplift'}: $${(State.smartAdjustments?.breakEvenIncrease || 0).toFixed(2)} / ${currentLang === 'es' ? 'TM' : 'MT'}</p>
+                                    <p class="text-emerald-400 font-bold">=> ${currentLang === 'es' ? 'Incremento por Land Charter Core PRO' : 'Land Charter Core PRO uplift'}: $${(State.smartAdjustments?.breakEvenIncrease || 0).toFixed(2)} / ${currentLang === 'es' ? 'TM' : 'MT'}</p>
                                 </div>
                             </details>
 
@@ -48140,8 +48123,8 @@ Example:
                                     <p><strong>${currentLang === 'es' ? 'Fuentes y Metodología' : 'Methodology & Sources'}:</strong></p>
                                     <p class="italic text-slate-500 font-sans font-medium">
                                         ${currentLang === 'es'
-                                            ? `Las tarifas se calculan utilizando el estimador algorítmico paramétrico SeaCharter Core PRO, parametrizando las características del buque (${getPdaGtMethodologyLabel('es')}, ${getPdaLoaMethodologyLabel('es')}, Manga Beam) y aplicando multiplicadores de puerto según la base de datos nacional e internacional.`
-                                            : `Tariffs are calculated using the SeaCharter Core PRO parametric algorithmic estimator, based on vessel characteristics (${getPdaGtMethodologyLabel('en')}, ${getPdaLoaMethodologyLabel('en')}, Beam) and applying port-specific country multipliers from the local database.`}
+                                            ? `Las tarifas se calculan utilizando el estimador algorítmico paramétrico Land Charter Core PRO, parametrizando las características del buque (${getPdaGtMethodologyLabel('es')}, ${getPdaLoaMethodologyLabel('es')}, Manga Beam) y aplicando multiplicadores de puerto según la base de datos nacional e internacional.`
+                                            : `Tariffs are calculated using the Land Charter Core PRO parametric algorithmic estimator, based on vessel characteristics (${getPdaGtMethodologyLabel('en')}, ${getPdaLoaMethodologyLabel('en')}, Beam) and applying port-specific country multipliers from the local database.`}
                                     </p>
                                 </div>
                             </details>
@@ -48671,7 +48654,7 @@ Example:
                                 </tr>
                                 <tr>
                                     <td colspan="2" style="padding-top: 2px; color: #15803d; font-weight: 700; font-size: 7pt;">
-                                        Incremento SeaCharter Core PRO / Uplift: $${(State.smartAdjustments?.breakEvenIncrease || 0).toFixed(2)} / ${currentDWTLabel}
+                                        Incremento Land Charter Core PRO / Uplift: $${(State.smartAdjustments?.breakEvenIncrease || 0).toFixed(2)} / ${currentDWTLabel}
                                     </td>
                                 </tr>
                             </table>
@@ -48767,7 +48750,7 @@ Example:
                                 </tr>
                             </table>
                             <p style="font-size: 6.8pt; color: #64748b; margin: 4px 0 0 0; text-align: justify; font-style: italic;">
-                                Tarifas calculadas utilizando el estimador paramétrico SeaCharter Core PRO, según las características del buque (${getPdaGtMethodologyLabel('es')}, ${getPdaLoaMethodologyLabel('es')}, Manga Beam) y multiplicadores de puerto de la base de datos local. / Tariffs calculated using SeaCharter Core PRO parametric estimator, based on vessel specs (${getPdaGtMethodologyLabel('en')}, ${getPdaLoaMethodologyLabel('en')}, Beam) and port country multipliers.
+                                Tarifas calculadas utilizando el estimador paramétrico Land Charter Core PRO, según las características del buque (${getPdaGtMethodologyLabel('es')}, ${getPdaLoaMethodologyLabel('es')}, Manga Beam) y multiplicadores de puerto de la base de datos local. / Tariffs calculated using Land Charter Core PRO parametric estimator, based on vessel specs (${getPdaGtMethodologyLabel('en')}, ${getPdaLoaMethodologyLabel('en')}, Beam) and port country multipliers.
                             </p>
                         </div>
                     </div>
@@ -49515,7 +49498,7 @@ Example:
             const currentDate = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
             const cpStandard = State.charterPartyStandard || (State.cargoType === 'Granel Líquido (Liquid Bulk)' ? 'ASBATANKVOY' : 'GENCON');
             const ref = getSafeActiveContractRef();
-            const fullRefId = `SeaCharter Core PRO - (${ref || '—'})`;
+            const fullRefId = `Land Charter Core PRO - (${ref || '—'})`;
             return `
                 <div class="master-audit-header">
                     <div>
@@ -49801,7 +49784,7 @@ Example:
                     CollectedAI: dossier.inteligencia_ia_recopilada
                 },
                 UserContext: {
-                    source: 'SeaCharter Core PRO',
+                    source: 'Land Charter Core PRO',
                     generatedAt: new Date().toISOString(),
                     locale: document.documentElement.lang || 'es',
                     reportMode: dossier.modo_informe,
@@ -49924,7 +49907,7 @@ Example:
             const ref = cpStandard === 'ASBATANKVOY'
                 ? document.getElementById('asb-ref')?.value
                 : document.getElementById('gc-ref')?.value;
-            const reference = ref ? `EST-${ref}` : 'SeaCharter Core PRO - Informe Master';
+            const reference = ref ? `EST-${ref}` : 'Land Charter Core PRO - Informe Master';
             const issueDate = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
             let html = '';
 
@@ -50019,7 +50002,7 @@ Example:
                 ];
             return `
                 <div id="informe-master-container" class="master-report-shell">
-                    ${buildMasterAuditHeaderHTML('SeaCharter Core PRO', 'Informe Master Estratégico / Master Strategic Dossier', jurisdiction.label)}
+                    ${buildMasterAuditHeaderHTML('Land Charter Core PRO', 'Informe Master Estratégico / Master Strategic Dossier', jurisdiction.label)}
 
                     <section class="master-kpi-grid">
                         <div class="master-kpi"><span>Ruta</span><strong>${escapeMasterReportHtml(data.operational.pol)} / ${escapeMasterReportHtml(data.operational.pod)}</strong></div>
@@ -50106,7 +50089,7 @@ Example:
                     ${masterReportWorkflowState.selectedReportMode === 'strict' ? buildStrictMasterIntelligenceHTML() : ''}
 
                     <footer class="master-audit-footer">
-                        <strong>Nota legal:</strong> Este documento es confidencial y para uso exclusivo del destinatario. Los importes son estimaciones ejecutivas basadas en el estado actual de SeaCharter Core PRO y deben validarse contra documentación contractual, portuaria y comercial final.
+                        <strong>Nota legal:</strong> Este documento es confidencial y para uso exclusivo del destinatario. Los importes son estimaciones ejecutivas basadas en el estado actual de Land Charter Core PRO y deben validarse contra documentación contractual, portuaria y comercial final.
                     </footer>
                 </div>`;
         }
@@ -50181,12 +50164,12 @@ Example:
                 : '';
             const reportContent = typeof data === 'string'
                 ? `<div id="informe-master-container" class="master-report-shell">
-                    ${buildMasterAuditHeaderHTML('SeaCharter Core PRO', 'Informe Master Estratégico / Master Strategic Dossier')}
+                    ${buildMasterAuditHeaderHTML('Land Charter Core PRO', 'Informe Master Estratégico / Master Strategic Dossier')}
                     <div class="report-master master-ai-dossier">${data}</div>
                     ${executiveAppendix}
                     ${strictAppendix}
                     <footer class="master-audit-footer">
-                        <strong>Nota legal:</strong> Este documento es confidencial y para uso exclusivo del destinatario. Los importes son estimaciones ejecutivas basadas en el estado actual de SeaCharter Core PRO y deben validarse contra documentación contractual, portuaria y comercial final.
+                        <strong>Nota legal:</strong> Este documento es confidencial y para uso exclusivo del destinatario. Los importes son estimaciones ejecutivas basadas en el estado actual de Land Charter Core PRO y deben validarse contra documentación contractual, portuaria y comercial final.
                     </footer>
                 </div>`
                 : buildMasterReportHTML(data);
@@ -50576,7 +50559,7 @@ Example:
             const originalTitle = document.title;
             const estimateId = document.getElementById('print-est-id').innerText || (datosCotizacion && datosCotizacion.referencia_unica) || "Estimación";
             const suffix = getSafePortsSuffix();
-            document.title = `SeaCharter Core PRO - ${estimateId}${suffix}`;
+            document.title = `Land Charter Core PRO - ${estimateId}${suffix}`;
 
             document.body.classList.add('print-report-mode');
             setTimeout(() => {
@@ -50635,7 +50618,7 @@ Example:
             const originalTitle = document.title;
             const estimateId = document.getElementById('print-est-id').innerText || (passDatos && passDatos.referencia_unica) || reference || "Estimación";
             const suffix = getSafePortsSuffix();
-            document.title = `SeaCharter Core PRO - ${estimateId}${suffix}`;
+            document.title = `Land Charter Core PRO - ${estimateId}${suffix}`;
 
             document.body.classList.add('print-report-mode');
             setTimeout(() => {
@@ -50842,7 +50825,7 @@ Example:
             return true;
         }
 
-        const SYSTEM_PROMPT = `Eres el Auditor IA Universal de SeaCharter Core PRO. Tu misión principal es la auditoría legal de pólizas, pero ahora posees inteligencia operativa para otros documentos marítimos.
+        const SYSTEM_PROMPT = `Eres el Auditor IA Universal de Land Charter Core PRO. Tu misión principal es la auditoría legal de pólizas, pero ahora posees inteligencia operativa para otros documentos marítimos.
 
         PASO 1: DETECCIÓN AUTOMÁTICA DEL DOCUMENTO
         Lee el texto proporcionado por el usuario y clasifícalo internamente en una de estas 3 categorías:
@@ -50909,7 +50892,7 @@ Example:
         }`
 
         const DEFINITIVE_SYSTEM_PROMPT = `
-Eres el Auditor IA Principal de SeaCharter Core PRO. Tu prioridad absoluta es la AUDITORÍA LEGAL Y COMERCIAL PROFUNDA de pólizas de fletamento, emitiendo informes de nivel Senior Chartering Broker.
+Eres el Auditor IA Principal de Land Charter Core PRO. Tu prioridad absoluta es la AUDITORÍA LEGAL Y COMERCIAL PROFUNDA de pólizas de fletamento, emitiendo informes de nivel Senior Chartering Broker.
 
 PASO 1: DETECCIÓN AUTOMÁTICA DEL DOCUMENTO
 Clasifica el documento internamente:
@@ -52507,7 +52490,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
 
                 // Actualizar identificador de referencia y rellenar vista imprimible
                 const ref = getSafeActiveContractRef();
-                const fullRefId = `SeaCharter Core PRO - (${ref || '—'})`;
+                const fullRefId = `Land Charter Core PRO - (${ref || '—'})`;
                 document.getElementById('audit-report-ref-id').innerText = fullRefId;
 
                 const currentDate = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -52594,7 +52577,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             const originalTitle = document.title;
             const cpStandard = State.charterPartyStandard || (State.cargoType === 'Granel Líquido (Liquid Bulk)' ? 'ASBATANKVOY' : 'GENCON');
             const ref = getSafeActiveContractRef();
-            const fullRefId = `SeaCharter Core PRO - (${ref || '—'})`;
+            const fullRefId = `Land Charter Core PRO - (${ref || '—'})`;
             
             // Sincronizar referencia más reciente antes de imprimir
             const auditReportRefEl = document.getElementById('audit-report-ref-id');
@@ -63006,7 +62989,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         }
 
         // =========================================================================
-        // VALIDADOR EXPERTO DE CONSISTENCIA LÓGICA Y OPERATIVA (SeaCharter Core PRO)
+        // VALIDADOR EXPERTO DE CONSISTENCIA LÓGICA Y OPERATIVA (Land Charter Core PRO)
         // =========================================================================
         function validateOperationalCoherence(explicitMode = 'Manual', overrides = {}) {
             const modeRaw = String(explicitMode || 'Manual').trim();
@@ -63763,7 +63746,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             const original = printView.innerHTML;
             const originalTitle = document.title;
             printView.innerHTML = `<div class="screen-report-print official-print-document">${content}</div>`;
-            document.title = 'SeaCharter Core PRO - Reporte Ejecutivo';
+            document.title = 'Land Charter Core PRO - Reporte Ejecutivo';
             document.body.classList.add('print-report-mode');
             setTimeout(() => {
                 window.print();
@@ -64053,8 +64036,8 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             });
             const resumen = [
                 ['TMM Iberia Trading', '', '', 'Proyección Estratégica COA'],
-                ['SeaCharter Core PRO', '', '', 'Reporte corporativo confidencial'],
-                ['Fecha', reportDate.toLocaleDateString('es-ES'), 'Branding', 'TMM Iberia Trading | SeaCharter Core PRO'],
+                ['Land Charter Core PRO', '', '', 'Reporte corporativo confidencial'],
+                ['Fecha', reportDate.toLocaleDateString('es-ES'), 'Branding', 'TMM Iberia Trading | Land Charter Core PRO'],
                 [],
                 ['Key Metrics', '', '', ''],
                 ['Modo operativo', 'COA', 'Número de Embarques', shipments],
@@ -64124,7 +64107,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             workbook.Props = {
                 Title: 'TMM Iberia Trading - Reporte COA',
                 Subject: 'Proyección estratégica confidencial',
-                Author: 'SeaCharter Core PRO',
+                Author: 'Land Charter Core PRO',
                 Company: 'TMM Iberia Trading'
             };
             XLSX.utils.book_append_sheet(workbook, resumenSheet, 'Resumen');
@@ -64182,7 +64165,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             });
             const resumen = [
                 ['TMM Iberia Trading', '', '', 'COA calculado como SPOT'],
-                ['SeaCharter Core PRO', '', '', 'Escenario conservador sin dilución de costes'],
+                ['Land Charter Core PRO', '', '', 'Escenario conservador sin dilución de costes'],
                 ['Fecha', new Date().toLocaleDateString('es-ES'), 'Número de Embarques', shipments],
                 ['Total TM Contrato', Math.round(totalTm), 'TM por Viaje', Math.round(tmPorViaje)],
                 ['Break-Even SPOT por Viaje', Number(breakEvenSpotPorViaje.toFixed(2)), 'Factor Dilución aplicado', 'No aplicado'],
@@ -66352,7 +66335,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
 
             if (typeof State !== 'undefined') {
                 State.detectedVesselSegment = segmentConfig.segment;
-                State.speedInferenceSource = `SeaCharter Core PRO ${navigationStrategy.toUpperCase()} speed profile`;
+                State.speedInferenceSource = `Land Charter Core PRO ${navigationStrategy.toUpperCase()} speed profile`;
             }
             setNavigationStrategyMode('auto');
         }
@@ -67965,7 +67948,7 @@ window.actualizarGrabCapacityVisibility = function() {
     <!-- SUBTLE FOOTER -->
     <!-- Control release version marker -->
     <footer class="app-footer px-4 py-2.5 text-center text-xs no-print shrink-0 flex flex-col sm:flex-row justify-between items-center z-50">
-        <div>&copy; 2026 <span class="font-semibold text-slate-600">SeaCharter Core PRO</span>. All rights reserved.</div>
+        <div>&copy; 2026 <span class="font-semibold text-slate-600">Land Charter Core PRO</span>. All rights reserved.</div>
         <div class="text-[10px] text-slate-400 mt-1 sm:mt-0">Enterprise Logistics & Voyage Estimation Suite <span class="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-mono">v1.0.1</span></div>
     </footer>
 
@@ -68722,7 +68705,7 @@ window.actualizarGrabCapacityVisibility = function() {
                 const quoteId = String(auditEl('carrier-offer-reference')?.value || `RDM-FCL-${Date.now()}`).trim() || `RDM-FCL-${Date.now()}`;
                 return {
                     quoteId,
-                    customerName: 'SeaCharter Core PRO',
+                    customerName: 'Land Charter Core PRO',
                     maritimeRoute: auditEl('carrier-maritime-route')?.value || '',
                     incoterm: currentAuditIncoterm(),
                     carrierName: auditEl('carrier-offer-name')?.value || 'Naviera',

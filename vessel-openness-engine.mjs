@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- * SeaCharter Core PRO — Motor de Inferencia de Disponibilidad Operativa
+ * Land Charter Core PRO — Motor de Inferencia de Disponibilidad Operativa
  * (Vessel Openness)
  * =============================================================================
  * Responde a la pregunta comercial que sigue al filtro de tamaño (banda de DWT):

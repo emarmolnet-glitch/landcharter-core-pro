@@ -70,7 +70,7 @@ test('the gateway dispatches the reviewed draft through the Resend REST API', as
     assert.deepEqual(calls[0].body.to, ['broker@charterer.com']);
     assert.equal(calls[0].body.subject, 'MV Seacharter · Firm offer');
     assert.match(calls[0].body.text, /Adjuntamos la oferta firme\./);
-    assert.equal(calls[0].body.from, 'SeaCharter Core PRO <no-reply@seacharter.app>');
+    assert.equal(calls[0].body.from, 'Land Charter Core PRO <no-reply@seacharter.app>');
   });
 });
 

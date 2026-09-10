@@ -2982,9 +2982,9 @@ export function ForwarderWorkspace() {
                 {/* Sección Parámetros Dinámicos de Ruta, Ritmos Operativos y Demoras */}
                 <section className="pt-6 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-black text-blue-600 uppercase tracking-wider">Ruta Marítima, Ritmos Operativos y Gestión de Demoras</h3>
+                    <h3 className="text-sm font-black text-blue-600 uppercase tracking-wider">Ruta Terrestre, Tiempos de Almacén y Gestión de Paralizaciones</h3>
                     <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
-                      POL / POD · Ritmos MT/día · Rotación Paramétrica
+                      Origen (Carga) / Destino (Entrega) · Tiempos Almacén · Penalizaciones
                     </span>
                   </div>
 
@@ -2992,7 +2992,7 @@ export function ForwarderWorkspace() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                       <div>
                         <label htmlFor="input-pol" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
-                          Puerto de Carga (POL / Origen) *
+                          Origen (Carga / POL) *
                         </label>
                         <input
                           id="input-pol"
@@ -3000,14 +3000,14 @@ export function ForwarderWorkspace() {
                           required
                           value={pol}
                           onChange={(e) => setPol(e.target.value)}
-                          placeholder="Ej: Valencia, Bilbao, Barcelona"
+                          placeholder="Ej: Madrid, Valencia, Zaragoza"
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
                         />
                       </div>
 
                       <div>
                         <label htmlFor="input-pod" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
-                          Puerto de Destino (POD / Destino) *
+                          Destino (Entrega / POD) *
                         </label>
                         <input
                           id="input-pod"
@@ -3015,14 +3015,14 @@ export function ForwarderWorkspace() {
                           required
                           value={pod}
                           onChange={(e) => setPod(e.target.value)}
-                          placeholder="Ej: Houston, Rotterdam, Alexandria"
+                          placeholder="Ej: París, Milán, Frankfurt"
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
                         />
                       </div>
 
                       <div>
-                        <label htmlFor="input-loading-rate" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
-                          Ritmo de Carga (MT/día) *
+                        <label htmlFor="input-loading-rate" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1" title="Tiempo de carga en almacén de origen (horas). Franquicia legal: 2 horas.">
+                          Tiempo Carga Almacén (h) *
                         </label>
                         <input
                           id="input-loading-rate"
@@ -3032,12 +3032,13 @@ export function ForwarderWorkspace() {
                           value={loadingRate}
                           onChange={(e) => setLoadingRate(Math.max(1, Number(e.target.value)))}
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
+                          title="Tiempo de carga en almacén. Franquicia 2h; penalización legal tras exceder franquicia."
                         />
                       </div>
 
                       <div>
-                        <label htmlFor="input-discharging-rate" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
-                          Ritmo de Descarga (MT/día) *
+                        <label htmlFor="input-discharging-rate" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1" title="Tiempo de descarga en almacén de destino (horas). Franquicia legal: 2 horas.">
+                          Tiempo Descarga Almacén (h) *
                         </label>
                         <input
                           id="input-discharging-rate"
@@ -3047,6 +3048,7 @@ export function ForwarderWorkspace() {
                           value={dischargingRate}
                           onChange={(e) => setDischargingRate(Math.max(1, Number(e.target.value)))}
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
+                          title="Tiempo de descarga en almacén. Franquicia 2h; penalización legal tras exceder franquicia."
                         />
                       </div>
                     </div>
@@ -3054,7 +3056,7 @@ export function ForwarderWorkspace() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-slate-200">
                       <div>
                         <label htmlFor="input-distance-nm" className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                          Distancia Náutica (NM)
+                          Distancia Terrestre / Ruta (km)
                         </label>
                         <input
                           id="input-distance-nm"
@@ -3254,11 +3256,73 @@ export function ForwarderWorkspace() {
 
                 <section className="pt-6 space-y-4">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-sm font-black text-blue-600 uppercase tracking-wider">5. Desglose Financiero Separado (Flete vs. FOB / Operativa)</h3>
-                    <span className="text-[11px] font-mono font-bold text-slate-500 uppercase tracking-wider">SeaCharter Core PRO</span>
+                    <h3 className="text-sm font-black text-blue-600 uppercase tracking-wider">5. Desglose Financiero de Transporte por Carretera y Operativa Logística</h3>
+                    <span className="text-[11px] font-mono font-bold text-slate-500 uppercase tracking-wider">Land Charter Core PRO</span>
                   </div>
 
                   <div id="financial-breakdown-card" className="bg-slate-900 border border-slate-700 rounded-xl p-5 text-white shadow-xl">
+                    {/* Desglose Financiero de Transporte por Carretera */}
+                    {(() => {
+                      const distKm = Math.round(Number(distanceNm) > 0 ? Number(distanceNm) * 1.852 : 850);
+                      const costKm = 1.35;
+                      const fuelKm = 0.22;
+                      const totalCostKm = Number((costKm + fuelKm).toFixed(2));
+                      const runningCost = Math.round(distKm * totalCostKm);
+                      const tollsCost = Math.round(distKm * 0.18);
+                      const transitDays = Math.max(1, Math.ceil(distKm / 650));
+                      const driverDiets = transitDays * 75;
+                      const waitPenalty = Math.max(0, (Number(loadingRate || 2) - 2) * 40) + Math.max(0, (Number(dischargingRate || 2) - 2) * 40);
+                      const totalRoadCost = runningCost + tollsCost + driverDiets + waitPenalty;
+                      const roadSale = Math.round(totalRoadCost * 1.18);
+                      const roadSalePerKm = (roadSale / Math.max(1, distKm)).toFixed(2);
+                      return (
+                        <div className="bg-slate-800/90 border border-slate-700 rounded-lg p-4 mb-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-700">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">🚚</span>
+                              <span className="text-xs font-black text-emerald-400 uppercase tracking-wide">Desglose Financiero · Transporte Terrestre por Carretera</span>
+                            </div>
+                            <span className="text-[10px] font-mono text-slate-400 font-bold bg-slate-900 px-2 py-0.5 rounded border border-slate-700">
+                              Ruta: {distKm} km · {transitDays} jornada{transitDays > 1 ? 's' : ''} chófer
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-3">
+                            <div className="bg-slate-900/80 p-2.5 rounded border border-slate-700/60">
+                              <span className="block text-[10px] uppercase font-bold text-slate-400">Coste / km (Base + Fuel)</span>
+                              <span className="text-sm font-mono font-bold text-white">{totalCostKm.toFixed(2)} €/km</span>
+                              <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">{runningCost.toLocaleString('es-ES')} € total</span>
+                            </div>
+                            <div className="bg-slate-900/80 p-2.5 rounded border border-slate-700/60">
+                              <span className="block text-[10px] uppercase font-bold text-slate-400">Peajes de Autopista</span>
+                              <span className="text-sm font-mono font-bold text-amber-300">{tollsCost.toLocaleString('es-ES')} €</span>
+                              <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">~0.18 €/km medio</span>
+                            </div>
+                            <div className="bg-slate-900/80 p-2.5 rounded border border-slate-700/60">
+                              <span className="block text-[10px] uppercase font-bold text-slate-400">Dieta / Jornada Chófer</span>
+                              <span className="text-sm font-mono font-bold text-sky-300">{driverDiets} €</span>
+                              <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">75 €/día (tacógrafo UE)</span>
+                            </div>
+                            <div className="bg-slate-900/80 p-2.5 rounded border border-slate-700/60">
+                              <span className="block text-[10px] uppercase font-bold text-slate-400">Penalización Paralización</span>
+                              <span className={`text-sm font-mono font-bold ${waitPenalty > 0 ? 'text-red-400' : 'text-emerald-400'}`}>{waitPenalty} €</span>
+                              <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">40 €/h tras 2h franquicia</span>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-700/80">
+                            <div>
+                              <span className="text-[11px] font-mono text-slate-400">Coste Operativo Total Carretera:</span>
+                              <strong className="text-base font-mono font-bold text-slate-200 ml-2">{totalRoadCost.toLocaleString('es-ES')} €</strong>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-mono text-emerald-400 font-bold">Precio de Venta Sugerido (18% margen):</span>
+                              <strong className="text-xl font-mono font-black text-emerald-300">{roadSale.toLocaleString('es-ES')} €</strong>
+                              <span className="text-[11px] font-mono font-bold text-emerald-400">({roadSalePerKm} €/km)</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Subtotal Flete Marítimo / TCE */}
                       <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 flex flex-col justify-between">
@@ -3823,7 +3887,134 @@ export function ForwarderWorkspace() {
                 })()}
 
                 {activeReport?.stowagePlan && (
-                  <div className="mt-4 pt-4 border-t-2 border-slate-200 space-y-3">
+                  <div className="mt-4 pt-4 border-t-2 border-slate-200 space-y-4">
+                    {/* MOTOR DE CUBICACIÓN DE CAMIONES Y METROS LINEALES (LDM) */}
+                    {(() => {
+                      const totalWtTons = Number(activeReport?.totalWeightTons || totals?.totalWeightTons || 0);
+                      const totalWtKg = Math.round(totalWtTons * 1000);
+                      const totalVolM3 = Number(activeReport?.totalVolumeCbm || totals?.totalVolumeCbm || 0);
+                      const calcLdm = Number(
+                        activeReport.stowagePlan?.truckLdmOptimization?.calculatedLdm ||
+                        (totalVolM3 > 0 ? (totalVolM3 / (2.4 * 2.7)).toFixed(2) : (totalWtTons > 0 ? (totalWtTons / 1.8).toFixed(2) : 13.6))
+                      );
+                      const euroPallets = Math.max(1, Math.ceil(calcLdm / 0.4));
+                      const industrialPallets = Math.max(1, Math.ceil(calcLdm / 0.5));
+                      const trucksReq = Math.max(1, Math.ceil(Math.max(calcLdm / 13.6, totalWtTons / 24)));
+                      const ldmPerTruck = (calcLdm / trucksReq).toFixed(2);
+                      const wtPerTruckKg = Math.min(24000, Math.round(totalWtKg / trucksReq));
+                      const ldmPct = Math.min(100, Math.round((parseFloat(ldmPerTruck) / 13.6) * 100));
+                      const wtPct = Math.min(100, Math.round((wtPerTruckKg / 24000) * 100));
+
+                      // Reparto de Pesos por Eje (Conjunto 5 ejes: Tractor 4x2 + Trídem semirremolque)
+                      const axle1 = Math.min(7500, Math.round(4800 + wtPerTruckKg * 0.15));
+                      const axle2 = Math.min(11500, Math.round(2700 + wtPerTruckKg * 0.35));
+                      const axle3 = Math.min(24000, Math.round(7000 + wtPerTruckKg * 0.50));
+                      const mmaTotal = axle1 + axle2 + axle3;
+
+                      return (
+                        <div className="bg-slate-900 border-2 border-slate-800 rounded-xl p-4 text-white shadow-lg space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/80 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">🚛</span>
+                              <div>
+                                <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                                  Motor de Cubicación de Camiones y Metros Lineales (LDM)
+                                </h4>
+                                <span className="text-[10px] text-slate-300">
+                                  Semirremolque Tauliner Estándar (13.60m x 2.48m x 2.70m · 91 m³ · 24t Carga Útil)
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[11px] font-mono">
+                              <span className="bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-700/60 font-bold">
+                                Flota: {trucksReq} Camión{trucksReq > 1 ? 'es' : ''} Tráiler
+                              </span>
+                              <span className="bg-blue-950 text-blue-300 px-2 py-0.5 rounded border border-blue-700/60 font-bold">
+                                {calcLdm.toFixed(1)} LDM Totales
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Comparador de Paletización y Medidores LDM / Carga */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                            <div className="bg-slate-800/90 p-3 rounded-lg border border-slate-700">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10.5px] uppercase font-bold text-sky-400">Euro-Pallets (0.8 x 1.2m)</span>
+                                <span className="text-[10px] font-mono bg-sky-950 text-sky-300 px-1.5 py-0.2 rounded font-bold">0.4 LDM/u</span>
+                              </div>
+                              <div className="text-base font-mono font-black text-white">{euroPallets} <span className="text-xs text-slate-400 font-normal">palets</span></div>
+                              <p className="text-[9.5px] text-slate-400 mt-1">Capacidad estándar tráiler: 33 europalets en planta.</p>
+                            </div>
+
+                            <div className="bg-slate-800/90 p-3 rounded-lg border border-slate-700">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10.5px] uppercase font-bold text-purple-400">Palet Americano (1.0 x 1.2m)</span>
+                                <span className="text-[10px] font-mono bg-purple-950 text-purple-300 px-1.5 py-0.2 rounded font-bold">0.5 LDM/u</span>
+                              </div>
+                              <div className="text-base font-mono font-black text-white">{industrialPallets} <span className="text-xs text-slate-400 font-normal">palets</span></div>
+                              <p className="text-[9.5px] text-slate-400 mt-1">Capacidad estándar tráiler: 26 palets industriales en planta.</p>
+                            </div>
+
+                            <div className="bg-slate-800/90 p-3 rounded-lg border border-slate-700">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10.5px] uppercase font-bold text-emerald-400">Ocupación LDM por Camión</span>
+                                <span className="text-[10px] font-mono text-emerald-300 font-bold">{ldmPct}%</span>
+                              </div>
+                              <div className="text-base font-mono font-black text-white">{ldmPerTruck} / 13.6 <span className="text-xs text-slate-400 font-normal">LDM</span></div>
+                              <div className="w-full bg-slate-950 rounded-full h-1.5 mt-2 overflow-hidden border border-slate-700">
+                                <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${ldmPct}%` }} />
+                              </div>
+                            </div>
+
+                            <div className="bg-slate-800/90 p-3 rounded-lg border border-slate-700">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10.5px] uppercase font-bold text-amber-400">Ocupación Masa por Camión</span>
+                                <span className="text-[10px] font-mono text-amber-300 font-bold">{wtPct}%</span>
+                              </div>
+                              <div className="text-base font-mono font-black text-white">{wtPerTruckKg.toLocaleString('es-ES')} / 24.000 <span className="text-xs text-slate-400 font-normal">kg</span></div>
+                              <div className="w-full bg-slate-950 rounded-full h-1.5 mt-2 overflow-hidden border border-slate-700">
+                                <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: `${wtPct}%` }} />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* REPARTO DE PESOS POR EJE (CONJUNTO ARTICULADO TRACTOR + SEMIRREMOLQUE) */}
+                          <div className="bg-slate-800/70 p-3 rounded-lg border border-slate-700/80">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-700/60">
+                              <span className="text-[10.5px] uppercase font-black text-slate-300 flex items-center gap-1.5">
+                                <span>⚖️</span> Distribución y Reparto de Pesos por Eje (Conjunto 5 Ejes · Límite Legal 40t MMA)
+                              </span>
+                              <span className="text-[10px] font-mono text-emerald-400 font-bold">
+                                ✓ Cumple Normativa Europea Directiva 96/53/CE & DGT
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono">
+                              <div className="bg-slate-900/90 p-2 rounded border border-slate-700/50">
+                                <span className="block text-[9.5px] text-slate-400 uppercase font-bold">Eje 1 (Directriz Tractor)</span>
+                                <strong className="text-slate-100 text-xs">{axle1.toLocaleString('es-ES')} kg</strong>
+                                <span className="block text-[9px] text-slate-500">Máx legal: 7.500 kg</span>
+                              </div>
+                              <div className="bg-slate-900/90 p-2 rounded border border-slate-700/50">
+                                <span className="block text-[9.5px] text-slate-400 uppercase font-bold">Eje 2 (Motriz Tractor)</span>
+                                <strong className="text-slate-100 text-xs">{axle2.toLocaleString('es-ES')} kg</strong>
+                                <span className="block text-[9px] text-slate-500">Máx legal: 11.500 kg</span>
+                              </div>
+                              <div className="bg-slate-900/90 p-2 rounded border border-slate-700/50">
+                                <span className="block text-[9.5px] text-slate-400 uppercase font-bold">Trídem Semirremolque</span>
+                                <strong className="text-slate-100 text-xs">{axle3.toLocaleString('es-ES')} kg</strong>
+                                <span className="block text-[9px] text-slate-500">Máx legal: 24.000 kg</span>
+                              </div>
+                              <div className="bg-slate-900/90 p-2 rounded border border-slate-700/50">
+                                <span className="block text-[9.5px] text-emerald-400 uppercase font-bold">MMA Total Conjunto</span>
+                                <strong className="text-emerald-300 text-xs">{mmaTotal.toLocaleString('es-ES')} kg</strong>
+                                <span className="block text-[9px] text-slate-500">Máx legal: 40.000 kg</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                       <div className="flex items-center gap-2">
                         <span className={`px-2.5 py-1 rounded text-[11px] font-black uppercase tracking-wider ${activeReport.stowagePlan.cargoClassification?.isMixedCargo ? 'bg-purple-100 text-purple-800 border border-purple-300' : 'bg-blue-100 text-blue-800 border border-blue-300'}`}>

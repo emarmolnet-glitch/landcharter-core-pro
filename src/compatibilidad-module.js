@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- * SeaCharter Core PRO — Módulo de Compatibilidad Técnica y Radar AIS
+ * Land Charter Core PRO — Módulo de Compatibilidad Técnica y Radar AIS
  * (Sistema de Diseño Luminoso y Cohesivo)
  * =============================================================================
  * Cruce en tiempo real entre flujos de densidad AIS (con filtro estricto en origen

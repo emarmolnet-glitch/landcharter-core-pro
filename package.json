@@ -1,7 +1,7 @@
 {
-  "name": "seacharter-core-pro",
+  "name": "landcharter-core-pro",
   "version": "1.0.0",
-  "description": "Voyage Estimator with custom maritime routing and preferred ocean weights",
+  "description": "Land Charter Core PRO - Enterprise Road Transport Suite with LDM Cubing and Fleet Routing",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
@@ -68,7 +68,7 @@
   },
   "build": {
     "appId": "com.seacharter.corepro",
-    "productName": "SeaCharter Core PRO",
+    "productName": "Land Charter Core PRO",
     "directories": {
       "output": "dist_electron"
     },

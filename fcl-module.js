@@ -1,5 +1,5 @@
 // =============================================================================
-// SeaCharter Core PRO - Modulo de Contenedores FCL/LCL
+// Land Charter Core PRO - Modulo de Contenedores FCL/LCL
 // -----------------------------------------------------------------------------
 // Vanilla JavaScript autocontenido. Para conectar SeaCharter Data Bridge en el
 // futuro, sustituir los valores de lectura en getFCLState() por datos externos

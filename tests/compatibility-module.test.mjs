@@ -7,21 +7,19 @@ const moduleJs = readFileSync(new URL('../src/compatibilidad-module.js', import.
 const moduleCss = readFileSync(new URL('../compatibilidad.css', import.meta.url), 'utf8');
 const netlifyFn = readFileSync(new URL('../netlify/functions/vessel-compatibility.ts', import.meta.url), 'utf8');
 
-test('index.html positions COMPATIBILIDAD exactly between DECISIONES and TRACKING in PRIMARY_MODULES', () => {
+test('index.html contains COMPATIBILIDAD in modules list and focuses navbar on core modules', () => {
   const primaryModulesIndex = indexHtml.indexOf('const PRIMARY_MODULES = [');
+  const optionalModulesIndex = indexHtml.indexOf('const OPTIONAL_MODULES = [');
   const primaryModulesEnd = indexHtml.indexOf('];', primaryModulesIndex);
+  const optionalModulesEnd = indexHtml.indexOf('];', optionalModulesIndex);
   const primaryModulesSlice = indexHtml.slice(primaryModulesIndex, primaryModulesEnd);
+  const optionalModulesSlice = indexHtml.slice(optionalModulesIndex, optionalModulesEnd);
 
   const decisionesIndex = primaryModulesSlice.indexOf("{ id: 'decisiones', label: 'Decisiones' }");
-  const compatibilidadIndex = primaryModulesSlice.indexOf("{ id: 'compatibilidad', label: 'Compatibilidad' }");
-  const trackingIndex = primaryModulesSlice.indexOf("{ id: 'tracking', label: 'Tracking'");
+  const compatibilidadIndex = optionalModulesSlice.indexOf("{ id: 'compatibilidad', label: 'Compatibilidad' }");
 
   assert.ok(decisionesIndex !== -1, 'decisiones module must exist in PRIMARY_MODULES');
-  assert.ok(compatibilidadIndex !== -1, 'compatibilidad module must exist in PRIMARY_MODULES');
-  assert.ok(trackingIndex !== -1, 'tracking module must exist in PRIMARY_MODULES');
-
-  assert.ok(decisionesIndex < compatibilidadIndex, 'compatibilidad must be placed after decisiones');
-  assert.ok(compatibilidadIndex < trackingIndex, 'compatibilidad must be placed before tracking');
+  assert.ok(compatibilidadIndex !== -1, 'compatibilidad module must exist in OPTIONAL_MODULES');
 });
 
 test('index.html contains view-compatibilidad section and references css and module script', () => {

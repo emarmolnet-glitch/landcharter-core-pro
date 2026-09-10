@@ -1,5 +1,5 @@
 // =============================================================================
-// SeaCharter Core PRO — Módulo de cumplimiento CBAM (Carbon Border Adjustment Mechanism)
+// Land Charter Core PRO — Módulo de cumplimiento CBAM (Carbon Border Adjustment Mechanism)
 // -----------------------------------------------------------------------------
 // Módulo independiente y encapsulado. No depende del motor de fletes ni lo modifica.
 // Toda la lógica está diseñada para fallar de forma silenciosa (devolver 0) y nunca
@@ -310,7 +310,7 @@ function drawHeader(doc, subtitle) {
     doc.text('Rodahmar Shipping', 18, 20);
     doc.setFontSize(10);
     doc.setTextColor(71, 85, 105);
-    doc.text('SeaCharter Core PRO · Cumplimiento CBAM', 18, 27);
+    doc.text('Land Charter Core PRO · Cumplimiento CBAM', 18, 27);
     doc.setDrawColor(0, 32, 96);
     doc.setLineWidth(0.8);
     doc.line(18, 32, 192, 32);
