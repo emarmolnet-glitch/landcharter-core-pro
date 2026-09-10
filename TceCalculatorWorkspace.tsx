@@ -2462,7 +2462,7 @@ export function VesselPricingRouter({
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-            Router de pricing por DWT / Flota
+            Router de pricing por Capacidad / Flota
           </p>
           <h1 className="mt-1 text-xl font-black text-slate-950">Land Charter Core PRO</h1>
         </div>

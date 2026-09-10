@@ -9374,7 +9374,7 @@
                                     <input type="checkbox" id="vessel-has-scrubber" class="sr-only" aria-hidden="true" tabindex="-1">
                                 </div>
                             </div>
-                            <div class="input-group">
+                            <div class="input-group hidden" style="display: none;">
                                 <label class="text-blue-300 flex items-center min-h-[28px]">Estrategia de Navegación</label>
                                 <div class="grid min-h-[42px] grid-cols-2 rounded-lg border border-slate-700 bg-slate-950 p-1">
                                     <button type="button" id="nav-strategy-eco" onclick="setNavigationStrategy('eco', false)" class="rounded-md bg-blue-600 px-2 py-1 text-[10px] font-black uppercase text-white shadow">Eco-Speed</button>
@@ -9391,8 +9391,8 @@
                             </div>
                         </div>
 
-                        <!-- FILA DE ESPECIFICACIONES TÉCNICAS (ANCHO COMPLETO) -->
-                        <div id="vessel-identity-meta" class="w-full flex flex-row items-center justify-between gap-4 mt-4 mb-4 col-span-full" aria-label="Especificaciones técnicas editables del buque">
+                        <!-- FILA DE ESPECIFICACIONES TÉCNICAS (ANCHO COMPLETO - OCULTO) -->
+                        <div id="vessel-identity-meta" class="w-full flex flex-row items-center justify-between gap-4 mt-4 mb-4 col-span-full hidden" style="display: none;" aria-label="Especificaciones técnicas editables del buque">
                             <div class="flex-1 flex items-center bg-white border border-gray-300 rounded px-2 py-1 h-9 shadow-sm hidden" style="display: none;">
                                 <span class="text-[10px] font-bold text-slate-500 mr-1 uppercase tracking-wider whitespace-nowrap">IMO:</span>
                                 <input type="text" id="vessel-identity-imo" class="w-full text-right text-xs text-slate-800 bg-transparent focus:outline-none" value="" placeholder="-" aria-label="IMO" inputmode="numeric" maxlength="7" oninput="handleManualVesselUpdate('imo', this.value)" onblur="fetchVesselByImo(this.value)" onkeydown="handleVesselImoKeyDown(event)">
@@ -9427,7 +9427,7 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4 hidden" style="display: none;">
                             <div class="input-group">
                                 <label id="label-spd-laden" class="flex items-center min-h-[28px]">Velocidad Carga (Knts)</label>
                                 <input type="number" id="spd-laden" class="input-gc" value="10.5" step="any" oninput="markSpeedManualOverride(this)">
@@ -9468,7 +9468,7 @@
                                     <option value="Yeso">Yeso</option>
                                 </select>
                             </div>
-                            <div class="input-group">
+                            <div class="input-group hidden" style="display: none;">
                                 <label id="label-charter-party-standard" class="text-yellow-400 flex items-center min-h-[24px]">Póliza Estándar</label>
                                 <select id="charter-party-standard" class="input-gc font-bold text-yellow-300" onchange="updateSection2LocalState('charter-party-standard', this.value); updateCharterPartyStandard()">
                                     <option value="GENCON">GENCON</option>
@@ -9516,24 +9516,17 @@
 
                         <div id="port-operations-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 mb-4">
                             <div id="contenedor_metodo_carga" class="input-group">
-                                <label id="label-metodo-carga" class="text-action-required flex items-center min-h-[24px]">Método Carga POL</label>
-                                <select id="metodo_carga" class="hidden input-gc action-required-field required-use-highlight text-action-required" onchange="handlePortMethodChange('pol')">
-                                    <option value="cinta_transportadora">Cinta Transportadora</option>
-                                    <option value="bombas_neumaticas">Bombas Neumáticas</option>
-                                    <option value="camion_tolva">Camión Tolva</option>
-                                    <option value="cuchara_grab">Cuchara (Grab) - Grúa Barco</option>
-                                    <option value="cuchara_portuaria">Cuchara (Grab) - Grúa Portuaria</option>
-                                    <option value="grua_portuaria_30mt">Grúa Portuaria 30MT</option>
-                                    <option value="big_bags_barco">Big Bags - Grúa Barco</option>
-                                    <option value="big_bags_portuaria">Big Bags - Grúa Portuaria</option>
-                                    <option value="paletizado_barco">Paletizado - Grúa Barco</option>
-                                    <option value="paletizado_portuaria">Paletizado - Grúa Portuaria</option>
-                                    <option value="hierro_acero_barco">Hierro/Acero - Grúa Barco</option>
-                                    <option value="hierro_acero_portuaria">Hierro/Acero - Grúa Portuaria</option>
+                                <label id="label-metodo-carga" class="text-action-required flex items-center min-h-[24px]">Método de Carga</label>
+                                <select id="metodo_carga" class="hidden input-gc action-required-field required-use-highlight text-action-required font-bold" onchange="handlePortMethodChange('pol')">
+                                    <option value="carga_lateral_tauliner" selected>Carga Lateral (Lona / Tauliner)</option>
+                                    <option value="carga_trasera_muelle">Carga Trasera por Muelle / Rampa</option>
+                                    <option value="carga_superior_techo">Carga Superior (Puente Grúa / Techo descapotable)</option>
+                                    <option value="transpaleta_carretilla">Carga con Transpaleta / Carretilla Elevadora</option>
+                                    <option value="silo_tubo_granel">Carga por Silo / Tubo (Granel)</option>
                                 </select>
                                 <div id="pills_metodo_carga" class="flex flex-wrap gap-1.5 my-1"></div>
                                 <p id="metodo-carga-incompatible-alert" class="hidden text-xs font-bold text-red-600 mt-1">⚠️ El método de carga anterior es incompatible con la nueva categoría. Por favor, selecciona un equipamiento válido.</p>
-                                <div id="submodulo-gruas-pol" class="hidden mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg shadow-sm text-xs">
+                                <div id="submodulo-gruas-pol" class="hidden mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg shadow-sm text-xs" style="display: none;">
                                     <div class="font-bold text-[#1E3A8A] mb-2 uppercase text-[11px] tracking-wide flex items-center gap-1">
                                         <i class="fa-solid fa-calculator text-blue-600"></i> Cálculo de Grúa POL
                                     </div>
@@ -9564,24 +9557,17 @@
                                 </div>
                             </div>
                             <div id="contenedor_metodo_descarga" class="input-group">
-                                <label id="label-metodo-descarga" class="text-action-required flex items-center min-h-[24px]">Método Descarga POD</label>
-                                <select id="metodo_descarga_pod" class="hidden input-gc action-required-field required-use-highlight text-action-required" onchange="handlePortMethodChange('pod')">
-                                    <option value="cinta_transportadora">Cinta Transportadora</option>
-                                    <option value="bombas_neumaticas">Bombas Neumáticas</option>
-                                    <option value="camion_tolva">Camión Tolva</option>
-                                    <option value="cuchara_grab">Cuchara (Grab) - Grúa Barco</option>
-                                    <option value="cuchara_portuaria">Cuchara (Grab) - Grúa Portuaria</option>
-                                    <option value="grua_portuaria_30mt">Grúa Portuaria 30MT</option>
-                                    <option value="big_bags_barco">Big Bags - Grúa Barco</option>
-                                    <option value="big_bags_portuaria">Big Bags - Grúa Portuaria</option>
-                                    <option value="paletizado_barco">Paletizado - Grúa Barco</option>
-                                    <option value="paletizado_portuaria">Paletizado - Grúa Portuaria</option>
-                                    <option value="hierro_acero_barco">Hierro/Acero - Grúa Barco</option>
-                                    <option value="hierro_acero_portuaria">Hierro/Acero - Grúa Portuaria</option>
+                                <label id="label-metodo-descarga" class="text-action-required flex items-center min-h-[24px]">Método de Descarga</label>
+                                <select id="metodo_descarga_pod" class="hidden input-gc action-required-field required-use-highlight text-action-required font-bold" onchange="handlePortMethodChange('pod')">
+                                    <option value="carga_lateral_tauliner">Carga Lateral (Lona / Tauliner)</option>
+                                    <option value="carga_trasera_muelle" selected>Carga Trasera por Muelle / Rampa</option>
+                                    <option value="carga_superior_techo">Carga Superior (Puente Grúa / Techo descapotable)</option>
+                                    <option value="transpaleta_carretilla">Carga con Transpaleta / Carretilla Elevadora</option>
+                                    <option value="silo_tubo_granel">Carga por Silo / Tubo (Granel)</option>
                                 </select>
                                 <div id="pills_metodo_descarga" class="flex flex-wrap gap-1.5 my-1"></div>
                                 <p id="metodo-descarga-incompatible-alert" class="hidden text-xs font-bold text-red-600 mt-1">⚠️ El método de carga anterior es incompatible con la nueva categoría. Por favor, selecciona un equipamiento válido.</p>
-                                <div id="submodulo-gruas-pod" class="hidden mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg shadow-sm text-xs">
+                                <div id="submodulo-gruas-pod" class="hidden mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg shadow-sm text-xs" style="display: none;">
                                     <div class="font-bold text-[#1E3A8A] mb-2 uppercase text-[11px] tracking-wide flex items-center gap-1">
                                         <i class="fa-solid fa-calculator text-blue-600"></i> Cálculo de Grúa POD
                                     </div>
@@ -9613,41 +9599,41 @@
                             </div>
                             <div class="input-group">
                                 <div class="flex justify-between items-center mb-1">
-                                    <label id="label-rate-load" class="text-action-required flex items-center min-h-[24px] mb-0">Ritmo Real POL (TM/d)</label>
+                                    <label id="label-rate-load" class="text-action-required flex items-center min-h-[24px] mb-0">Ratio Operativo (Pallets/h o Toneladas/h)</label>
                                     <div class="inline-flex rounded-md shadow-sm text-[10px]" role="group" aria-label="Modo Ritmo POL">
                                         <button type="button" id="btn-ritmo-auto-pol" data-ritmo-mode-btn="auto" onclick="setRitmoMode('auto', 'pol')" class="px-2 py-0.5 rounded-l-md font-bold transition cursor-pointer bg-blue-900 text-white" aria-pressed="true">Auto</button>
                                         <button type="button" id="btn-ritmo-manual-pol" data-ritmo-mode-btn="manual" onclick="setRitmoMode('manual', 'pol')" class="px-2 py-0.5 rounded-r-md font-bold transition cursor-pointer bg-gray-100 text-gray-500 hover:bg-gray-200" aria-pressed="false">Manual</button>
                                     </div>
                                 </div>
-                                <input type="number" id="rate-load" class="input-gc action-required-field required-use-highlight text-action-required font-bold bg-slate-100 cursor-not-allowed" value="" step="any" readonly aria-readonly="true" data-draft-calc-mode="auto" title="Ritmo Real derivado automáticamente de las grúas (solo lectura)." onfocus="captureRateDraftStandard('pol')" oninput="updateRealRateDraft('pol', this.value)">
+                                <input type="number" id="rate-load" class="input-gc action-required-field required-use-highlight text-action-required font-bold bg-slate-100 cursor-not-allowed" value="" step="any" readonly aria-readonly="true" data-draft-calc-mode="auto" title="Ratio Operativo derivado automáticamente (Pallets/h o t/h)." onfocus="captureRateDraftStandard('pol')" oninput="updateRealRateDraft('pol', this.value)">
                                 <div id="pol-opex-impact-alert" class="hidden flex items-center p-2 mt-2 text-red-700 bg-red-100 border border-red-300 rounded text-sm font-semibold shadow-sm" role="alert" aria-live="polite"></div>
                                 <div id="delta-dias-badge-pol" class="hidden mt-1 text-[11px] font-bold"></div>
                                 <div id="rate-ref-helper-pol" class="mt-1 text-[10px] text-slate-500 font-medium leading-tight">
-                                    <div>Ref. Handysize (Bombas/Cintas): 12,000 - 24,000 TM/D</div>
-                                    <div>Ref. Panamax/Kamsarmax (Cintas): 72,000 - 144,000 TM/D</div>
+                                    <div>Ref. Tauliner / Muelle: 20 - 30 pallets/h</div>
+                                    <div>Ref. Silo / Granel: 15 - 40 t/h</div>
                                 </div>
                             </div>
                             <div class="input-group">
                                 <div class="flex justify-between items-center mb-1">
-                                    <label id="label-rate-disch" class="text-action-required flex items-center min-h-[24px] mb-0">Ritmo Real POD (TM/d)</label>
+                                    <label id="label-rate-disch" class="text-action-required flex items-center min-h-[24px] mb-0">Ratio Operativo (Pallets/h o Toneladas/h)</label>
                                     <div class="inline-flex rounded-md shadow-sm text-[10px]" role="group" aria-label="Modo Ritmo POD">
                                         <button type="button" id="btn-ritmo-auto-pod" data-ritmo-mode-btn="auto" data-pod-calc-mode="auto" onclick="setRitmoMode('auto', 'pod')" class="px-2 py-0.5 rounded-l-md font-bold transition cursor-pointer bg-blue-900 text-white" aria-pressed="true">Auto</button>
                                         <button type="button" id="btn-ritmo-manual-pod" data-ritmo-mode-btn="manual" data-pod-calc-mode="manual" onclick="setRitmoMode('manual', 'pod')" class="px-2 py-0.5 rounded-r-md font-bold transition cursor-pointer bg-gray-100 text-gray-500 hover:bg-gray-200" aria-pressed="false">Manual</button>
                                     </div>
                                 </div>
-                                <input type="number" id="rate-disch" class="input-gc action-required-field required-use-highlight text-action-required font-bold bg-gray-100 border-gray-200 cursor-not-allowed" value="" step="any" readonly aria-readonly="true" data-pod-calc-mode="auto" data-draft-calc-mode="auto" title="Ritmo Real POD derivado automáticamente (solo lectura). Cambia a Manual para editarlo." onfocus="captureRateDraftStandard('pod')" oninput="updateRealRateDraft('pod', this.value)">
+                                <input type="number" id="rate-disch" class="input-gc action-required-field required-use-highlight text-action-required font-bold bg-gray-100 border-gray-200 cursor-not-allowed" value="" step="any" readonly aria-readonly="true" data-pod-calc-mode="auto" data-draft-calc-mode="auto" title="Ratio Operativo derivado automáticamente (Pallets/h o t/h)." onfocus="captureRateDraftStandard('pod')" oninput="updateRealRateDraft('pod', this.value)">
                                 <div id="pod-opex-impact-alert" class="hidden flex items-center p-2 mt-2 text-red-700 bg-red-100 border border-red-300 rounded text-sm font-semibold shadow-sm" role="alert" aria-live="polite"></div>
                                 <div id="delta-dias-badge-pod" class="hidden mt-1 text-[11px] font-bold"></div>
                                 <div id="rate-ref-helper-pod" class="mt-1 text-[10px] text-slate-500 font-medium leading-tight">
-                                    <div>Ref. Handysize (Bombas/Cintas): 12,000 - 24,000 TM/D</div>
-                                    <div>Ref. Panamax/Kamsarmax (Cintas): 72,000 - 144,000 TM/D</div>
+                                    <div>Ref. Tauliner / Muelle: 20 - 30 pallets/h</div>
+                                    <div>Ref. Silo / Granel: 15 - 40 t/h</div>
                                 </div>
                             </div>
-                            <div id="contenedor-gruas-pol" class="input-group">
+                            <div id="contenedor-gruas-pol" class="input-group hidden" style="display: none;">
                                 <label id="label-ritmo-nominal-pol" class="text-action-required flex items-center min-h-[24px]">Nº Grúas POL</label>
                                 <input type="number" id="ritmo_nominal_pol" class="input-gc action-required-field text-action-required font-bold" value="0" placeholder="0" min="0" step="1" required oninput="updateCraneCountDraft('pol', this.value)">
                             </div>
-                            <div id="contenedor-gruas-pod" class="input-group">
+                            <div id="contenedor-gruas-pod" class="input-group hidden" style="display: none;">
                                 <label id="label-ritmo-nominal-pod" class="text-action-required flex items-center min-h-[24px]">Nº Grúas POD</label>
                                 <input type="number" id="ritmo_nominal_pod" class="input-gc action-required-field text-action-required font-bold" value="0" placeholder="0" min="0" step="1" required oninput="updateCraneCountDraft('pod', this.value)">
                             </div>
@@ -9747,15 +9733,14 @@
                                 </select>
                             </div>
                             <div class="input-group">
-                                <label id="label-freight-conditions" class="text-action-required flex items-center min-h-[24px]">Términos (Conditions)</label>
+                                <label id="label-freight-conditions" class="text-action-required flex items-center min-h-[24px]">Condiciones de Transporte / Incoterms</label>
                                 <select id="freight-conditions" class="input-gc action-required-field required-use-highlight text-action-required font-bold" onchange="updateSection2LocalState('freight-conditions', this.value); syncSharedCharterTerm('freight-conditions', ['gc-freight-term']); runEngine()">
-                                    <option value="FIO">FIO (Free In and Out)</option>
-                                    <option value="FIOS" selected>FIOS (Free In and Out Stowed)</option>
-                                    <option value="FIOT">FIOT (Free In and Out Trimmed)</option>
-                                    <option value="FIOST">FIOST (Free In, Out, Stowed and Trimmed)</option>
-                                    <option value="FILO">FILO (Free In, Liner Out)</option>
-                                    <option value="LIFO">LIFO (Liner In, Free Out)</option>
-                                    <option value="LINER">Liner Terms</option>
+                                    <option value="EXW/FCA" selected>Carga/Descarga por cuenta del Expedidor (EXW/FCA)</option>
+                                    <option value="CPT/DAP">Condiciones Estándar de Ruta (CPT/DAP)</option>
+                                    <option value="EXW">EXW (En Fábrica / Ex Works)</option>
+                                    <option value="FCA">FCA (Franco Porteador / Free Carrier)</option>
+                                    <option value="CPT">CPT (Transporte Pagado Hasta / Carriage Paid To)</option>
+                                    <option value="DAP">DAP (Entregado en Lugar / Delivered at Place)</option>
                                 </select>
                             </div>
                             <div class="input-group">
@@ -9788,11 +9773,11 @@
                                     <option value="CQD">CQD</option>
                                 </select>
                             </div>
-                            <div class="input-group">
+                            <div class="input-group hidden" style="display: none;">
                                 <label id="label-cargo-tolerance">Tolerancia de Carga · MOLOO / MOLCO (%)</label>
                                 <input type="number" id="cargo-tolerance" class="input-gc text-indigo-300" value="0" min="0" max="100" step="0.1" oninput="updateSection2LocalState('cargo-tolerance', this.value)">
                             </div>
-                            <div class="input-group">
+                            <div class="input-group hidden" style="display: none;">
                                 <label id="label-vessel-net-tonnage" class="text-blue-400">SCNT / PCUMS</label>
                                 <input type="number" id="vessel-net-tonnage" class="input-gc font-bold text-blue-300" value="0" step="1" oninput="updateSection2LocalState('vessel-net-tonnage', this.value)">
                             </div>
@@ -60621,7 +60606,17 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             }
         });
 
+        const ROAD_TRANSPORT_CONDITION_OPTIONS = Object.freeze([
+            Object.freeze({ value: 'EXW/FCA', label: 'Carga/Descarga por cuenta del Expedidor (EXW/FCA)' }),
+            Object.freeze({ value: 'CPT/DAP', label: 'Condiciones Estándar de Ruta (CPT/DAP)' }),
+            Object.freeze({ value: 'EXW', label: 'EXW (En Fábrica / Ex Works)' }),
+            Object.freeze({ value: 'FCA', label: 'FCA (Franco Porteador / Free Carrier)' }),
+            Object.freeze({ value: 'CPT', label: 'CPT (Transporte Pagado Hasta / Carriage Paid To)' }),
+            Object.freeze({ value: 'DAP', label: 'DAP (Entregado en Lugar / Delivered at Place)' })
+        ]);
         const GENCON_CONDITION_OPTIONS = Object.freeze([
+            Object.freeze({ value: 'EXW/FCA', label: 'Carga/Descarga por cuenta del Expedidor (EXW/FCA)' }),
+            Object.freeze({ value: 'CPT/DAP', label: 'Condiciones Estándar de Ruta (CPT/DAP)' }),
             Object.freeze({ value: 'FIO', label: 'FIO (Free In and Out)' }),
             Object.freeze({ value: 'FIOS', label: 'FIOS (Free In and Out Stowed)' }),
             Object.freeze({ value: 'FIOT', label: 'FIOT (Free In and Out Trimmed)' }),
@@ -60645,6 +60640,12 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         const LAYTIME_INTERRUPTED_TERMS = new Set(['SHEX', 'SHEX UU', 'SHEX EIU', 'FHEX', 'SSHEX']);
         const LAYTIME_WEEKEND_RISK_MULTIPLIER = 7 / 5;
         const CONDITION_OWNER_STEVEDORING_FACTORS = Object.freeze({
+            'EXW/FCA': 0,
+            'CPT/DAP': 0,
+            'EXW': 0,
+            'FCA': 0,
+            'CPT': 0,
+            'DAP': 0,
             FIO: 0,
             FIOS: 0,
             FIOT: 0,
@@ -60676,9 +60677,8 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         }
 
         function initializeSharedGenconSelectors() {
-            ['gc-freight-term', 'freight-conditions'].forEach((id) => {
-                replaceSelectOptionsFromCatalog(id, GENCON_CONDITION_OPTIONS, 'FIOS');
-            });
+            replaceSelectOptionsFromCatalog('freight-conditions', ROAD_TRANSPORT_CONDITION_OPTIONS, 'EXW/FCA');
+            replaceSelectOptionsFromCatalog('gc-freight-term', GENCON_CONDITION_OPTIONS, 'EXW/FCA');
             ['gc-laytime-load-cond', 'gc-laytime-disch-cond', 'laytime-load-condition', 'laytime-disch-condition'].forEach((id) => {
                 replaceSelectOptionsFromCatalog(id, GENCON_LAYTIME_OPTIONS, 'SHEX');
             });
@@ -60849,6 +60849,11 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         initializeSharedGenconSelectors();
 
         const methodBaseRates = Object.freeze({
+            'Carga Lateral (Lona / Tauliner)': 25,
+            'Carga Trasera por Muelle / Rampa': 30,
+            'Carga Superior (Puente Grúa / Techo descapotable)': 20,
+            'Carga con Transpaleta / Carretilla Elevadora': 25,
+            'Carga por Silo / Tubo (Granel)': 40,
             'Cinta Transportadora': 150 * 24,
             'Bombas Neumáticas': 8000,
             'Grúa Portuaria 30MT': 2500,
@@ -60866,6 +60871,11 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             'Camión Tolva': 'custom'
         });
         const METHOD_LABEL_BY_VALUE = Object.freeze({
+            carga_lateral_tauliner: 'Carga Lateral (Lona / Tauliner)',
+            carga_trasera_muelle: 'Carga Trasera por Muelle / Rampa',
+            carga_superior_techo: 'Carga Superior (Puente Grúa / Techo descapotable)',
+            transpaleta_carretilla: 'Carga con Transpaleta / Carretilla Elevadora',
+            silo_tubo_granel: 'Carga por Silo / Tubo (Granel)',
             cinta_transportadora: 'Cinta Transportadora',
             bombas_neumaticas: 'Bombas Neumáticas',
             grua_portuaria_30mt: 'Grúa Portuaria 30MT',
@@ -60980,12 +60990,12 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         }
 
         function isCraneMethod(label = '') {
-            const l = String(label || '');
-            return l.includes('Grúa')
-                || l.toLowerCase().includes('grúa')
-                || l.toLowerCase().includes('grua')
-                || l.toLowerCase().includes('barco')
-                || l.toLowerCase().includes('portuaria');
+            const l = String(label || '').toLowerCase();
+            if (l.includes('techo') || l.includes('descapotable') || l.includes('lateral') || l.includes('trasera') || l.includes('muelle') || l.includes('transpaleta') || l.includes('silo')) {
+                return false;
+            }
+            return (l.includes('grúa') || l.includes('grua'))
+                && (l.includes('barco') || l.includes('portuaria'));
         }
 
         function getSwlForMethod(label = '') {
@@ -61399,9 +61409,18 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             if (!container) return;
 
             const allowedLabels = [...new Set(equipmentMatrix[category] || Object.values(METHOD_LABEL_BY_VALUE))];
-            const currentLabel = getSelectedMethodLabel(side);
+            const terrestrialLabels = [
+                'Carga Lateral (Lona / Tauliner)',
+                'Carga Trasera por Muelle / Rampa',
+                'Carga Superior (Puente Grúa / Techo descapotable)',
+                'Carga con Transpaleta / Carretilla Elevadora',
+                'Carga por Silo / Tubo (Granel)'
+            ];
+            const filteredLabels = allowedLabels.filter((label) => terrestrialLabels.includes(label));
+            const displayLabels = filteredLabels.length > 0 ? filteredLabels : terrestrialLabels;
+            const currentLabel = getSelectedMethodLabel(side) || displayLabels[0];
 
-            container.innerHTML = allowedLabels.map((label) => {
+            container.innerHTML = displayLabels.map((label) => {
                 const isActive = label === currentLabel;
                 // Estado activo inequívoco: fondo azul, borde grueso, anillo y check.
                 const btnClass = isActive

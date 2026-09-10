@@ -8,7 +8,7 @@ const [indexSource, engineSource] = await Promise.all([
 ]);
 
 test('section two exposes a closed turn time selector beside operational rates', () => {
-  assert.match(indexSource, /<label id="label-turn-time-hours"[^>]*>TURN TIME TOTAL \(H\)<\/label>/);
+  assert.match(indexSource, /<label id="label-turn-time-hours"[^>]*>(?:Paralizaciones \(h\)|TURN TIME TOTAL \(H\))<\/label>/);
   assert.match(indexSource, /<select id="turn-time-hours"[^>]*onchange="updateSection2LocalState\('turn-time-hours', this\.value\)"/);
   assert.match(indexSource, /<option value="12">12 horas<\/option>[\s\S]*<option value="24" selected>24 horas<\/option>[\s\S]*<option value="48">48 horas<\/option>/);
   assert.doesNotMatch(indexSource, /<input[^>]*id="turn-time-hours"/);

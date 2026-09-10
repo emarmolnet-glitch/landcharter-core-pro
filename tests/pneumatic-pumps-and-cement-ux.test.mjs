@@ -5,15 +5,15 @@ import vm from 'node:vm';
 
 const indexSource = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
-test('UX Operativas Cemento: option Bombas Neumáticas exists in POL and POD selectors', () => {
+test('UX Operativas Cemento: option Carga por Silo / Tubo (Granel) exists in POL and POD selectors', () => {
   const polSelectMatch = indexSource.match(/<select[^>]*id="metodo_carga"[^>]*>([\s\S]*?)<\/select>/);
   const podSelectMatch = indexSource.match(/<select[^>]*id="metodo_descarga_pod"[^>]*>([\s\S]*?)<\/select>/);
 
   assert.ok(polSelectMatch, 'metodo_carga select element must exist');
   assert.ok(podSelectMatch, 'metodo_descarga_pod select element must exist');
 
-  assert.match(polSelectMatch[1], /<option value="bombas_neumaticas">Bombas Neumáticas<\/option>/);
-  assert.match(podSelectMatch[1], /<option value="bombas_neumaticas">Bombas Neumáticas<\/option>/);
+  assert.match(polSelectMatch[1], /<option value="silo_tubo_granel">Carga por Silo \/ Tubo \(Granel\)<\/option>/);
+  assert.match(podSelectMatch[1], /<option value="silo_tubo_granel">Carga por Silo \/ Tubo \(Granel\)<\/option>/);
 });
 
 test('UX Operativas Cemento: TURN TIME TOTAL (H) supports 10 hours option', () => {
@@ -23,11 +23,11 @@ test('UX Operativas Cemento: TURN TIME TOTAL (H) supports 10 hours option', () =
   assert.match(indexSource, /const TURN_TIME_OPTIONS = Object\.freeze\(\[\s*Object\.freeze\(\{ value: 10, label: '10 horas' \}\)/);
 });
 
-test('UX Operativas Cemento: helper text references exist near RITMO REAL POL and POD', () => {
+test('UX Operativas Cemento: helper text references exist near Ratio Operativo POL and POD', () => {
   assert.match(indexSource, /id="rate-ref-helper-pol"/);
   assert.match(indexSource, /id="rate-ref-helper-pod"/);
-  assert.match(indexSource, /Ref\. Handysize \(Bombas\/Cintas\): 12,000 - 24,000 TM\/D/);
-  assert.match(indexSource, /Ref\. Panamax\/Kamsarmax \(Cintas\): 72,000 - 144,000 TM\/D/);
+  assert.match(indexSource, /Ref\. Tauliner \/ Muelle: 20 - 30 pallets\/h/);
+  assert.match(indexSource, /Ref\. Silo \/ Granel: 15 - 40 t\/h/);
 });
 
 test('UX Operativas Cemento: Cinta Transportadora sets 3600 TM/D and 12h turn time by default', () => {
