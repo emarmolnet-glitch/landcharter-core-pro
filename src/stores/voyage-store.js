@@ -687,7 +687,7 @@ export const voyageStore = createStore(subscribeWithSelector((set, get) => ({
     },
     fetchLandData: async () => {
         try {
-            const res = await fetch('/api-land-data');
+            const res = await fetch('/.netlify/functions/api-land-data');
             if (!res.ok) return null;
             const data = await res.json();
             if (data && data.success) {
