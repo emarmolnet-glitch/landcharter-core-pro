@@ -543,74 +543,58 @@ function calculatePortDistanceNm(pol, pod) {
 }
 
 /**
- * Consulta la API de Datalastic utilizando la variable de entorno DATALASTIC_API_KEY
- * para obtener la distancia náutica real en millas náuticas (distanceNm) entre POL y POD.
- * En caso de que la API no responda, no esté configurada la clave o falle la consulta,
- * aplica el sistema de respaldo (fallback) con distancias predefinidas para rutas comunes
- * del Mediterráneo y Atlántico (ej. Bejaia a Aveiro, Valencia a Houston).
+ * Consulta la distancia por carretera en kilómetros (km) entre origen y destino
+ * utilizando OSRM o geocodificación de Nominatim con la fórmula Haversine terrestre (~1.2).
  *
- * @param {string} pol Puerto de Carga (origen)
- * @param {string} pod Puerto de Descarga (destino)
- * @returns {Promise<number>} Distancia náutica real en NM
+ * @param {string} pol Origen
+ * @param {string} pod Destino
+ * @returns {Promise<number>} Distancia terrestre en km
  */
-async function fetchDatalasticDistanceNm(pol, pod) {
+async function fetchTerrestrialDistanceKm(pol, pod) {
   const cleanPol = String(pol || '').trim();
   const cleanPod = String(pod || '').trim();
-  if (!cleanPol || !cleanPod) return 1500;
-  if (cleanPol.toLowerCase() === cleanPod.toLowerCase()) return 50;
+  if (!cleanPol || !cleanPod) return 500;
+  if (cleanPol.toLowerCase() === cleanPod.toLowerCase()) return 30;
 
-  const apiKey = (typeof Netlify !== 'undefined' && Netlify.env?.get?.('DATALASTIC_API_KEY'))
-    || process.env.DATALASTIC_API_KEY;
-
-  if (apiKey) {
-    try {
-      const baseUrl = ((typeof Netlify !== 'undefined' && Netlify.env?.get?.('DATALASTIC_API_BASE_URL'))
-        || process.env.DATALASTIC_API_BASE_URL
-        || 'https://api.datalastic.com/api/v0').replace(/\/+$/, '');
-
-      const url = new URL(`${baseUrl}/distance`);
-      url.searchParams.set('api-key', apiKey);
-      url.searchParams.set('from', cleanPol);
-      url.searchParams.set('to', cleanPod);
-      url.searchParams.set('port_from', cleanPol);
-      url.searchParams.set('port_to', cleanPod);
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-      const response = await fetch(url.toString(), {
-        headers: { Accept: 'application/json' },
-        signal: controller.signal,
+  try {
+    const geocode = async (query) => {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
+        headers: { 'Accept': 'application/json', 'User-Agent': 'LandCharterCorePRO/1.0' }
       });
-      clearTimeout(timeoutId);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!Array.isArray(data) || !data[0]) return null;
+      return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+    };
 
-      if (response.ok) {
-        const payload = await response.json().catch(() => null);
-        const distCandidate = payload?.data?.distance
-          ?? payload?.data?.distance_nm
-          ?? payload?.data?.distance_nautical_miles
-          ?? payload?.data?.[0]?.distance
-          ?? payload?.distance
-          ?? payload?.distance_nm
-          ?? payload?.distance_miles
-          ?? payload?.nautical_miles
-          ?? payload?.total_distance
-          ?? payload?.route?.distance
-          ?? payload?.route?.distance_nm;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-        const num = Number(distCandidate);
-        if (Number.isFinite(num) && num > 0) {
-          return Math.round(num);
+    const [pt1, pt2] = await Promise.all([geocode(cleanPol), geocode(cleanPod)]);
+    clearTimeout(timeoutId);
+
+    if (pt1 && pt2) {
+      const osrmRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${pt1.lon},${pt1.lat};${pt2.lon},${pt2.lat}?overview=false`);
+      if (osrmRes.ok) {
+        const osrmData = await osrmRes.json();
+        const distMeters = osrmData?.routes?.[0]?.distance;
+        if (Number.isFinite(distMeters) && distMeters > 0) {
+          return Math.round(distMeters / 1000);
         }
       }
-    } catch (err) {
-      console.warn('Datalastic distance API no disponible o timeout, aplicando fallback:', err?.message || err);
+      const R = 6371;
+      const dLat = (pt2.lat - pt1.lat) * Math.PI / 180;
+      const dLon = (pt2.lon - pt1.lon) * Math.PI / 180;
+      const a = Math.sin(dLat / 2)**2 + Math.cos(pt1.lat * Math.PI / 180) * Math.cos(pt2.lat * Math.PI / 180) * Math.sin(dLon / 2)**2;
+      return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.2);
     }
+  } catch (err) {
+    console.warn('Geographic route lookup error:', err?.message || err);
   }
 
-  // Sistema de respaldo (fallback) con distancias predefinidas para rutas comunes del Mediterráneo y Atlántico
   return calculatePortDistanceNm(cleanPol, cleanPod);
 }
+const fetchDatalasticDistanceNm = fetchTerrestrialDistanceKm;
 
 /**
  * Motor paramétrico de rotación de buque y flete marítimo TCE.

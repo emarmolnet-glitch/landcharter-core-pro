@@ -545,11 +545,9 @@ export default function RouteConfigurator({ onConfirm }: RouteConfiguratorProps)
     <section className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
       <div className="flex flex-col gap-4 border-b border-slate-200 bg-slate-50/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-teal-700">Datalastic Port Intelligence</p>
-          <h3 className="mt-1 text-sm font-semibold text-slate-900">Validación reactiva de profundidad y calado</h3>
           <p className="mt-1 text-xs text-slate-600">
             <span className="font-bold text-slate-800">{selection.role === 'POL' ? 'Origen' : selection.role === 'POD' ? 'Destino' : selection.role}</span>
-            {" · "}{selection.portName || "Sin puerto seleccionado"}
+            {" · "}{selection.portName || "Sin ubicación seleccionada"}
             {selection.portUnlocode ? ` · ${selection.portUnlocode}` : ""}
             {selection.actualDraft > 0
               ? ` · Calado operativo ${selection.actualDraft.toFixed(2)} m`

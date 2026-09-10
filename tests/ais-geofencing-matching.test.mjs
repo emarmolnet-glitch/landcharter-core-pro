@@ -2,13 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import mapLoader from '../map_loader.js';
 
-test('calculateDistanceToPort calculates correct Haversine distance in nautical miles', () => {
-    // Barcelona: 41.3851, 2.1734; Genoa: 44.4056, 8.9463 (~347 NM)
+test('calculateDistanceToPort calculates correct Haversine distance in kilometers with road sinuosity', () => {
+    // Barcelona: 41.3851, 2.1734; Genoa: 44.4056, 8.9463 (~775 km terrestrial)
     const dist = mapLoader.calculateDistanceToPort(41.3851, 2.1734, 44.4056, 8.9463);
     assert.equal(typeof dist, 'number');
-    assert.ok(dist > 340 && dist < 360, `Distance should be approximately 347 NM, got ${dist}`);
+    assert.ok(dist > 750 && dist < 800, `Distance should be approximately 775 km, got ${dist}`);
 
-    // Same point -> 0 NM
+    // Same point -> 0 km
     const zeroDist = mapLoader.calculateDistanceToPort(36.14, -5.35, 36.14, -5.35);
     assert.equal(zeroDist, 0);
 
@@ -34,7 +34,7 @@ test('inferSpatialVesselStatus prioritizes an En ruta destination display', () =
     const status = mapLoader.inferSpatialVesselStatus({
         latitude: 36.14,
         longitude: -5.35,
-        destinationDisplay: 'En ruta (a 0 NM de Gibraltar)',
+        destinationDisplay: 'En ruta (a 0 km de Gibraltar)',
         navigational_status: 'Moored'
     }, [{ lat: 36.14, lon: -5.35 }]);
 
@@ -61,7 +61,7 @@ test('getGeofencedPortDisplay extracts reported AIS Destination and appends dist
 
     const res = mapLoader.getGeofencedPortDisplay(vessel, routeContext);
     assert.equal(res.lastPortDisplay, 'BARCELONA');
-    assert.equal(res.destinationDisplay, 'ROTTERDAM / A 0 NM de GIBRALTAR');
+    assert.equal(res.destinationDisplay, 'ROTTERDAM / A 0 km de GIBRALTAR');
     assert.equal(vessel._geoComputed, true);
     assert.equal(vessel.distanciaPolNm, 0);
 });
@@ -82,19 +82,19 @@ test('getGeofencedPortDisplay falls back to "En ruta (a [X] NM de POL)" when AIS
     const res = mapLoader.getGeofencedPortDisplay(vessel, routeContext);
     assert.equal(res.lastPortDisplay, 'Desconocido / En Navegación');
     assert.ok(res.destinationDisplay.startsWith('En ruta (a '), `Expected "En ruta...", got ${res.destinationDisplay}`);
-    assert.ok(res.destinationDisplay.includes('NM de Génova'), `Expected "NM de Génova", got ${res.destinationDisplay}`);
+    assert.ok(res.destinationDisplay.includes('km de Génova'), `Expected "km de Génova", got ${res.destinationDisplay}`);
 });
 
 test('getGeofencedPortDisplay uses cached results for 60 FPS performance optimization', () => {
     const vessel = {
         _geoComputed: true,
-        destinationDisplay: 'VALENCIA / A 120 NM de BARCELONA',
+        destinationDisplay: 'VALENCIA / A 120 km de BARCELONA',
         lastPortDisplay: 'ALICANTE',
         distanciaPolNm: 120
     };
 
     const res = mapLoader.getGeofencedPortDisplay(vessel, { polName: 'OTHER' });
-    assert.equal(res.destinationDisplay, 'VALENCIA / A 120 NM de BARCELONA');
+    assert.equal(res.destinationDisplay, 'VALENCIA / A 120 km de BARCELONA');
     assert.equal(res.lastPortDisplay, 'ALICANTE');
     assert.equal(res.distanciaPolNm, 120);
 });

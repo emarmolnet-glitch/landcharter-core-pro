@@ -406,8 +406,8 @@
     }
 
     /**
-     * Módulo de Geofencing (Haversine)
-     * Calcula la distancia en millas náuticas (NM) entre la posición actual del buque y el POL.
+     * Módulo de Geofencing (Haversine adaptado a carretera)
+     * Calcula la distancia en kilómetros (km) entre la posición actual del vehículo y el punto geográfico / POL.
      */
     function calculateDistanceToPort(vesselLat, vesselLon, portLat, portLon) {
         if (vesselLat === null || vesselLat === undefined || vesselLon === null || vesselLon === undefined ||
@@ -421,14 +421,14 @@
         if (!Number.isFinite(vLat) || !Number.isFinite(vLon) || !Number.isFinite(pLat) || !Number.isFinite(pLon)) {
             return null;
         }
-        const R = 3440.065; // Radio de la Tierra en millas náuticas (NM)
+        const R = 6371; // Radio de la Tierra en kilómetros (km)
         const dLat = (pLat - vLat) * Math.PI / 180;
         const dLon = (pLon - vLon) * Math.PI / 180;
         const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
                   Math.cos(vLat * Math.PI / 180) * Math.cos(pLat * Math.PI / 180) *
                   Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return Number((R * c).toFixed(3));
+        return Number((R * c * 1.2).toFixed(3));
     }
 
     function getVesselDataScopes(vessel) {
@@ -604,13 +604,13 @@
         if (hasDest) {
             const cleanDest = String(rawDest).trim();
             if (distNm !== null) {
-                destinationDisplay = `${cleanDest} / A ${distNm} NM de ${targetPolLabel}`;
+                destinationDisplay = `${cleanDest} / A ${distNm} km de ${targetPolLabel}`;
             } else {
                 destinationDisplay = cleanDest;
             }
         } else {
             if (distNm !== null) {
-                destinationDisplay = `En ruta (a ${distNm} NM de ${targetPolLabel})`;
+                destinationDisplay = `En ruta (a ${distNm} km de ${targetPolLabel})`;
             } else {
                 destinationDisplay = 'Desconocido / En Navegación';
             }
@@ -1084,7 +1084,7 @@
     function startAisProxyPolling(endpoint, mapInstance, options) {
         if (typeof window !== 'undefined' && window.shouldBlockSecondaryFleetSources?.()) {
             stopAisProxyPolling();
-            return { started: false, reason: window.hasPriorityDatalasticData?.() ? 'datalastic-priority-active' : 'datalastic-priority-pending' };
+            return { started: false, reason: 'priority-active' };
         }
         const opts = options || {};
         aisProxyPollingState.endpoint = endpoint || aisProxyPollingState.endpoint;
@@ -1272,7 +1272,7 @@
         if (shipLat !== null && shipLon !== null) {
             const distNm = calculateDistanceToPort(shipLat, shipLon, targetLat, targetLon);
             if (distNm !== null) {
-                distHtml = `<br><span>Distancia a ${escapePopupText(targetName)}: <strong>${distNm} NM</strong></span>`;
+                distHtml = `<br><span>Distancia a ${escapePopupText(targetName)}: <strong>${distNm} km</strong></span>`;
             }
         }
 
