@@ -72,3 +72,59 @@ test('3. Resultados y Simulador reflejan Coste por Km, Precio total del Viaje y 
   assert.match(indexSource, /id="negotiation-owner-tce"[^>]*>Margen Neto del Viaje \(€ o \$\): \$0<\/span>/);
   assert.match(indexSource, /id="negotiation-target-tce"[^>]*>Margen Neto del Viaje \(€ o \$\): \$0<\/span>/);
 });
+
+test('4. Apartado 2: Purga total de términos marítimos y adaptación a logística terrestre', async () => {
+  const indexSource = await readFile('index.html', 'utf8');
+
+  // Selectores de métodos de carga y descarga en POL y POD
+  const polMatch = indexSource.match(/<select[^>]*id="metodo_carga"[^>]*>([\s\S]*?)<\/select>/);
+  const podMatch = indexSource.match(/<select[^>]*id="metodo_descarga_pod"[^>]*>([\s\S]*?)<\/select>/);
+  assert.ok(polMatch, 'metodo_carga select must exist');
+  assert.ok(podMatch, 'metodo_descarga_pod select must exist');
+
+  const expectedMethods = [
+    'carga_lateral_tauliner',
+    'carga_trasera_muelle',
+    'carga_superior_techo',
+    'transpaleta_carretilla',
+    'silo_tubo_granel'
+  ];
+  for (const method of expectedMethods) {
+    assert.match(polMatch[1], new RegExp(`value="${method}"`));
+    assert.match(podMatch[1], new RegExp(`value="${method}"`));
+  }
+
+  // Purga estricta de términos marítimos en selectores
+  const maritimeMethods = [
+    'cinta_transportadora',
+    'bombas_neumaticas',
+    'cuchara_grab',
+    'cuchara_portuaria',
+    'grua_portuaria_30mt',
+    'big_bags_barco',
+    'paletizado_barco'
+  ];
+  for (const maritime of maritimeMethods) {
+    assert.equal(polMatch[1].includes(`value="${maritime}"`), false);
+    assert.equal(podMatch[1].includes(`value="${maritime}"`), false);
+  }
+
+  // Ritmo de Carga/Descarga sustituido por Ratio Operativo (Pallets/h o Toneladas/h)
+  assert.match(indexSource, /id="label-rate-load"[^>]*>Ratio Operativo \(Pallets\/h o Toneladas\/h\)<\/label>/);
+  assert.match(indexSource, /id="label-rate-disch"[^>]*>Ratio Operativo \(Pallets\/h o Toneladas\/h\)<\/label>/);
+  assert.match(indexSource, /id="rate-ref-helper-pol"[\s\S]*?Ref\. Tauliner \/ Muelle: 20 - 30 pallets\/h/);
+  assert.match(indexSource, /id="rate-ref-helper-pod"[\s\S]*?Ref\. Tauliner \/ Muelle: 20 - 30 pallets\/h/);
+
+  // Condiciones de Contrato / Incoterms terrestres (sin FIOS)
+  const freightMatch = indexSource.match(/<select[^>]*id="freight-conditions"[^>]*>([\s\S]*?)<\/select>/);
+  assert.ok(freightMatch, 'freight-conditions select must exist');
+  assert.match(freightMatch[1], /value="EXW\/FCA"/);
+  assert.match(freightMatch[1], /value="CPT\/DAP"/);
+  assert.equal(freightMatch[1].includes('value="FIOS"'), false);
+
+  // Campos residuales ocultos
+  assert.match(indexSource, /class="input-group hidden"\s+style="display: none;"[\s\S]*?id="vessel-net-tonnage"/);
+  assert.match(indexSource, /class="input-group hidden"\s+style="display: none;"[\s\S]*?id="cargo-tolerance"/);
+  assert.match(indexSource, /id="contenedor-gruas-pol"[^>]*class="input-group hidden"/);
+  assert.match(indexSource, /id="contenedor-gruas-pod"[^>]*class="input-group hidden"/);
+});
