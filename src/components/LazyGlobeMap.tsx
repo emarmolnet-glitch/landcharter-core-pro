@@ -57,6 +57,31 @@ export const createMinimalMarkerIcon = (color = '#0f172a', borderColor = '#fffff
 export const minimalOriginIcon = createMinimalMarkerIcon('#0f172a', '#ffffff', 14); // Gris carbón / oscuro
 export const minimalDestIcon = createMinimalMarkerIcon('#0f766e', '#ffffff', 14);   // Teal corporativo
 
+if (typeof document !== 'undefined') {
+  const styleId = 'leaflet-route-highlight-style';
+  if (!document.getElementById(styleId)) {
+    const styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    styleEl.innerHTML = `
+.leaflet-route-highlight {
+    stroke: #2563eb !important;
+    stroke-width: 6px !important;
+    stroke-opacity: 1 !important;
+    fill: none !important;
+}
+    `;
+    document.head.appendChild(styleEl);
+  }
+}
+
+function MapExposer() {
+  const map = useMap();
+  useEffect(() => {
+    (window as any).GlobalLeafletMap = map;
+  }, [map]);
+  return null;
+}
+
 function RouteAutoFitter({ positions }: { positions?: [number, number][] }) {
   const map = useMap();
   
@@ -67,15 +92,19 @@ function RouteAutoFitter({ positions }: { positions?: [number, number][] }) {
     if (!positions || positions.length === 0) return;
 
     try {
-      // 1. Limpiar líneas anteriores (buscamos por color)
+      // 1. Limpiar líneas anteriores (buscamos por color o tipo)
       map.eachLayer((layer: any) => {
-        if (layer.options && layer.options.color === '#0f766e') {
+        if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
+          map.removeLayer(layer);
+        } else if (layer.options && (layer.options.className === 'leaflet-route-highlight' || layer.options.color === '#2563eb' || layer.options.color === '#0f766e')) {
           map.removeLayer(layer);
         }
       });
 
       // 2. Dibujar línea nativa con color de alta visibilidad (Azul eléctrico)
-      const polyline = L.polyline(positions, {
+      const allLatLngs = positions;
+      const mapInstance = map;
+      const polyline = L.polyline(allLatLngs, {
         color: '#2563eb',
         weight: 6,
         opacity: 1.0,
@@ -83,14 +112,14 @@ function RouteAutoFitter({ positions }: { positions?: [number, number][] }) {
         lineJoin: 'round',
         className: 'leaflet-route-highlight'
       });
-      polyline.addTo(map);
+      polyline.addTo(mapInstance);
 
       // 3. Centrar cámara
-      map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+      mapInstance.fitBounds(polyline.getBounds(), { padding: [50, 50] });
 
       // 4. Cleanup al desmontar
       return () => {
-        map.removeLayer(polyline);
+        mapInstance.removeLayer(polyline);
       };
     } catch (err) {
       console.warn('[RouteAutoFitter] Error al dibujar línea nativa:', err);
@@ -168,6 +197,10 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+
+        <MapExposer />
+        {/* React Leaflet Polyline fallback / legacy declaration */}
+        {false && <Polyline positions={[]} pathOptions={{ color: '#0f766e', weight: 5 }} />}
 
         {routePoints && routePoints.length > 0 && (
           <RouteAutoFitter positions={routePoints} />
