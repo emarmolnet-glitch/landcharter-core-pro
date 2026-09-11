@@ -74,13 +74,14 @@ function RouteAutoFitter({ positions }: { positions?: [number, number][] }) {
         }
       });
 
-      // 2. Dibujar línea nativa con la API de Leaflet pura
+      // 2. Dibujar línea nativa con color de alta visibilidad (Azul eléctrico)
       const polyline = L.polyline(positions, {
-        color: '#0f766e',
-        weight: 5,
-        opacity: 0.9,
+        color: '#2563eb',
+        weight: 6,
+        opacity: 1.0,
         lineCap: 'round',
-        lineJoin: 'round'
+        lineJoin: 'round',
+        className: 'leaflet-route-highlight'
       });
       polyline.addTo(map);
 
