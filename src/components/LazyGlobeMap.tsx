@@ -59,16 +59,43 @@ export const minimalDestIcon = createMinimalMarkerIcon('#0f766e', '#ffffff', 14)
 
 function RouteAutoFitter({ positions }: { positions?: [number, number][] }) {
   const map = useMap();
+  
   useEffect(() => {
-    if (positions && positions.length > 0) {
-      try {
-        const bounds = L.latLngBounds(positions);
-        map.fitBounds(bounds, { padding: [50, 50] });
-      } catch (err) {
-        console.warn('[RouteAutoFitter] Error al ajustar límites de la ruta:', err);
-      }
+    // Exponer el mapa globalmente por si lo necesitamos desde index.html
+    (window as any).GlobalLeafletMap = map;
+
+    if (!positions || positions.length === 0) return;
+
+    try {
+      // 1. Limpiar líneas anteriores (buscamos por color)
+      map.eachLayer((layer: any) => {
+        if (layer.options && layer.options.color === '#0f766e') {
+          map.removeLayer(layer);
+        }
+      });
+
+      // 2. Dibujar línea nativa con la API de Leaflet pura
+      const polyline = L.polyline(positions, {
+        color: '#0f766e',
+        weight: 5,
+        opacity: 0.9,
+        lineCap: 'round',
+        lineJoin: 'round'
+      });
+      polyline.addTo(map);
+
+      // 3. Centrar cámara
+      map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+
+      // 4. Cleanup al desmontar
+      return () => {
+        map.removeLayer(polyline);
+      };
+    } catch (err) {
+      console.warn('[RouteAutoFitter] Error al dibujar línea nativa:', err);
     }
   }, [map, positions]);
+  
   return null;
 }
 
@@ -142,19 +169,7 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
         />
 
         {routePoints && routePoints.length > 0 && (
-          <>
-            <Polyline
-              positions={routePoints}
-              pathOptions={{
-                color: '#0f766e',
-                weight: 5,
-                opacity: 0.9,
-                lineCap: 'round',
-                lineJoin: 'round'
-              }}
-            />
-            <RouteAutoFitter positions={routePoints} />
-          </>
+          <RouteAutoFitter positions={routePoints} />
         )}
 
         {origin && (
