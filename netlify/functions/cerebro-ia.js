@@ -13,14 +13,17 @@ export default async function proxyRequest(request) {
             } 
         });
     }
-
+    
     try {
         // 2. Extraer el Content-Type original (Vital para que no se rompan los PDFs)
         const contentType = request.headers.get("content-type");
         
         const fetchOptions = {
             method: request.method,
-            headers: {},
+            headers: {
+                // INYECCIÓN DE CONTEXTO: Le decimos a Data Bridge que somos de camiones
+                "X-App-Context": "land"
+            },
         };
 
         if (contentType) {
