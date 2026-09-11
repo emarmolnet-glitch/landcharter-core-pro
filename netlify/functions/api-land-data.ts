@@ -59,6 +59,3 @@ export default async function apiLandDataHandler(request: Request, _context: Con
   }, { status: 200, headers: responseHeaders });
 }
 
-export const config: Config = {
-  path: '/api-land-data',
-};
