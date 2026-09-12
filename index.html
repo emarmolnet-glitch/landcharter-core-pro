@@ -18064,7 +18064,7 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 // =======================================================================
-// 1. CORTAFUEGOS V11 (MOCK HÍBRIDO: TERRESTRE + MARÍTIMO DE RESPALDO)
+// 1. CORTAFUEGOS V12 (MOCK HÍBRIDO + AUTO-CLIC EN DESPLEGABLES)
 // =======================================================================
 window.handleDWTChange = window.handleDWTChange || function() {};
 window.syncNavigationStrategyEffect = window.syncNavigationStrategyEffect || function() {};
@@ -18075,22 +18075,19 @@ if (typeof window.autoFillBunkers !== 'function') {
 window.recalculateAdjustedAndSave = window.recalculateAdjustedAndSave || async function() { return true; };
 window.runMasterOptionalStage = window.runMasterOptionalStage || async function() { return true; };
 
-if (!window._firewallInjectedV11) {
-    window._firewallInjectedV11 = true;
+if (!window._firewallInjectedV12) {
+    window._firewallInjectedV12 = true;
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         const url = args[0] || '';
         
-        // Mock híbrido para satisfacer tanto al motor terrestre como al núcleo compartido
         if (typeof url === 'string' && url.includes('get-market-data')) {
             return Promise.resolve(new Response(JSON.stringify({ 
                 success: true, 
-                // Parámetros terrestres
                 dieselPrice: 1.48,
                 adBluePrice: 0.72,
                 tollCostPerKm: 0.22,
                 fixedDailyCost: 350,
-                // Parámetros marítimos de respaldo para que el núcleo maestro no crashee
                 VESFO: 520, 
                 HSFQ: 460, 
                 MGO: 750, 
@@ -18129,7 +18126,7 @@ landCharterStyles.innerHTML = `#decision-module, .audit-panel, #maritime-audit, 
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. MOTOR TERRESTRE ESTABLE CON MAPA Y CARTOGRAFÍA
+// 2. MOTOR TERRESTRE CON AUTO-SELECCIÓN DE SUGERENCIAS
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
     if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculando...'; }
@@ -18159,16 +18156,27 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const destData = await resolveCoords(pod);
         if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
 
-        const setInputValue = (input, val) => {
+        // Función inteligente para rellenar y hacer clic en el desplegable de Nominatim automáticamente
+        const setAndSelectInput = async (input, val) => {
             if (!input) return;
             const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
             if (nativeSetter) nativeSetter.call(input, val); else input.value = val;
             input.dispatchEvent(new Event('input', { bubbles: true }));
             input.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // Esperar a que el desplegable aparezca y hacer clic en el primer resultado automáticamente
+            await new Promise(r => setTimeout(r, 400));
+            const suggestions = document.querySelectorAll('ul li, [role="option"], .suggestion-item, div.absolute div');
+            for (let item of suggestions) {
+                if (item.innerText && (item.innerText.toLowerCase().includes(val.toLowerCase().split(',')[0]))) {
+                    item.click();
+                    break;
+                }
+            }
         };
 
-        setInputValue(polInput, originData.name);
-        setInputValue(podInput, destData.name);
+        await setAndSelectInput(polInput, originData.name);
+        await setAndSelectInput(podInput, destData.name);
 
         // 2.2 OPENROUTESERVICE HGV
         const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
