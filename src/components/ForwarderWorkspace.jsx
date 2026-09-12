@@ -1875,6 +1875,34 @@ export function ForwarderWorkspace() {
       setIsCargoModalOpen(true);
     }
 
+    // 🌉 PUENTE INVISIBLE HACIA EL MAPA NATIVO (index.html)
+    const aiPol = payload.pol || payload.portOfLoading || payload.charteringAssessment?.rotationBreakdown?.pol || payload.rotationBreakdown?.pol || payload.payload?.pol;
+    const aiPod = payload.pod || payload.portOfDischarge || payload.charteringAssessment?.rotationBreakdown?.pod || payload.rotationBreakdown?.pod || payload.payload?.pod;
+
+    if (aiPol || aiPod) {
+      setTimeout(() => {
+        // Buscamos los elementos exactos del HTML que me has enseñado
+        const inputPolHtml = document.getElementById('map-port-pol');
+        const inputPodHtml = document.getElementById('map-port-pod');
+        const btnMapNative = document.getElementById('btn-map-locate-route');
+
+        // Llenamos los inputs como si el usuario estuviera tecleando
+        if (inputPolHtml && aiPol) {
+            inputPolHtml.value = aiPol;
+            inputPolHtml.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (inputPodHtml && aiPod) {
+            inputPodHtml.value = aiPod;
+            inputPodHtml.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        
+        // ¡Pulsamos el botón nativo para que haga toda su magia original!
+        if (btnMapNative) {
+            btnMapNative.click();
+        }
+      }, 400); // Damos 400ms para que React actualice la interfaz primero
+    }
+    // --------------------------------------------------------
     if (hasChanges) {
       if (!incomingItems || incomingItems.length === 0) {
         autoCalculateEstimates(cargoItems);
