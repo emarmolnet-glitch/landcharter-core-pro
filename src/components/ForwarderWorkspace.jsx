@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getApiUrl } from '../utils/apiConfig.js';
 import { parsePackingList } from '../utils/packingListParser.js';
 import AgenteProyectosWidget from './AgenteProyectosWidget';
-import { useVoyageStore } from '../stores/voyage-store.js';
 import '../../dual-trading-chartering-view.js';
 import {
   buildCBAMCommercialAnalysis,
@@ -753,93 +752,6 @@ function calculateUniversalStowagePlan(items = [], orderTotals = null, options =
 }
 
 export function ForwarderWorkspace() {
-  const setLandRoute = useVoyageStore((state) => state.setLandRoute);
-
-  const handleCalculateLandRoute = async () => {
-      try {
-          const resolveCoords = async (query) => {
-              const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`);
-              if (res.ok) {
-                  const data = await res.json();
-                  if (data?.length > 0) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name };
-              }
-              return null;
-          };
-
-          const originData = await resolveCoords(pol);
-          const destData = await resolveCoords(pod);
-          if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
-
-          const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
-          const orsUrl = `https://api.openrouteservice.org/v2/directions/driving-hgv?api_key=${orsApiKey}&start=${originData.lon},${originData.lat}&end=${destData.lon},${destData.lat}`;
-          const response = await fetch(orsUrl);
-          const data = await response.json();
-          
-          if (!data?.features?.[0]) throw new Error('Fallo en la respuesta de OpenRouteService.');
-
-          const distanceMeters = Number(data.features[0].properties.segments[0].distance) || 0;
-          const distanceKm = Math.round(distanceMeters / 1000);
-          const drivingHours = (Number(data.features[0].properties.segments[0].duration) || 0) / 3600;
-
-          const rawCoords = data.features[0].geometry.coordinates;
-          const routePoints = rawCoords.map(coord => [coord[1], coord[0]]);
-
-          setLandRoute({
-              routePoints: routePoints,
-              origin: { lat: originData.lat, lon: originData.lon, name: originData.name },
-              destination: { lat: destData.lat, lon: destData.lon, name: destData.name },
-              distanceKm: distanceKm,
-              drivingHours: drivingHours
-          });
-
-          setDistanceNm(Math.round(distanceKm / 1.852));
-      } catch (err) {
-          console.error('Error calculando ruta terrestre:', err);
-      }
-  };
- // Exposición robusta y defensiva para evitar cualquier fallo de funciones en el widget de IA
-  useEffect(() => {
-    window.runOnDemandMapRouteWorkflow = (arg1, overridePol, overridePod) => {
-      // Si el primer o segundo argumento es una función callback, ejecutarla de forma segura
-      if (typeof arg1 === 'function') {
-        try { arg1(); } catch (e) {}
-      }
-      if (typeof overridePol === 'function') {
-        try { overridePol(); } catch (e) {}
-      }
-      if (typeof overridePod === 'function') {
-        try { overridePod(); } catch (e) {}
-      }
-
-      // Si se pasan strings de origen/destino
-      if (typeof overridePol === 'string' && overridePol.trim()) {
-        setPol(overridePol);
-      }
-      if (typeof overridePod === 'string' && overridePod.trim()) {
-        setPod(overridePod);
-      }
-
-      setTimeout(() => {
-        handleCalculateLandRoute().catch(() => {});
-      }, 200);
-
-      // IMPORTANTE: Devolver una función vacía evita que llamadas encadenadas fallen con "is not a function"
-      return () => {};
-    };
-
-    window.updateMapRoute = window.updateMapRoute || (() => {});
-    window.refreshGlobeMap = window.refreshGlobeMap || (() => {});
-    window.updateGlobeRoute = window.updateGlobeRoute || (() => {});
-    window.calculateRoute = window.calculateRoute || (() => handleCalculateLandRoute().catch(() => {}));
-
-    return () => {
-      delete window.runOnDemandMapRouteWorkflow;
-      delete window.updateMapRoute;
-      delete window.refreshGlobeMap;
-      delete window.updateGlobeRoute;
-      delete window.calculateRoute;
-    };
-  }, [pol, pod]);
 
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
