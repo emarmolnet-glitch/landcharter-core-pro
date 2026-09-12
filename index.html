@@ -18064,10 +18064,10 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 // =======================================================================
-// 1. CORTAFUEGOS V3 Y PINCHAZO DE RED (INFALIBLE)
+// 1. CORTAFUEGOS V4 Y PINCHAZO DE RED
 // =======================================================================
-if (!window._firewallInjectedV3) {
-    window._firewallInjectedV3 = true;
+if (!window._firewallInjectedV4) {
+    window._firewallInjectedV4 = true;
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         const url = args[0] || '';
@@ -18110,7 +18110,7 @@ landCharterStyles.innerHTML = `#decision-module, .audit-panel, #maritime-audit, 
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. MOTOR TERRESTRE + INYECCIÓN VISUAL FORZADA
+// 2. MOTOR TERRESTRE + INYECCIÓN VISUAL
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
     if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculando...'; }
@@ -18123,11 +18123,14 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         let pod = overridePod || String(podInput?.value || '').trim();
         if (!pol || !pod) return;
 
-        // Ocultar desplegables molestos
+        // ELIMINADA la regla destructiva (.absolute). Solo ocultamos los <ul> de las listas.
         const antiPopup = document.createElement('style');
-        antiPopup.innerHTML = `ul, [role="listbox"], .absolute { display: none !important; }`;
+        antiPopup.innerHTML = `ul[role="listbox"], .nominatim-suggester, ul.menu { display: none !important; }`;
         document.head.appendChild(antiPopup);
         setTimeout(() => antiPopup.remove(), 2500);
+        
+        if (polInput) polInput.blur();
+        if (podInput) podInput.blur();
         document.body.click();
 
         // 2.1 GEOLOCALIZACIÓN
@@ -18147,11 +18150,10 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const destData = await resolveCoords(pod);
         if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
 
-        // Actualizar cajas silenciosamente
         if (polInput) { polInput.value = originData.name; polInput.dispatchEvent(new Event('input', {bubbles: true})); }
         if (podInput) { podInput.value = destData.name; podInput.dispatchEvent(new Event('input', {bubbles: true})); }
 
-        // 2.2 OPENROUTESERVICE HGV
+        // 2.2 OPENROUTESERVICE
         const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
         const orsUrl = `https://api.openrouteservice.org/v2/directions/driving-hgv?api_key=${orsApiKey}&start=${originData.lon},${originData.lat}&end=${destData.lon},${destData.lat}`;
         const response = await fetch(orsUrl);
@@ -18162,18 +18164,14 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const drivingHours = (Number(data.features[0].properties.segments[0].duration) || 0) / 3600;
         const leafletRoutePoints = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]); 
 
-        // 2.3 CÁLCULO LOGÍSTICO (DÍAS)
+        // 2.3 CÁLCULO DÍAS
         let volume = 10000; 
         const volMatch = document.body.innerText.match(/(\d+)\s*(toneladas|mt|tons)/i);
         if (volMatch) volume = parseInt(volMatch[1]);
         const trips = Math.ceil(volume / 25);
         const days = Math.ceil(trips / (Math.max(1, Math.floor(9 / ((drivingHours * 2) + 4))) * 5)); 
 
-        // ----------------------------------------------------------------------
-        // LA MAGIA VISUAL: INYECCIÓN DIRECTA AL DOM (Bypass React)
-        // ----------------------------------------------------------------------
-        
-        // A) DIBUJAR LÍNEA EN EL MAPA MANUALMENTE
+        // 2.4 DIBUJAR LÍNEA EN EL MAPA MANUALMENTE
         const mapInst = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
         if (mapInst && typeof L !== 'undefined') {
             if (window._persistentRouteLayer) try { mapInst.removeLayer(window._persistentRouteLayer); } catch(e){}
@@ -18191,7 +18189,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             try { window._persistentRouteLayer.bringToFront(); } catch(e){}
         }
 
-        // B) ACTUALIZAR FOOTER MANUALMENTE (Para evitar el TBA y 0 km)
+        // 2.5 FOOTER MANUAL
         document.querySelectorAll('div, span, p').forEach(el => {
             const text = el.innerText || '';
             if(text.includes('ORIGEN') && text.includes('TBA')) el.innerHTML = el.innerHTML.replace('TBA', originData.name.split(',')[0]);
@@ -18201,7 +18199,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             }
         });
 
-        // C) ACTUALIZAR CHAT DE LA IA CON LOS MENSAJES QUE PEDISTE
+        // 2.6 CHAT TEXTOS
         setTimeout(() => {
             const pTags = document.querySelectorAll('p, div, span');
             let targetBubble = null;
@@ -18217,7 +18215,6 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
                 checkmarks.style.marginTop = "12px";
                 checkmarks.style.paddingTop = "12px";
                 checkmarks.style.borderTop = "1px solid rgba(0,0,0,0.1)";
-                // ¡TUS TEXTOS EXACTOS AÑADIDOS A LA BURBUJA DEL CHAT!
                 checkmarks.innerHTML = `
                     ✅ <b>Calcular ruta:</b> OK<br>
                     ✅ <b>Km:</b> ${distanceKm} km OK<br>
@@ -18228,7 +18225,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             }
         }, 800);
 
-        // D) ENVIAR EVENTOS A REACT POR SI ACASO
+        // 2.7 ENVIAR EVENTOS A REACT 
         const fakeOsrmRoute = { distance: distanceMeters, duration: drivingHours * 3600, geometry: data.features[0].geometry, legs: [{ steps: [] }] };
         window.LandData = { origin: originData, destination: destData, distanceKm, totalKilometers: distanceKm, drivingHours, leafletRoutePoints };
         window.dispatchEvent(new CustomEvent('osrm:route-updated', { detail: { routePoints: leafletRoutePoints, origin: originData, destination: destData, distanceKm, totalKilometers: distanceKm, drivingHours, route: fakeOsrmRoute, landData: window.LandData } }));
