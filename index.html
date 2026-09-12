@@ -18069,7 +18069,6 @@ if (!window._firewallInjected) {
     window.fetch = new Proxy(window.fetch, {
         apply: function(target, that, args) {
             const url = (args[0] && typeof args[0] === 'string') ? args[0] : '';
-            // Si la app intenta buscar precios de barcos, mercado, o rutas navales, la bloqueamos
             if (url.includes('vessel-speed-parameters') || url.includes('get-market-data') || url.includes('api/route')) {
                 console.warn(`🛡️ [Land Charter] Ejecución marítima bloqueada: ${url}`);
                 return Promise.resolve(new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }));
@@ -18085,11 +18084,9 @@ if (!window._firewallInjected) {
 window.handleDWTChange = () => {};
 window.syncNavigationStrategyEffect = () => {};
 window.autoFillBunkers = () => {};
-// Forzamos a que el sistema no intente recalcular variables de barco
 window.recalculateAdjustedAndSave = async () => true; 
 window.runMasterOptionalStage = async () => true;
 
-// Limpiamos los paneles navales de la interfaz
 const landCharterStyles = document.createElement('style');
 landCharterStyles.innerHTML = `
     #decision-module, .audit-panel, #maritime-audit, [data-testid="audit-module"], .vessel-speed-panel { display: none !important; }
@@ -18115,7 +18112,6 @@ if (!window._triggerInjected) {
             if (polEl) polEl.value = origenValue;
             if (podEl) podEl.value = destinoValue;
             
-            // Disparamos el mapa automáticamente
             setTimeout(() => {
                 if (typeof window.runOnDemandMapRouteWorkflow === 'function') window.runOnDemandMapRouteWorkflow();
             }, 600); 
@@ -18124,7 +18120,7 @@ if (!window._triggerInjected) {
 }
 
 // =======================================================================
-// 4. MOTOR TERRESTRE DEFINITIVO (LÍNEA ROJA Y COSTES DE CAMIÓN)
+// 4. MOTOR TERRESTRE DEFINITIVO (LÍNEA ROJA, PUNTOS Y EVENTOS REACT)
 // =======================================================================
 async function runOnDemandMapRouteWorkflow(button) {
     if (button) {
@@ -18139,7 +18135,6 @@ async function runOnDemandMapRouteWorkflow(button) {
         const pod = String(podInput?.value || '').trim();
         if (!pol || !pod) throw new Error('Origen y Destino son obligatorios.');
 
-        // 🚀 GEOLOCALIZADOR TERRESTRE DUAL
         const resolveCoords = async (query) => {
             if (!query) return null;
             const q = query.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -18172,7 +18167,6 @@ async function runOnDemandMapRouteWorkflow(button) {
         if (!Number.isFinite(polCoords.lat)) { const r = await resolveCoords(pol); if (r) polCoords = r; }
         if (!Number.isFinite(podCoords.lat)) { const r = await resolveCoords(pod); if (r) podCoords = r; }
 
-        // OSRM TERRESTRE
         const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${polCoords.lon},${polCoords.lat};${podCoords.lon},${podCoords.lat}?overview=full&geometries=geojson&steps=true`;
         const response = await fetch(osrmUrl);
         const data = await response.json();
@@ -18182,7 +18176,6 @@ async function runOnDemandMapRouteWorkflow(button) {
         const drivingHours = route.duration / 3600;
         const leafletRoutePoints = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
         
-        // CÁLCULO DE PEAJES
         let totalTollsCost = 0;
         if (route.legs && route.legs[0] && route.legs[0].steps) {
             route.legs[0].steps.forEach(step => {
@@ -18193,33 +18186,60 @@ async function runOnDemandMapRouteWorkflow(button) {
             });
         }
 
-        // 🔴 PINTAR LA LÍNEA ROJA (FORZADA CON LEAFLET NATIVO)
         const mapInstance = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
         if (mapInstance && typeof L !== 'undefined') {
-            // Limpiamos capas viejas
             if (window._currentOsrmRouteLayer) try { mapInstance.removeLayer(window._currentOsrmRouteLayer); } catch (_) {}
+            if (window._currentOsrmMarkers) window._currentOsrmMarkers.forEach(m => { try { mapInstance.removeLayer(m); } catch (_) {} });
+            window._currentOsrmMarkers = [];
+            
             mapInstance.eachLayer(layer => { if (layer instanceof L.Polyline) try { mapInstance.removeLayer(layer); } catch (_) {} });
 
-            // Dibujamos la línea roja sin usar clases CSS heredadas que la ocultan
             const polyline = L.polyline(leafletRoutePoints, {
-                color: '#ff0000', // Rojo puro
+                color: '#ff0000',
                 weight: 5,
                 opacity: 1.0
             }).addTo(mapInstance);
             
             window._currentOsrmRouteLayer = polyline;
             mapInstance.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+            
+            // 📍 RESTAURADOS: Marcadores de Origen (Oscuro) y Destino (Rojo)
+            const iconOrigin = L.divIcon({
+                className: 'minimal-route-dot-origin',
+                html: '<div style="width: 14px; height: 14px; background-color: #0f172a; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
+                iconSize: [14, 14], iconAnchor: [7, 7]
+            });
+            const iconDest = L.divIcon({
+                className: 'minimal-route-dot-dest',
+                html: '<div style="width: 14px; height: 14px; background-color: #ef4444; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
+                iconSize: [14, 14], iconAnchor: [7, 7]
+            });
+
+            const m1 = L.marker([polCoords.lat, polCoords.lon], { icon: iconOrigin }).addTo(mapInstance).bindPopup(`<b>Origen:</b> ${pol}`);
+            const m2 = L.marker([podCoords.lat, podCoords.lon], { icon: iconDest }).addTo(mapInstance).bindPopup(`<b>Destino:</b> ${pod}<br><b>Distancia:</b> ${distanceKm} km`);
+            window._currentOsrmMarkers.push(m1, m2);
+
             setTimeout(() => { if (polyline.bringToFront) polyline.bringToFront(); }, 200);
         }
 
-        // 💰 SINCRONIZACIÓN DE DATOS TERRESTRES (DIETAS Y TIEMPOS)
+        // 📢 RESTAURADO: El "Megáfono" que avisa a las tarjetas de React de que hay nueva distancia
+        window.dispatchEvent(new CustomEvent('osrm:route-updated', {
+            detail: {
+                routePoints: leafletRoutePoints,
+                origin: { lat: polCoords.lat, lon: polCoords.lon, name: pol },
+                destination: { lat: podCoords.lat, lon: podCoords.lon, name: pod },
+                distanceKm,
+                totalKilometers: distanceKm,
+                drivingHours,
+                route
+            }
+        }));
+
         if (typeof State !== 'undefined') { State.totalKilometers = distanceKm; State.drivingHours = drivingHours; }
         
         const distInput = document.getElementById('dist-total') || document.getElementById('input-distance-km');
         if (distInput) { distInput.value = distanceKm; distInput.dispatchEvent(new Event('input', {bubbles: true})); }
 
-        // Sobreescribimos cualquier campo de "Dietas / Pernocta" (que antes marcaba 22.100€)
-        // Calculamos: 1 pernocta de 55€ por cada 9 horas de conducción.
         const dietasChofer = Math.floor(drivingHours / 9) * 55; 
         const dietasInput = document.getElementById('dietas-pernocta') || document.querySelector('input[name="dietas"]');
         if (dietasInput) {
@@ -18233,17 +18253,14 @@ async function runOnDemandMapRouteWorkflow(button) {
             peajesInput.dispatchEvent(new Event('input', {bubbles: true}));
         }
 
-        // 🟢 FORZAR CÁLCULO MODO EJECUTIVO Y TÉCNICO
         if (typeof updateRouteSummary === 'function') updateRouteSummary();
         
-        // Hacemos que la calculadora se dispare usando el motor LandCostPlus, ignorando el marítimo
         const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
         if (vStore && typeof vStore.setRouteDistanceAndDuration === 'function') {
             vStore.setRouteDistanceAndDuration(distanceKm, drivingHours);
             if (typeof vStore.calculateLandCostPlus === 'function') vStore.calculateLandCostPlus(true);
         }
 
-        // Pulsar el botón del modo ejecutivo para actualizar las tarjetas
         const btnVal1 = document.getElementById('btn-validate-section2-executive');
         const btnVal2 = document.getElementById('btn-validate-section2');
         if (btnVal1) btnVal1.click();
