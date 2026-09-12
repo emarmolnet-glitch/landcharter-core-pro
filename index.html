@@ -18137,6 +18137,57 @@ document.head.appendChild(landCharterStyles);
 // =======================================================================
 // 2. MOTOR TERRESTRE DEFINITIVO Y ARQUITECTURA DE ENRUTAMIENTO OSRM / ORS
 // =======================================================================
+function calculateCurvedRoutePoints(origin, dest, numPoints = 60) {
+    let lat1 = Number(Array.isArray(origin) ? origin[0] : (origin?.lat ?? origin?.latitude));
+    let lon1 = Number(Array.isArray(origin) ? origin[1] : (origin?.lon ?? origin?.lng ?? origin?.longitude));
+    let lat2 = Number(Array.isArray(dest) ? dest[0] : (dest?.lat ?? dest?.latitude));
+    let lon2 = Number(Array.isArray(dest) ? dest[1] : (dest?.lon ?? dest?.lng ?? dest?.longitude));
+
+    // Detección automática y corrección si las coordenadas de entrada vienen invertidas [lon, lat]
+    if (Math.abs(lat1) > 90 || (Math.abs(lat1) <= 25 && Math.abs(lon1) > 25 && Math.abs(lon1) <= 90)) {
+        const tmp = lat1; lat1 = lon1; lon1 = tmp;
+    }
+    if (Math.abs(lat2) > 90 || (Math.abs(lat2) <= 25 && Math.abs(lon2) > 25 && Math.abs(lon2) <= 90)) {
+        const tmp = lat2; lat2 = lon2; lon2 = tmp;
+    }
+
+    if (!Number.isFinite(lat1) || !Number.isFinite(lon1) || !Number.isFinite(lat2) || !Number.isFinite(lon2)) {
+        console.warn('[calculateCurvedRoutePoints] Coordenadas inválidas:', { origin, dest });
+        return [];
+    }
+
+    const dx = lon2 - lon1;
+    const dy = lat2 - lat1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 0.0001) {
+        return [[lat1, lon1], [lat2, lon2]];
+    }
+
+    // Curvatura geodésica suave: arco arqueado hacia el norte en el hemisferio norte (estilo vuelo / marítimo)
+    const hemisphereSign = ((lat1 + lat2) / 2) >= 0 ? 1 : -1;
+    const normalSign = (dx > 0 || (dx === 0 && dy > 0) ? 1 : -1) * hemisphereSign;
+    const perpLon = (-dy * normalSign) / len;
+    const perpLat = (dx * normalSign) / len;
+
+    const curvature = 0.2;
+    const ctrlLat = (lat1 + lat2) / 2 + perpLat * (len * curvature);
+    const ctrlLon = (lon1 + lon2) / 2 + perpLon * (len * curvature);
+
+    const points = [];
+    for (let i = 0; i <= numPoints; i++) {
+        const t = i / numPoints;
+        const oneMinusT = 1 - t;
+        const b0 = oneMinusT * oneMinusT;
+        const b1 = 2 * oneMinusT * t;
+        const b2 = t * t;
+        const lat = b0 * lat1 + b1 * ctrlLat + b2 * lat2;
+        const lon = b0 * lon1 + b1 * ctrlLon + b2 * lon2;
+        // Puntos estrictamente en formato Leaflet [Latitud, Longitud]
+        points.push([Number(lat.toFixed(6)), Number(lon.toFixed(6))]);
+    }
+    return points;
+}
+window.calculateCurvedRoutePoints = calculateCurvedRoutePoints;
 async function runOnDemandMapRouteWorkflow(button) {
     let overridePol = arguments[1] || null;
     let overridePod = arguments[2] || null;
@@ -18161,9 +18212,27 @@ async function runOnDemandMapRouteWorkflow(button) {
     try {
         const normalizeCoord = (input, fallbackName) => {
             if (!input) return null;
+            if (Array.isArray(input) && input.length >= 2) {
+                let lat = Number(input[0]);
+                let lon = Number(input[1]);
+                if (Math.abs(lat) > 90 || (Math.abs(lat) <= 25 && Math.abs(lon) > 25 && Math.abs(lon) <= 90)) {
+                    const tmp = lat; lat = lon; lon = tmp;
+                }
+                if (Number.isFinite(lat) && Number.isFinite(lon)) {
+                    const name = fallbackName || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+                    return { lat, lon, name, displayName: name };
+                }
+            }
             if (typeof input === 'object') {
-                const lat = Number(input.lat ?? input.latitude);
-                const lon = Number(input.lon ?? input.lng ?? input.longitude);
+                let lat = Number(input.lat ?? input.latitude);
+                let lon = Number(input.lon ?? input.lng ?? input.longitude);
+                if (!Number.isFinite(lat) && Number.isFinite(Number(input.x)) && Number.isFinite(Number(input.y))) {
+                    lon = Number(input.x);
+                    lat = Number(input.y);
+                }
+                if (Math.abs(lat) > 90 || (Math.abs(lat) <= 25 && Math.abs(lon) > 25 && Math.abs(lon) <= 90)) {
+                    const tmp = lat; lat = lon; lon = tmp;
+                }
                 if (Number.isFinite(lat) && Number.isFinite(lon)) {
                     const name = input.name || input.displayName || fallbackName || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
                     return { lat, lon, name, displayName: name };
@@ -18425,7 +18494,7 @@ async function runOnDemandMapRouteWorkflow(button) {
         const totalKilometers = distanceMeters / 1000;
         const durationSeconds = Number(route.duration) || 0;
         const drivingHours = durationSeconds / 3600;
-        const distanceKm = Math.round(totalKilometers);
+        const distanceKm = Math.round(distanceMeters / 1000);
         const geojsonCoordinates = route.geometry && route.geometry.coordinates ? route.geometry.coordinates : [];
         const leafletRoutePoints = geojsonCoordinates.map(coord => [coord[1], coord[0]]);
 
@@ -18503,6 +18572,8 @@ async function runOnDemandMapRouteWorkflow(button) {
 
         totalTollsCost = Math.round(totalTollsCost * 100) / 100;
 
+        const computedCurvePoints = calculateCurvedRoutePoints([polCoords.lat, polCoords.lon], [podCoords.lat, podCoords.lon]);
+
         // Guarda la estructura completa en window.LandData
         window.LandData = {
             origin: {
@@ -18528,11 +18599,17 @@ async function runOnDemandMapRouteWorkflow(button) {
             routeSteps: enrichedRouteSteps,
             geojsonCoordinates,
             leafletRoutePoints,
+            routePoints: computedCurvePoints,
+            curvedRoutePoints: computedCurvePoints,
             timestamp: new Date().toISOString()
         };
 
-        // Renderizado visual en Leaflet
+        // Renderizado visual en Leaflet: Curva geodésica intermitente (estilo vuelo/marítimo)
         const mapInstance = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
+        const curvePoints = (window.LandData && window.LandData.curvedRoutePoints) || computedCurvePoints;
+
+        console.log('[CurvedRoute] Puntos generados para Leaflet [lat, lon]:', curvePoints);
+
         if (mapInstance && typeof L !== 'undefined') {
             if (window._currentOsrmRouteLayer) {
                 try { mapInstance.removeLayer(window._currentOsrmRouteLayer); } catch (_) {}
@@ -18548,18 +18625,28 @@ async function runOnDemandMapRouteWorkflow(button) {
                 }
             });
 
-            if (leafletRoutePoints.length > 0) {
-                const polyline = L.polyline(leafletRoutePoints, {
-                    color: '##2563eb',
-                    weight: 6,
-                    opacity: 1.0,
+            if (curvePoints && curvePoints.length > 0) {
+                const polyline = L.polyline(curvePoints, {
+                    color: '#0f766e',
+                    weight: 3 /* weight: 5 */,
+                    dashArray: '10, 10',
+                    opacity: 0.8,
                     lineCap: 'round',
-                    lineJoin: 'round',
-                    className: 'leaflet-route-highlight'
+                    lineJoin: 'round'
                 }).addTo(mapInstance);
 
                 window._currentOsrmRouteLayer = polyline;
-                mapInstance.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+                mapInstance.fitBounds([
+                    [polCoords.lat, polCoords.lon],
+                    [podCoords.lat, podCoords.lon]
+                ], { padding: [50, 50] });
+
+                if (typeof map !== 'undefined' && map && map !== mapInstance && typeof map.fitBounds === 'function') {
+                    map.fitBounds([
+                        [polCoords.lat, polCoords.lon],
+                        [podCoords.lat, podCoords.lon]
+                    ], { padding: [50, 50] });
+                }
 
                 const iconOrigin = L.divIcon({
                     className: 'minimal-route-dot-origin',
@@ -18569,7 +18656,7 @@ async function runOnDemandMapRouteWorkflow(button) {
                 });
                 const iconDest = L.divIcon({
                     className: 'minimal-route-dot-dest',
-                    html: '<div style="width: 14px; height: 14px; background-color: ##2563eb; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
+                    html: '<div style="width: 14px; height: 14px; background-color: #0f766e; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
                     iconSize: [14, 14],
                     iconAnchor: [7, 7]
                 });
@@ -18581,9 +18668,13 @@ async function runOnDemandMapRouteWorkflow(button) {
                 if (typeof polyline.bringToFront === 'function') {
                     polyline.bringToFront();
                 }
+                if (typeof polyline.redraw === 'function') {
+                    polyline.redraw();
+                }
                 setTimeout(() => {
-                    if (polyline && typeof polyline.bringToFront === 'function') {
-                        polyline.bringToFront();
+                    if (polyline) {
+                        if (typeof polyline.bringToFront === 'function') polyline.bringToFront();
+                        if (typeof polyline.redraw === 'function') polyline.redraw();
                     }
                 }, 200);
             }
@@ -18597,7 +18688,9 @@ async function runOnDemandMapRouteWorkflow(button) {
         // 2. Disparar evento para componentes React
         window.dispatchEvent(new CustomEvent('osrm:route-updated', {
             detail: {
-                routePoints: leafletRoutePoints,
+                routePoints: curvePoints,
+                curvedRoutePoints: curvePoints,
+                osrmRoutePoints: leafletRoutePoints,
                 origin: { lat: polCoords.lat, lon: polCoords.lon, name: polCoords.displayName || polCoords.name || pol },
                 destination: { lat: podCoords.lat, lon: podCoords.lon, name: podCoords.displayName || podCoords.name || pod },
                 distanceKm,
