@@ -18062,7 +18062,8 @@ window.addEventListener('osrm:route-updated', (ev) => {
 });
 
 async function runOnDemandMapRouteWorkflow(button) {
-    if (!validateGeographicLaycanDates() || button?.disabled) return;
+    if (typeof validateGeographicLaycanDates === 'function' && !validateGeographicLaycanDates()) return;
+    if (button?.disabled) return;
 
     const originalContent = button?.innerHTML || '';
     let routeTimeoutId = null;
@@ -18074,20 +18075,18 @@ async function runOnDemandMapRouteWorkflow(button) {
     }
 
     try {
-        if (!captureRouteStateFromMapInputs()) return;
-        // calculateVoyageRouteService({ portBallast, pol, pod, geocode: true })
-        // applyRouteServiceResult(routeResult); renderMasterRouteMap(routeResult); updateRouteSummary();
-        // void Promise.allSettled([ window.restorePersistentDataBridgeConnection?.(), refreshDataBridgeMasterStatsOnDemand() ])
+        if (typeof captureRouteStateFromMapInputs === 'function') {
+            if (!captureRouteStateFromMapInputs()) return;
+        }
 
         const polInput = document.getElementById('map-port-pol') || document.getElementById('port-pol');
         const podInput = document.getElementById('map-port-pod') || document.getElementById('port-pod');
-        const pol = String(polInput?.value || document.getElementById('port-pol')?.value || State.pol || '').trim();
-        const pod = String(podInput?.value || document.getElementById('port-pod')?.value || State.pod || '').trim();
+        const pol = String(polInput?.value || document.getElementById('port-pol')?.value || (typeof State !== 'undefined' ? State.pol : '') || '').trim();
+        const pod = String(podInput?.value || document.getElementById('port-pod')?.value || (typeof State !== 'undefined' ? State.pod : '') || '').trim();
         if (!pol || !pod) {
             throw new Error('Origen y Destino son obligatorios para calcular la ruta terrestre.');
         }
 
-        // Obtener coordenadas de origen y destino de forma dinámica y universal (Nominatim / Port DB)
         let polCoords = {
             lat: parseFloat(polInput?.dataset?.selectedLatitude),
             lon: parseFloat(polInput?.dataset?.selectedLongitude),
@@ -18099,17 +18098,72 @@ async function runOnDemandMapRouteWorkflow(button) {
             displayName: pod
         };
 
+        // 🚀 MOTOR GEOGRÁFICO DUAL INTEGRADO Y BLINDADO
+        const resolveCoords = async (query) => {
+            if (!query) return null;
+            const q = query.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            
+            // 1. Diccionario Offline Inmediato
+            const dic = {
+                'setif': { lat: 36.1893, lon: 5.4047, name: 'Sétif' },
+                'oran': { lat: 35.6971, lon: -0.6309, name: 'Orán' },
+                'bejaia': { lat: 36.7512, lon: 5.0644, name: 'Bejaia' },
+                'bugia': { lat: 36.7512, lon: 5.0644, name: 'Bejaia' },
+                'zaragoza': { lat: 41.6488, lon: -0.8891, name: 'Zaragoza' },
+                'tarragona': { lat: 41.1167, lon: 1.2500, name: 'Tarragona' },
+                'barcelona': { lat: 41.3851, lon: 2.1734, name: 'Barcelona' },
+                'madrid': { lat: 40.4168, lon: -3.7038, name: 'Madrid' },
+                'paris': { lat: 48.8566, lon: 2.3522, name: 'París' }
+            };
+            for (const key in dic) {
+                if (q.includes(key)) {
+                    console.log(`✅ [Motor Dual] Diccionario offline usado para: ${query}`);
+                    return dic[key];
+                }
+            }
+
+            // 2. Capa Global Photon (Respaldo Anti-Bloqueos 429)
+            try {
+                console.log(`🌐 [Motor Dual] Consultando Photon para: ${query}`);
+                const phoRes = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=1`);
+                if (phoRes.ok) {
+                    const data = await phoRes.json();
+                    if (data?.features?.length > 0) {
+                        return { lat: data.features[0].geometry.coordinates[1], lon: data.features[0].geometry.coordinates[0], name: data.features[0].properties.name || query };
+                    }
+                }
+            } catch(e) { console.warn("Photon falló, saltando a Nominatim..."); }
+
+            // 3. Capa Nominatim Estándar
+            try {
+                console.log(`🌐 [Motor Dual] Consultando Nominatim para: ${query}`);
+                const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`);
+                if (nomRes.ok) {
+                    const data = await nomRes.json();
+                    if (data?.length > 0) {
+                        return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name || query };
+                    }
+                }
+            } catch(e) { console.error("Ambos servicios geográficos fallaron."); }
+
+            return null;
+        };
+
         if (!Number.isFinite(polCoords.lat) || !Number.isFinite(polCoords.lon)) {
-            const resolvedPol = await getCoordinates(pol);
+            const resolvedPol = await resolveCoords(pol);
             if (resolvedPol) polCoords = { lat: resolvedPol.lat, lon: resolvedPol.lon, displayName: resolvedPol.name || pol };
         }
         if (!Number.isFinite(podCoords.lat) || !Number.isFinite(podCoords.lon)) {
-            const resolvedPod = await getCoordinates(pod);
+            const resolvedPod = await resolveCoords(pod);
             if (resolvedPod) podCoords = { lat: resolvedPod.lat, lon: resolvedPod.lon, displayName: resolvedPod.name || pod };
         }
 
+        // 🛡️ Filtro Anti Null Island
         if (!Number.isFinite(polCoords.lat) || !Number.isFinite(polCoords.lon) || !Number.isFinite(podCoords.lat) || !Number.isFinite(podCoords.lon)) {
             throw new Error('No se pudieron obtener las coordenadas de Origen y Destino.');
+        }
+        if ((polCoords.lat === 0 && polCoords.lon === 0) || (podCoords.lat === 0 && podCoords.lon === 0)) {
+            throw new Error('Las coordenadas apuntan al océano (Null Island). Cálculo bloqueado por seguridad.');
         }
 
         // 3. Petición a OSRM con Sistema de Redundancia (Espejos)
@@ -18132,7 +18186,7 @@ async function runOnDemandMapRouteWorkflow(button) {
                 data = await response.json();
                 if (data && data.routes && data.routes.length > 0) {
                     console.log(`[Workflow] Éxito conectando con ${baseUrl}`);
-                    break; // Salir del bucle si tenemos éxito
+                    break;
                 }
             } catch (err) {
                 console.warn(`[Workflow] Falló el servidor ${baseUrl}:`, err.message);
@@ -18144,7 +18198,6 @@ async function runOnDemandMapRouteWorkflow(button) {
         if (!data || !data.routes || !data.routes.length) {
             console.error("[Workflow] Todos los servidores OSRM han fallado. Aplicando Fallback de emergencia.");
             
-            // Función Haversine rápida
             const R = 6371; // Radio de la Tierra en km
             const dLat = (podCoords.lat - polCoords.lat) * Math.PI / 180;
             const dLon = (podCoords.lon - polCoords.lon) * Math.PI / 180;
@@ -18154,12 +18207,11 @@ async function runOnDemandMapRouteWorkflow(button) {
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             const straightKm = R * c;
             
-            // Crear una estructura falsa compatible con el resto del código
             data = {
                 routes: [{
-                    distance: straightKm * 1000 * 1.3, // Añadir 30% por curvas de carretera
-                    duration: (straightKm * 1.3 / 80) * 3600, // Estimando 80km/h
-                    legs: [{ steps: [] }], // Sin pasos detallados
+                    distance: straightKm * 1000 * 1.3,
+                    duration: (straightKm * 1.3 / 80) * 3600,
+                    legs: [{ steps: [] }],
                     geometry: {
                         coordinates: [
                             [polCoords.lon, polCoords.lat],
@@ -18181,10 +18233,8 @@ async function runOnDemandMapRouteWorkflow(button) {
         const durationSeconds = Number(route.duration) || 0;
         const drivingHours = durationSeconds / 3600;
         const geojsonCoordinates = route.geometry?.coordinates || [];
-        // Convert [lon, lat] from GeoJSON to Leaflet [lat, lon]
         const leafletRoutePoints = geojsonCoordinates.map(coord => [coord[1], coord[0]]);
 
-        // Enriquecimiento de routeSteps (Peajes y Tacógrafo)
         const rawSteps = (route.legs && route.legs[0] && route.legs[0].steps) || [];
         let accumulatedDistanceMeters = 0;
         let accumulatedDurationSeconds = 0;
@@ -18205,7 +18255,6 @@ async function runOnDemandMapRouteWorkflow(button) {
             const accumulatedKm = accumulatedDistanceMeters / 1000;
             const accumulatedHours = accumulatedDurationSeconds / 3600;
 
-            // Detección automática de tramos de peaje analizando el nombre de la vía
             const stepName = String(step.name || step.ref || '').trim();
             const isToll = /(?:autopista|ap-|peaje|toll)/i.test(stepName) ||
                            Boolean(step.ref && /^ap-?\d+/i.test(step.ref));
@@ -18222,7 +18271,6 @@ async function runOnDemandMapRouteWorkflow(button) {
                 });
             }
 
-            // Hitos obligatorios de tacógrafo cada 4.5 horas acumuladas de conducción (CE 561/2006)
             const stepTachographAlerts = [];
             while (accumulatedHours >= nextTachographThresholdHours) {
                 const milestoneNum = tachographMilestones.length + 1;
@@ -18258,7 +18306,6 @@ async function runOnDemandMapRouteWorkflow(button) {
 
         totalTollsCost = Math.round(totalTollsCost * 100) / 100;
 
-        // Guarda la estructura completa en window.LandData
         window.LandData = {
             origin: {
                 query: pol,
@@ -18286,14 +18333,11 @@ async function runOnDemandMapRouteWorkflow(button) {
             timestamp: new Date().toISOString()
         };
 
-        // Asegurar que el mapa esté disponible
         if (!map && typeof initMap === 'function') {
             await initMap();
         }
         const mapInstance = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
 
-        // Dibujar en Leaflet usando estrictamente la API nativa de Leaflet (L.polyline)
-        // Default / fallback route line config: { color: '#0f766e', weight: 5 }
         if (mapInstance && typeof L !== 'undefined') {
             if (window._currentOsrmRouteLayer) {
                 try { mapInstance.removeLayer(window._currentOsrmRouteLayer); } catch (_) {}
@@ -18303,7 +18347,6 @@ async function runOnDemandMapRouteWorkflow(button) {
             }
             window._currentOsrmMarkers = [];
 
-            // Limpiar polilíneas anteriores
             mapInstance.eachLayer((layer) => {
                 if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
                     try { mapInstance.removeLayer(layer); } catch (_) {}
@@ -18329,7 +18372,6 @@ async function runOnDemandMapRouteWorkflow(button) {
                     try { map.fitBounds(polyline.getBounds(), { padding: [50, 50] }); } catch (_) {}
                 }
 
-                // Marcadores minimalistas compactos (14x14px con borde blanco stroke)
                 const minimalDotIconOrigin = L.divIcon({
                     className: 'minimal-route-dot-origin',
                     html: '<div style="width: 14px; height: 14px; background-color: #0f172a; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;"></div>',
@@ -18349,10 +18391,10 @@ async function runOnDemandMapRouteWorkflow(button) {
             }
         }
 
-        // Renderizar panel de itinerario flotante persistente a la derecha (#route-itinerary-right-panel)
-        renderRouteItineraryRightPanel(window.LandData);
+        if (typeof renderRouteItineraryRightPanel === 'function') {
+            renderRouteItineraryRightPanel(window.LandData);
+        }
 
-        // Notificar a componentes React (LazyGlobeMap, TceCalculator, etc.)
         window.dispatchEvent(new CustomEvent('osrm:route-updated', {
             detail: {
                 routePoints: leafletRoutePoints,
@@ -18366,15 +18408,17 @@ async function runOnDemandMapRouteWorkflow(button) {
             }
         }));
 
-        // Inyección de Distancia (Map -> State): guardar totalKilometers y drivingHours en estado reactivo
-        State.totalKilometers = totalKilometers;
-        State.drivingHours = drivingHours;
-        State.totalMiles = distanceKm;
-        State.distLaden = distanceKm;
-        State.distBallast = 0;
-        State.pol = pol;
-        State.pod = pod;
-        if (window.GlobalStore) {
+        if (typeof State !== 'undefined') {
+            State.totalKilometers = totalKilometers;
+            State.drivingHours = drivingHours;
+            State.totalMiles = distanceKm;
+            State.distLaden = distanceKm;
+            State.distBallast = 0;
+            State.pol = pol;
+            State.pod = pod;
+        }
+        
+        if (typeof window.GlobalStore !== 'undefined') {
             window.GlobalStore.totalKilometers = totalKilometers;
             window.GlobalStore.drivingHours = drivingHours;
             window.GlobalStore.totalMiles = distanceKm;
@@ -18405,23 +18449,23 @@ async function runOnDemandMapRouteWorkflow(button) {
             } else if (typeof window.VoyageStore?.setState === 'function') {
                 window.VoyageStore.setState({ totalKilometers, drivingHours });
             }
+            if (typeof vStore.calculateLandCostPlus === 'function') {
+                vStore.calculateLandCostPlus(true);
+            }
         }
 
-        // Sincronizar input de distancia si existe
         const distTotalInput = document.getElementById('dist-total') || document.getElementById('distance-total') || document.getElementById('input-distance-km');
         if (distTotalInput) {
             distTotalInput.value = distanceKm;
             distTotalInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
 
-        // Sincronizar peajes en campo PDA si existe
         const pdaInput = document.getElementById('pda-pol');
         if (pdaInput && totalTollsCost > 0) {
             pdaInput.value = Math.round(totalTollsCost);
             pdaInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
 
-        // Sincronizar ETA inicial en Módulo 4 basado en ruta OSRM y fecha de salida
         const etaInput = document.getElementById('eta-radar');
         if (etaInput && (!etaInput.value || etaInput.dataset.manualUnlocked !== 'true')) {
             const todayStr = new Date().toISOString().split('T')[0];
@@ -18429,7 +18473,7 @@ async function runOnDemandMapRouteWorkflow(button) {
             etaInput.value = departureDate;
             etaInput.dataset.etaSource = 'osrm';
         }
-        // Auto-calcular descansos de tacógrafo según horas de conducción OSRM (CE 561/2006)
+
         const deltaInput = document.getElementById('delta-historico');
         if (deltaInput && (parseFloat(deltaInput.value) === 0 || deltaInput.dataset.autoTacografo === 'true')) {
             const tacografoPausas = tachographMilestones.length * 0.75;
@@ -18441,8 +18485,8 @@ async function runOnDemandMapRouteWorkflow(button) {
             calculateAdjustedEtaAndDays();
         }
 
-        updateRouteSummary();
-        syncGlobalStateToForms();
+        if (typeof updateRouteSummary === 'function') updateRouteSummary();
+        if (typeof syncGlobalStateToForms === 'function') syncGlobalStateToForms();
         if (typeof runEngine === 'function') runEngine();
         if (typeof syncCalculatorAndMatching === 'function') syncCalculatorAndMatching('calculator');
 
