@@ -18064,7 +18064,7 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 // =======================================================================
-// 1. CORTAFUEGOS, STUBS GLOBALES Y PINCHAZO DE RED
+// 1. CORTAFUEGOS V10 (CON MOCK VÁLIDO DE MERCADO)
 // =======================================================================
 window.handleDWTChange = window.handleDWTChange || function() {};
 window.syncNavigationStrategyEffect = window.syncNavigationStrategyEffect || function() {};
@@ -18075,14 +18075,24 @@ if (typeof window.autoFillBunkers !== 'function') {
 window.recalculateAdjustedAndSave = window.recalculateAdjustedAndSave || async function() { return true; };
 window.runMasterOptionalStage = window.runMasterOptionalStage || async function() { return true; };
 
-if (!window._firewallInjectedV9) {
-    window._firewallInjectedV9 = true;
+if (!window._firewallInjectedV10) {
+    window._firewallInjectedV10 = true;
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         const url = args[0] || '';
         
-        if (typeof url === 'string' && (url.includes('vessel-speed-parameters') || url.includes('get-market-data') || url.includes('api/route') || url.includes('pda-estimations'))) {
-            return Promise.resolve(new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        if (typeof url === 'string' && url.includes('get-market-data')) {
+            return Promise.resolve(new Response(JSON.stringify({ 
+                success: true, 
+                VESFO: 520, 
+                HSFQ: 460, 
+                MGO: 750, 
+                bunkerPrices: { VESFO: 520, HSFQ: 460, MGO: 750 } 
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        }
+
+        if (typeof url === 'string' && (url.includes('vessel-speed-parameters') || url.includes('api/route') || url.includes('pda-estimations'))) {
+            return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
         }
         
         const fetchPromise = originalFetch.apply(this, args);
@@ -18112,7 +18122,7 @@ landCharterStyles.innerHTML = `#decision-module, .audit-panel, #maritime-audit, 
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. MOTOR TERRESTRE SINCRONIZADO (SIN CONFLICTOS DE VARIABLES)
+// 2. MOTOR TERRESTRE ESTABLE
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
     if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculando...'; }
@@ -18142,8 +18152,17 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const destData = await resolveCoords(pod);
         if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
 
-        if (polInput) { polInput.value = originData.name; polInput.blur(); }
-        if (podInput) { podInput.value = destData.name; podInput.blur(); }
+        // Rellenar los inputs de manera nativa para que la app los reconozca sin errores
+        const setInputValue = (input, val) => {
+            if (!input) return;
+            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            if (nativeSetter) nativeSetter.call(input, val); else input.value = val;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+
+        setInputValue(polInput, originData.name);
+        setInputValue(podInput, destData.name);
 
         // 2.2 OPENROUTESERVICE HGV
         const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
@@ -18184,7 +18203,6 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             });
         }
 
-        // 2.5 INTEGRACIÓN CON ZUSTAND (Evitando re-declaraciones)
         const voyageStoreInstance = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
         if (voyageStoreInstance) {
             if (typeof voyageStoreInstance.setRouteDistanceAndDuration === 'function') {
@@ -18196,12 +18214,10 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         }
 
         if (typeof window.updateRouteSummary === 'function') { window.updateRouteSummary(); }
-        if (typeof window.runEngine === 'function') { window.runEngine(); }
-        if (typeof window.handleMasterValidationAndCalculate === 'function') { await window.handleMasterValidationAndCalculate(); }
 
-        // 2.6 TRANSFORMACIÓN GEOMÉTRICA Y DISPARO PARA LA CARTOGRAFÍA (LazyGlobeMap)
+        // 2.5 DISPARO PARA LA CARTOGRAFÍA (LazyGlobeMap)
         const rawCoords = data.features[0].geometry.coordinates;
-        const routePoints = rawCoords.map(coord => [coord[1], coord[0]]); // Inversión a [lat, lon]
+        const routePoints = rawCoords.map(coord => [coord[1], coord[0]]);
 
         const originPayload = { lat: originData.lat, lon: originData.lon, name: originData.name };
         const destinationPayload = { lat: destData.lat, lon: destData.lon, name: destData.name };
@@ -18217,7 +18233,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             }
         }));
 
-        // 2.7 INYECCIÓN DE MENSAJES DE ESTADO EN EL CHAT
+        // 2.6 INYECCIÓN DE MENSAJES DE ESTADO EN EL CHAT
         setTimeout(() => {
             const pTags = document.querySelectorAll('p, div, span');
             let targetBubble = null;
