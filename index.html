@@ -18113,8 +18113,10 @@ if (!window._triggerInjected) {
             if (podEl) podEl.value = destinoValue;
             
             setTimeout(() => {
-                if (typeof window.runOnDemandMapRouteWorkflow === 'function') window.runOnDemandMapRouteWorkflow();
-            }, 600); 
+            if (typeof window.redrawPersistedLandRoute === 'function') {
+            window.redrawPersistedLandRoute();
+        }
+    }, 1500); 
         }
     };
 }
@@ -18122,7 +18124,7 @@ if (!window._triggerInjected) {
 // =======================================================================
 // 3. MOTOR TERRESTRE DEFINITIVO CON TRY/CATCH BALANCEADO
 // =======================================================================
-async function runOnDemandMapRouteWorkflow(button) {
+async function runOnDemandMapRouteWorkflow(button, overridePol = null, overridePod = null) {
     if (button) {
         button.disabled = true;
         button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Trazando ruta...';
@@ -18131,8 +18133,8 @@ async function runOnDemandMapRouteWorkflow(button) {
     try {
         const polInput = document.getElementById('map-port-pol') || document.getElementById('port-pol');
         const podInput = document.getElementById('map-port-pod') || document.getElementById('port-pod');
-        const pol = String(polInput?.value || '').trim();
-        const pod = String(podInput?.value || '').trim();
+        const pol = overridePol || String(polInput?.value || '').trim();
+        const pod = overridePod || String(podInput?.value || '').trim();
         if (!pol || !pod) throw new Error('Origen y Destino son obligatorios.');
 
         const resolveCoords = async (query) => {
