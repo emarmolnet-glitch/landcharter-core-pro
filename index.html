@@ -18077,10 +18077,23 @@ if (!window._firewallInjected) {
     });
 }
 
+// Desactivar TODO el pipeline naval heredado
 window.handleDWTChange = () => {};
 window.syncNavigationStrategyEffect = () => {};
 window.autoFillBunkers = () => {};
+window.recalculateAdjustedAndSave = async () => { console.log("🛡️ [Land Charter] Bloqueado cálculo naval de búnker."); return true; };
+window.runMasterOptionalStage = async () => { return true; };
 
+// Redirigir la validación maestra exclusivamente al motor financiero terrestre
+window.handleMasterValidationAndCalculate = async () => {
+    console.log("🟢 [Land Charter] Ejecutando motor financiero terrestre...");
+    if (typeof window.useVoyageStore !== 'undefined' && typeof window.useVoyageStore.getState().calculateLandCostPlus === 'function') {
+        window.useVoyageStore.getState().calculateLandCostPlus(true);
+    }
+    return true;
+};
+
+// Ocultar módulos navales intrusos
 const landCharterStyles = document.createElement('style');
 landCharterStyles.innerHTML = `
     #decision-module, .audit-panel, #maritime-audit, [data-testid="audit-module"], .vessel-speed-panel {
@@ -18098,17 +18111,13 @@ if (!window._triggerInjected) {
     console.log = function(...args) {
         originalConsoleLog.apply(console, args);
         
-        // Cuando la IA termine de escribir...
         if (args[0] && typeof args[0] === 'string' && args[0].includes('[Cerebro.ia/update_fields] Inyección completada')) {
-            
-            // 1. Extraemos los valores literales de la IA (args[1] es el objeto del payload)
             const payload = args[1] || {};
             const origenValue = payload.origin || payload.pol || '';
             const destinoValue = payload.destination || payload.pod || '';
 
             console.log(`⚡ [Land Charter] Sincronizando datos terrestres: ${origenValue} -> ${destinoValue}`);
             
-            // 2. Puente de Datos: Forzamos la IA a hablar el idioma del mapa marítimo
             if (typeof State !== 'undefined') {
                 State.pol = origenValue;
                 State.pod = destinoValue;
@@ -18118,7 +18127,6 @@ if (!window._triggerInjected) {
             if (polEl) polEl.value = origenValue;
             if (podEl) podEl.value = destinoValue;
 
-            // 3. Disparamos el mapa medio segundo después con los datos cargados
             setTimeout(() => {
                 if (typeof window.runOnDemandMapRouteWorkflow === 'function') {
                     window.runOnDemandMapRouteWorkflow();
@@ -18431,7 +18439,6 @@ async function runOnDemandMapRouteWorkflow(button) {
                     opacity: 1.0,
                     lineCap: 'round',
                     lineJoin: 'round',
-                    className: 'leaflet-route-highlight'
                 });
                 polyline.addTo(mapInstance);
                 window._currentOsrmRouteLayer = polyline;

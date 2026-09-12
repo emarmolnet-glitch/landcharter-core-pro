@@ -64,7 +64,7 @@ if (typeof document !== 'undefined') {
     styleEl.id = styleId;
     styleEl.innerHTML = `
 .leaflet-route-highlight {
-    stroke: #2563eb !important;
+    stroke: #ef4444 !important;
     stroke-width: 6px !important;
     stroke-opacity: 1 !important;
     fill: none !important;
@@ -96,7 +96,7 @@ function RouteAutoFitter({ positions }: { positions?: [number, number][] }) {
       map.eachLayer((layer: any) => {
         if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
           map.removeLayer(layer);
-        } else if (layer.options && (layer.options.className === 'leaflet-route-highlight' || layer.options.color === '#2563eb' || layer.options.color === '#0f766e')) {
+        } else if (layer.options && (layer.options.className === 'leaflet-route-highlight' || layer.options.color === '#ef4444' || layer.options.color === '#0f766e')) {
           map.removeLayer(layer);
         }
       });
@@ -105,12 +105,11 @@ function RouteAutoFitter({ positions }: { positions?: [number, number][] }) {
       const allLatLngs = positions;
       const mapInstance = map;
       const polyline = L.polyline(allLatLngs, {
-        color: '#2563eb',
+        color: '#ef4444',
         weight: 6,
         opacity: 1.0,
         lineCap: 'round',
         lineJoin: 'round',
-        className: 'leaflet-route-highlight'
       });
       polyline.addTo(mapInstance);
 
