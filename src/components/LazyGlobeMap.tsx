@@ -110,6 +110,7 @@ function RouteAutoFitter({ positions }: { positions?: [number, number][] }) {
         opacity: 1.0,
         lineCap: 'round',
         lineJoin: 'round',
+        className: 'leaflet-route-highlight'
       });
       polyline.addTo(mapInstance);
 
