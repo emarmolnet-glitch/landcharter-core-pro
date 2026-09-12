@@ -18093,7 +18093,7 @@ landCharterStyles.innerHTML = `
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. TRIGGER IA AUTOMÁTICO (A PRUEBA DE CACHÉ)
+// 2. TRIGGER IA AUTOMÁTICO
 // =======================================================================
 const originalConsoleLog = window._originalConsoleLog || console.log;
 window._originalConsoleLog = originalConsoleLog; 
@@ -18107,7 +18107,6 @@ console.log = function(...args) {
         
         setTimeout(() => {
             if (typeof window.runOnDemandMapRouteWorkflow === 'function') {
-                console.log("🤖 [TRIGGER IA] Arrancando motor terrestre...");
                 window.runOnDemandMapRouteWorkflow(null, origenValue, destinoValue);
             }
         }, 800); 
@@ -18115,11 +18114,10 @@ console.log = function(...args) {
 };
 
 // =======================================================================
-// 3. MOTOR TERRESTRE DEFINITIVO (ORS + FECHAS + WATCHDOG + FOOTER)
+// 3. MOTOR TERRESTRE (EL CABALLO DE TROYA ORS -> OSRM)
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
     if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Trazando ruta...'; }
-    console.log("🚀 [PASO 1] Iniciando cálculo terrestre...");
 
     try {
         const polInput = document.getElementById('map-port-pol') || document.getElementById('port-pol');
@@ -18145,13 +18143,23 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const originData = await resolveCoords(pol);
         const destData = await resolveCoords(pod);
         if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
-        console.log("✅ [PASO 2] Geocoding OK:", originData.name);
 
-        // 3.2 INPUTS SILENCIOSOS
-        if (polInput) { polInput.value = originData.name; polInput.dataset.selectedLatitude = originData.lat; polInput.dataset.selectedLongitude = originData.lon; }
-        if (podInput) { podInput.value = destData.name; podInput.dataset.selectedLatitude = destData.lat; podInput.dataset.selectedLongitude = destData.lon; }
+        // 3.2 ACTUALIZACIÓN REAL DEL STATE (Para arreglar el "ORIGEN TBA" del Footer)
+        const updateNativeInput = (input, value) => {
+            if (!input) return;
+            const nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            if (nativeSet) nativeSet.call(input, value); else input.value = value;
+            input.dispatchEvent(new Event('input', { bubbles: true })); 
+        };
+        updateNativeInput(polInput, originData.name);
+        updateNativeInput(podInput, destData.name);
+        
+        if (typeof State !== 'undefined') {
+            State.pol = originData.name;
+            State.pod = destData.name;
+        }
 
-        // 3.3 OPENROUTESERVICE
+        // 3.3 OPENROUTESERVICE HGV (Cálculo puro de camiones)
         const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
         const orsUrl = `https://api.openrouteservice.org/v2/directions/driving-hgv?api_key=${orsApiKey}&start=${originData.lon},${originData.lat}&end=${destData.lon},${destData.lat}`;
         
@@ -18160,75 +18168,63 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         if (!data || !data.features || !data.features.length) throw new Error('ORS falló.');
 
         const routeFeature = data.features[0];
-        const distanceKm = Math.round((Number(routeFeature.properties.segments[0].distance) || 0) / 1000);
-        const drivingHours = (Number(routeFeature.properties.segments[0].duration) || 0) / 3600;
+        const distanceMeters = Number(routeFeature.properties.segments[0].distance) || 0;
+        const distanceKm = Math.round(distanceMeters / 1000);
+        const durationSeconds = Number(routeFeature.properties.segments[0].duration) || 0;
+        const drivingHours = durationSeconds / 3600;
         const leafletRoutePoints = routeFeature.geometry.coordinates.map(coord => [coord[1], coord[0]]); 
-        console.log(`✅ [PASO 3] ORS Calculado: ${distanceKm} km`);
 
-        window.LandData = { origin: originData, destination: destData, distanceKm, totalKilometers: distanceKm, drivingHours, leafletRoutePoints };
+        // 3.4 EL DISFRAZ (Fake OSRM Object)
+        // Engañamos a React creando un objeto idéntico al que devuelve OSRM
+        const fakeOsrmRoute = {
+            distance: distanceMeters,
+            duration: durationSeconds,
+            geometry: routeFeature.geometry, // Ya tiene el formato GeoJSON exacto que usa React
+            legs: [{ steps: [] }]
+        };
+
+        window.LandData = { 
+            origin: { lat: originData.lat, lon: originData.lon, name: originData.name }, 
+            destination: { lat: destData.lat, lon: destData.lon, name: destData.name }, 
+            distanceKm, totalKilometers: distanceKm, drivingHours, leafletRoutePoints 
+        };
         
-        // 3.4 RESTAURAR BARRA INFERIOR Y REACT
-        try {
-            window.dispatchEvent(new CustomEvent('osrm:route-updated', { 
-                detail: { routePoints: leafletRoutePoints, origin: originData, destination: destData, distanceKm, totalKilometers: distanceKm, drivingHours, route: routeFeature, landData: window.LandData }
-            }));
-            
-            const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
-            if (vStore && typeof vStore.setRouteDistanceAndDuration === 'function') {
-                vStore.setRouteDistanceAndDuration(distanceKm, drivingHours);
-                if (typeof vStore.calculateLandCostPlus === 'function') vStore.calculateLandCostPlus(true);
-                console.log("✅ [PASO 4] Barra inferior (Footer) conectada");
+        // 3.5 ENVÍO A REACT Y AL FOOTER (React dibujará la línea automáticamente ahora)
+        window.dispatchEvent(new CustomEvent('osrm:route-updated', { 
+            detail: { 
+                routePoints: leafletRoutePoints, 
+                origin: window.LandData.origin, 
+                destination: window.LandData.destination, 
+                distanceKm: distanceKm, 
+                totalKilometers: distanceKm, 
+                drivingHours: drivingHours, 
+                route: fakeOsrmRoute, // Enviamos el Caballo de Troya
+                landData: window.LandData 
             }
-        } catch(e) { console.warn(e); }
-
-        // 3.5 TARJETA LOGÍSTICA
-        let volume = 10000; 
-        const volMatch = document.body.innerText.match(/(\d+)\s*(toneladas|mt|tons)/i);
-        if (volMatch) volume = parseInt(volMatch[1]);
-        const trips = Math.ceil(volume / 25);
-        const days = Math.ceil(trips / (Math.max(1, Math.floor(9 / ((drivingHours * 2) + 4))) * 5)); 
-        const sD = new Date(); const eD = new Date(); eD.setDate(sD.getDate() + days); 
+        }));
         
-        setTimeout(() => {
-            const panels = document.querySelectorAll('.bg-white.rounded-lg, .shadow-sm');
-            const target = Array.from(panels).find(el => el.innerText.includes('Itinerario') || el.innerText.includes('DISTANCIA TOTAL'));
-            if (target) {
-                let card = document.getElementById('logistics-card');
-                if (!card) { card = document.createElement('div'); card.id = 'logistics-card'; card.className = 'mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900 shadow-inner'; target.appendChild(card); }
-                card.innerHTML = `<div class="font-bold mb-2">📅 Planificación Operativa</div><div class="grid grid-cols-2 gap-2 text-xs"><div class="bg-white p-2 border"><b>Vol:</b><br>${volume} MT</div><div class="bg-white p-2 border"><b>Flota:</b><br>${trips} tráilers</div><div class="bg-white p-2 border text-blue-700"><b>Inicio:</b><br>${sD.toLocaleDateString()}</div><div class="bg-white p-2 border text-blue-700"><b>Fin (${days} d):</b><br>${eD.toLocaleDateString()}</div></div>`;
-            }
-        }, 1000);
+        // Refuerzo explícito de la barra inferior (Footer)
+        if (typeof State !== 'undefined') {
+            State.totalKilometers = distanceKm;
+            State.drivingHours = drivingHours;
+            State.totalMiles = distanceKm;
+            State.distLaden = distanceKm;
+        }
 
-        // 3.6 WATCHDOG LÍNEA AZUL
-        setTimeout(() => {
-            if (!window._routeWatchdog) {
-                window._routeWatchdog = setInterval(() => {
-                    const mapInst = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
-                    if (!mapInst || !mapInst._container) return; 
+        const distInput = document.getElementById('dist-total') || document.getElementById('input-distance-km');
+        updateNativeInput(distInput, distanceKm);
 
-                    if (typeof L !== 'undefined' && window.LandData?.leafletRoutePoints) {
-                        try {
-                            let hasLine = false;
-                            mapInst.eachLayer(layer => { if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) hasLine = true; });
-                            if (!hasLine) {
-                                if (window._persistentRouteLayer) try { mapInst.removeLayer(window._persistentRouteLayer); } catch(e){}
-                                window._persistentRouteLayer = L.polyline(window.LandData.leafletRoutePoints, { color: '#2563eb', weight: 6, opacity: 1.0, lineCap: 'round' }).addTo(mapInst);
-                                const iO = L.divIcon({ className: 'minimal-route-dot-origin', html: '<div style="width: 14px; height: 14px; background-color: #0f172a; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>', iconSize: [14, 14], iconAnchor: [7, 7] });
-                                const iD = L.divIcon({ className: 'minimal-route-dot-dest', html: '<div style="width: 14px; height: 14px; background-color: #2563eb; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>', iconSize: [14, 14], iconAnchor: [7, 7] });
-                                L.marker([window.LandData.origin.lat, window.LandData.origin.lon], { icon: iO }).addTo(mapInst);
-                                L.marker([window.LandData.destination.lat, window.LandData.destination.lon], { icon: iD }).addTo(mapInst);
-                                try { window._persistentRouteLayer.bringToFront(); } catch(e){}
-                                try { mapInst.fitBounds(window._persistentRouteLayer.getBounds(), { padding: [50, 50] }); } catch(e){}
-                                console.log("✅ [PASO 5] Línea azul dibujada y anclada");
-                            }
-                        } catch (err) {}
-                    }
-                }, 1000); 
-            }
-        }, 1000); 
+        const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
+        if (vStore && typeof vStore.setRouteDistanceAndDuration === 'function') {
+            vStore.setRouteDistanceAndDuration(distanceKm, drivingHours);
+            if (typeof vStore.calculateLandCostPlus === 'function') vStore.calculateLandCostPlus(true);
+        }
 
-    } catch (error) { console.error("❌ Error crítico:", error); } 
-    finally { if (button) { button.disabled = false; button.innerHTML = 'Calcular ruta terrestre'; } }
+    } catch (error) { 
+        console.error("❌ Error:", error); 
+    } finally { 
+        if (button) { button.disabled = false; button.innerHTML = 'Calcular ruta terrestre'; } 
+    }
 };
 
 async function applyMapRouteToCalculator(forceGeocode = false) {
