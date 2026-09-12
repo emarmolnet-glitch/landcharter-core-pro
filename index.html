@@ -18064,19 +18064,43 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 // =======================================================================
-// 1. CORTAFUEGOS NUCLEAR Y ESTABILIZACIÓN GLOBAL
+// 1. CORTAFUEGOS V2
 // =======================================================================
-if (!window._firewallInjected) {
-    window._firewallInjected = true;
-    window.fetch = new Proxy(window.fetch, {
-        apply: function(target, that, args) {
-            const url = (args[0] && typeof args[0] === 'string') ? args[0] : '';
-            if (url.includes('vessel-speed-parameters') || url.includes('get-market-data') || url.includes('api/route') || url.includes('pda-estimations')) {
-                return Promise.resolve(new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-            }
-            return Reflect.apply(target, that, args);
+if (!window._firewallInjectedV2) {
+    window._firewallInjectedV2 = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        const url = args[0] || '';
+        
+        // 1.1 Bloqueo del cortafuegos
+        if (typeof url === 'string' && (url.includes('vessel-speed-parameters') || url.includes('get-market-data') || url.includes('api/route') || url.includes('pda-estimations'))) {
+            return Promise.resolve(new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }));
         }
-    });
+        
+        const fetchPromise = originalFetch.apply(this, args);
+        
+        // 1.2 EL PINCHAZO (Interceptor de Red)
+        // Detectamos la respuesta exacta de la IA en la red, sin depender de la UI
+        if (typeof url === 'string' && url.includes('/api/cerebro-ia')) {
+            fetchPromise.then(response => {
+                response.clone().json().then(data => {
+                    if (data && data.action === 'update_fields' && data.payload) {
+                        const pol = data.payload.origin || data.payload.pol || '';
+                        const pod = data.payload.destination || data.payload.pod || '';
+                        if (pol && pod) {
+                            console.log(`🔥 [PINCHAZO DE RED] IA detectada: ${pol} -> ${pod}`);
+                            setTimeout(() => {
+                                if (window.runOnDemandMapRouteWorkflow) {
+                                    window.runOnDemandMapRouteWorkflow(null, pol, pod);
+                                }
+                            }, 500);
+                        }
+                    }
+                }).catch(e => {});
+            });
+        }
+        return fetchPromise;
+    };
 }
 
 window.handleDWTChange = window.handleDWTChange || function() {};
@@ -18087,67 +18111,29 @@ window.recalculateAdjustedAndSave = async function() { return true; };
 window.runMasterOptionalStage = async function() { return true; };
 
 const landCharterStyles = document.createElement('style');
-landCharterStyles.innerHTML = `
-    #decision-module, .audit-panel, #maritime-audit, [data-testid="audit-module"], .vessel-speed-panel { display: none !important; }
-`;
+landCharterStyles.innerHTML = `#decision-module, .audit-panel, #maritime-audit, [data-testid="audit-module"], .vessel-speed-panel { display: none !important; }`;
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. EL SABUESO (TRIGGER INFALIBLE BASADO EN LO QUE SE VE EN PANTALLA)
-// =======================================================================
-if (!window._domSabuesoActivo) {
-    window._domSabuesoActivo = true;
-    setInterval(() => {
-        const iPol = document.getElementById('map-port-pol') || document.getElementById('port-pol');
-        const iPod = document.getElementById('map-port-pod') || document.getElementById('port-pod');
-        
-        // Si hay texto en ambas cajas
-        if (iPol && iPod && iPol.value.trim().length > 2 && iPod.value.trim().length > 2) {
-            const rutaActual = iPol.value.trim() + " -> " + iPod.value.trim();
-            
-            // Si es una ruta que no hemos calculado todavía
-            if (window._ultimaRutaCalculada !== rutaActual) {
-                window._ultimaRutaCalculada = rutaActual; // Marcamos para no entrar en bucle
-                console.log(`🐺 [SABUESO] Ruta detectada: ${rutaActual}. Forzando ejecución...`);
-                
-                // 1. Asesinamos el desplegable de Nominatim quitando el foco y haciendo clic fuera
-                iPol.blur(); iPod.blur();
-                document.body.click();
-                
-                // Forzamos el cierre por CSS por si acaso
-                document.querySelectorAll('ul, div.absolute').forEach(popup => {
-                    if (popup.innerText && popup.innerText.includes('NOMINATIM')) {
-                        popup.style.display = 'none';
-                    }
-                });
-
-                // 2. Lanzamos el cálculo medio segundo después para que React respire
-                setTimeout(() => {
-                    if (typeof window.runOnDemandMapRouteWorkflow === 'function') {
-                        window.runOnDemandMapRouteWorkflow(null, iPol.value, iPod.value);
-                    }
-                }, 500);
-            }
-        }
-    }, 1500); // El sabueso husmea cada 1.5 segundos
-}
-
-// =======================================================================
-// 3. MOTOR TERRESTRE (CABALLO DE TROYA ORS -> OSRM)
+// 2. MOTOR TERRESTRE (CABALLO DE TROYA ORS -> OSRM)
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
+    console.log(`🚀 [PASO 1] Motor terrestre arrancado para: ${overridePol} -> ${overridePod}`);
     if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Trazando ruta...'; }
-    console.log("🚀 [PASO 1] Motor terrestre arrancado por el Sabueso.");
 
     try {
-        const polInput = document.getElementById('map-port-pol') || document.getElementById('port-pol');
-        const podInput = document.getElementById('map-port-pod') || document.getElementById('port-pod');
-        
-        let pol = overridePol || String(polInput?.value || '').trim();
-        let pod = overridePod || String(podInput?.value || '').trim();
+        let pol = overridePol;
+        let pod = overridePod;
         if (!pol || !pod) return;
 
-        // 3.1 GEOLOCALIZACIÓN
+        // 2.1 ASESINATO DE DESPLEGABLES (Para que React no se congele esperando un clic)
+        const antiPopupStyle = document.createElement('style');
+        antiPopupStyle.innerHTML = `ul, [role="listbox"], .absolute { display: none !important; pointer-events: none !important; opacity: 0 !important; }`;
+        document.head.appendChild(antiPopupStyle);
+        setTimeout(() => antiPopupStyle.remove(), 2500); // Los ocultamos 2.5s mientras procesamos
+        document.body.click();
+
+        // 2.2 GEOLOCALIZACIÓN
         const resolveCoords = async (query) => {
             const q = query.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
             try {
@@ -18163,21 +18149,23 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const originData = await resolveCoords(pol);
         const destData = await resolveCoords(pod);
         if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
+        console.log(`✅ [PASO 2] Geocoding OK: ${originData.name}`);
 
-        // 3.2 ACTUALIZAMOS REACT PERO MANTENEMOS EL DESPLEGABLE MUERTO
+        // 2.3 ACTUALIZACIÓN DE INPUTS NATIVOS
+        const polInput = document.getElementById('map-port-pol') || document.getElementById('port-pol');
+        const podInput = document.getElementById('map-port-pod') || document.getElementById('port-pod');
+        
         const updateNativeInput = (input, value) => {
             if (!input) return;
             const nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
             if (nativeSet) nativeSet.call(input, value); else input.value = value;
             input.dispatchEvent(new Event('input', { bubbles: true })); 
-            setTimeout(() => { input.blur(); document.body.click(); }, 10); // Matar desplegable
         };
         updateNativeInput(polInput, originData.name);
         updateNativeInput(podInput, destData.name);
-        
         if (typeof State !== 'undefined') { State.pol = originData.name; State.pod = destData.name; }
 
-        // 3.3 OPENROUTESERVICE HGV
+        // 2.4 OPENROUTESERVICE HGV
         const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
         const orsUrl = `https://api.openrouteservice.org/v2/directions/driving-hgv?api_key=${orsApiKey}&start=${originData.lon},${originData.lat}&end=${destData.lon},${destData.lat}`;
         
@@ -18188,23 +18176,21 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const routeFeature = data.features[0];
         const distanceMeters = Number(routeFeature.properties.segments[0].distance) || 0;
         const distanceKm = Math.round(distanceMeters / 1000);
-        const durationSeconds = Number(routeFeature.properties.segments[0].duration) || 0;
-        const drivingHours = durationSeconds / 3600;
+        const drivingHours = (Number(routeFeature.properties.segments[0].duration) || 0) / 3600;
         const leafletRoutePoints = routeFeature.geometry.coordinates.map(coord => [coord[1], coord[0]]); 
+        console.log(`✅ [PASO 3] ORS Calculado: ${distanceKm} km`);
 
-        // 3.4 EL DISFRAZ (Fake OSRM Object para que React lo dibuje y lo entienda)
-        const fakeOsrmRoute = { distance: distanceMeters, duration: durationSeconds, geometry: routeFeature.geometry, legs: [{ steps: [] }] };
-
+        // 2.5 EL DISFRAZ (Fake OSRM Object)
+        const fakeOsrmRoute = { distance: distanceMeters, duration: drivingHours * 3600, geometry: routeFeature.geometry, legs: [{ steps: [] }] };
         window.LandData = { origin: { lat: originData.lat, lon: originData.lon, name: originData.name }, destination: { lat: destData.lat, lon: destData.lon, name: destData.name }, distanceKm, totalKilometers: distanceKm, drivingHours, leafletRoutePoints };
         
-        // 3.5 ENVÍO AL NÚCLEO DE REACT
+        // 2.6 ENVÍO AL NÚCLEO DE REACT
         window.dispatchEvent(new CustomEvent('osrm:route-updated', { 
             detail: { routePoints: leafletRoutePoints, origin: window.LandData.origin, destination: window.LandData.destination, distanceKm: distanceKm, totalKilometers: distanceKm, drivingHours: drivingHours, route: fakeOsrmRoute, landData: window.LandData }
         }));
         
-        // 3.6 RELLENAR LA BARRA INFERIOR (FOOTER)
+        // 2.7 RELLENAR LA BARRA INFERIOR (FOOTER)
         if (typeof State !== 'undefined') { State.totalKilometers = distanceKm; State.drivingHours = drivingHours; State.totalMiles = distanceKm; State.distLaden = distanceKm; }
-
         const distInput = document.getElementById('dist-total') || document.getElementById('input-distance-km');
         updateNativeInput(distInput, distanceKm);
 
@@ -18213,8 +18199,9 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             vStore.setRouteDistanceAndDuration(distanceKm, drivingHours);
             if (typeof vStore.calculateLandCostPlus === 'function') vStore.calculateLandCostPlus(true);
         }
+        console.log(`✅ [PASO 4] React inyectado. La barra debería decir ${distanceKm} km`);
 
-        // 3.7 TARJETA LOGÍSTICA
+        // 2.8 TARJETA LOGÍSTICA
         let volume = 10000; 
         const volMatch = document.body.innerText.match(/(\d+)\s*(toneladas|mt|tons)/i);
         if (volMatch) volume = parseInt(volMatch[1]);
