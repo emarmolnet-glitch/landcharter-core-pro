@@ -797,21 +797,40 @@ export function ForwarderWorkspace() {
           console.error('Error calculando ruta terrestre:', err);
       }
   };
- // Exponer funciones globales de respaldo para evitar fallos en el widget de IA
+ // Exposición robusta y defensiva para evitar cualquier fallo de funciones en el widget de IA
   useEffect(() => {
-    window.runOnDemandMapRouteWorkflow = (btn, overridePol, overridePod) => {
-      if (overridePol) setPol(overridePol);
-      if (overridePod) setPod(overridePod);
+    window.runOnDemandMapRouteWorkflow = (arg1, overridePol, overridePod) => {
+      // Si el primer o segundo argumento es una función callback, ejecutarla de forma segura
+      if (typeof arg1 === 'function') {
+        try { arg1(); } catch (e) {}
+      }
+      if (typeof overridePol === 'function') {
+        try { overridePol(); } catch (e) {}
+      }
+      if (typeof overridePod === 'function') {
+        try { overridePod(); } catch (e) {}
+      }
+
+      // Si se pasan strings de origen/destino
+      if (typeof overridePol === 'string' && overridePol.trim()) {
+        setPol(overridePol);
+      }
+      if (typeof overridePod === 'string' && overridePod.trim()) {
+        setPod(overridePod);
+      }
+
       setTimeout(() => {
-        handleCalculateLandRoute();
+        handleCalculateLandRoute().catch(() => {});
       }, 200);
+
+      // IMPORTANTE: Devolver una función vacía evita que llamadas encadenadas fallen con "is not a function"
+      return () => {};
     };
 
-    // Stubs de seguridad para prevenir errores de funciones no definidas en el bundle minificado
     window.updateMapRoute = window.updateMapRoute || (() => {});
     window.refreshGlobeMap = window.refreshGlobeMap || (() => {});
     window.updateGlobeRoute = window.updateGlobeRoute || (() => {});
-    window.calculateRoute = window.calculateRoute || handleCalculateLandRoute;
+    window.calculateRoute = window.calculateRoute || (() => handleCalculateLandRoute().catch(() => {}));
 
     return () => {
       delete window.runOnDemandMapRouteWorkflow;
@@ -4537,8 +4556,8 @@ export function ForwarderWorkspace() {
         setPol={setPol}
         setPod={setPod}
         setLoadingRate={setLoadingRate}
-        setDischargeRate={setDischargingRate}
         setDischargingRate={setDischargingRate}
+        setDistanceNm={setDistanceNm}
         charteringAssessment={charteringAssessment}
         routeData={{ pol, pod, loadingRate, dischargingRate, distanceNm, actualLoadingDays, actualDischargingDays, demurrageDailyRateUsd }}
         financialData={{ subtotalFreight, subtotalFobOperations, estimatedCost, salePrice }}
