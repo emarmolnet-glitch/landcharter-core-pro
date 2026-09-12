@@ -797,6 +797,19 @@ export function ForwarderWorkspace() {
           console.error('Error calculando ruta terrestre:', err);
       }
   };
+  // Exponer la función de ruta terrestre para que Cerebro IA pueda invocarla sin errores
+  useEffect(() => {
+    window.runOnDemandMapRouteWorkflow = (btn, overridePol, overridePod) => {
+      if (overridePol) setPol(overridePol);
+      if (overridePod) setPod(overridePod);
+      setTimeout(() => {
+        handleCalculateLandRoute();
+      }, 200);
+    };
+    return () => {
+      delete window.runOnDemandMapRouteWorkflow;
+    };
+  }, [pol, pod]);
 
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
