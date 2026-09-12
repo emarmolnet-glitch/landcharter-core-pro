@@ -18064,10 +18064,10 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 // =======================================================================
-// 1. CORTAFUEGOS V4 Y PINCHAZO DE RED
+// 1. CORTAFUEGOS V5 Y PINCHAZO DE RED
 // =======================================================================
-if (!window._firewallInjectedV4) {
-    window._firewallInjectedV4 = true;
+if (!window._firewallInjectedV5) {
+    window._firewallInjectedV5 = true;
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         const url = args[0] || '';
@@ -18110,7 +18110,7 @@ landCharterStyles.innerHTML = `#decision-module, .audit-panel, #maritime-audit, 
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. MOTOR TERRESTRE + INYECCIÓN VISUAL
+// 2. MOTOR TERRESTRE + CORRECCIÓN DE MAPA Y CAJAS
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
     if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculando...'; }
@@ -18123,17 +18123,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         let pod = overridePod || String(podInput?.value || '').trim();
         if (!pol || !pod) return;
 
-        // ELIMINADA la regla destructiva (.absolute). Solo ocultamos los <ul> de las listas.
-        const antiPopup = document.createElement('style');
-        antiPopup.innerHTML = `ul[role="listbox"], .nominatim-suggester, ul.menu { display: none !important; }`;
-        document.head.appendChild(antiPopup);
-        setTimeout(() => antiPopup.remove(), 2500);
-        
-        if (polInput) polInput.blur();
-        if (podInput) podInput.blur();
-        document.body.click();
-
-        // 2.1 GEOLOCALIZACIÓN
+        // 2.1 GEOLOCALIZACIÓN LIMPIA
         const resolveCoords = async (query) => {
             const q = query.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
             try {
@@ -18150,8 +18140,15 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const destData = await resolveCoords(pod);
         if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
 
-        if (polInput) { polInput.value = originData.name; polInput.dispatchEvent(new Event('input', {bubbles: true})); }
-        if (podInput) { podInput.value = destData.name; podInput.dispatchEvent(new Event('input', {bubbles: true})); }
+        // Rellenar cajas SIN disparar eventos de búsqueda para evitar el "Buscando ubicación..."
+        const setCleanValue = (input, val) => {
+            if (!input) return;
+            const nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            if (nativeSet) nativeSet.call(input, val); else input.value = val;
+            input.blur();
+        };
+        setCleanValue(polInput, originData.name);
+        setCleanValue(podInput, destData.name);
 
         // 2.2 OPENROUTESERVICE
         const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
@@ -18171,7 +18168,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const trips = Math.ceil(volume / 25);
         const days = Math.ceil(trips / (Math.max(1, Math.floor(9 / ((drivingHours * 2) + 4))) * 5)); 
 
-        // 2.4 DIBUJAR LÍNEA EN EL MAPA MANUALMENTE
+        // 2.4 DIBUJAR LÍNEA Y FORZAR RECARGA DEL MAPA (Adiós pantalla en blanco)
         const mapInst = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
         if (mapInst && typeof L !== 'undefined') {
             if (window._persistentRouteLayer) try { mapInst.removeLayer(window._persistentRouteLayer); } catch(e){}
@@ -18187,6 +18184,10 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             const m2 = L.marker([destData.lat, destData.lon], { icon: iD }).addTo(mapInst);
             window._currentOsrmMarkers = [m1, m2];
             try { window._persistentRouteLayer.bringToFront(); } catch(e){}
+
+            // 🔥 CLAVE ABSOLUTA: Obligamos a Leaflet a recalcular azulejos para que el mapa vuelva a verse
+            setTimeout(() => { mapInst.invalidateSize(); }, 200);
+            setTimeout(() => { mapInst.invalidateSize(); }, 800);
         }
 
         // 2.5 FOOTER MANUAL
@@ -18225,7 +18226,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             }
         }, 800);
 
-        // 2.7 ENVIAR EVENTOS A REACT 
+        // 2.7 EVENTOS A REACT
         const fakeOsrmRoute = { distance: distanceMeters, duration: drivingHours * 3600, geometry: data.features[0].geometry, legs: [{ steps: [] }] };
         window.LandData = { origin: originData, destination: destData, distanceKm, totalKilometers: distanceKm, drivingHours, leafletRoutePoints };
         window.dispatchEvent(new CustomEvent('osrm:route-updated', { detail: { routePoints: leafletRoutePoints, origin: originData, destination: destData, distanceKm, totalKilometers: distanceKm, drivingHours, route: fakeOsrmRoute, landData: window.LandData } }));
