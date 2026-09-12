@@ -18180,20 +18180,44 @@ async function runOnDemandMapRouteWorkflow(button) {
         }
 
         const route = data.routes[0];
-        const distanceKm = Math.round(route.distance / 1000);
-        const drivingHours = route.duration / 3600;
+        const distanceMeters = Number(route.distance) || 0;
+        const distanceKm = Math.round(distanceMeters / 1000);
+        const totalKilometers = distanceMeters / 1000;
+        const durationSeconds = Number(route.duration) || 0;
+        const drivingHours = durationSeconds / 3600;
         const leafletRoutePoints = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
         
         let totalTollsCost = 0;
+        const tollBreakdown = [];
         if (route.legs && route.legs[0] && route.legs[0].steps) {
-            route.legs[0].steps.forEach(step => {
+            route.legs[0].steps.forEach((step, idx) => {
+                const stepDistKm = (Number(step.distance) || 0) / 1000;
                 const stepName = String(step.name || step.ref || '').trim();
                 if (/(?:autopista|ap-|peaje|toll)/i.test(stepName) || (step.ref && /^ap-?\d+/i.test(step.ref))) {
-                    totalTollsCost += ((step.distance / 1000) * 0.19);
+                    const cost = Math.round((stepDistKm * 0.19) * 100) / 100;
+                    totalTollsCost += cost;
+                    tollBreakdown.push({ stepIndex: idx, name: stepName, distanceKm: stepDistKm, costEur: cost });
                 }
             });
         }
+        totalTollsCost = Math.round(totalTollsCost * 100) / 100;
 
+        // 📦 ESTRUCTURA COMPLETA DE DATOS PARA EL PANEL LATERAL Y REACT
+        window.LandData = {
+            origin: { query: pol, lat: polCoords.lat, lon: polCoords.lon, displayName: pol },
+            destination: { query: pod, lat: podCoords.lat, lon: podCoords.lon, displayName: pod },
+            distanceMeters,
+            totalKilometers,
+            distanceKm,
+            durationSeconds,
+            drivingHours,
+            totalTollsCost,
+            tollBreakdown,
+            leafletRoutePoints,
+            timestamp: new Date().toISOString()
+        };
+
+        // 🎨 RENDERIZADO VISUAL EN LEAFLET (LÍNEA ROJA Y PUNTOS)
         const mapInstance = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
         if (mapInstance && typeof L !== 'undefined') {
             if (window._currentOsrmRouteLayer) try { mapInstance.removeLayer(window._currentOsrmRouteLayer); } catch (_) {}
@@ -18229,20 +18253,32 @@ async function runOnDemandMapRouteWorkflow(button) {
             setTimeout(() => { if (polyline.bringToFront) polyline.bringToFront(); }, 200);
         }
 
+        // 📋 RENDERIZAR EL PANEL DE ITINERARIO LATERAL DERECHO
+        if (typeof renderRouteItineraryRightPanel === 'function') {
+            renderRouteItineraryRightPanel(window.LandData);
+        }
+
+        // 📢 NOTIFICAR A REACT Y ACTUALIZAR ESTADOS
         window.dispatchEvent(new CustomEvent('osrm:route-updated', {
             detail: {
                 routePoints: leafletRoutePoints,
                 origin: { lat: polCoords.lat, lon: polCoords.lon, name: pol },
                 destination: { lat: podCoords.lat, lon: podCoords.lon, name: pod },
                 distanceKm,
-                totalKilometers: distanceKm,
+                totalKilometers,
                 drivingHours,
-                route
+                route,
+                landData: window.LandData
             }
         }));
 
-        if (typeof State !== 'undefined') { State.totalKilometers = distanceKm; State.drivingHours = drivingHours; }
-        
+        if (typeof State !== 'undefined') {
+            State.totalKilometers = totalKilometers;
+            State.drivingHours = drivingHours;
+            State.totalMiles = distanceKm;
+            State.distLaden = distanceKm;
+        }
+
         const distInput = document.getElementById('dist-total') || document.getElementById('input-distance-km');
         if (distInput) { distInput.value = distanceKm; distInput.dispatchEvent(new Event('input', {bubbles: true})); }
 
@@ -18263,7 +18299,7 @@ async function runOnDemandMapRouteWorkflow(button) {
         
         const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
         if (vStore && typeof vStore.setRouteDistanceAndDuration === 'function') {
-            vStore.setRouteDistanceAndDuration(distanceKm, drivingHours);
+            vStore.setRouteDistanceAndDuration(totalKilometers, drivingHours);
             if (typeof vStore.calculateLandCostPlus === 'function') vStore.calculateLandCostPlus(true);
         }
 
