@@ -18064,10 +18064,10 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 // =======================================================================
-// 1. CORTAFUEGOS V5 Y PINCHAZO DE RED
+// 1. CORTAFUEGOS V6 Y PINCHAZO DE RED
 // =======================================================================
-if (!window._firewallInjectedV5) {
-    window._firewallInjectedV5 = true;
+if (!window._firewallInjectedV6) {
+    window._firewallInjectedV6 = true;
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         const url = args[0] || '';
@@ -18110,7 +18110,7 @@ landCharterStyles.innerHTML = `#decision-module, .audit-panel, #maritime-audit, 
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. MOTOR TERRESTRE + CORRECCIÓN DE MAPA Y CAJAS
+// 2. MOTOR TERRESTRE + DESPERTADOR DE MAPA Y FOOTER
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
     if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculando...'; }
@@ -18123,7 +18123,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         let pod = overridePod || String(podInput?.value || '').trim();
         if (!pol || !pod) return;
 
-        // 2.1 GEOLOCALIZACIÓN LIMPIA
+        // 2.1 GEOLOCALIZACIÓN
         const resolveCoords = async (query) => {
             const q = query.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
             try {
@@ -18140,15 +18140,8 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const destData = await resolveCoords(pod);
         if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
 
-        // Rellenar cajas SIN disparar eventos de búsqueda para evitar el "Buscando ubicación..."
-        const setCleanValue = (input, val) => {
-            if (!input) return;
-            const nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-            if (nativeSet) nativeSet.call(input, val); else input.value = val;
-            input.blur();
-        };
-        setCleanValue(polInput, originData.name);
-        setCleanValue(podInput, destData.name);
+        if (polInput) { polInput.value = originData.name; polInput.blur(); }
+        if (podInput) { podInput.value = destData.name; podInput.blur(); }
 
         // 2.2 OPENROUTESERVICE
         const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
@@ -18162,13 +18155,13 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const leafletRoutePoints = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]); 
 
         // 2.3 CÁLCULO DÍAS
-        let volume = 10000; 
+        let volume = 5000; 
         const volMatch = document.body.innerText.match(/(\d+)\s*(toneladas|mt|tons)/i);
         if (volMatch) volume = parseInt(volMatch[1]);
         const trips = Math.ceil(volume / 25);
         const days = Math.ceil(trips / (Math.max(1, Math.floor(9 / ((drivingHours * 2) + 4))) * 5)); 
 
-        // 2.4 DIBUJAR LÍNEA Y FORZAR RECARGA DEL MAPA (Adiós pantalla en blanco)
+        // 2.4 RENDERIZADO DEL MAPA Y RECARGA FORZADA (Adiós pantalla en blanco)
         const mapInst = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
         if (mapInst && typeof L !== 'undefined') {
             if (window._persistentRouteLayer) try { mapInst.removeLayer(window._persistentRouteLayer); } catch(e){}
@@ -18185,27 +18178,31 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             window._currentOsrmMarkers = [m1, m2];
             try { window._persistentRouteLayer.bringToFront(); } catch(e){}
 
-            // 🔥 CLAVE ABSOLUTA: Obligamos a Leaflet a recalcular azulejos para que el mapa vuelva a verse
-            setTimeout(() => { mapInst.invalidateSize(); }, 200);
-            setTimeout(() => { mapInst.invalidateSize(); }, 800);
+            // 🔥 DISPARADORES MÚLTIPLES DE INVALIDATE SIZE PARA RENDERIZAR LAS TESELAS DEL MAPA
+            [100, 300, 600, 1200, 2000].forEach(ms => {
+                setTimeout(() => { if (mapInst && typeof mapInst.invalidateSize === 'function') mapInst.invalidateSize(true); }, ms);
+            });
         }
 
-        // 2.5 FOOTER MANUAL
-        document.querySelectorAll('div, span, p').forEach(el => {
-            const text = el.innerText || '';
-            if(text.includes('ORIGEN') && text.includes('TBA')) el.innerHTML = el.innerHTML.replace('TBA', originData.name.split(',')[0]);
-            if(text.includes('DESTINO') && text.includes('TBA')) el.innerHTML = el.innerHTML.replace('TBA', destData.name.split(',')[0]);
-            if(text.includes('KILOMETROS') && (text.includes('0 km') || text.includes('0km') || text.includes('0\nkm'))) {
-                el.innerHTML = el.innerHTML.replace(/0\s*km/i, distanceKm + ' km');
-            }
-        });
+        // 2.5 ACTUALIZACIÓN DEL FOOTER INFERIOR (KILÓMETROS)
+        setTimeout(() => {
+            const footerCards = document.querySelectorAll('div');
+            footerCards.forEach(card => {
+                const txt = card.innerText || '';
+                if (txt.includes('KILÓMETROS') || txt.includes('KILOMETROS')) {
+                    const kmSpan = card.querySelector('span, p, div:last-child');
+                    if (kmSpan) kmSpan.innerText = distanceKm + ' km';
+                    else card.innerText = "KILÓMETROS\n" + distanceKm + " km";
+                }
+            });
+        }, 500);
 
         // 2.6 CHAT TEXTOS
         setTimeout(() => {
             const pTags = document.querySelectorAll('p, div, span');
             let targetBubble = null;
             for(let el of pTags) {
-                if(el.innerText && el.innerText.includes('ADR/Peligrosidad') && el.innerText.includes('Origen OK')) {
+                if(el.innerText && el.innerText.includes('Origen OK')) {
                     targetBubble = el;
                     break;
                 }
