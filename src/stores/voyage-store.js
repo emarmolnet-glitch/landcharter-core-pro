@@ -68,6 +68,11 @@ const EMPTY_DRAFT = Object.freeze({
     vehicleTypes: [],
     updatedAt: null,
     lastSource: '',
+    // --- NUEVAS PROPIEDADES TERRESTRES ---
+    routePoints: [],
+    originCoord: null,
+    destinationCoord: null,
+    isLandRouteActive: false,
 });
 
 function cleanText(value) {
