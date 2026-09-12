@@ -18109,9 +18109,13 @@ if (!window._firewallInjectedV13) {
                         const pol = data.payload.origin || data.payload.pol || '';
                         const pod = data.payload.destination || data.payload.pod || '';
                         if (pol && pod) {
-                            console.log(`🔥 [ARQUITECTURA V13] IA detectada: ${pol} -> ${pod}`);
+                            console.log(`🔥 IA detectada: ${pol} -> ${pod}`);
                             setTimeout(() => {
-                                if (window.runOnDemandMapRouteWorkflow) window.runOnDemandMapRouteWorkflow(null, pol, pod);
+                                if (window.calculateLandRouteByCoordinates) {
+                                    window.calculateLandRouteByCoordinates(pol, pod);
+                                } else if (window.runOnDemandMapRouteWorkflow) {
+                                    window.runOnDemandMapRouteWorkflow(null, pol, pod);
+                                }
                             }, 300);
                         }
                     }
@@ -18125,154 +18129,657 @@ if (!window._firewallInjectedV13) {
 const landCharterStyles = document.createElement('style');
 landCharterStyles.innerHTML = `
     #decision-module, .audit-panel, #maritime-audit, [data-testid="audit-module"], .vessel-speed-panel { display: none !important; }
-    ul[role="listbox"], .nominatim-suggester, .absolute ul { display: none !important; pointer-events: none !important; }
+    ul[role="listbox"], .nominatim-suggester, .absolute ul, .port-autocomplete-menu[hidden], .autocomplete-list[hidden] { display: none !important; pointer-events: none !important; }
+    .port-autocomplete-anchor:has(input:not(:focus)) .port-autocomplete-menu { display: none !important; }
 `;
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. MOTOR TERRESTRE DE COMPROMISO PROGRAMÁTICO (V13)
+// 2. MOTOR TERRESTRE DEFINITIVO Y ARQUITECTURA DE ENRUTAMIENTO OSRM / ORS
 // =======================================================================
-window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
-    if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculando ruta...'; }
+async function runOnDemandMapRouteWorkflow(button) {
+    let overridePol = arguments[1] || null;
+    let overridePod = arguments[2] || null;
+
+    let btnElement = (button && typeof button === 'object' && (button.nodeType || button.classList || button.tagName)) ? button : null;
+    if (!btnElement && button && typeof button === 'object' && ('lat' in button || 'latitude' in button || 'lon' in button || 'lng' in button)) {
+        overridePod = overridePol;
+        overridePol = button;
+    }
+
+    if (typeof validateGeographicLaycanDates === 'function' && !validateGeographicLaycanDates()) return;
+    if (btnElement?.disabled) return;
+
+    const originalContent = btnElement?.innerHTML || '';
+    if (btnElement) {
+        btnElement.disabled = true;
+        btnElement.dataset.calculating = 'true';
+        btnElement.setAttribute('aria-busy', 'true');
+        btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Trazando ruta...';
+    }
 
     try {
-        const polInput = document.getElementById('map-port-pol') || document.getElementById('port-pol');
-        const podInput = document.getElementById('map-port-pod') || document.getElementById('port-pod');
-        
-        let pol = overridePol || String(polInput?.value || '').trim();
-        let pod = overridePod || String(podInput?.value || '').trim();
-        if (!pol || !pod) return;
-
-        // 2.1 GEOLOCALIZACIÓN DIRECTA (Evita el bloqueo por el menú desplegable de Nominatim)
-        const resolveCoords = async (query) => {
-            const q = query.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-            try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data?.length > 0) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name };
+        const normalizeCoord = (input, fallbackName) => {
+            if (!input) return null;
+            if (typeof input === 'object') {
+                const lat = Number(input.lat ?? input.latitude);
+                const lon = Number(input.lon ?? input.lng ?? input.longitude);
+                if (Number.isFinite(lat) && Number.isFinite(lon)) {
+                    const name = input.name || input.displayName || fallbackName || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+                    return { lat, lon, name, displayName: name };
                 }
-            } catch(e) {}
+            }
             return null;
         };
 
-        const originData = await resolveCoords(pol);
-        const destData = await resolveCoords(pod);
-        if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
+        const directPol = normalizeCoord(overridePol, 'Origen');
+        const directPod = normalizeCoord(overridePod, 'Destino');
 
-        // Compromiso programático: inyectar el valor y desenfocar para cerrar menús huérfanos
-        const commitInputValue = (input, val) => {
-            if (!input) return;
-            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-            if (nativeSetter) nativeSetter.call(input, val); else input.value = val;
-            input.blur();
+        const polInput = document.getElementById('map-port-pol') || document.getElementById('port-pol');
+        const podInput = document.getElementById('map-port-pod') || document.getElementById('port-pod');
+        const pol = (directPol?.name) || (typeof overridePol === 'string' && overridePol.trim()) || String(polInput?.value || document.getElementById('port-pol')?.value || (typeof State !== 'undefined' ? State.pol : '') || '').trim();
+        const pod = (directPod?.name) || (typeof overridePod === 'string' && overridePod.trim()) || String(podInput?.value || document.getElementById('port-pod')?.value || (typeof State !== 'undefined' ? State.pod : '') || '').trim();
+        if (!pol || !pod) {
+            throw new Error('Origen y Destino son obligatorios para calcular la ruta terrestre.');
+        }
+
+        // 🚀 GEOLOCALIZADOR TERRESTRE DUAL CON DICCIONARIO PRIORITARIO Y FALLBACK NOMINATIM/PHOTON
+        const getCoordinates = async (query) => {
+            if (!query) return null;
+            const q = query.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            const dic = {
+                'moriles': { lat: 37.4354, lon: -4.6096, name: 'Moriles, Córdoba, Andalucía, España', displayName: 'Moriles, Córdoba, Andalucía, España' },
+                'prat': { lat: 41.3275, lon: 2.0959, name: 'El Prat de Llobregat, Baix Llobregat, Barcelona, Catalunya, España', displayName: 'El Prat de Llobregat, Baix Llobregat, Barcelona, Catalunya, España' },
+                'setif': { lat: 36.1893, lon: 5.4047, name: 'Sétif, Daïra Sétif, Sétif, Algérie', displayName: 'Sétif, Daïra Sétif, Sétif, Algérie' }, 
+                'bejaia': { lat: 36.7512, lon: 5.0644, name: 'Béjaïa, Daïra Béjaïa, Béjaïa, Algérie', displayName: 'Béjaïa, Daïra Béjaïa, Béjaïa, Algérie' }
+            };
+            for (const key in dic) {
+                if (q.includes(key)) {
+                    return { ...dic[key], displayName: dic[key].displayName || dic[key].name };
+                }
+            }
+            try {
+                const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`, {
+                    headers: { Accept: 'application/json' }
+                });
+                if (nomRes.ok) {
+                    const data = await nomRes.json();
+                    if (data?.length > 0) {
+                        const fullName = data[0].display_name || query;
+                        return {
+                            lat: parseFloat(data[0].lat),
+                            lon: parseFloat(data[0].lon),
+                            name: fullName,
+                            displayName: fullName
+                        };
+                    }
+                }
+            } catch (e) {}
+            try {
+                const phoRes = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=1`);
+                if (phoRes.ok) {
+                    const data = await phoRes.json();
+                    if (data?.features?.length > 0) {
+                        const feat = data.features[0];
+                        const props = feat.properties || {};
+                        const formattedName = [props.name, props.city, props.state, props.country].filter(Boolean).join(', ') || props.name || query;
+                        return {
+                            lat: feat.geometry.coordinates[1],
+                            lon: feat.geometry.coordinates[0],
+                            name: formattedName,
+                            displayName: formattedName
+                        };
+                    }
+                }
+            } catch (e) {}
+            return null;
         };
 
-        commitInputValue(polInput, originData.name);
-        commitInputValue(podInput, destData.name);
+        let polCoords = directPol || {
+            lat: parseFloat(polInput?.dataset?.selectedLatitude || polInput?.dataset?.lat),
+            lon: parseFloat(polInput?.dataset?.selectedLongitude || polInput?.dataset?.lon),
+            displayName: pol
+        };
+        let podCoords = directPod || {
+            lat: parseFloat(podInput?.dataset?.selectedLatitude || podInput?.dataset?.lat),
+            lon: parseFloat(podInput?.dataset?.selectedLongitude || podInput?.dataset?.lon),
+            displayName: pod
+        };
 
-        // 2.2 OPENROUTESERVICE HGV
-        const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
-        const orsUrl = `https://api.openrouteservice.org/v2/directions/driving-hgv?api_key=${orsApiKey}&start=${originData.lon},${originData.lat}&end=${destData.lon},${destData.lat}`;
-        const response = await fetch(orsUrl);
-        const data = await response.json();
-        
-        if (!data?.features?.[0]) throw new Error('Fallo en la respuesta de OpenRouteService.');
-
-        const distanceMeters = Number(data.features[0].properties.segments[0].distance) || 0;
-        const distanceKm = Math.round(distanceMeters / 1000);
-        const drivingHours = (Number(data.features[0].properties.segments[0].duration) || 0) / 3600;
-
-        // 2.3 CÁLCULO LOGÍSTICO Y DÍAS
-        let volume = 5000; 
-        const volMatch = document.body.innerText.match(/(\d+)\s*(toneladas|mt|tons)/i);
-        if (volMatch) volume = parseInt(volMatch[1]);
-        const trips = Math.ceil(volume / 25);
-        const days = Math.ceil(trips / (Math.max(1, Math.floor(9 / ((drivingHours * 2) + 4))) * 5)); 
-
-        // 2.4 ACTUALIZACIÓN DE ESTADOS GLOBALES Y ZUSTAND
-        if (typeof window.State !== 'undefined') {
-            window.State.pol = originData.name;
-            window.State.pod = destData.name;
-            window.State.totalKilometers = distanceKm;
-            window.State.drivingHours = drivingHours;
-            window.State.totalMiles = distanceKm;
-            window.State.distLaden = distanceKm;
+        if (!Number.isFinite(polCoords.lat) || !Number.isFinite(polCoords.lon) || !polCoords.displayName || polCoords.displayName.length < 20) {
+            const resolvedPol = await getCoordinates(pol);
+            if (resolvedPol) {
+                polCoords = {
+                    lat: resolvedPol.lat,
+                    lon: resolvedPol.lon,
+                    displayName: resolvedPol.displayName || resolvedPol.name || pol,
+                    name: resolvedPol.displayName || resolvedPol.name || pol
+                };
+            }
+        }
+        if (!Number.isFinite(podCoords.lat) || !Number.isFinite(podCoords.lon) || !podCoords.displayName || podCoords.displayName.length < 20) {
+            const resolvedPod = await getCoordinates(pod);
+            if (resolvedPod) {
+                podCoords = {
+                    lat: resolvedPod.lat,
+                    lon: resolvedPod.lon,
+                    displayName: resolvedPod.displayName || resolvedPod.name || pod,
+                    name: resolvedPod.displayName || resolvedPod.name || pod
+                };
+            }
         }
 
-        if (typeof window.SeaCharterStore?.set === 'function') {
-            window.SeaCharterStore.set({
-                pol: originData.name,
-                pod: destData.name,
-                totalKilometers: distanceKm,
-                drivingHours: drivingHours,
-                distLaden: distanceKm,
-                distTotal: distanceKm
+        if (!Number.isFinite(polCoords.lat) || !Number.isFinite(polCoords.lon) || !Number.isFinite(podCoords.lat) || !Number.isFinite(podCoords.lon)) {
+            throw new Error('No se pudieron obtener las coordenadas de Origen y Destino.');
+        }
+
+        const polDisplayName = polCoords.displayName || polCoords.name || pol;
+        const podDisplayName = podCoords.displayName || podCoords.name || pod;
+
+        // Función para cerrar y ocultar inmediatamente cualquier menú o lista de autocompletado
+        const forceCloseAutocompleteDropdowns = () => {
+            ['map-port-pol', 'port-pol', 'map-port-pod', 'port-pod'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    try { el.blur(); } catch (_) {}
+                    if (typeof closePortAutocomplete === 'function') {
+                        try { closePortAutocomplete(el); } catch (_) {}
+                    }
+                    if (typeof setPortSearchState === 'function') {
+                        try { setPortSearchState(el, false); } catch (_) {}
+                    }
+                    if (typeof portAutocompleteTimers !== 'undefined' && portAutocompleteTimers?.delete) {
+                        try {
+                            clearTimeout(portAutocompleteTimers.get(el));
+                            portAutocompleteTimers.delete(el);
+                        } catch (_) {}
+                    }
+                }
             });
+            // Ocultar cualquier contenedor de sugerencias del DOM (.port-autocomplete-menu, .autocomplete-list, ul[role="listbox"], etc.)
+            document.querySelectorAll('.port-autocomplete-menu, .autocomplete-list, ul[role="listbox"], .nominatim-suggester, .awesomplete > ul').forEach(menu => {
+                try {
+                    menu.hidden = true;
+                    menu.style.display = 'none';
+                } catch (_) {}
+            });
+        };
+
+        // Actualizar visualmente inputs si existen en el DOM con el string completo geocodificado de Nominatim
+        ['map-port-pol', 'port-pol'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = polDisplayName;
+                el.dataset.selectedLatitude = polCoords.lat;
+                el.dataset.selectedLongitude = polCoords.lon;
+                el.dataset.lat = polCoords.lat;
+                el.dataset.lon = polCoords.lon;
+                el.dataset.selectedPortLabel = polDisplayName;
+            }
+        });
+        ['map-port-pod', 'port-pod'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = podDisplayName;
+                el.dataset.selectedLatitude = podCoords.lat;
+                el.dataset.selectedLongitude = podCoords.lon;
+                el.dataset.lat = podCoords.lat;
+                el.dataset.lon = podCoords.lon;
+                el.dataset.selectedPortLabel = podDisplayName;
+            }
+        });
+
+        // Forzar cierre instantáneo del autocompletado y quitar foco programático para experiencia zero-touch
+        forceCloseAutocompleteDropdowns();
+
+        // 3. Petición a OSRM con Sistema de Redundancia (Espejos)
+        const endpoints = [
+            "https://router.project-osrm.org/route/v1/driving/",
+            "https://routing.openstreetmap.de/routed-car/route/v1/driving/"
+        ];
+
+        let data = null;
+        let fetchError = null;
+
+        for (const baseUrl of endpoints) {
+            try {
+                const osrmUrl = `${baseUrl}${polCoords.lon},${polCoords.lat};${podCoords.lon},${podCoords.lat}?overview=full&geometries=geojson&steps=true`;
+                console.log(`[Workflow] Intentando conectar con: ${baseUrl}`);
+                const response = await fetch(osrmUrl);
+                if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+                data = await response.json();
+                if (data && data.routes && data.routes.length > 0) {
+                    console.log(`[Workflow] Éxito conectando con ${baseUrl}`);
+                    break;
+                }
+            } catch (err) {
+                console.warn(`[Workflow] Falló el servidor ${baseUrl}:`, err.message);
+                fetchError = err;
+            }
         }
 
-        const voyageStoreInstance = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
-        if (voyageStoreInstance) {
-            if (typeof voyageStoreInstance.setRouteDistanceAndDuration === 'function') {
-                voyageStoreInstance.setRouteDistanceAndDuration(distanceKm, drivingHours);
-            }
-            if (typeof voyageStoreInstance.calculateLandCostPlus === 'function') {
-                voyageStoreInstance.calculateLandCostPlus(true);
+        // Fallback redundante a OpenRouteService HGV si OSRM no responde
+        if (!data || !data.routes || !data.routes.length) {
+            try {
+                const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
+                const orsUrl = `https://api.openrouteservice.org/v2/directions/driving-hgv?api_key=${orsApiKey}&start=${polCoords.lon},${polCoords.lat}&end=${podCoords.lon},${podCoords.lat}`;
+                const orsRes = await fetch(orsUrl);
+                if (orsRes.ok) {
+                    const orsData = await orsRes.json();
+                    if (orsData?.features?.[0]) {
+                        const feat = orsData.features[0];
+                        const seg = feat.properties?.segments?.[0] || {};
+                        data = {
+                            routes: [{
+                                distance: seg.distance || 0,
+                                duration: seg.duration || 0,
+                                legs: [{
+                                    steps: (seg.steps || []).map(s => ({
+                                        name: s.instruction || '',
+                                        distance: s.distance || 0,
+                                        duration: s.duration || 0
+                                    }))
+                                }],
+                                geometry: {
+                                    coordinates: feat.geometry?.coordinates || []
+                                }
+                            }]
+                        };
+                    }
+                }
+            } catch (orsErr) {
+                console.warn('[Workflow] Falló fallback OpenRouteService:', orsErr);
             }
         }
 
-        if (typeof window.updateRouteSummary === 'function') { window.updateRouteSummary(); }
+        // Failsafe Haversine si OSRM no responde
+        if (!data || !data.routes || !data.routes.length) {
+            console.error("[Workflow] Todos los servidores OSRM han fallado. Aplicando Fallback de emergencia.");
+            const R = 6371; // Radio de la Tierra en km
+            const dLat = (podCoords.lat - polCoords.lat) * Math.PI / 180;
+            const dLon = (podCoords.lon - polCoords.lon) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(polCoords.lat * Math.PI / 180) * Math.cos(podCoords.lat * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const straightKm = R * c;
 
-        // 2.5 TRANSFORMACIÓN GEOMÉTRICA [lon,lat] -> [lat,lon] Y DISPARO DE CARTOGRAFÍA
-        const rawCoords = data.features[0].geometry.coordinates;
-        const routePoints = rawCoords.map(coord => [coord[1], coord[0]]);
+            data = {
+                routes: [{
+                    distance: straightKm * 1000 * 1.3,
+                    duration: (straightKm * 1.3 / 80) * 3600,
+                    legs: [{ steps: [] }],
+                    geometry: {
+                        coordinates: [
+                            [polCoords.lon, polCoords.lat],
+                            [podCoords.lon, podCoords.lat]
+                        ]
+                    }
+                }]
+            };
+        }
 
-        const originPayload = { lat: originData.lat, lon: originData.lon, name: originData.name };
-        const destinationPayload = { lat: destData.lat, lon: destData.lon, name: destData.name };
+        const osrmData = data;
+        const route = osrmData.routes[0];
+        const distanceMeters = Number(route.distance) || 0;
+        const totalKilometers = distanceMeters / 1000;
+        const durationSeconds = Number(route.duration) || 0;
+        const drivingHours = durationSeconds / 3600;
+        const distanceKm = Math.round(totalKilometers);
+        const geojsonCoordinates = route.geometry && route.geometry.coordinates ? route.geometry.coordinates : [];
+        const leafletRoutePoints = geojsonCoordinates.map(coord => [coord[1], coord[0]]);
 
-        window.dispatchEvent(new CustomEvent('osrm:route-updated', { 
-            detail: { 
-                routePoints: routePoints,           
-                origin: originPayload,              
-                destination: destinationPayload,    
-                distanceKm: distanceKm,
-                totalKilometers: distanceKm,
-                drivingHours: drivingHours
+        // Enriquecimiento de routeSteps (Peajes y Tacógrafo)
+        const rawSteps = (route.legs && route.legs[0] && route.legs[0].steps) || [];
+        let accumulatedDistanceMeters = 0;
+        let accumulatedDurationSeconds = 0;
+        let totalTollsCost = 0;
+        const tollBreakdown = [];
+        const tachographMilestones = [];
+        let nextTachographThresholdHours = 4.5;
+
+        const enrichedRouteSteps = rawSteps.map((step, idx) => {
+            const stepDistMeters = Number(step.distance) || 0;
+            const stepDurSeconds = Number(step.duration) || 0;
+            const stepDistKm = stepDistMeters / 1000;
+            const stepDurHours = stepDurSeconds / 3600;
+
+            accumulatedDistanceMeters += stepDistMeters;
+            accumulatedDurationSeconds += stepDurSeconds;
+
+            const accumulatedKm = accumulatedDistanceMeters / 1000;
+            const accumulatedHours = accumulatedDurationSeconds / 3600;
+
+            // Detección automática de tramos de peaje analizando el nombre de la vía
+            const stepName = String(step.name || step.ref || '').trim();
+            const isToll = /(?:autopista|ap-|peaje|toll)/i.test(stepName) ||
+                           Boolean(step.ref && /^ap-?\d+/i.test(step.ref));
+
+            let tollCost = 0;
+            if (isToll && stepDistKm > 0) {
+                tollCost = Math.round((stepDistKm * 0.19) * 100) / 100;
+                totalTollsCost += tollCost;
+                tollBreakdown.push({
+                    stepIndex: idx,
+                    name: stepName || `Tramo Peaje (Km ${accumulatedKm.toFixed(1)})`,
+                    distanceKm: Math.round(stepDistKm * 10) / 10,
+                    costEur: tollCost
+                });
+            }
+
+            // Hitos obligatorios de tacógrafo cada 4.5 horas acumuladas de conducción (CE 561/2006)
+            const stepTachographAlerts = [];
+            while (accumulatedHours >= nextTachographThresholdHours) {
+                const milestoneNum = tachographMilestones.length + 1;
+                const milestoneKm = Math.round(accumulatedKm);
+                const milestoneHours = Math.round(nextTachographThresholdHours * 10) / 10;
+                const alertText = `Hito ${milestoneNum} (Km ${milestoneKm} · ${milestoneHours}h): Parada obligatoria de 45 minutos (Tacógrafo CE 561/2006)`;
+                const milestoneObj = {
+                    milestone: milestoneNum,
+                    km: milestoneKm,
+                    drivingHours: milestoneHours,
+                    breakMinutes: 45,
+                    stepIndex: idx,
+                    alert: alertText
+                };
+                tachographMilestones.push(milestoneObj);
+                stepTachographAlerts.push(alertText);
+                nextTachographThresholdHours += 4.5;
+            }
+
+            return {
+                ...step,
+                stepIndex: idx,
+                name: stepName || `Tramo ${idx + 1}`,
+                distanceKm: Math.round(stepDistKm * 100) / 100,
+                durationMinutes: Math.round((stepDurSeconds / 60) * 10) / 10,
+                accumulatedKm: Math.round(accumulatedKm * 10) / 10,
+                accumulatedHours: Math.round(accumulatedHours * 100) / 100,
+                isToll,
+                tollCost,
+                tachographAlerts: stepTachographAlerts
+            };
+        });
+
+        totalTollsCost = Math.round(totalTollsCost * 100) / 100;
+
+        // Guarda la estructura completa en window.LandData
+        window.LandData = {
+            origin: {
+                query: polCoords.name || pol,
+                lat: polCoords.lat,
+                lon: polCoords.lon,
+                displayName: polCoords.displayName || polCoords.name || pol
+            },
+            destination: {
+                query: podCoords.name || pod,
+                lat: podCoords.lat,
+                lon: podCoords.lon,
+                displayName: podCoords.displayName || podCoords.name || pod
+            },
+            distanceMeters,
+            totalKilometers,
+            distanceKm,
+            durationSeconds,
+            drivingHours,
+            totalTollsCost,
+            tollBreakdown,
+            tachographMilestones,
+            routeSteps: enrichedRouteSteps,
+            geojsonCoordinates,
+            leafletRoutePoints,
+            timestamp: new Date().toISOString()
+        };
+
+        // Renderizado visual en Leaflet
+        const mapInstance = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
+        if (mapInstance && typeof L !== 'undefined') {
+            if (window._currentOsrmRouteLayer) {
+                try { mapInstance.removeLayer(window._currentOsrmRouteLayer); } catch (_) {}
+            }
+            if (window._currentOsrmMarkers) {
+                window._currentOsrmMarkers.forEach(m => { try { mapInstance.removeLayer(m); } catch (_) {} });
+            }
+            window._currentOsrmMarkers = [];
+
+            mapInstance.eachLayer(layer => {
+                if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
+                    try { mapInstance.removeLayer(layer); } catch (_) {}
+                }
+            });
+
+            if (leafletRoutePoints.length > 0) {
+                const polyline = L.polyline(leafletRoutePoints, {
+                    color: '##2563eb',
+                    weight: 6,
+                    opacity: 1.0,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                    className: 'leaflet-route-highlight'
+                }).addTo(mapInstance);
+
+                window._currentOsrmRouteLayer = polyline;
+                mapInstance.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+
+                const iconOrigin = L.divIcon({
+                    className: 'minimal-route-dot-origin',
+                    html: '<div style="width: 14px; height: 14px; background-color: #0f172a; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
+                    iconSize: [14, 14],
+                    iconAnchor: [7, 7]
+                });
+                const iconDest = L.divIcon({
+                    className: 'minimal-route-dot-dest',
+                    html: '<div style="width: 14px; height: 14px; background-color: ##2563eb; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
+                    iconSize: [14, 14],
+                    iconAnchor: [7, 7]
+                });
+
+                const m1 = L.marker([polCoords.lat, polCoords.lon], { icon: iconOrigin }).addTo(mapInstance).bindPopup(`<b>Origen:</b> ${polCoords.name || pol}`);
+                const m2 = L.marker([podCoords.lat, podCoords.lon], { icon: iconDest }).addTo(mapInstance).bindPopup(`<b>Destino:</b> ${podCoords.name || pod}<br><b>Distancia:</b> ${distanceKm} km`);
+                window._currentOsrmMarkers.push(m1, m2);
+
+                if (typeof polyline.bringToFront === 'function') {
+                    polyline.bringToFront();
+                }
+                setTimeout(() => {
+                    if (polyline && typeof polyline.bringToFront === 'function') {
+                        polyline.bringToFront();
+                    }
+                }, 200);
+            }
+        }
+
+        // 1. Renderizar panel de itinerario persistente a la derecha (#route-itinerary-right-panel)
+        if (typeof renderRouteItineraryRightPanel === 'function') {
+            renderRouteItineraryRightPanel(window.LandData);
+        }
+
+        // 2. Disparar evento para componentes React
+        window.dispatchEvent(new CustomEvent('osrm:route-updated', {
+            detail: {
+                routePoints: leafletRoutePoints,
+                origin: { lat: polCoords.lat, lon: polCoords.lon, name: polCoords.displayName || polCoords.name || pol },
+                destination: { lat: podCoords.lat, lon: podCoords.lon, name: podCoords.displayName || podCoords.name || pod },
+                distanceKm,
+                totalKilometers,
+                drivingHours,
+                route,
+                landData: window.LandData
             }
         }));
 
-        // 2.6 INYECCIÓN DE CONFIRMACIÓN EN EL CHAT DE LA IA
-        setTimeout(() => {
-            const pTags = document.querySelectorAll('p, div, span');
-            let targetBubble = null;
-            for(let el of pTags) {
-                if(el.innerText && el.innerText.includes('Origen OK')) {
-                    targetBubble = el;
-                    break;
-                }
-            }
-            if (targetBubble && !targetBubble.dataset.injected) {
-                targetBubble.dataset.injected = "true";
-                const checkmarks = document.createElement('div');
-                checkmarks.style.marginTop = "12px";
-                checkmarks.style.paddingTop = "12px";
-                checkmarks.style.borderTop = "1px solid rgba(0,0,0,0.1)";
-                checkmarks.innerHTML = `
-                    ✅ <b>Calcular ruta:</b> OK<br>
-                    ✅ <b>Km:</b> ${distanceKm} km OK<br>
-                    ✅ <b>Días necesarios para completar la carga:</b> ${days} días OK<br>
-                    ✅ <b>Calcular gastos:</b> OK
-                `;
-                targetBubble.appendChild(checkmarks);
-            }
-        }, 800);
+        // 3. Actualizar State y window.GlobalStore con los kilómetros, millas y horas para el ecosistema global
+        if (typeof State !== 'undefined') {
+            State.totalKilometers = totalKilometers;
+            State.drivingHours = drivingHours;
+            State.distanceKm = distanceKm;
+            State.totalMiles = distanceKm;
+            State.distLaden = distanceKm;
+            State.distBallast = 0;
+            State.pol = polDisplayName;
+            State.pod = podDisplayName;
+        }
 
-    } catch (error) { 
-        console.error("❌ Error crítico en motor terrestre V13:", error); 
-    } finally { 
-        if (button) { button.disabled = false; button.innerHTML = 'Calcular ruta terrestre'; } 
+        window.currentCalculatedDistance = distanceKm;
+        window.currentCalculatedDays = Math.ceil(drivingHours / 9);
+
+        if (window.GlobalStore) {
+            window.GlobalStore.totalKilometers = totalKilometers;
+            window.GlobalStore.drivingHours = drivingHours;
+            window.GlobalStore.distanceKm = distanceKm;
+            window.GlobalStore.totalMiles = distanceKm;
+            window.GlobalStore.distLaden = distanceKm;
+            window.GlobalStore.distBallast = 0;
+            window.GlobalStore.pol = polDisplayName;
+            window.GlobalStore.pod = podDisplayName;
+            window.GlobalStore.landData = window.LandData;
+        }
+
+        if (typeof SeaCharterStore !== 'undefined' && typeof SeaCharterStore.set === 'function') {
+            SeaCharterStore.set({
+                distLaden: distanceKm,
+                distTotal: distanceKm,
+                totalMiles: distanceKm,
+                totalKilometers: totalKilometers,
+                drivingHours: drivingHours,
+                pol: polDisplayName,
+                pod: podDisplayName,
+                routeGeometry: window.LandData
+            });
+        }
+
+        // Sincronizar inputs del DOM (incluyendo dist-laden y dist-total para cálculos financieros)
+        ['dist-total', 'dist-laden', 'input-distance-km'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = distanceKm;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+
+        // Asegurar feedback visual correcto con el display_name completo de Nominatim
+        ['map-port-pol', 'port-pol'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = polDisplayName;
+                el.dataset.selectedPortLabel = polDisplayName;
+            }
+        });
+        ['map-port-pod', 'port-pod'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = podDisplayName;
+                el.dataset.selectedPortLabel = podDisplayName;
+            }
+        });
+
+        // Re-confirmar cierre forzado del autocompletado y desenfoque
+        if (typeof forceCloseAutocompleteDropdowns === 'function') {
+            forceCloseAutocompleteDropdowns();
+        }
+
+        // Actualizar visualmente la tarjeta de "KILÓMETROS" (#sync-miles-card) del ecosistema unificado
+        const syncMilesLabel = document.getElementById('sync-miles-label');
+        if (syncMilesLabel) syncMilesLabel.textContent = `${Math.round(distanceKm).toLocaleString('es-ES')} km`;
+        const syncMilesBreakdown = document.getElementById('sync-miles-breakdown');
+        if (syncMilesBreakdown) syncMilesBreakdown.textContent = `${Math.round(distanceKm).toLocaleString('es-ES')} km`;
+        const syncMilesCard = document.getElementById('sync-miles-card');
+        if (syncMilesCard) syncMilesCard.title = `Distancia total: ${Math.round(distanceKm).toLocaleString('es-ES')} km`;
+        const syncPolLabel = document.getElementById('sync-pol-label');
+        if (syncPolLabel) syncPolLabel.textContent = polDisplayName;
+        const syncPodLabel = document.getElementById('sync-pod-label');
+        if (syncPodLabel) syncPodLabel.textContent = podDisplayName;
+
+        const dietasChofer = Math.floor(drivingHours / 9) * 55;
+        const dietasInput = document.getElementById('dietas-pernocta') || document.querySelector('input[name="dietas"]');
+        if (dietasInput) {
+            dietasInput.value = dietasChofer;
+            dietasInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        const peajesInput = document.getElementById('peajes') || document.getElementById('pda-pol');
+        if (peajesInput) {
+            peajesInput.value = Math.round(totalTollsCost);
+            peajesInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        const etaInput = document.getElementById('eta-radar');
+        if (etaInput && (!etaInput.value || etaInput.dataset.manualUnlocked !== 'true')) {
+            const departureDate = new Date();
+            const arrivalDate = new Date(departureDate.getTime() + (drivingHours * 3600 * 1000));
+            etaInput.value = arrivalDate.toISOString().slice(0, 16);
+            etaInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        const deltaInput = document.getElementById('delta-historico');
+        if (deltaInput && (parseFloat(deltaInput.value) === 0 || deltaInput.dataset.autoTacografo === 'true')) {
+            const tacografoPausas = tachographMilestones.length * 0.75;
+            const tacografoDescansos = Math.floor(drivingHours / 9) * 11;
+            deltaInput.value = Math.round((tacografoPausas + tacografoDescansos) * 10) / 10;
+            deltaInput.dataset.autoTacografo = 'true';
+            deltaInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        // Sincronizar estado global
+        if (typeof syncGlobalStateToForms === 'function') syncGlobalStateToForms();
+        if (typeof updateRouteSummary === 'function') updateRouteSummary();
+        if (typeof runEngine === 'function') runEngine();
+        if (typeof syncCalculatorAndMatching === 'function') syncCalculatorAndMatching('calculator');
+
+        // 4. Disparar useVoyageStore.getState().calculateLandCostPlus(true)
+        const vStore = window.useVoyageStore?.getState?.() || window.VoyageStore?.getState?.();
+        if (vStore) {
+            if (typeof vStore.setRouteDistanceAndDuration === 'function') {
+                vStore.setRouteDistanceAndDuration(distanceKm, drivingHours);
+            }
+            if (typeof vStore.calculateLandCostPlus === 'function') {
+                vStore.calculateLandCostPlus(true);
+            }
+        }
+
+        // 5. Simular el clic en btn-validate-section2-executive para rellenar las tarjetas financieras
+        if (typeof window.handleMasterValidationAndCalculate === 'function') {
+            await window.handleMasterValidationAndCalculate();
+        }
+        const btnVal = document.getElementById('btn-validate-section2-executive') || document.getElementById('btn-validate-section2');
+        if (btnVal) btnVal.click();
+
+        if (typeof window.renderDensitySnapshotFromGlobalStore === 'function') {
+            window.renderDensitySnapshotFromGlobalStore();
+        }
+        if (typeof window.calculateAndDisplayAisFreight === 'function') {
+            window.calculateAndDisplayAisFreight();
+        }
+
+        // calculateVoyageRouteService({ portBallast, pol, pod, geocode: true })
+        // applyRouteServiceResult(routeResult); renderMasterRouteMap(routeResult); updateRouteSummary();
+        // void Promise.allSettled([ window.restorePersistentDataBridgeConnection?.(), refreshDataBridgeMasterStatsOnDemand() ])
+
+        return window.LandData;
+
+    } catch (error) {
+        console.error('[Core PRO] Error en motor terrestre:', error);
+        if (typeof showToast === 'function') showToast(error?.message || 'No se pudo completar la actualización de la ruta terrestre.', false, 'error');
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            button.innerHTML = originalContent || 'Calcular ruta terrestre';
+            delete button.dataset.calculating;
+        }
     }
-};
+}
+window.runOnDemandMapRouteWorkflow = runOnDemandMapRouteWorkflow;
+
+// Exposición pública y directa de la función nativa de cálculo para Cerebro IA / React
+async function calculateLandRouteByCoordinates(originCoords, destCoords, options = {}) {
+    return await runOnDemandMapRouteWorkflow(options?.button || null, originCoords, destCoords);
+}
+window.calculateLandRouteByCoordinates = calculateLandRouteByCoordinates;
+window.calculateLandRoute = calculateLandRouteByCoordinates;
+window.calculateOsrmRoute = calculateLandRouteByCoordinates;
+window.calculateOpenRouteService = calculateLandRouteByCoordinates;
 
 async function applyMapRouteToCalculator(forceGeocode = false) {
     if (!validateGeographicLaycanDates()) {
@@ -30318,9 +30825,31 @@ function setIsGeoInputOpen(isNextOpen) {
         }
         async function calculateVoyageRouteService(params = {}) {
             const pBallast = (params.portBallast ?? document.getElementById('port-ballast')?.value ?? '').trim();
-            const pPol = (params.pol ?? document.getElementById('port-pol')?.value ?? '').trim();
-            const pPod = (params.pod ?? document.getElementById('port-pod')?.value ?? '').trim();
+            const pPol = (params.pol ?? document.getElementById('port-pol')?.value ?? document.getElementById('map-port-pol')?.value ?? (typeof State !== 'undefined' ? State.pol : '') ?? '').trim();
+            const pPod = (params.pod ?? document.getElementById('port-pod')?.value ?? document.getElementById('map-port-pod')?.value ?? (typeof State !== 'undefined' ? State.pod : '') ?? '').trim();
             const shouldGeocode = Boolean(params.geocode);
+
+            if (window.LandData && (window.LandData.totalKilometers || window.LandData.distanceKm)) {
+                const dist = Math.round(window.LandData.totalKilometers || window.LandData.distanceKm);
+                const cPol = window.LandData.origin ? { name: window.LandData.origin.displayName || pPol, lat: window.LandData.origin.lat, lon: window.LandData.origin.lon } : null;
+                const cPod = window.LandData.destination ? { name: window.LandData.destination.displayName || pPod, lat: window.LandData.destination.lat, lon: window.LandData.destination.lon } : null;
+                const ladenRoute = {
+                    distance: dist,
+                    coordinates: window.LandData.leafletRoutePoints || window.LandData.geojsonCoordinates || [],
+                    nodes: [cPol, cPod].filter(Boolean)
+                };
+                return {
+                    portBallast: pBallast,
+                    pol: pPol || window.LandData.origin?.displayName || window.LandData.origin?.name || '',
+                    pod: pPod || window.LandData.destination?.displayName || window.LandData.destination?.name || '',
+                    coordinates: { ballast: null, pol: cPol, pod: cPod },
+                    routes: { ballast: null, laden: ladenRoute },
+                    distBallast: 0,
+                    distLaden: dist,
+                    totalMiles: dist,
+                    errors: []
+                };
+            }
 
             const resolvePort = async (name) => {
                 if (!name) return null;
@@ -30328,9 +30857,10 @@ function setIsGeoInputOpen(isNextOpen) {
                 const portData = typeof findPortData === 'function'
                     ? findPortData(name)
                     : (PORT_DB[name] || null);
-                return portData && Number.isFinite(Number(portData.lat)) && Number.isFinite(Number(portData.lon))
-                    ? { name, lat: Number(portData.lat), lon: Number(portData.lon) }
-                    : null;
+                if (portData && Number.isFinite(Number(portData.lat)) && Number.isFinite(Number(portData.lon))) {
+                    return { name, lat: Number(portData.lat), lon: Number(portData.lon) };
+                }
+                return getCoordinates(name);
             };
 
             const [cBal, cPol, cPod] = await Promise.all([
@@ -30357,6 +30887,15 @@ function setIsGeoInputOpen(isNextOpen) {
                     { name: pPol, lat: cPol.lat, lon: cPol.lon },
                     { name: pPod, lat: cPod.lat, lon: cPod.lon }
                 );
+            }
+
+            if (cPol && cPod && !ladenRoute) {
+                const straightKm = Math.round(haversine(cPol.lat, cPol.lon, cPod.lat, cPod.lon));
+                ladenRoute = {
+                    distance: straightKm,
+                    coordinates: [[cPol.lat, cPol.lon], [cPod.lat, cPod.lon]],
+                    nodes: [cPol, cPod]
+                };
             }
 
             return {
@@ -65897,8 +66436,8 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             }
 
             try {
-                const pol = (document.getElementById('port-pol')?.value || '').trim();
-                const pod = (document.getElementById('port-pod')?.value || '').trim();
+                const pol = (document.getElementById('port-pol')?.value || document.getElementById('map-port-pol')?.value || (typeof State !== 'undefined' ? State.pol : '') || '').trim();
+                const pod = (document.getElementById('port-pod')?.value || document.getElementById('map-port-pod')?.value || (typeof State !== 'undefined' ? State.pod : '') || '').trim();
                 if (!pol || !pod) {
                     const error = new Error('Define Origen (Punto de Carga) y Destino (Punto de Descarga) antes de calcular la operación.');
                     if (managedByMaster) throw error;

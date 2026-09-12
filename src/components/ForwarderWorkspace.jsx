@@ -1875,55 +1875,96 @@ export function ForwarderWorkspace() {
       setIsCargoModalOpen(true);
     }
 
-   // 🌉 PUENTE INTELIGENTE HACIA EL MAPA NATIVO CON GEOCODIFICACIÓN
+   // 🌉 PUENTE INTELIGENTE HACIA EL MOTOR NATIVO (Sin hacks de clics en el DOM ni eventos sintéticos)
     const aiPol = payload.pol || payload.portOfLoading || payload.charteringAssessment?.rotationBreakdown?.pol || payload.rotationBreakdown?.pol || payload.payload?.pol;
     const aiPod = payload.pod || payload.portOfDischarge || payload.charteringAssessment?.rotationBreakdown?.pod || payload.rotationBreakdown?.pod || payload.payload?.pod;
 
     if (aiPol || aiPod) {
-      // 1. Función para buscar coordenadas exactas de forma silenciosa
+      // 1. Función para buscar coordenadas exactas de forma silenciosa si no vinieron en el payload
       const fetchCoords = async (query) => {
         if (!query) return null;
+        if (typeof query === 'object') {
+          const lat = Number(query.lat ?? query.latitude);
+          const lon = Number(query.lon ?? query.lng ?? query.longitude);
+          const candidateName = query.displayName || query.display_name || query.name;
+          if (Number.isFinite(lat) && Number.isFinite(lon) && candidateName && candidateName.length > 25) {
+            return { lat, lon, name: candidateName, displayName: candidateName };
+          }
+        }
+        const textQuery = typeof query === 'object' ? (query.name || query.displayName || '') : String(query || '');
+        if (!textQuery) return null;
         try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`);
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(textQuery)}&format=json&limit=1`);
           const data = await res.json();
-          if (data?.length > 0) return { lat: data[0].lat, lon: data[0].lon, name: data[0].display_name };
+          if (data?.length > 0) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name, displayName: data[0].display_name };
         } catch (e) { console.error("Error obteniendo coordenadas:", e); }
-        return null;
+        return typeof query === 'object' && Number.isFinite(Number(query.lat)) ? query : null;
       };
 
-      // 2. Ejecutar la búsqueda y sincronizar el DOM
+      // 2. Ejecutar la búsqueda e invocar directamente la función nativa expuesta en window
       (async () => {
         const [originData, destData] = await Promise.all([fetchCoords(aiPol), fetchCoords(aiPod)]);
 
-        const inputPolHtml = document.getElementById('map-port-pol');
-        const inputPodHtml = document.getElementById('map-port-pod');
-        const btnMapNative = document.getElementById('btn-map-locate-route');
+        // Actualizar visualmente inputs si existen en el DOM para feedback del usuario con display_name completo
+        const polLabel = originData?.displayName || originData?.name || (typeof aiPol === 'string' ? aiPol : '');
+        const podLabel = destData?.displayName || destData?.name || (typeof aiPod === 'string' ? aiPod : '');
 
-        if (inputPolHtml && originData) {
-            inputPolHtml.value = originData.name;
-            // Inyectar coordenadas para que tu Vanilla JS las lea
-            inputPolHtml.setAttribute('data-lat', originData.lat);
-            inputPolHtml.setAttribute('data-lon', originData.lon);
-            inputPolHtml.dataset.lat = originData.lat;
-            inputPolHtml.dataset.lon = originData.lon;
-            inputPolHtml.dispatchEvent(new Event('input', { bubbles: true }));
-            inputPolHtml.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+        ['map-port-pol', 'port-pol'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el && polLabel) {
+            el.value = polLabel;
+            if (originData) {
+              el.dataset.selectedLatitude = originData.lat;
+              el.dataset.selectedLongitude = originData.lon;
+              el.dataset.lat = originData.lat;
+              el.dataset.lon = originData.lon;
+              el.dataset.selectedPortLabel = polLabel;
+            }
+            try { el.blur(); } catch (_) {}
+          }
+        });
+        ['map-port-pod', 'port-pod'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el && podLabel) {
+            el.value = podLabel;
+            if (destData) {
+              el.dataset.selectedLatitude = destData.lat;
+              el.dataset.selectedLongitude = destData.lon;
+              el.dataset.lat = destData.lat;
+              el.dataset.lon = destData.lon;
+              el.dataset.selectedPortLabel = podLabel;
+            }
+            try { el.blur(); } catch (_) {}
+          }
+        });
 
-        if (inputPodHtml && destData) {
-            inputPodHtml.value = destData.name;
-            inputPodHtml.setAttribute('data-lat', destData.lat);
-            inputPodHtml.setAttribute('data-lon', destData.lon);
-            inputPodHtml.dataset.lat = destData.lat;
-            inputPodHtml.dataset.lon = destData.lon;
-            inputPodHtml.dispatchEvent(new Event('input', { bubbles: true }));
-            inputPodHtml.dispatchEvent(new Event('change', { bubbles: true }));
+        // Ocultar cualquier contenedor de sugerencias para experiencia zero-touch
+        document.querySelectorAll('.port-autocomplete-menu, .autocomplete-list, ul[role="listbox"], .nominatim-suggester').forEach(menu => {
+          try {
+            menu.hidden = true;
+            menu.style.display = 'none';
+          } catch (_) {}
+        });
+
+        // 3. Invocación nativa directa puenteando inputs visuales y eliminando clics sintéticos
+        const routeFn = window.calculateLandRouteByCoordinates ||
+                        window.calculateLandRoute ||
+                        window.calculateOsrmRoute ||
+                        window.calculateOpenRouteService;
+
+        if (typeof routeFn === 'function') {
+          try {
+            await routeFn(originData || aiPol, destData || aiPod);
+          } catch (routeErr) {
+            console.error("Error ejecutando cálculo nativo de ruta terrestre:", routeErr);
+          }
+        } else if (typeof window.runOnDemandMapRouteWorkflow === 'function') {
+          try {
+            await window.runOnDemandMapRouteWorkflow(null, originData || aiPol, destData || aiPod);
+          } catch (routeErr) {
+            console.error("Error ejecutando runOnDemandMapRouteWorkflow con coordenadas:", routeErr);
+          }
         }
-        
-        // 3. Dar tiempo al DOM para registrar los datos y disparar el cálculo real
-        setTimeout(() => {
-          if (btnMapNative) btnMapNative.click();
-        }, 300);
       })();
     }
     // --------------------------------------------------------
