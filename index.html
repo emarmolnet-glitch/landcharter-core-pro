@@ -18064,7 +18064,7 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 // =======================================================================
-// 1. CORTAFUEGOS V10 (CON MOCK VÁLIDO DE MERCADO)
+// 1. CORTAFUEGOS V11 (MOCK HÍBRIDO: TERRESTRE + MARÍTIMO DE RESPALDO)
 // =======================================================================
 window.handleDWTChange = window.handleDWTChange || function() {};
 window.syncNavigationStrategyEffect = window.syncNavigationStrategyEffect || function() {};
@@ -18075,15 +18075,22 @@ if (typeof window.autoFillBunkers !== 'function') {
 window.recalculateAdjustedAndSave = window.recalculateAdjustedAndSave || async function() { return true; };
 window.runMasterOptionalStage = window.runMasterOptionalStage || async function() { return true; };
 
-if (!window._firewallInjectedV10) {
-    window._firewallInjectedV10 = true;
+if (!window._firewallInjectedV11) {
+    window._firewallInjectedV11 = true;
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         const url = args[0] || '';
         
+        // Mock híbrido para satisfacer tanto al motor terrestre como al núcleo compartido
         if (typeof url === 'string' && url.includes('get-market-data')) {
             return Promise.resolve(new Response(JSON.stringify({ 
                 success: true, 
+                // Parámetros terrestres
+                dieselPrice: 1.48,
+                adBluePrice: 0.72,
+                tollCostPerKm: 0.22,
+                fixedDailyCost: 350,
+                // Parámetros marítimos de respaldo para que el núcleo maestro no crashee
                 VESFO: 520, 
                 HSFQ: 460, 
                 MGO: 750, 
@@ -18122,7 +18129,7 @@ landCharterStyles.innerHTML = `#decision-module, .audit-panel, #maritime-audit, 
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. MOTOR TERRESTRE ESTABLE
+// 2. MOTOR TERRESTRE ESTABLE CON MAPA Y CARTOGRAFÍA
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
     if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculando...'; }
@@ -18152,7 +18159,6 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const destData = await resolveCoords(pod);
         if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
 
-        // Rellenar los inputs de manera nativa para que la app los reconozca sin errores
         const setInputValue = (input, val) => {
             if (!input) return;
             const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
@@ -18173,7 +18179,6 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const distanceMeters = Number(data.features[0].properties.segments[0].distance) || 0;
         const distanceKm = Math.round(distanceMeters / 1000);
         const drivingHours = (Number(data.features[0].properties.segments[0].duration) || 0) / 3600;
-        const leafletRoutePoints = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]); 
 
         // 2.3 CÁLCULO LOGÍSTICO Y DE DÍAS
         let volume = 5000; 
@@ -18215,9 +18220,9 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
 
         if (typeof window.updateRouteSummary === 'function') { window.updateRouteSummary(); }
 
-        // 2.5 DISPARO PARA LA CARTOGRAFÍA (LazyGlobeMap)
+        // 2.5 TRANSFORMACIÓN GEOMÉTRICA Y DISPARO PARA LA CARTOGRAFÍA (LazyGlobeMap)
         const rawCoords = data.features[0].geometry.coordinates;
-        const routePoints = rawCoords.map(coord => [coord[1], coord[0]]);
+        const routePoints = rawCoords.map(coord => [coord[1], coord[0]]); // [lat, lon]
 
         const originPayload = { lat: originData.lat, lon: originData.lon, name: originData.name };
         const destinationPayload = { lat: destData.lat, lon: destData.lon, name: destData.name };
