@@ -18093,75 +18093,51 @@ landCharterStyles.innerHTML = `
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. TRIGGER IA (SECUESTRO ABSOLUTO - NO DEPENDE DE LA CONSOLA)
+// 2. EL SABUESO (TRIGGER INFALIBLE BASADO EN LO QUE SE VE EN PANTALLA)
 // =======================================================================
-if (!window._aiHijackerInjected) {
-    window._aiHijackerInjected = true;
-    
-    // Escuchamos CUALQUIER mensaje que lance React en la ventana
-    window.addEventListener('message', function(event) {
-        // Detectamos si la IA acaba de rellenar los campos (miramos el payload)
-        if (event.data && typeof event.data === 'object' && event.data.action === 'update_fields' && event.data.payload) {
+if (!window._domSabuesoActivo) {
+    window._domSabuesoActivo = true;
+    setInterval(() => {
+        const iPol = document.getElementById('map-port-pol') || document.getElementById('port-pol');
+        const iPod = document.getElementById('map-port-pod') || document.getElementById('port-pod');
+        
+        // Si hay texto en ambas cajas
+        if (iPol && iPod && iPol.value.trim().length > 2 && iPod.value.trim().length > 2) {
+            const rutaActual = iPol.value.trim() + " -> " + iPod.value.trim();
             
-            const p = event.data.payload;
-            if (p.origin || p.destination || p.pol || p.pod) {
-                const pol = p.origin || p.pol || '';
-                const pod = p.destination || p.pod || '';
+            // Si es una ruta que no hemos calculado todavía
+            if (window._ultimaRutaCalculada !== rutaActual) {
+                window._ultimaRutaCalculada = rutaActual; // Marcamos para no entrar en bucle
+                console.log(`🐺 [SABUESO] Ruta detectada: ${rutaActual}. Forzando ejecución...`);
                 
-                console.log(`🤖 [SECUESTRO IA] Detectado origen/destino: ${pol} -> ${pod}`);
+                // 1. Asesinamos el desplegable de Nominatim quitando el foco y haciendo clic fuera
+                iPol.blur(); iPod.blur();
+                document.body.click();
                 
-                // DESTRUCCIÓN FORZADA DEL DESPLEGABLE:
-                // Forzamos a React a cerrar las sugerencias haciendo click fuera y difuminando los inputs
-                setTimeout(() => {
-                    const inputs = document.querySelectorAll('input');
-                    inputs.forEach(i => i.blur());
-                    document.body.click(); 
-                    
-                    // Disparamos nuestro motor sin esperar a nadie
-                    if (typeof window.runOnDemandMapRouteWorkflow === 'function') {
-                        console.log("🚀 Lanzando motor terrestre a la fuerza...");
-                        window.runOnDemandMapRouteWorkflow(null, pol, pod);
+                // Forzamos el cierre por CSS por si acaso
+                document.querySelectorAll('ul, div.absolute').forEach(popup => {
+                    if (popup.innerText && popup.innerText.includes('NOMINATIM')) {
+                        popup.style.display = 'none';
                     }
-                }, 400); // 400ms es suficiente para que la IA termine de escribir
+                });
+
+                // 2. Lanzamos el cálculo medio segundo después para que React respire
+                setTimeout(() => {
+                    if (typeof window.runOnDemandMapRouteWorkflow === 'function') {
+                        window.runOnDemandMapRouteWorkflow(null, iPol.value, iPod.value);
+                    }
+                }, 500);
             }
         }
-    });
-
-    // PLAN B: Si la IA no usa window.postMessage, secuestramos XMLHttpRequest/Fetch para detectar cuando termina de hablar
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        const response = await originalFetch.apply(this, args);
-        const url = args[0] || '';
-        
-        // Si detectamos que la IA acaba de devolver su respuesta con la ruta
-        if (typeof url === 'string' && url.includes('/api/cerebro-ia')) {
-            const clone = response.clone();
-            clone.json().then(data => {
-                if (data && data.action === 'update_fields' && data.payload) {
-                    const pol = data.payload.origin || data.payload.pol || '';
-                    const pod = data.payload.destination || data.payload.pod || '';
-                    
-                    setTimeout(() => {
-                        const inputs = document.querySelectorAll('input');
-                        inputs.forEach(i => i.blur());
-                        document.body.click();
-                        
-                        if (typeof window.runOnDemandMapRouteWorkflow === 'function') {
-                            window.runOnDemandMapRouteWorkflow(null, pol, pod);
-                        }
-                    }, 800);
-                }
-            }).catch(e => {});
-        }
-        return response;
-    };
+    }, 1500); // El sabueso husmea cada 1.5 segundos
 }
 
 // =======================================================================
-// 3. MOTOR TERRESTRE (EL CABALLO DE TROYA ORS -> OSRM)
+// 3. MOTOR TERRESTRE (CABALLO DE TROYA ORS -> OSRM)
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
     if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Trazando ruta...'; }
+    console.log("🚀 [PASO 1] Motor terrestre arrancado por el Sabueso.");
 
     try {
         const polInput = document.getElementById('map-port-pol') || document.getElementById('port-pol');
@@ -18170,11 +18146,6 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         let pol = overridePol || String(polInput?.value || '').trim();
         let pod = overridePod || String(podInput?.value || '').trim();
         if (!pol || !pod) return;
-
-        // MATAR LOS DESPLEGABLES OTRA VEZ POR SI ACASO
-        if (polInput) polInput.blur();
-        if (podInput) podInput.blur();
-        document.body.click();
 
         // 3.1 GEOLOCALIZACIÓN
         const resolveCoords = async (query) => {
@@ -18193,24 +18164,18 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const destData = await resolveCoords(pod);
         if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
 
-        // 3.2 ACTUALIZACIÓN REAL DEL STATE 
+        // 3.2 ACTUALIZAMOS REACT PERO MANTENEMOS EL DESPLEGABLE MUERTO
         const updateNativeInput = (input, value) => {
             if (!input) return;
             const nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
             if (nativeSet) nativeSet.call(input, value); else input.value = value;
-            
-            // ATENCIÓN: Disparamos el evento, pero INMEDIATAMENTE quitamos el foco para que el desplegable muera
             input.dispatchEvent(new Event('input', { bubbles: true })); 
-            setTimeout(() => { input.blur(); document.body.click(); }, 50);
+            setTimeout(() => { input.blur(); document.body.click(); }, 10); // Matar desplegable
         };
-        
         updateNativeInput(polInput, originData.name);
         updateNativeInput(podInput, destData.name);
         
-        if (typeof State !== 'undefined') {
-            State.pol = originData.name;
-            State.pod = destData.name;
-        }
+        if (typeof State !== 'undefined') { State.pol = originData.name; State.pod = destData.name; }
 
         // 3.3 OPENROUTESERVICE HGV
         const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
@@ -18227,41 +18192,18 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const drivingHours = durationSeconds / 3600;
         const leafletRoutePoints = routeFeature.geometry.coordinates.map(coord => [coord[1], coord[0]]); 
 
-        // 3.4 EL DISFRAZ (Fake OSRM Object)
-        const fakeOsrmRoute = {
-            distance: distanceMeters,
-            duration: durationSeconds,
-            geometry: routeFeature.geometry, 
-            legs: [{ steps: [] }]
-        };
+        // 3.4 EL DISFRAZ (Fake OSRM Object para que React lo dibuje y lo entienda)
+        const fakeOsrmRoute = { distance: distanceMeters, duration: durationSeconds, geometry: routeFeature.geometry, legs: [{ steps: [] }] };
 
-        window.LandData = { 
-            origin: { lat: originData.lat, lon: originData.lon, name: originData.name }, 
-            destination: { lat: destData.lat, lon: destData.lon, name: destData.name }, 
-            distanceKm, totalKilometers: distanceKm, drivingHours, leafletRoutePoints 
-        };
+        window.LandData = { origin: { lat: originData.lat, lon: originData.lon, name: originData.name }, destination: { lat: destData.lat, lon: destData.lon, name: destData.name }, distanceKm, totalKilometers: distanceKm, drivingHours, leafletRoutePoints };
         
-        // 3.5 ENVÍO A REACT Y AL FOOTER 
+        // 3.5 ENVÍO AL NÚCLEO DE REACT
         window.dispatchEvent(new CustomEvent('osrm:route-updated', { 
-            detail: { 
-                routePoints: leafletRoutePoints, 
-                origin: window.LandData.origin, 
-                destination: window.LandData.destination, 
-                distanceKm: distanceKm, 
-                totalKilometers: distanceKm, 
-                drivingHours: drivingHours, 
-                route: fakeOsrmRoute, 
-                landData: window.LandData 
-            }
+            detail: { routePoints: leafletRoutePoints, origin: window.LandData.origin, destination: window.LandData.destination, distanceKm: distanceKm, totalKilometers: distanceKm, drivingHours: drivingHours, route: fakeOsrmRoute, landData: window.LandData }
         }));
         
-        // Refuerzo explícito de la barra inferior (Footer)
-        if (typeof State !== 'undefined') {
-            State.totalKilometers = distanceKm;
-            State.drivingHours = drivingHours;
-            State.totalMiles = distanceKm;
-            State.distLaden = distanceKm;
-        }
+        // 3.6 RELLENAR LA BARRA INFERIOR (FOOTER)
+        if (typeof State !== 'undefined') { State.totalKilometers = distanceKm; State.drivingHours = drivingHours; State.totalMiles = distanceKm; State.distLaden = distanceKm; }
 
         const distInput = document.getElementById('dist-total') || document.getElementById('input-distance-km');
         updateNativeInput(distInput, distanceKm);
@@ -18272,7 +18214,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             if (typeof vStore.calculateLandCostPlus === 'function') vStore.calculateLandCostPlus(true);
         }
 
-        // 3.6 TARJETA LOGÍSTICA
+        // 3.7 TARJETA LOGÍSTICA
         let volume = 10000; 
         const volMatch = document.body.innerText.match(/(\d+)\s*(toneladas|mt|tons)/i);
         if (volMatch) volume = parseInt(volMatch[1]);
@@ -18291,7 +18233,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         }, 1000);
 
     } catch (error) { 
-        console.error("❌ Error:", error); 
+        console.error("❌ Error crítico:", error); 
     } finally { 
         if (button) { button.disabled = false; button.innerHTML = 'Calcular ruta terrestre'; } 
     }
