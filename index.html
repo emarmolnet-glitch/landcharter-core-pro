@@ -18402,44 +18402,28 @@ async function runOnDemandMapRouteWorkflow(button) {
             });
 
             if (leafletRoutePoints.length > 0) {
-                const polyline = L.polyline(leafletRoutePoints, {
-                    color: '#ef4444',
-                    weight: 6,
-                    opacity: 1.0,
-                    lineCap: 'round',
-                    lineJoin: 'round'
-                }).addTo(mapInstance);
-
-                window._currentOsrmRouteLayer = polyline;
-                mapInstance.fitBounds(polyline.getBounds(), { padding: [50, 50] });
-
-                const iconOrigin = L.divIcon({
-                    className: 'minimal-route-dot-origin',
-                    html: '<div style="width: 14px; height: 14px; background-color: #0f172a; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
-                    iconSize: [14, 14],
-                    iconAnchor: [7, 7]
-                });
-                const iconDest = L.divIcon({
-                    className: 'minimal-route-dot-dest',
-                    html: '<div style="width: 14px; height: 14px; background-color: #ef4444; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
-                    iconSize: [14, 14],
-                    iconAnchor: [7, 7]
-                });
-
-                const m1 = L.marker([polCoords.lat, polCoords.lon], { icon: iconOrigin }).addTo(mapInstance).bindPopup(`<b>Origen:</b> ${pol}`);
-                const m2 = L.marker([podCoords.lat, podCoords.lon], { icon: iconDest }).addTo(mapInstance).bindPopup(`<b>Destino:</b> ${pod}<br><b>Distancia:</b> ${distanceKm} km`);
-                window._currentOsrmMarkers.push(m1, m2);
-
-                if (typeof polyline.bringToFront === 'function') {
-                    polyline.bringToFront();
-                }
-                setTimeout(() => {
-                    if (polyline && typeof polyline.bringToFront === 'function') {
-                        polyline.bringToFront();
-                    }
-                }, 200);
-            }
+        // 🚀 Delegar renderizado al MapController oficial de Land Charter
+        if (window.MapController && typeof window.MapController.drawRoute === 'function') {
+            window.MapController.drawRoute(leafletRoutePoints);
+            window.MapController.renderPort([polCoords.lat, polCoords.lon], pol, 'POL');
+            window.MapController.renderPort([podCoords.lat, podCoords.lon], pod, 'POD');
         }
+
+        // Forzar color rojo intenso sobre las capas base y traer al frente
+        setTimeout(() => {
+            const activeMap = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
+            if (activeMap && activeMap.eachLayer) {
+                activeMap.eachLayer(layer => {
+                    if (layer instanceof L.Polyline) {
+                        layer.setStyle({ color: '#ef4444', weight: 6, opacity: 1.0 });
+                        if (typeof layer.bringToFront === 'function') {
+                            layer.bringToFront();
+                        }
+                    }
+                });
+            }
+        }, 150);
+    }
 
         // 1. Renderizar panel de itinerario persistente a la derecha (#route-itinerary-right-panel)
         renderRouteItineraryRightPanel(window.LandData);
