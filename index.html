@@ -18061,6 +18061,55 @@ window.addEventListener('osrm:route-updated', (ev) => {
     }
 });
 
+// =======================================================================
+// 1. CORTAFUEGOS MARÍTIMO: Matar Handysize, Decisiones y Auditoría
+// =======================================================================
+window.fetch = new Proxy(window.fetch, {
+    apply: function(target, that, args) {
+        // Bloqueamos la petición de velocidad de buques intrusa que vemos en tu pestaña de Red
+        if (args[0] && typeof args[0] === 'string' && args[0].includes('vessel-speed-parameters')) {
+            console.warn("🛡️ [Land Charter] Bloqueada petición marítima intrusa (Handysize).");
+            return Promise.resolve(new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        }
+        return Reflect.apply(target, that, args);
+    }
+});
+
+// Desactivar funciones navales heredadas para que no resuciten el módulo
+window.handleDWTChange = () => {};
+window.syncNavigationStrategyEffect = () => {};
+window.autoFillBunkers = () => {};
+
+// Forzar la ocultación del módulo de auditoría naval por CSS
+const landCharterStyles = document.createElement('style');
+landCharterStyles.innerHTML = `
+    #decision-module, .audit-panel, #maritime-audit, [data-testid="audit-module"], .vessel-speed-panel {
+        display: none !important;
+    }
+`;
+document.head.appendChild(landCharterStyles);
+
+// =======================================================================
+// 2. REPARACIÓN DEL TRIGGER: Forzar el cálculo tras la inyección de la IA
+// =======================================================================
+const originalConsoleLog = console.log;
+console.log = function(...args) {
+    originalConsoleLog.apply(console, args);
+    
+    // Vigilar la consola. Cuando la IA imprima el mensaje exacto de tu captura...
+    if (args[0] && typeof args[0] === 'string' && args[0].includes('[Cerebro.ia/update_fields] Inyección completada')) {
+        console.log("⚡ [Land Charter] Inyección IA detectada. Disparando el motor del mapa terrestre en 500ms...");
+        
+        // Esperamos medio segundo para que el DOM asimile los valores y disparamos el mapa
+        setTimeout(() => {
+            if (typeof window.runOnDemandMapRouteWorkflow === 'function') {
+                window.runOnDemandMapRouteWorkflow();
+            }
+        }, 500); 
+    }
+};
+
+
 async function runOnDemandMapRouteWorkflow(button) {
     if (typeof validateGeographicLaycanDates === 'function' && !validateGeographicLaycanDates()) return;
     if (button?.disabled) return;
