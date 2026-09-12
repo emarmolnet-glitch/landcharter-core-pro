@@ -18064,7 +18064,7 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 // =======================================================================
-// 1. CORTAFUEGOS V12 (MOCK HÍBRIDO + AUTO-CLIC EN DESPLEGABLES)
+// 1. CORTAFUEGOS Y MOCK HÍBRIDO ARQUITECTÓNICO V13
 // =======================================================================
 window.handleDWTChange = window.handleDWTChange || function() {};
 window.syncNavigationStrategyEffect = window.syncNavigationStrategyEffect || function() {};
@@ -18075,12 +18075,13 @@ if (typeof window.autoFillBunkers !== 'function') {
 window.recalculateAdjustedAndSave = window.recalculateAdjustedAndSave || async function() { return true; };
 window.runMasterOptionalStage = window.runMasterOptionalStage || async function() { return true; };
 
-if (!window._firewallInjectedV12) {
-    window._firewallInjectedV12 = true;
+if (!window._firewallInjectedV13) {
+    window._firewallInjectedV13 = true;
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         const url = args[0] || '';
         
+        // Mock híbrido robusto para evitar colisiones entre dominios marítimos y terrestres
         if (typeof url === 'string' && url.includes('get-market-data')) {
             return Promise.resolve(new Response(JSON.stringify({ 
                 success: true, 
@@ -18108,10 +18109,10 @@ if (!window._firewallInjectedV12) {
                         const pol = data.payload.origin || data.payload.pol || '';
                         const pod = data.payload.destination || data.payload.pod || '';
                         if (pol && pod) {
-                            console.log(`🔥 [PINCHAZO DE RED] IA detectada: ${pol} -> ${pod}`);
+                            console.log(`🔥 [ARQUITECTURA V13] IA detectada: ${pol} -> ${pod}`);
                             setTimeout(() => {
                                 if (window.runOnDemandMapRouteWorkflow) window.runOnDemandMapRouteWorkflow(null, pol, pod);
-                            }, 500);
+                            }, 300);
                         }
                     }
                 }).catch(e => {});
@@ -18122,14 +18123,17 @@ if (!window._firewallInjectedV12) {
 }
 
 const landCharterStyles = document.createElement('style');
-landCharterStyles.innerHTML = `#decision-module, .audit-panel, #maritime-audit, [data-testid="audit-module"], .vessel-speed-panel { display: none !important; }`;
+landCharterStyles.innerHTML = `
+    #decision-module, .audit-panel, #maritime-audit, [data-testid="audit-module"], .vessel-speed-panel { display: none !important; }
+    ul[role="listbox"], .nominatim-suggester, .absolute ul { display: none !important; pointer-events: none !important; }
+`;
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. MOTOR TERRESTRE CON AUTO-SELECCIÓN DE SUGERENCIAS
+// 2. MOTOR TERRESTRE DE COMPROMISO PROGRAMÁTICO (V13)
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
-    if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculando...'; }
+    if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculando ruta...'; }
 
     try {
         const polInput = document.getElementById('map-port-pol') || document.getElementById('port-pol');
@@ -18139,7 +18143,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         let pod = overridePod || String(podInput?.value || '').trim();
         if (!pol || !pod) return;
 
-        // 2.1 GEOLOCALIZACIÓN
+        // 2.1 GEOLOCALIZACIÓN DIRECTA (Evita el bloqueo por el menú desplegable de Nominatim)
         const resolveCoords = async (query) => {
             const q = query.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
             try {
@@ -18156,27 +18160,16 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const destData = await resolveCoords(pod);
         if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
 
-        // Función inteligente para rellenar y hacer clic en el desplegable de Nominatim automáticamente
-        const setAndSelectInput = async (input, val) => {
+        // Compromiso programático: inyectar el valor y desenfocar para cerrar menús huérfanos
+        const commitInputValue = (input, val) => {
             if (!input) return;
             const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
             if (nativeSetter) nativeSetter.call(input, val); else input.value = val;
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-
-            // Esperar a que el desplegable aparezca y hacer clic en el primer resultado automáticamente
-            await new Promise(r => setTimeout(r, 400));
-            const suggestions = document.querySelectorAll('ul li, [role="option"], .suggestion-item, div.absolute div');
-            for (let item of suggestions) {
-                if (item.innerText && (item.innerText.toLowerCase().includes(val.toLowerCase().split(',')[0]))) {
-                    item.click();
-                    break;
-                }
-            }
+            input.blur();
         };
 
-        await setAndSelectInput(polInput, originData.name);
-        await setAndSelectInput(podInput, destData.name);
+        commitInputValue(polInput, originData.name);
+        commitInputValue(podInput, destData.name);
 
         // 2.2 OPENROUTESERVICE HGV
         const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
@@ -18184,18 +18177,20 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const response = await fetch(orsUrl);
         const data = await response.json();
         
+        if (!data?.features?.[0]) throw new Error('Fallo en la respuesta de OpenRouteService.');
+
         const distanceMeters = Number(data.features[0].properties.segments[0].distance) || 0;
         const distanceKm = Math.round(distanceMeters / 1000);
         const drivingHours = (Number(data.features[0].properties.segments[0].duration) || 0) / 3600;
 
-        // 2.3 CÁLCULO LOGÍSTICO Y DE DÍAS
+        // 2.3 CÁLCULO LOGÍSTICO Y DÍAS
         let volume = 5000; 
         const volMatch = document.body.innerText.match(/(\d+)\s*(toneladas|mt|tons)/i);
         if (volMatch) volume = parseInt(volMatch[1]);
         const trips = Math.ceil(volume / 25);
         const days = Math.ceil(trips / (Math.max(1, Math.floor(9 / ((drivingHours * 2) + 4))) * 5)); 
 
-        // 2.4 SINCRONIZACIÓN CON EL ESTADO GLOBAL
+        // 2.4 ACTUALIZACIÓN DE ESTADOS GLOBALES Y ZUSTAND
         if (typeof window.State !== 'undefined') {
             window.State.pol = originData.name;
             window.State.pod = destData.name;
@@ -18228,9 +18223,9 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
 
         if (typeof window.updateRouteSummary === 'function') { window.updateRouteSummary(); }
 
-        // 2.5 TRANSFORMACIÓN GEOMÉTRICA Y DISPARO PARA LA CARTOGRAFÍA (LazyGlobeMap)
+        // 2.5 TRANSFORMACIÓN GEOMÉTRICA [lon,lat] -> [lat,lon] Y DISPARO DE CARTOGRAFÍA
         const rawCoords = data.features[0].geometry.coordinates;
-        const routePoints = rawCoords.map(coord => [coord[1], coord[0]]); // [lat, lon]
+        const routePoints = rawCoords.map(coord => [coord[1], coord[0]]);
 
         const originPayload = { lat: originData.lat, lon: originData.lon, name: originData.name };
         const destinationPayload = { lat: destData.lat, lon: destData.lon, name: destData.name };
@@ -18246,7 +18241,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             }
         }));
 
-        // 2.6 INYECCIÓN DE MENSAJES DE ESTADO EN EL CHAT
+        // 2.6 INYECCIÓN DE CONFIRMACIÓN EN EL CHAT DE LA IA
         setTimeout(() => {
             const pTags = document.querySelectorAll('p, div, span');
             let targetBubble = null;
@@ -18273,7 +18268,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         }, 800);
 
     } catch (error) { 
-        console.error("❌ Error crítico en arquitectura:", error); 
+        console.error("❌ Error crítico en motor terrestre V13:", error); 
     } finally { 
         if (button) { button.disabled = false; button.innerHTML = 'Calcular ruta terrestre'; } 
     }
