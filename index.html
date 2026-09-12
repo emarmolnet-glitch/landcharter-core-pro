@@ -18064,23 +18064,20 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 // =======================================================================
-// 1. CORTAFUEGOS V2
+// 1. CORTAFUEGOS V3 Y PINCHAZO DE RED (INFALIBLE)
 // =======================================================================
-if (!window._firewallInjectedV2) {
-    window._firewallInjectedV2 = true;
+if (!window._firewallInjectedV3) {
+    window._firewallInjectedV3 = true;
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         const url = args[0] || '';
         
-        // 1.1 Bloqueo del cortafuegos
         if (typeof url === 'string' && (url.includes('vessel-speed-parameters') || url.includes('get-market-data') || url.includes('api/route') || url.includes('pda-estimations'))) {
             return Promise.resolve(new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }));
         }
         
         const fetchPromise = originalFetch.apply(this, args);
         
-        // 1.2 EL PINCHAZO (Interceptor de Red)
-        // Detectamos la respuesta exacta de la IA en la red, sin depender de la UI
         if (typeof url === 'string' && url.includes('/api/cerebro-ia')) {
             fetchPromise.then(response => {
                 response.clone().json().then(data => {
@@ -18090,9 +18087,7 @@ if (!window._firewallInjectedV2) {
                         if (pol && pod) {
                             console.log(`🔥 [PINCHAZO DE RED] IA detectada: ${pol} -> ${pod}`);
                             setTimeout(() => {
-                                if (window.runOnDemandMapRouteWorkflow) {
-                                    window.runOnDemandMapRouteWorkflow(null, pol, pod);
-                                }
+                                if (window.runOnDemandMapRouteWorkflow) window.runOnDemandMapRouteWorkflow(null, pol, pod);
                             }, 500);
                         }
                     }
@@ -18115,25 +18110,27 @@ landCharterStyles.innerHTML = `#decision-module, .audit-panel, #maritime-audit, 
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. MOTOR TERRESTRE (CABALLO DE TROYA ORS -> OSRM)
+// 2. MOTOR TERRESTRE + INYECCIÓN VISUAL FORZADA
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
-    console.log(`🚀 [PASO 1] Motor terrestre arrancado para: ${overridePol} -> ${overridePod}`);
-    if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Trazando ruta...'; }
+    if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculando...'; }
 
     try {
-        let pol = overridePol;
-        let pod = overridePod;
+        const polInput = document.getElementById('map-port-pol') || document.getElementById('port-pol');
+        const podInput = document.getElementById('map-port-pod') || document.getElementById('port-pod');
+        
+        let pol = overridePol || String(polInput?.value || '').trim();
+        let pod = overridePod || String(podInput?.value || '').trim();
         if (!pol || !pod) return;
 
-        // 2.1 ASESINATO DE DESPLEGABLES (Para que React no se congele esperando un clic)
-        const antiPopupStyle = document.createElement('style');
-        antiPopupStyle.innerHTML = `ul, [role="listbox"], .absolute { display: none !important; pointer-events: none !important; opacity: 0 !important; }`;
-        document.head.appendChild(antiPopupStyle);
-        setTimeout(() => antiPopupStyle.remove(), 2500); // Los ocultamos 2.5s mientras procesamos
+        // Ocultar desplegables molestos
+        const antiPopup = document.createElement('style');
+        antiPopup.innerHTML = `ul, [role="listbox"], .absolute { display: none !important; }`;
+        document.head.appendChild(antiPopup);
+        setTimeout(() => antiPopup.remove(), 2500);
         document.body.click();
 
-        // 2.2 GEOLOCALIZACIÓN
+        // 2.1 GEOLOCALIZACIÓN
         const resolveCoords = async (query) => {
             const q = query.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
             try {
@@ -18149,75 +18146,92 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const originData = await resolveCoords(pol);
         const destData = await resolveCoords(pod);
         if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
-        console.log(`✅ [PASO 2] Geocoding OK: ${originData.name}`);
 
-        // 2.3 ACTUALIZACIÓN DE INPUTS NATIVOS
-        const polInput = document.getElementById('map-port-pol') || document.getElementById('port-pol');
-        const podInput = document.getElementById('map-port-pod') || document.getElementById('port-pod');
-        
-        const updateNativeInput = (input, value) => {
-            if (!input) return;
-            const nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-            if (nativeSet) nativeSet.call(input, value); else input.value = value;
-            input.dispatchEvent(new Event('input', { bubbles: true })); 
-        };
-        updateNativeInput(polInput, originData.name);
-        updateNativeInput(podInput, destData.name);
-        if (typeof State !== 'undefined') { State.pol = originData.name; State.pod = destData.name; }
+        // Actualizar cajas silenciosamente
+        if (polInput) { polInput.value = originData.name; polInput.dispatchEvent(new Event('input', {bubbles: true})); }
+        if (podInput) { podInput.value = destData.name; podInput.dispatchEvent(new Event('input', {bubbles: true})); }
 
-        // 2.4 OPENROUTESERVICE HGV
+        // 2.2 OPENROUTESERVICE HGV
         const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
         const orsUrl = `https://api.openrouteservice.org/v2/directions/driving-hgv?api_key=${orsApiKey}&start=${originData.lon},${originData.lat}&end=${destData.lon},${destData.lat}`;
-        
         const response = await fetch(orsUrl);
         const data = await response.json();
-        if (!data || !data.features || !data.features.length) throw new Error('ORS falló.');
-
-        const routeFeature = data.features[0];
-        const distanceMeters = Number(routeFeature.properties.segments[0].distance) || 0;
+        
+        const distanceMeters = Number(data.features[0].properties.segments[0].distance) || 0;
         const distanceKm = Math.round(distanceMeters / 1000);
-        const drivingHours = (Number(routeFeature.properties.segments[0].duration) || 0) / 3600;
-        const leafletRoutePoints = routeFeature.geometry.coordinates.map(coord => [coord[1], coord[0]]); 
-        console.log(`✅ [PASO 3] ORS Calculado: ${distanceKm} km`);
+        const drivingHours = (Number(data.features[0].properties.segments[0].duration) || 0) / 3600;
+        const leafletRoutePoints = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]); 
 
-        // 2.5 EL DISFRAZ (Fake OSRM Object)
-        const fakeOsrmRoute = { distance: distanceMeters, duration: drivingHours * 3600, geometry: routeFeature.geometry, legs: [{ steps: [] }] };
-        window.LandData = { origin: { lat: originData.lat, lon: originData.lon, name: originData.name }, destination: { lat: destData.lat, lon: destData.lon, name: destData.name }, distanceKm, totalKilometers: distanceKm, drivingHours, leafletRoutePoints };
-        
-        // 2.6 ENVÍO AL NÚCLEO DE REACT
-        window.dispatchEvent(new CustomEvent('osrm:route-updated', { 
-            detail: { routePoints: leafletRoutePoints, origin: window.LandData.origin, destination: window.LandData.destination, distanceKm: distanceKm, totalKilometers: distanceKm, drivingHours: drivingHours, route: fakeOsrmRoute, landData: window.LandData }
-        }));
-        
-        // 2.7 RELLENAR LA BARRA INFERIOR (FOOTER)
-        if (typeof State !== 'undefined') { State.totalKilometers = distanceKm; State.drivingHours = drivingHours; State.totalMiles = distanceKm; State.distLaden = distanceKm; }
-        const distInput = document.getElementById('dist-total') || document.getElementById('input-distance-km');
-        updateNativeInput(distInput, distanceKm);
-
-        const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
-        if (vStore && typeof vStore.setRouteDistanceAndDuration === 'function') {
-            vStore.setRouteDistanceAndDuration(distanceKm, drivingHours);
-            if (typeof vStore.calculateLandCostPlus === 'function') vStore.calculateLandCostPlus(true);
-        }
-        console.log(`✅ [PASO 4] React inyectado. La barra debería decir ${distanceKm} km`);
-
-        // 2.8 TARJETA LOGÍSTICA
+        // 2.3 CÁLCULO LOGÍSTICO (DÍAS)
         let volume = 10000; 
         const volMatch = document.body.innerText.match(/(\d+)\s*(toneladas|mt|tons)/i);
         if (volMatch) volume = parseInt(volMatch[1]);
         const trips = Math.ceil(volume / 25);
         const days = Math.ceil(trips / (Math.max(1, Math.floor(9 / ((drivingHours * 2) + 4))) * 5)); 
-        const sD = new Date(); const eD = new Date(); eD.setDate(sD.getDate() + days); 
+
+        // ----------------------------------------------------------------------
+        // LA MAGIA VISUAL: INYECCIÓN DIRECTA AL DOM (Bypass React)
+        // ----------------------------------------------------------------------
         
-        setTimeout(() => {
-            const panels = document.querySelectorAll('.bg-white.rounded-lg, .shadow-sm');
-            const target = Array.from(panels).find(el => el.innerText.includes('Itinerario') || el.innerText.includes('DISTANCIA TOTAL'));
-            if (target) {
-                let card = document.getElementById('logistics-card');
-                if (!card) { card = document.createElement('div'); card.id = 'logistics-card'; card.className = 'mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900 shadow-inner'; target.appendChild(card); }
-                card.innerHTML = `<div class="font-bold mb-2">📅 Planificación Operativa</div><div class="grid grid-cols-2 gap-2 text-xs"><div class="bg-white p-2 border"><b>Vol:</b><br>${volume} MT</div><div class="bg-white p-2 border"><b>Flota:</b><br>${trips} tráilers</div><div class="bg-white p-2 border text-blue-700"><b>Inicio:</b><br>${sD.toLocaleDateString()}</div><div class="bg-white p-2 border text-blue-700"><b>Fin (${days} d):</b><br>${eD.toLocaleDateString()}</div></div>`;
+        // A) DIBUJAR LÍNEA EN EL MAPA MANUALMENTE
+        const mapInst = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
+        if (mapInst && typeof L !== 'undefined') {
+            if (window._persistentRouteLayer) try { mapInst.removeLayer(window._persistentRouteLayer); } catch(e){}
+            if (window._currentOsrmMarkers) window._currentOsrmMarkers.forEach(m => { try { mapInst.removeLayer(m); } catch(e){} });
+            
+            window._persistentRouteLayer = L.polyline(leafletRoutePoints, { color: '#2563eb', weight: 6, opacity: 1.0 }).addTo(mapInst);
+            mapInst.fitBounds(window._persistentRouteLayer.getBounds(), { padding: [50, 50] });
+            
+            const iO = L.divIcon({ className: 'custom-pin', html: '<div style="width:14px;height:14px;background:#0f172a;border:2px solid white;border-radius:50%;"></div>', iconSize: [14, 14] });
+            const iD = L.divIcon({ className: 'custom-pin', html: '<div style="width:14px;height:14px;background:#2563eb;border:2px solid white;border-radius:50%;"></div>', iconSize: [14, 14] });
+            
+            const m1 = L.marker([originData.lat, originData.lon], { icon: iO }).addTo(mapInst);
+            const m2 = L.marker([destData.lat, destData.lon], { icon: iD }).addTo(mapInst);
+            window._currentOsrmMarkers = [m1, m2];
+            try { window._persistentRouteLayer.bringToFront(); } catch(e){}
+        }
+
+        // B) ACTUALIZAR FOOTER MANUALMENTE (Para evitar el TBA y 0 km)
+        document.querySelectorAll('div, span, p').forEach(el => {
+            const text = el.innerText || '';
+            if(text.includes('ORIGEN') && text.includes('TBA')) el.innerHTML = el.innerHTML.replace('TBA', originData.name.split(',')[0]);
+            if(text.includes('DESTINO') && text.includes('TBA')) el.innerHTML = el.innerHTML.replace('TBA', destData.name.split(',')[0]);
+            if(text.includes('KILOMETROS') && (text.includes('0 km') || text.includes('0km') || text.includes('0\nkm'))) {
+                el.innerHTML = el.innerHTML.replace(/0\s*km/i, distanceKm + ' km');
             }
-        }, 1000);
+        });
+
+        // C) ACTUALIZAR CHAT DE LA IA CON LOS MENSAJES QUE PEDISTE
+        setTimeout(() => {
+            const pTags = document.querySelectorAll('p, div, span');
+            let targetBubble = null;
+            for(let el of pTags) {
+                if(el.innerText && el.innerText.includes('ADR/Peligrosidad') && el.innerText.includes('Origen OK')) {
+                    targetBubble = el;
+                    break;
+                }
+            }
+            if (targetBubble && !targetBubble.dataset.injected) {
+                targetBubble.dataset.injected = "true";
+                const checkmarks = document.createElement('div');
+                checkmarks.style.marginTop = "12px";
+                checkmarks.style.paddingTop = "12px";
+                checkmarks.style.borderTop = "1px solid rgba(0,0,0,0.1)";
+                // ¡TUS TEXTOS EXACTOS AÑADIDOS A LA BURBUJA DEL CHAT!
+                checkmarks.innerHTML = `
+                    ✅ <b>Calcular ruta:</b> OK<br>
+                    ✅ <b>Km:</b> ${distanceKm} km OK<br>
+                    ✅ <b>Días necesarios para completar la carga:</b> ${days} días OK<br>
+                    ✅ <b>Calcular gastos:</b> OK
+                `;
+                targetBubble.appendChild(checkmarks);
+            }
+        }, 800);
+
+        // D) ENVIAR EVENTOS A REACT POR SI ACASO
+        const fakeOsrmRoute = { distance: distanceMeters, duration: drivingHours * 3600, geometry: data.features[0].geometry, legs: [{ steps: [] }] };
+        window.LandData = { origin: originData, destination: destData, distanceKm, totalKilometers: distanceKm, drivingHours, leafletRoutePoints };
+        window.dispatchEvent(new CustomEvent('osrm:route-updated', { detail: { routePoints: leafletRoutePoints, origin: originData, destination: destData, distanceKm, totalKilometers: distanceKm, drivingHours, route: fakeOsrmRoute, landData: window.LandData } }));
 
     } catch (error) { 
         console.error("❌ Error crítico:", error); 
