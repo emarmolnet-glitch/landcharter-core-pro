@@ -18194,23 +18194,34 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             }
         }
 
-        // 2.6 ACTUALIZACIÓN DE RESUMEN Y PIPELINE MAESTRO DE REACT
-        if (typeof window.updateRouteSummary === 'function') {
-            window.updateRouteSummary();
-        }
-        if (typeof window.runEngine === 'function') {
-            window.runEngine();
-        }
-        if (typeof window.handleMasterValidationAndCalculate === 'function') {
-            await window.handleMasterValidationAndCalculate();
-        }
+       // 2.6 TRANSFORMACIÓN GEOMÉTRICA EXACTA (ORS [lon,lat] -> Leaflet [lat,lon])
+        const rawCoords = data.features[0].geometry.coordinates;
+        const routePoints = rawCoords.map(coord => [coord[1], coord[0]]); // Inversión crítica a [lat, lon]
 
-        // 2.7 REESTABLECER DIMENSIONES DEL MAPA (invalidateSize para evitar pantalla en blanco)
-        const mapInst = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
-        if (mapInst && typeof mapInst.invalidateSize === 'function') {
-            setTimeout(() => mapInst.invalidateSize(true), 300);
-            setTimeout(() => mapInst.invalidateSize(true), 900);
-        }
+        // Objetos de origen y destino estructurados estrictamente con 'lat' y 'lon'
+        const originPayload = {
+            lat: originData.lat,
+            lon: originData.lon,
+            name: originData.name
+        };
+
+        const destinationPayload = {
+            lat: destData.lat,
+            lon: destData.lon,
+            name: destData.name
+        };
+
+        // 2.7 DISPARO DEL EVENTO ESTRICTO QUE ESPERA LA CARTOGRAFÍA (LazyGlobeMap)
+        window.dispatchEvent(new CustomEvent('osrm:route-updated', { 
+            detail: { 
+                routePoints: routePoints,           // Nombre exacto requerido por RouteAutoFitter
+                origin: originPayload,              // Nombre exacto 'origin' con claves 'lat' y 'lon'
+                destination: destinationPayload,    // Nombre exacto 'destination' con claves 'lat' y 'lon'
+                distanceKm: distanceKm,
+                totalKilometers: distanceKm,
+                drivingHours: drivingHours
+            }
+        }));
 
         // 2.8 INYECCIÓN DE MENSAJES DE ESTADO EN EL CHAT DE LA IA
         setTimeout(() => {
