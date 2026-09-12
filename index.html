@@ -18064,7 +18064,7 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 // =======================================================================
-// 1. CORTAFUEGOS NUCLEAR Y ESTABILIZACIÓN GLOBAL (Actualizado PDA)
+// 1. CORTAFUEGOS NUCLEAR Y ESTABILIZACIÓN GLOBAL
 // =======================================================================
 if (!window._firewallInjected) {
     window._firewallInjected = true;
@@ -18079,7 +18079,6 @@ if (!window._firewallInjected) {
     });
 }
 
-// Funciones auxiliares globales seguras para evitar ReferenceErrors
 window.handleDWTChange = window.handleDWTChange || function() {};
 window.syncNavigationStrategyEffect = window.syncNavigationStrategyEffect || function() {};
 function autoFillBunkers() { return true; }
@@ -18116,7 +18115,7 @@ if (!window._triggerInjected) {
 }
 
 // =======================================================================
-// 3. MOTOR TERRESTRE DEFINITIVO (ORS + FECHAS + WATCHDOG)
+// 3. MOTOR TERRESTRE DEFINITIVO (ORS + FECHAS + WATCHDOG BLINDADO)
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
     if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Trazando ruta...'; }
@@ -18166,8 +18165,19 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
 
         window.LandData = { origin: originData, destination: destData, distanceKm, totalKilometers: distanceKm, drivingHours, leafletRoutePoints };
         
-        // Disparamos el evento para que el panel derecho muestre los km
+        // 📢 Disparamos el evento para que el panel derecho muestre los km
         window.dispatchEvent(new CustomEvent('osrm:route-updated', { detail: window.LandData }));
+
+        // 📢 Restauramos las variables globales para que la calculadora y los inputs se actualicen
+        if (typeof State !== 'undefined') {
+            State.totalKilometers = distanceKm;
+            State.drivingHours = drivingHours;
+            State.totalMiles = distanceKm;
+            State.distLaden = distanceKm;
+        }
+
+        const distInput = document.getElementById('dist-total') || document.getElementById('input-distance-km');
+        if (distInput) { distInput.value = distanceKm; distInput.dispatchEvent(new Event('input', {bubbles: true})); }
 
         // 3.4 CÁLCULO LOGÍSTICO Y CREACIÓN DE TARJETA VISUAL DE FECHAS
         let volume = 10000; 
@@ -18208,34 +18218,51 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             }
         }, 1000);
 
-        // 3.5 EL PERRO GUARDIÁN DE LA LÍNEA AZUL
-        if (!window._routeWatchdog) {
-            window._routeWatchdog = setInterval(() => {
-                const mapInstance = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
-                if (mapInstance && typeof L !== 'undefined' && window.LandData?.leafletRoutePoints) {
-                    let hasLine = false;
-                    mapInstance.eachLayer(layer => {
-                        if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
-                            hasLine = true;
-                        }
-                    });
+        // 3.5 EL PERRO GUARDIÁN DE LA LÍNEA AZUL (ESCUDO ANTI-CRASH AÑADIDO)
+        // Retrasamos el arranque 1 segundo para dejar que React monte el DOM tranquilo
+        setTimeout(() => {
+            if (!window._routeWatchdog) {
+                window._routeWatchdog = setInterval(() => {
+                    const mapInstance = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
                     
-                    if (!hasLine) {
-                        if (window._persistentRouteLayer) {
-                            try { mapInstance.removeLayer(window._persistentRouteLayer); } catch(e){}
+                    // 🛡️ ESCUDO: Si el mapa no está montado en el HTML, abortamos silenciosamente y probamos el próximo segundo
+                    if (!mapInstance || !mapInstance._container) return;
+
+                    if (typeof L !== 'undefined' && window.LandData?.leafletRoutePoints) {
+                        try {
+                            let hasLine = false;
+                            mapInstance.eachLayer(layer => {
+                                if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
+                                    hasLine = true;
+                                }
+                            });
+                            
+                            if (!hasLine) {
+                                if (window._persistentRouteLayer) {
+                                    try { mapInstance.removeLayer(window._persistentRouteLayer); } catch(e){}
+                                }
+                                
+                                // Dibujamos línea
+                                window._persistentRouteLayer = L.polyline(window.LandData.leafletRoutePoints, { 
+                                    color: '#2563eb', weight: 6, opacity: 1.0, lineCap: 'round'
+                                }).addTo(mapInstance);
+
+                                // Añadimos marcadores
+                                const iconOrigin = L.divIcon({ className: 'minimal-route-dot-origin', html: '<div style="width: 14px; height: 14px; background-color: #0f172a; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>', iconSize: [14, 14], iconAnchor: [7, 7] });
+                                const iconDest = L.divIcon({ className: 'minimal-route-dot-dest', html: '<div style="width: 14px; height: 14px; background-color: #2563eb; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>', iconSize: [14, 14], iconAnchor: [7, 7] });
+                                L.marker([window.LandData.origin.lat, window.LandData.origin.lon], { icon: iconOrigin }).addTo(mapInstance);
+                                L.marker([window.LandData.destination.lat, window.LandData.destination.lon], { icon: iconDest }).addTo(mapInstance);
+                                
+                                try { window._persistentRouteLayer.bringToFront(); } catch(e){}
+                                try { mapInstance.fitBounds(window._persistentRouteLayer.getBounds(), { padding: [50, 50] }); } catch(e){}
+                            }
+                        } catch (err) {
+                            // Si React destruye algo a medias, lo ignoramos sin crashear.
                         }
-                        window._persistentRouteLayer = L.polyline(window.LandData.leafletRoutePoints, { 
-                            color: '#2563eb', 
-                            weight: 6, 
-                            opacity: 1.0,
-                            lineCap: 'round'
-                        }).addTo(mapInstance);
-                        
-                        try { window._persistentRouteLayer.bringToFront(); } catch(e){}
                     }
-                }
-            }, 1000); 
-        }
+                }, 1000); 
+            }
+        }, 1000); 
 
     } catch (error) {
         console.error("Error terrestre:", error);
