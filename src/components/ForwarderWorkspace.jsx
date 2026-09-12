@@ -1875,32 +1875,56 @@ export function ForwarderWorkspace() {
       setIsCargoModalOpen(true);
     }
 
-    // 🌉 PUENTE INVISIBLE HACIA EL MAPA NATIVO (index.html)
+   // 🌉 PUENTE INTELIGENTE HACIA EL MAPA NATIVO CON GEOCODIFICACIÓN
     const aiPol = payload.pol || payload.portOfLoading || payload.charteringAssessment?.rotationBreakdown?.pol || payload.rotationBreakdown?.pol || payload.payload?.pol;
     const aiPod = payload.pod || payload.portOfDischarge || payload.charteringAssessment?.rotationBreakdown?.pod || payload.rotationBreakdown?.pod || payload.payload?.pod;
 
     if (aiPol || aiPod) {
-      setTimeout(() => {
-        // Buscamos los elementos exactos del HTML que me has enseñado
+      // 1. Función para buscar coordenadas exactas de forma silenciosa
+      const fetchCoords = async (query) => {
+        if (!query) return null;
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`);
+          const data = await res.json();
+          if (data?.length > 0) return { lat: data[0].lat, lon: data[0].lon, name: data[0].display_name };
+        } catch (e) { console.error("Error obteniendo coordenadas:", e); }
+        return null;
+      };
+
+      // 2. Ejecutar la búsqueda y sincronizar el DOM
+      (async () => {
+        const [originData, destData] = await Promise.all([fetchCoords(aiPol), fetchCoords(aiPod)]);
+
         const inputPolHtml = document.getElementById('map-port-pol');
         const inputPodHtml = document.getElementById('map-port-pod');
         const btnMapNative = document.getElementById('btn-map-locate-route');
 
-        // Llenamos los inputs como si el usuario estuviera tecleando
-        if (inputPolHtml && aiPol) {
-            inputPolHtml.value = aiPol;
+        if (inputPolHtml && originData) {
+            inputPolHtml.value = originData.name;
+            // Inyectar coordenadas para que tu Vanilla JS las lea
+            inputPolHtml.setAttribute('data-lat', originData.lat);
+            inputPolHtml.setAttribute('data-lon', originData.lon);
+            inputPolHtml.dataset.lat = originData.lat;
+            inputPolHtml.dataset.lon = originData.lon;
             inputPolHtml.dispatchEvent(new Event('input', { bubbles: true }));
+            inputPolHtml.dispatchEvent(new Event('change', { bubbles: true }));
         }
-        if (inputPodHtml && aiPod) {
-            inputPodHtml.value = aiPod;
+
+        if (inputPodHtml && destData) {
+            inputPodHtml.value = destData.name;
+            inputPodHtml.setAttribute('data-lat', destData.lat);
+            inputPodHtml.setAttribute('data-lon', destData.lon);
+            inputPodHtml.dataset.lat = destData.lat;
+            inputPodHtml.dataset.lon = destData.lon;
             inputPodHtml.dispatchEvent(new Event('input', { bubbles: true }));
+            inputPodHtml.dispatchEvent(new Event('change', { bubbles: true }));
         }
         
-        // ¡Pulsamos el botón nativo para que haga toda su magia original!
-        if (btnMapNative) {
-            btnMapNative.click();
-        }
-      }, 400); // Damos 400ms para que React actualice la interfaz primero
+        // 3. Dar tiempo al DOM para registrar los datos y disparar el cálculo real
+        setTimeout(() => {
+          if (btnMapNative) btnMapNative.click();
+        }, 300);
+      })();
     }
     // --------------------------------------------------------
     if (hasChanges) {
