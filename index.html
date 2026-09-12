@@ -18064,10 +18064,10 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 // =======================================================================
-// 1. CORTAFUEGOS V6 Y PINCHAZO DE RED
+// 1. CORTAFUEGOS V7 Y PINCHAZO DE RED
 // =======================================================================
-if (!window._firewallInjectedV6) {
-    window._firewallInjectedV6 = true;
+if (!window._firewallInjectedV7) {
+    window._firewallInjectedV7 = true;
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         const url = args[0] || '';
@@ -18110,7 +18110,7 @@ landCharterStyles.innerHTML = `#decision-module, .audit-panel, #maritime-audit, 
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. MOTOR TERRESTRE + DESPERTADOR DE MAPA Y FOOTER
+// 2. MOTOR TERRESTRE PURIFICADO (SIN COLISIONES CON REACT)
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
     if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculando...'; }
@@ -18143,7 +18143,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         if (polInput) { polInput.value = originData.name; polInput.blur(); }
         if (podInput) { podInput.value = destData.name; podInput.blur(); }
 
-        // 2.2 OPENROUTESERVICE
+        // 2.2 OPENROUTESERVICE HGV
         const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
         const orsUrl = `https://api.openrouteservice.org/v2/directions/driving-hgv?api_key=${orsApiKey}&start=${originData.lon},${originData.lat}&end=${destData.lon},${destData.lat}`;
         const response = await fetch(orsUrl);
@@ -18161,30 +18161,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const trips = Math.ceil(volume / 25);
         const days = Math.ceil(trips / (Math.max(1, Math.floor(9 / ((drivingHours * 2) + 4))) * 5)); 
 
-        // 2.4 RENDERIZADO DEL MAPA Y RECARGA FORZADA (Adiós pantalla en blanco)
-        const mapInst = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
-        if (mapInst && typeof L !== 'undefined') {
-            if (window._persistentRouteLayer) try { mapInst.removeLayer(window._persistentRouteLayer); } catch(e){}
-            if (window._currentOsrmMarkers) window._currentOsrmMarkers.forEach(m => { try { mapInst.removeLayer(m); } catch(e){} });
-            
-            window._persistentRouteLayer = L.polyline(leafletRoutePoints, { color: '#2563eb', weight: 6, opacity: 1.0 }).addTo(mapInst);
-            mapInst.fitBounds(window._persistentRouteLayer.getBounds(), { padding: [50, 50] });
-            
-            const iO = L.divIcon({ className: 'custom-pin', html: '<div style="width:14px;height:14px;background:#0f172a;border:2px solid white;border-radius:50%;"></div>', iconSize: [14, 14] });
-            const iD = L.divIcon({ className: 'custom-pin', html: '<div style="width:14px;height:14px;background:#2563eb;border:2px solid white;border-radius:50%;"></div>', iconSize: [14, 14] });
-            
-            const m1 = L.marker([originData.lat, originData.lon], { icon: iO }).addTo(mapInst);
-            const m2 = L.marker([destData.lat, destData.lon], { icon: iD }).addTo(mapInst);
-            window._currentOsrmMarkers = [m1, m2];
-            try { window._persistentRouteLayer.bringToFront(); } catch(e){}
-
-            // 🔥 DISPARADORES MÚLTIPLES DE INVALIDATE SIZE PARA RENDERIZAR LAS TESELAS DEL MAPA
-            [100, 300, 600, 1200, 2000].forEach(ms => {
-                setTimeout(() => { if (mapInst && typeof mapInst.invalidateSize === 'function') mapInst.invalidateSize(true); }, ms);
-            });
-        }
-
-        // 2.5 ACTUALIZACIÓN DEL FOOTER INFERIOR (KILÓMETROS)
+        // 2.4 ACTUALIZACIÓN DEL FOOTER INFERIOR (KILÓMETROS)
         setTimeout(() => {
             const footerCards = document.querySelectorAll('div');
             footerCards.forEach(card => {
@@ -18197,7 +18174,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             });
         }, 500);
 
-        // 2.6 CHAT TEXTOS
+        // 2.5 CHAT TEXTOS DE CONFIRMACIÓN
         setTimeout(() => {
             const pTags = document.querySelectorAll('p, div, span');
             let targetBubble = null;
@@ -18223,10 +18200,22 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             }
         }, 800);
 
-        // 2.7 EVENTOS A REACT
+        // 2.6 ENVÍO NATIVO A REACT (Dejamos que React gestione el mapa y la línea sin tocar Leaflet a la fuerza)
         const fakeOsrmRoute = { distance: distanceMeters, duration: drivingHours * 3600, geometry: data.features[0].geometry, legs: [{ steps: [] }] };
         window.LandData = { origin: originData, destination: destData, distanceKm, totalKilometers: distanceKm, drivingHours, leafletRoutePoints };
-        window.dispatchEvent(new CustomEvent('osrm:route-updated', { detail: { routePoints: leafletRoutePoints, origin: originData, destination: destData, distanceKm, totalKilometers: distanceKm, drivingHours, route: fakeOsrmRoute, landData: window.LandData } }));
+        
+        window.dispatchEvent(new CustomEvent('osrm:route-updated', { 
+            detail: { 
+                routePoints: leafletRoutePoints, 
+                origin: originData, 
+                destination: destData, 
+                distanceKm: distanceKm, 
+                totalKilometers: distanceKm, 
+                drivingHours: drivingHours, 
+                route: fakeOsrmRoute, 
+                landData: window.LandData 
+            }
+        }));
 
     } catch (error) { 
         console.error("❌ Error crítico:", error); 
