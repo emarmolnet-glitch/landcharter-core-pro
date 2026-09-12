@@ -137,30 +137,17 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
   origin: initialOrigin,
   destination: initialDest
 }: GlobeMapProps) {
-  // 🔗 Lectura nativa desde el store de Zustand
-  const storeRoutePoints = useVoyageStore((state) => state.draft.routePoints);
-  const storeOrigin = useVoyageStore((state) => state.draft.originCoord);
-  const storeDestination = useVoyageStore((state) => state.draft.destinationCoord);
-
-  const [routePoints, setRoutePoints] = useState<[number, number][]>(routeGeometry || storeRoutePoints || []);
-  const [origin, setOrigin] = useState<RoutePoint | null>(initialOrigin || storeOrigin || null);
-  const [dest, setDest] = useState<RoutePoint | null>(initialDest || storeDestination || null);
+  const [routePoints, setRoutePoints] = useState<[number, number][]>(routeGeometry || []);
+  const [origin, setOrigin] = useState<RoutePoint | null>(initialOrigin || null);
+  const [dest, setDest] = useState<RoutePoint | null>(initialDest || null);
 
   useEffect(() => {
-    if (storeRoutePoints && storeRoutePoints.length > 0) {
-      setRoutePoints(storeRoutePoints);
-    } else if (routeGeometry) {
-      setRoutePoints(routeGeometry);
-    }
+    if (routeGeometry) setRoutePoints(routeGeometry);
+    if (initialOrigin) setOrigin(initialOrigin);
+    if (initialDest) setDest(initialDest);
+  }, [routeGeometry, initialOrigin, initialDest]);
 
-    if (storeOrigin) setOrigin(storeOrigin);
-    else if (initialOrigin) setOrigin(initialOrigin);
-
-    if (storeDestination) setDest(storeDestination);
-    else if (initialDest) setDest(initialDest);
-  }, [storeRoutePoints, storeOrigin, storeDestination, routeGeometry, initialOrigin, initialDest]);
-
-  // Escuchar eventos globales de actualización de ruta OSRM (retrocompatibilidad)
+  // Escuchar eventos globales de actualización de ruta OSRM (El flujo original)
   useEffect(() => {
     const handleOsrmUpdate = (event: Event) => {
       const customEv = event as CustomEvent<{
@@ -213,7 +200,6 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
         />
 
         <MapExposer />
-        {false && <Polyline positions={[]} pathOptions={{ color: '#0f766e', weight: 5 }} />}
 
         {routePoints && routePoints.length > 0 && (
           <RouteAutoFitter positions={routePoints} />
