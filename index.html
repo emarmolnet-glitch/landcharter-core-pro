@@ -18064,10 +18064,19 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 // =======================================================================
-// 1. CORTAFUEGOS V8 Y PINCHAZO DE RED (ARQUITECTURA OFICIAL)
+// 1. CORTAFUEGOS, STUBS GLOBALES Y PINCHAZO DE RED
 // =======================================================================
-if (!window._firewallInjectedV8) {
-    window._firewallInjectedV8 = true;
+window.handleDWTChange = window.handleDWTChange || function() {};
+window.syncNavigationStrategyEffect = window.syncNavigationStrategyEffect || function() {};
+
+if (typeof window.autoFillBunkers !== 'function') {
+    window.autoFillBunkers = function() { return true; };
+}
+window.recalculateAdjustedAndSave = window.recalculateAdjustedAndSave || async function() { return true; };
+window.runMasterOptionalStage = window.runMasterOptionalStage || async function() { return true; };
+
+if (!window._firewallInjectedV9) {
+    window._firewallInjectedV9 = true;
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         const url = args[0] || '';
@@ -18085,7 +18094,7 @@ if (!window._firewallInjectedV8) {
                         const pol = data.payload.origin || data.payload.pol || '';
                         const pod = data.payload.destination || data.payload.pod || '';
                         if (pol && pod) {
-                            console.log(`🔥 [ARQUITECTURA OFICIAL] IA detectada: ${pol} -> ${pod}`);
+                            console.log(`🔥 [PINCHAZO DE RED] IA detectada: ${pol} -> ${pod}`);
                             setTimeout(() => {
                                 if (window.runOnDemandMapRouteWorkflow) window.runOnDemandMapRouteWorkflow(null, pol, pod);
                             }, 500);
@@ -18098,19 +18107,12 @@ if (!window._firewallInjectedV8) {
     };
 }
 
-window.handleDWTChange = window.handleDWTChange || function() {};
-window.syncNavigationStrategyEffect = window.syncNavigationStrategyEffect || function() {};
-function autoFillBunkers() { return true; }
-window.autoFillBunkers = autoFillBunkers;
-window.recalculateAdjustedAndSave = async function() { return true; };
-window.runMasterOptionalStage = async function() { return true; };
-
 const landCharterStyles = document.createElement('style');
 landCharterStyles.innerHTML = `#decision-module, .audit-panel, #maritime-audit, [data-testid="audit-module"], .vessel-speed-panel { display: none !important; }`;
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. MOTOR TERRESTRE SINCRONIZADO CON STORE Y REACT
+// 2. MOTOR TERRESTRE SINCRONIZADO (SIN CONFLICTOS DE VARIABLES)
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
     if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculando...'; }
@@ -18140,7 +18142,6 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const destData = await resolveCoords(pod);
         if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
 
-        // Actualización limpia de inputs
         if (polInput) { polInput.value = originData.name; polInput.blur(); }
         if (podInput) { podInput.value = destData.name; podInput.blur(); }
 
@@ -18162,7 +18163,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const trips = Math.ceil(volume / 25);
         const days = Math.ceil(trips / (Math.max(1, Math.floor(9 / ((drivingHours * 2) + 4))) * 5)); 
 
-        // 2.4 SINCRONIZACIÓN OFICIAL CON EL ESTADO GLOBAL (Según Informe Técnico)
+        // 2.4 SINCRONIZACIÓN CON EL ESTADO GLOBAL
         if (typeof window.State !== 'undefined') {
             window.State.pol = originData.name;
             window.State.pod = destData.name;
@@ -18183,73 +18184,27 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             });
         }
 
-        // 2.5 INTEGRACIÓN CON ZUSTAND (VoyageStore) Y RECALCULO DE COSTES
-        const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
-        if (vStore) {
-            if (typeof vStore.setRouteDistanceAndDuration === 'function') {
-                vStore.setRouteDistanceAndDuration(distanceKm, drivingHours);
+        // 2.5 INTEGRACIÓN CON ZUSTAND (Evitando re-declaraciones)
+        const voyageStoreInstance = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
+        if (voyageStoreInstance) {
+            if (typeof voyageStoreInstance.setRouteDistanceAndDuration === 'function') {
+                voyageStoreInstance.setRouteDistanceAndDuration(distanceKm, drivingHours);
             }
-            if (typeof vStore.calculateLandCostPlus === 'function') {
-                vStore.calculateLandCostPlus(true);
-            }
-        }
-
-       // 2.6 ACTUALIZACIÓN DEL ESTADO GLOBAL, STORE Y RESUMEN FINANCIERO
-        if (typeof window.State !== 'undefined') {
-            window.State.pol = originData.name;
-            window.State.pod = destData.name;
-            window.State.totalKilometers = distanceKm;
-            window.State.drivingHours = drivingHours;
-            window.State.totalMiles = distanceKm;
-            window.State.distLaden = distanceKm;
-        }
-
-        if (typeof window.SeaCharterStore?.set === 'function') {
-            window.SeaCharterStore.set({
-                pol: originData.name,
-                pod: destData.name,
-                totalKilometers: distanceKm,
-                drivingHours: drivingHours,
-                distLaden: distanceKm,
-                distTotal: distanceKm
-            });
-        }
-
-        const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
-        if (vStore) {
-            if (typeof vStore.setRouteDistanceAndDuration === 'function') {
-                vStore.setRouteDistanceAndDuration(distanceKm, drivingHours);
-            }
-            if (typeof vStore.calculateLandCostPlus === 'function') {
-                vStore.calculateLandCostPlus(true);
+            if (typeof voyageStoreInstance.calculateLandCostPlus === 'function') {
+                voyageStoreInstance.calculateLandCostPlus(true);
             }
         }
 
-        if (typeof window.updateRouteSummary === 'function') {
-            window.updateRouteSummary();
-        }
-        if (typeof window.runEngine === 'function') {
-            window.runEngine();
-        }
-        if (typeof window.handleMasterValidationAndCalculate === 'function') {
-            await window.handleMasterValidationAndCalculate();
-        }
+        if (typeof window.updateRouteSummary === 'function') { window.updateRouteSummary(); }
+        if (typeof window.runEngine === 'function') { window.runEngine(); }
+        if (typeof window.handleMasterValidationAndCalculate === 'function') { await window.handleMasterValidationAndCalculate(); }
 
-        // 2.7 TRANSFORMACIÓN GEOMÉTRICA EXACTA Y DISPARO PARA LA CARTOGRAFÍA
+        // 2.6 TRANSFORMACIÓN GEOMÉTRICA Y DISPARO PARA LA CARTOGRAFÍA (LazyGlobeMap)
         const rawCoords = data.features[0].geometry.coordinates;
         const routePoints = rawCoords.map(coord => [coord[1], coord[0]]); // Inversión a [lat, lon]
 
-        const originPayload = {
-            lat: originData.lat,
-            lon: originData.lon,
-            name: originData.name
-        };
-
-        const destinationPayload = {
-            lat: destData.lat,
-            lon: destData.lon,
-            name: destData.name
-        };
+        const originPayload = { lat: originData.lat, lon: originData.lon, name: originData.name };
+        const destinationPayload = { lat: destData.lat, lon: destData.lon, name: destData.name };
 
         window.dispatchEvent(new CustomEvent('osrm:route-updated', { 
             detail: { 
@@ -18262,7 +18217,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             }
         }));
 
-        // 2.8 INYECCIÓN DE MENSAJES DE ESTADO EN EL CHAT DE LA IA
+        // 2.7 INYECCIÓN DE MENSAJES DE ESTADO EN EL CHAT
         setTimeout(() => {
             const pTags = document.querySelectorAll('p, div, span');
             let targetBubble = null;
@@ -18287,23 +18242,6 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
                 targetBubble.appendChild(checkmarks);
             }
         }, 800);
-
-        // 2.9 DISPARO DEL EVENTO NATIVO PARA REACT-LEAFLET
-        const fakeOsrmRoute = { distance: distanceMeters, duration: drivingHours * 3600, geometry: data.features[0].geometry, legs: [{ steps: [] }] };
-        window.LandData = { origin: originData, destination: destData, distanceKm, totalKilometers: distanceKm, drivingHours, leafletRoutePoints };
-        
-        window.dispatchEvent(new CustomEvent('osrm:route-updated', { 
-            detail: { 
-                routePoints: leafletRoutePoints, 
-                origin: originData, 
-                destination: destData, 
-                distanceKm: distanceKm, 
-                totalKilometers: distanceKm, 
-                drivingHours: drivingHours, 
-                route: fakeOsrmRoute, 
-                landData: window.LandData 
-            }
-        }));
 
     } catch (error) { 
         console.error("❌ Error crítico en arquitectura:", error); 
