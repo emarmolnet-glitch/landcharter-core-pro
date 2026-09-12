@@ -797,7 +797,7 @@ export function ForwarderWorkspace() {
           console.error('Error calculando ruta terrestre:', err);
       }
   };
-  // Exponer la función de ruta terrestre para que Cerebro IA pueda invocarla sin errores
+ // Exponer funciones globales de respaldo para evitar fallos en el widget de IA
   useEffect(() => {
     window.runOnDemandMapRouteWorkflow = (btn, overridePol, overridePod) => {
       if (overridePol) setPol(overridePol);
@@ -806,8 +806,19 @@ export function ForwarderWorkspace() {
         handleCalculateLandRoute();
       }, 200);
     };
+
+    // Stubs de seguridad para prevenir errores de funciones no definidas en el bundle minificado
+    window.updateMapRoute = window.updateMapRoute || (() => {});
+    window.refreshGlobeMap = window.refreshGlobeMap || (() => {});
+    window.updateGlobeRoute = window.updateGlobeRoute || (() => {});
+    window.calculateRoute = window.calculateRoute || handleCalculateLandRoute;
+
     return () => {
       delete window.runOnDemandMapRouteWorkflow;
+      delete window.updateMapRoute;
+      delete window.refreshGlobeMap;
+      delete window.updateGlobeRoute;
+      delete window.calculateRoute;
     };
   }, [pol, pod]);
 
