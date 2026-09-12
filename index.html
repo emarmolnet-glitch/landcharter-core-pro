@@ -8686,7 +8686,7 @@
     </style>
     <style>
         .leaflet-route-highlight {
-            stroke: #ef4444 !important;
+            stroke: ##2563eb !important;
             stroke-width: 6px !important;
             stroke-opacity: 1 !important;
             fill: none !important;
@@ -18227,7 +18227,7 @@ async function runOnDemandMapRouteWorkflow(button) {
             mapInstance.eachLayer(layer => { if (layer instanceof L.Polyline) try { mapInstance.removeLayer(layer); } catch (_) {} });
 
             const polyline = L.polyline(leafletRoutePoints, {
-                color: '#ef4444',
+                color: '##2563eb',
                 weight: 6,
                 opacity: 1.0
             }).addTo(mapInstance);
@@ -18242,7 +18242,7 @@ async function runOnDemandMapRouteWorkflow(button) {
             });
             const iconDest = L.divIcon({
                 className: 'minimal-route-dot-dest',
-                html: '<div style="width: 14px; height: 14px; background-color: #ef4444; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
+                html: '<div style="width: 14px; height: 14px; background-color: ##2563eb; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
                 iconSize: [14, 14], iconAnchor: [7, 7]
             });
 

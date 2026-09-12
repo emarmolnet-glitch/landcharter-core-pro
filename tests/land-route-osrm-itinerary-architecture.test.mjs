@@ -68,12 +68,12 @@ test('3. Renderizado Nativo de Alta Visibilidad en el Mapa (LazyGlobeMap.tsx y L
   assert.match(indexHtml, /window\.GlobalLeafletMap = map;/);
 
   // Limpieza de polilíneas y trazo con API nativa L.polyline en color azul eléctrico
-  assert.match(lazyGlobeSource, /L\.polyline\(allLatLngs,\s*\{[\s\S]*color:\s*['"]#ef4444['"],[\s\S]*weight:\s*6,[\s\S]*opacity:\s*1\.0,[\s\S]*lineCap:\s*['"]round['"],[\s\S]*lineJoin:\s*['"]round['"],[\s\S]*className:\s*['"]leaflet-route-highlight['"][\s\S]*\}\)/);
+  assert.match(lazyGlobeSource, /L\.polyline\(allLatLngs,\s*\{[\s\S]*color:\s*['"]##2563eb['"],[\s\S]*weight:\s*6,[\s\S]*opacity:\s*1\.0,[\s\S]*lineCap:\s*['"]round['"],[\s\S]*lineJoin:\s*['"]round['"],[\s\S]*className:\s*['"]leaflet-route-highlight['"][\s\S]*\}\)/);
   assert.match(lazyGlobeSource, /polyline\.addTo\(mapInstance\);/);
   assert.match(lazyGlobeSource, /mapInstance\.fitBounds\(polyline\.getBounds\(\),\s*\{\s*padding:\s*\[50,\s*50\]\s*\}\);/);
 
   // Regla CSS inyectada en el <head>
-  assert.match(indexHtml, /\.leaflet-route-highlight\s*\{[\s\S]*stroke:\s*#ef4444 !important;[\s\S]*stroke-width:\s*6px !important;[\s\S]*stroke-opacity:\s*1 !important;[\s\S]*fill:\s*none !important;[\s\S]*\}/);
+  assert.match(indexHtml, /\.leaflet-route-highlight\s*\{[\s\S]*stroke:\s*##2563eb !important;[\s\S]*stroke-width:\s*6px !important;[\s\S]*stroke-opacity:\s*1 !important;[\s\S]*fill:\s*none !important;[\s\S]*\}/);
 });
 
 test('4. Panel de Itinerario Fijo a la Derecha (#route-itinerary-right-panel)', async () => {

@@ -394,7 +394,7 @@ export function buildMarketReportHtmlTemplate(data: MarketReportData): string {
       width: ${data.thermometer.repositioningEfficiencyScore}%;
     }
     .thermometer-high .gauge-bar-fill {
-      background: linear-gradient(90deg, #EF4444, #B91C1C);
+      background: linear-gradient(90deg, ##2563eb, #B91C1C);
       width: ${data.thermometer.repositioningEfficiencyScore}%;
     }
     .gauge-labels {
@@ -436,7 +436,7 @@ export function buildMarketReportHtmlTemplate(data: MarketReportData): string {
       margin-bottom: 6px;
     }
     .risk-card-jwc {
-      border-left-color: #EF4444;
+      border-left-color: ##2563eb;
     }
     .risk-card-port {
       border-left-color: #0284C7;

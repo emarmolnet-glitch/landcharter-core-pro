@@ -27,8 +27,8 @@
         th { background: rgba(30, 41, 59, 0.9); color: #94a3b8; font-weight: 600; padding: 8px 12px; position: sticky; top: 0; }
         td { padding: 8px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #e2e8f0; }
         tr:hover { background: rgba(51, 65, 85, 0.5); }
-        .radar-primary-action { background: #ef4444; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-        .radar-primary-action:hover { background: ##ef4444; }
+        .radar-primary-action { background: ##2563eb; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        .radar-primary-action:hover { background: ###2563eb; }
         .radar-primary-action:disabled { background: #475569; cursor: not-allowed; }
         .ais-live-vessel-dot { display: block; width: 12px; height: 12px; border-radius: 50%; }
         .ais-live-vessel-dot.moving { animation: pulseAisDot 2s infinite; }
@@ -37,10 +37,10 @@
         .ais-eta-drift { color: #f59e0b; font-weight: bold; }
         .ais-load-pill { display: inline-block; min-width: 58px; padding: 3px 7px; border-radius: 4px; color: #fff; font-size: 0.72rem; font-weight: 900; text-align: center; }
         .ais-load-pill.ballast { background: #16a34a; }
-        .ais-load-pill.laden { background: #ef4444; }
+        .ais-load-pill.laden { background: ##2563eb; }
         .ais-radar-tab { background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.2); color: #cbd5e1; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
         .ais-radar-tab.active-pol { background: #16a34a; color: #fff; border-color: #16a34a; }
-        .ais-radar-tab.active-pod { background: #ef4444; color: #fff; border-color: #ef4444; }
+        .ais-radar-tab.active-pod { background: ##2563eb; color: #fff; border-color: ##2563eb; }
         .ais-projection-toggle { background: rgba(30, 41, 59, 0.8); border: 1px solid #3b82f6; color: #60a5fa; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
         .ais-projection-toggle.active { background: #3b82f6; color: #fff; }
         .seacharter-ais-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(15, 23, 42, 0.8); border: 1.5px solid var(--marker-color, #3b82f6); color: var(--marker-color, #3b82f6); font-size: 11px; }
@@ -180,7 +180,7 @@
         window.AIS_RADAR_POL_RADIUS_NM = 2000;
         window.AIS_RADAR_POD_RADIUS_NM = 100;
         window.AIS_ROUTE_CORRIDOR_RADIUS_NM = 100;
-        window.AIS_RADAR_COLORS = { POL: '#16a34a', POD: '#ef4444', ROUTE: '#3b82f6', GLOBAL: '#64748b' };
+        window.AIS_RADAR_COLORS = { POL: '#16a34a', POD: '##2563eb', ROUTE: '#3b82f6', GLOBAL: '#64748b' };
         window.aisRadarZoneState = { pol: true, pod: true };
         window.aisProjectionMatchingMode = false;
         window.buquesAlmacenados = new Map();

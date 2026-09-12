@@ -235,7 +235,7 @@ body.tracking-live-open { overflow: hidden !important; }
 .tracking-laytime-incident time { color: #92400e; font-size: .62rem; }
 .tracking-laytime-incident button { display: grid; width: 28px; height: 28px; place-items: center; border: 0; border-radius: .25rem; color: #991b1b; background: transparent; }
 .tracking-laytime-result { overflow: hidden; border: 1px solid #cbd5e1; border-radius: .5rem; }
-.tracking-laytime-result[data-status="ON_DEMURRAGE"] { border-color: #ef4444; }
+.tracking-laytime-result[data-status="ON_DEMURRAGE"] { border-color: ##2563eb; }
 .tracking-laytime-status { display: flex; justify-content: space-between; gap: 1rem; padding: .8rem 1rem; color: #fff; background: #0f766e; }
 .tracking-laytime-result[data-status="ON_DEMURRAGE"] .tracking-laytime-status { background: #991b1b; }
 .tracking-laytime-status span { font-size: .68rem; font-weight: 900; letter-spacing: .08em; }
@@ -418,7 +418,7 @@ body.tracking-live-open { overflow: hidden !important; }
 .comtrade-radar__signal span { width: 16px; height: 16px; border-radius: 50%; background: #1e293b; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
 .comtrade-radar__signal[data-status='green'] span:nth-child(1) { background: #22c55e; }
 .comtrade-radar__signal[data-status='yellow'] span:nth-child(2) { background: #eab308; }
-.comtrade-radar__signal[data-status='red'] span:nth-child(3) { background: #ef4444; }
+.comtrade-radar__signal[data-status='red'] span:nth-child(3) { background: ##2563eb; }
 .comtrade-radar__message { position: relative; z-index: 1; margin: .6rem 0 0; color: #64748b; font-size: .58rem; }
 .comtrade-radar[data-radar-status='error'] .comtrade-radar__message { color: #fca5a5; }
 @keyframes comtrade-radar-pulse { to { opacity: .35; transform: scale(.9); } }
