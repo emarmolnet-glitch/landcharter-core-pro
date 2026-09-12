@@ -18064,10 +18064,10 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 // =======================================================================
-// 1. CORTAFUEGOS V7 Y PINCHAZO DE RED
+// 1. CORTAFUEGOS V8 Y PINCHAZO DE RED (ARQUITECTURA OFICIAL)
 // =======================================================================
-if (!window._firewallInjectedV7) {
-    window._firewallInjectedV7 = true;
+if (!window._firewallInjectedV8) {
+    window._firewallInjectedV8 = true;
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         const url = args[0] || '';
@@ -18085,7 +18085,7 @@ if (!window._firewallInjectedV7) {
                         const pol = data.payload.origin || data.payload.pol || '';
                         const pod = data.payload.destination || data.payload.pod || '';
                         if (pol && pod) {
-                            console.log(`🔥 [PINCHAZO DE RED] IA detectada: ${pol} -> ${pod}`);
+                            console.log(`🔥 [ARQUITECTURA OFICIAL] IA detectada: ${pol} -> ${pod}`);
                             setTimeout(() => {
                                 if (window.runOnDemandMapRouteWorkflow) window.runOnDemandMapRouteWorkflow(null, pol, pod);
                             }, 500);
@@ -18110,7 +18110,7 @@ landCharterStyles.innerHTML = `#decision-module, .audit-panel, #maritime-audit, 
 document.head.appendChild(landCharterStyles);
 
 // =======================================================================
-// 2. MOTOR TERRESTRE PURIFICADO (SIN COLISIONES CON REACT)
+// 2. MOTOR TERRESTRE SINCRONIZADO CON STORE Y REACT
 // =======================================================================
 window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, overridePod = null) {
     if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculando...'; }
@@ -18140,6 +18140,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const destData = await resolveCoords(pod);
         if (!originData || !destData) throw new Error('Coordenadas no encontradas.');
 
+        // Actualización limpia de inputs
         if (polInput) { polInput.value = originData.name; polInput.blur(); }
         if (podInput) { podInput.value = destData.name; podInput.blur(); }
 
@@ -18154,27 +18155,64 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         const drivingHours = (Number(data.features[0].properties.segments[0].duration) || 0) / 3600;
         const leafletRoutePoints = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]); 
 
-        // 2.3 CÁLCULO DÍAS
+        // 2.3 CÁLCULO LOGÍSTICO Y DE DÍAS
         let volume = 5000; 
         const volMatch = document.body.innerText.match(/(\d+)\s*(toneladas|mt|tons)/i);
         if (volMatch) volume = parseInt(volMatch[1]);
         const trips = Math.ceil(volume / 25);
         const days = Math.ceil(trips / (Math.max(1, Math.floor(9 / ((drivingHours * 2) + 4))) * 5)); 
 
-        // 2.4 ACTUALIZACIÓN DEL FOOTER INFERIOR (KILÓMETROS)
-        setTimeout(() => {
-            const footerCards = document.querySelectorAll('div');
-            footerCards.forEach(card => {
-                const txt = card.innerText || '';
-                if (txt.includes('KILÓMETROS') || txt.includes('KILOMETROS')) {
-                    const kmSpan = card.querySelector('span, p, div:last-child');
-                    if (kmSpan) kmSpan.innerText = distanceKm + ' km';
-                    else card.innerText = "KILÓMETROS\n" + distanceKm + " km";
-                }
-            });
-        }, 500);
+        // 2.4 SINCRONIZACIÓN OFICIAL CON EL ESTADO GLOBAL (Según Informe Técnico)
+        if (typeof window.State !== 'undefined') {
+            window.State.pol = originData.name;
+            window.State.pod = destData.name;
+            window.State.totalKilometers = distanceKm;
+            window.State.drivingHours = drivingHours;
+            window.State.totalMiles = distanceKm;
+            window.State.distLaden = distanceKm;
+        }
 
-        // 2.5 CHAT TEXTOS DE CONFIRMACIÓN
+        if (typeof window.SeaCharterStore?.set === 'function') {
+            window.SeaCharterStore.set({
+                pol: originData.name,
+                pod: destData.name,
+                totalKilometers: distanceKm,
+                drivingHours: drivingHours,
+                distLaden: distanceKm,
+                distTotal: distanceKm
+            });
+        }
+
+        // 2.5 INTEGRACIÓN CON ZUSTAND (VoyageStore) Y RECALCULO DE COSTES
+        const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
+        if (vStore) {
+            if (typeof vStore.setRouteDistanceAndDuration === 'function') {
+                vStore.setRouteDistanceAndDuration(distanceKm, drivingHours);
+            }
+            if (typeof vStore.calculateLandCostPlus === 'function') {
+                vStore.calculateLandCostPlus(true);
+            }
+        }
+
+        // 2.6 ACTUALIZACIÓN DE RESUMEN Y PIPELINE MAESTRO DE REACT
+        if (typeof window.updateRouteSummary === 'function') {
+            window.updateRouteSummary();
+        }
+        if (typeof window.runEngine === 'function') {
+            window.runEngine();
+        }
+        if (typeof window.handleMasterValidationAndCalculate === 'function') {
+            await window.handleMasterValidationAndCalculate();
+        }
+
+        // 2.7 REESTABLECER DIMENSIONES DEL MAPA (invalidateSize para evitar pantalla en blanco)
+        const mapInst = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
+        if (mapInst && typeof mapInst.invalidateSize === 'function') {
+            setTimeout(() => mapInst.invalidateSize(true), 300);
+            setTimeout(() => mapInst.invalidateSize(true), 900);
+        }
+
+        // 2.8 INYECCIÓN DE MENSAJES DE ESTADO EN EL CHAT DE LA IA
         setTimeout(() => {
             const pTags = document.querySelectorAll('p, div, span');
             let targetBubble = null;
@@ -18200,7 +18238,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             }
         }, 800);
 
-        // 2.6 ENVÍO NATIVO A REACT (Dejamos que React gestione el mapa y la línea sin tocar Leaflet a la fuerza)
+        // 2.9 DISPARO DEL EVENTO NATIVO PARA REACT-LEAFLET
         const fakeOsrmRoute = { distance: distanceMeters, duration: drivingHours * 3600, geometry: data.features[0].geometry, legs: [{ steps: [] }] };
         window.LandData = { origin: originData, destination: destData, distanceKm, totalKilometers: distanceKm, drivingHours, leafletRoutePoints };
         
@@ -18218,7 +18256,7 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
         }));
 
     } catch (error) { 
-        console.error("❌ Error crítico:", error); 
+        console.error("❌ Error crítico en arquitectura:", error); 
     } finally { 
         if (button) { button.disabled = false; button.innerHTML = 'Calcular ruta terrestre'; } 
     }
