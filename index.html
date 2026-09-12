@@ -18194,11 +18194,51 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             }
         }
 
-       // 2.6 TRANSFORMACIÓN GEOMÉTRICA EXACTA (ORS [lon,lat] -> Leaflet [lat,lon])
-        const rawCoords = data.features[0].geometry.coordinates;
-        const routePoints = rawCoords.map(coord => [coord[1], coord[0]]); // Inversión crítica a [lat, lon]
+       // 2.6 ACTUALIZACIÓN DEL ESTADO GLOBAL, STORE Y RESUMEN FINANCIERO
+        if (typeof window.State !== 'undefined') {
+            window.State.pol = originData.name;
+            window.State.pod = destData.name;
+            window.State.totalKilometers = distanceKm;
+            window.State.drivingHours = drivingHours;
+            window.State.totalMiles = distanceKm;
+            window.State.distLaden = distanceKm;
+        }
 
-        // Objetos de origen y destino estructurados estrictamente con 'lat' y 'lon'
+        if (typeof window.SeaCharterStore?.set === 'function') {
+            window.SeaCharterStore.set({
+                pol: originData.name,
+                pod: destData.name,
+                totalKilometers: distanceKm,
+                drivingHours: drivingHours,
+                distLaden: distanceKm,
+                distTotal: distanceKm
+            });
+        }
+
+        const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
+        if (vStore) {
+            if (typeof vStore.setRouteDistanceAndDuration === 'function') {
+                vStore.setRouteDistanceAndDuration(distanceKm, drivingHours);
+            }
+            if (typeof vStore.calculateLandCostPlus === 'function') {
+                vStore.calculateLandCostPlus(true);
+            }
+        }
+
+        if (typeof window.updateRouteSummary === 'function') {
+            window.updateRouteSummary();
+        }
+        if (typeof window.runEngine === 'function') {
+            window.runEngine();
+        }
+        if (typeof window.handleMasterValidationAndCalculate === 'function') {
+            await window.handleMasterValidationAndCalculate();
+        }
+
+        // 2.7 TRANSFORMACIÓN GEOMÉTRICA EXACTA Y DISPARO PARA LA CARTOGRAFÍA
+        const rawCoords = data.features[0].geometry.coordinates;
+        const routePoints = rawCoords.map(coord => [coord[1], coord[0]]); // Inversión a [lat, lon]
+
         const originPayload = {
             lat: originData.lat,
             lon: originData.lon,
@@ -18211,12 +18251,11 @@ window.runOnDemandMapRouteWorkflow = async function(button, overridePol = null, 
             name: destData.name
         };
 
-        // 2.7 DISPARO DEL EVENTO ESTRICTO QUE ESPERA LA CARTOGRAFÍA (LazyGlobeMap)
         window.dispatchEvent(new CustomEvent('osrm:route-updated', { 
             detail: { 
-                routePoints: routePoints,           // Nombre exacto requerido por RouteAutoFitter
-                origin: originPayload,              // Nombre exacto 'origin' con claves 'lat' y 'lon'
-                destination: destinationPayload,    // Nombre exacto 'destination' con claves 'lat' y 'lon'
+                routePoints: routePoints,           
+                origin: originPayload,              
+                destination: destinationPayload,    
                 distanceKm: distanceKm,
                 totalKilometers: distanceKm,
                 drivingHours: drivingHours
