@@ -666,6 +666,43 @@ export const voyageStore = createStore(subscribeWithSelector((set, get) => ({
             }
         };
     }),
+
+setLandRoute: (routeData = {}) => set((current) => {
+        const routePoints = Array.isArray(routeData.routePoints) ? routeData.routePoints : [];
+        const originCoord = routeData.origin || null;
+        const destinationCoord = routeData.destination || null;
+        const km = Number(routeData.distanceKm ?? routeData.totalKilometers) || 0;
+        const hours = Number(routeData.drivingHours) || (km > 0 ? km / 75 : 0);
+        
+        const cons = current.draft.vehicleConsumption || 31.5;
+        const diesel = current.draft.dieselPrice || 1.48;
+        const tollPerKm = current.draft.tollCostPerKm || 0.19;
+        const fixedDaily = current.draft.fixedDailyCost || 350;
+        const fuelCost = (km / 100) * cons * diesel;
+        const tollCost = km * tollPerKm;
+        const fixedCost = (hours / 24) * fixedDaily;
+        const totalTripCost = fuelCost + tollCost + fixedCost;
+
+        return {
+            draft: {
+                ...current.draft,
+                routePoints,
+                originCoord,
+                destinationCoord,
+                isLandRouteActive: true,
+                totalKilometers: km,
+                distanceNm: km,
+                drivingHours: hours,
+                fuelCost,
+                tollCost,
+                fixedCost,
+                totalTripCost,
+                updatedAt: new Date().toISOString()
+            }
+        };
+    }),
+
+    
     calculateLandCostPlus: () => {
         const d = get().draft;
         const km = d.totalKilometers || 0;
