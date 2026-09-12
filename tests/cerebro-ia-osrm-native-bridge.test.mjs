@@ -37,12 +37,19 @@ test('3. ForwarderWorkspace invoca la función nativa directamente sin hacks ni 
   assert.match(forwarderJsx, /routeFn\(originData\s*\|\|\s*aiPol,\s*destData\s*\|\|\s*aiPod\)/);
 });
 
-test('4. El motor nativo actualiza la UI visual, el zoom y el panel de itinerario', async () => {
+test('4. El motor nativo actualiza la UI visual con curva geodésica intermitente, el zoom y el panel de itinerario', async () => {
   const indexHtml = await readFile('index.html', 'utf8');
 
-  // Trazado de ruta en Leaflet y ajuste de zoom con fitBounds
-  assert.match(indexHtml, /L\.polyline\(leafletRoutePoints/);
-  assert.match(indexHtml, /mapInstance\.fitBounds\(polyline\.getBounds\(\),\s*\{\s*padding:\s*\[50,\s*50\]\s*\}\)/);
+  // Curva geodésica en Leaflet estilo vuelo con línea intermitente (#0f766e, dashed)
+  assert.match(indexHtml, /calculateCurvedRoutePoints/);
+  assert.match(indexHtml, /L\.polyline\(curvePoints/);
+  assert.match(indexHtml, /color:\s*['"]#0f766e['"]/);
+  assert.match(indexHtml, /weight:\s*3/);
+  assert.match(indexHtml, /dashArray:\s*['"]10,\s*10['"]/);
+  assert.match(indexHtml, /opacity:\s*0\.8/);
+
+  // Ajuste de zoom con fitBounds utilizando los dos puntos (Origen y Destino)
+  assert.match(indexHtml, /mapInstance\.fitBounds\(\s*\[\s*\[polCoords\.lat,\s*polCoords\.lon\],\s*\[podCoords\.lat,\s*podCoords\.lon\]\s*\]/);
 
   // Renderizado del panel de itinerario persistente (#route-itinerary-right-panel)
   assert.match(indexHtml, /renderRouteItineraryRightPanel\(window\.LandData\)/);
@@ -114,4 +121,29 @@ test('8. Cierre forzado del autocompletado y desenfoque programático en inputs 
   assert.match(indexHtml, /menu\.style\.display\s*=\s*['"]none['"]/);
   assert.match(forwarderJsx, /\.port-autocomplete-menu/);
   assert.match(forwarderJsx, /menu\.style\.display\s*=\s*['"]none['"]/);
+});
+
+test('9. calculateCurvedRoutePoints genera una curva suave estilo vuelo con curvatura hacia el norte', async () => {
+  const indexHtml = await readFile('index.html', 'utf8');
+  assert.match(indexHtml, /window\.calculateCurvedRoutePoints\s*=\s*calculateCurvedRoutePoints/);
+
+  // Extraer y evaluar calculateCurvedRoutePoints para verificar la matemática
+  const fnMatch = indexHtml.match(/function calculateCurvedRoutePoints\([\s\S]*?return points;\s*\}/);
+  assert.ok(fnMatch, 'calculateCurvedRoutePoints debe estar definida');
+
+  const evalFn = new Function(`${fnMatch[0]}; return calculateCurvedRoutePoints;`)();
+  const moriles = [37.4354, -4.6096];
+  const prat = [41.3275, 2.0959];
+  const points = evalFn(moriles, prat, 50);
+
+  assert.equal(points.length, 51);
+  assert.equal(points[0][0], moriles[0]);
+  assert.equal(points[0][1], moriles[1]);
+  assert.equal(points[points.length - 1][0], prat[0]);
+  assert.equal(points[points.length - 1][1], prat[1]);
+
+  // El punto intermedio debe tener mayor latitud que el punto medio de la línea recta (arco norte)
+  const midpoint = points[Math.floor(points.length / 2)];
+  const straightMidLat = (moriles[0] + prat[0]) / 2;
+  assert.ok(midpoint[0] > straightMidLat, 'El arco de vuelo debe elevarse sobre el segmento recto');
 });
