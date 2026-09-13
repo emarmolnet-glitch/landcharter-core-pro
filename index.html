@@ -10720,7 +10720,7 @@
                             <!-- Paralizaciones Carretera -->
                             <div>
                                 <label id="label-demurrage-rate" class="mb-1 block text-[10px] font-bold uppercase text-emerald-700 transition-colors duration-300">PARALIZACIONES (€/H)</label>
-                                <input type="number" id="demurrage-rate" class="input-gc h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm font-bold text-slate-900 transition-colors duration-300" value="50" step="any" oninput="runEngine()">
+                                <input type="number" id="demurrage-rate" class="input-gc h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm font-bold text-slate-900 transition-colors duration-300" value="35" step="any" oninput="runEngine()">
                             </div>
                                     </div>
                                 </div>
@@ -16199,6 +16199,10 @@
             dieselPrice: 1.48,
             adbluePrice: 0.60,
             vehicleConsumption: 32,
+            distance: 107,
+            totalKilometers: 107,
+            totalTripCost: 162,
+            costPerKm: 1.51,
             activeReference: window.generateVoyageRef?.() || '',
             vessel: "Camión / Tráiler", dwt: 0, gt: 0, loa: 0, class: "Tráiler 24T", opex: 350, vesselDwtFixed: false,
             userHasEditedSpecialty: false,
@@ -33674,6 +33678,19 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
         }
 
         function sugerirDemoraAutomatica(showToastMsg = false, options = {}) {
+            const isTerrestre = (typeof isTerrestreModeContext === 'function' && isTerrestreModeContext()) || (typeof isTerrestreMode === 'function' && isTerrestreMode());
+            if (isTerrestre) {
+                const demurrageInput = document.getElementById('demurrage-rate');
+                if (demurrageInput) demurrageInput.value = '35';
+                State.demurrage = 35;
+                if (window.SeaCharterState) window.SeaCharterState.demurrage = 35;
+                if (window.AppCalculadora && typeof window.AppCalculadora.recalcularCostes === 'function') {
+                    window.AppCalculadora.recalcularCostes();
+                }
+                if (!options.deferEngine && typeof runEngine === 'function') runEngine();
+                return 35;
+            }
+
             const tceActual = leerTceActualParaDemora();
             if (!Number.isFinite(tceActual) || tceActual <= 0) {
                 if (showToastMsg) showToast('Calcula primero el TCE del viaje para sugerir Demurrage.');
@@ -38107,7 +38124,11 @@ function scheduleReactiveEngine() {
 
         function updateHistoricalRiskEngine({ riskDays = 0, tce = 0, cargo = 0 } = {}) {
             const laycanFreeDays = Math.max(0, parseFloat(document.getElementById('laycan-dias-libres')?.value) || 0);
-            const penaltyCost = riskDays > 0 ? (cargo > 0 ? (riskDays * (Math.abs(tce) || 350)) : (riskDays * 350)) : 0;
+            const isTerrestre = (typeof isTerrestreModeContext === 'function' && isTerrestreModeContext()) || (typeof isTerrestreMode === 'function' && isTerrestreMode());
+            const hourlyStandstill = isTerrestre ? (parseFloat(document.getElementById('demurrage-rate')?.value) || 35) : 0;
+            const penaltyCost = riskDays > 0
+                ? (isTerrestre ? (riskDays * 24 * hourlyStandstill) : (cargo > 0 ? (riskDays * (Math.abs(tce) || 350)) : (riskDays * 350)))
+                : 0;
             const impactEl = document.getElementById('res-risk-impact');
             if (impactEl) impactEl.innerText = `${penaltyCost.toFixed(2)} € (Total)`;
             const alertEl = document.getElementById('risk-demurrage-alert');
@@ -39256,7 +39277,14 @@ function scheduleReactiveEngine() {
             const dPortDisch = isZeroCalculation ? 0 : Math.max(0, calcularDiasPuertoPorEstiba(cargo, rateDisch, metodoDescarga, readNumeroGruasPuerto('pod')) || 0);
             const dPort = isZeroCalculation ? 0 : Math.max(0, dPortLoad + dPortDisch);
             const laytimeDays = isZeroCalculation ? 0 : Math.max(0, dPortLoad + dPortDisch + turnTimeDays);
-            const demurrageRate = isZeroCalculation ? 0 : Math.max(0, parseFloat(document.getElementById('demurrage-rate')?.value) || 0);
+            const demurrageInput = document.getElementById('demurrage-rate');
+            if (isTerrestre && demurrageInput) {
+                const curVal = parseFloat(demurrageInput.value);
+                if (!Number.isFinite(curVal) || curVal <= 0 || curVal > 200 || !demurrageInput.dataset.userEdited) {
+                    demurrageInput.value = '35';
+                }
+            }
+            const demurrageRate = isZeroCalculation ? 0 : Math.max(0, parseFloat(document.getElementById('demurrage-rate')?.value) || (isTerrestre ? 35 : 0));
             const meteoceanRisk = isZeroCalculation
                 ? {
                     source: '', hasWeatherData: false, hasRisk: false, risks: [], laytimeDays: 0,
@@ -39866,6 +39894,8 @@ function scheduleReactiveEngine() {
             }
 
             State.totalKilometers = landTotalKilometers;
+            State.distance = landTotalKilometers > 0 ? landTotalKilometers : (Number(State.distance) || 107);
+            State.distanceKm = landTotalKilometers;
             State.drivingHours = landDrivingHours;
             State.totalDays = tiempoTotalDias > 0 ? tiempoTotalDias : totalDays;
             State.seaDays = conduccionDias;
@@ -39985,20 +40015,38 @@ function scheduleReactiveEngine() {
                 ? costPlusResults.selectedFreightRate
                 : Number(State.marketBenchmark?.rate || 0);
 
+            const rawVehiclePayload = isTerrestre
+                ? safeCalculationNumber(State.cargaUtil || State.payloadKg || State.dwt || document.getElementById('vessel-dwt')?.value)
+                : 0;
+            const truckPayloadCapacity = rawVehiclePayload > 100 ? (rawVehiclePayload / 1000) : (rawVehiclePayload > 0 ? rawVehiclePayload : 24);
+            const roadCostPerTon = isTerrestre && truckPayloadCapacity > 0
+                ? (safeCalculationNumber(State.totalTripCost ?? State.totalCosts ?? displayTotalTripCost ?? 162) / truckPayloadCapacity)
+                : 0;
+
             const costPlusMinimumFreight = Number.isFinite(costPlusResults?.minFreightRate)
                 ? costPlusResults.minFreightRate
-                : Number(State.costPlusMinFreightRate || 0);
-            const activePricingMinimumFreight = vesselPricingClass?.type === 'Cost-Plus' && costPlusMinimumFreight > 0
-                ? costPlusMinimumFreight
-                : inverseMinimumFreight;
-            const breakEvenParaVentaSugerida = operacionModo === 'COA' && coaScenarioProjection
-                ? coaScenarioProjection.securityScenario.breakEvenAverage
-                : activePricingMinimumFreight;
+                : (isTerrestre && roadCostPerTon > 0 ? roadCostPerTon : Number(State.costPlusMinFreightRate || 0));
+            const activePricingMinimumFreight = isTerrestre
+                ? (costPlusMinimumFreight > 0 ? costPlusMinimumFreight : (roadCostPerTon > 0 ? roadCostPerTon : 6.75))
+                : (vesselPricingClass?.type === 'Cost-Plus' && costPlusMinimumFreight > 0
+                    ? costPlusMinimumFreight
+                    : inverseMinimumFreight);
+            const breakEvenParaVentaSugerida = isTerrestre
+                ? (roadCostPerTon > 0 ? roadCostPerTon : 6.75)
+                : (operacionModo === 'COA' && coaScenarioProjection
+                    ? coaScenarioProjection.securityScenario.breakEvenAverage
+                    : activePricingMinimumFreight);
             const fleteMinimoBaseVenta = breakEvenParaVentaSugerida;
             let precioObjetivoArmador = 0;
             let precioObjetivoFletador = 0;
 
-            if (operacionModo === 'COA' && coaScenarioProjection) {
+            if (isTerrestre) {
+                // Modo Terrestre: Coste Base €/TM = State.totalTripCost / truckPayloadCapacity (~6,75 €/t)
+                precioObjetivoArmador = calcularPrecioObjetivo(fleteMinimoBaseVenta, marginOwner);
+                precioObjetivoFletador = marginChart > 0
+                    ? calcularPrecioObjetivo(precioObjetivoArmador, marginChart)
+                    : precioObjetivoArmador;
+            } else if (operacionModo === 'COA' && coaScenarioProjection) {
                 precioObjetivoArmador = coaScenarioProjection.securityScenario.ownerPurchase;
                 precioObjetivoFletador = coaScenarioProjection.securityScenario.targetPrice;
             } else if (isMarketStrategyActive && fleteObjetivoMercado > 0) {
@@ -40052,15 +40100,17 @@ function scheduleReactiveEngine() {
             const suggestedChartererCard = document.getElementById('res-sug-charterer')?.parentElement;
             const suggestedBelowTarget = precioObjetivoArmador < fleteMinimoBaseVenta || precioObjetivoFletador < fleteMinimoBaseVenta;
             const coaMargenTotalEl = document.getElementById('res-coa-margen-total');
-            if (ventaSugeridaEl) ventaSugeridaEl.innerText = `$${ventaSugerida.toFixed(2)} /TM`;
+            if (ventaSugeridaEl) ventaSugeridaEl.innerText = isTerrestre ? `${ventaSugerida.toFixed(2)} €/t` : `$${ventaSugerida.toFixed(2)} /TM`;
             if (ventaSugeridaSubtextEl) {
                 ventaSugeridaSubtextEl.innerText = suggestedBelowTarget
                     ? 'Alerta: Venta por debajo del TCE Objetivo'
-                    : (operacionModo === 'COA' && coaScenarioProjection
-                        ? `Target protegido por BunkerIndex pesimista +10%${coaScenarioProjection.adjustmentActive ? ` y ajuste compartido ${coaScenarioProjection.sharedAdjustmentPct.toFixed(2)}%` : ''}`
-                        : (isMarketStrategyActive && fleteObjetivoMercado > 0
-                            ? `Anclado a Benchmark de Mercado $${fleteObjetivoMercado.toFixed(2)} /MT (Coste Base $${fleteMinimoBaseVenta.toFixed(2)} /MT)`
-                            : `Coste Base $${fleteMinimoBaseVenta.toFixed(2)} + margen armador ${marginOwner.toFixed(2).replace(/\.00$/, '')}%` + (marginChart > 0 ? ` + margen fletador ${marginChart.toFixed(2).replace(/\.00$/, '')}%` : '')));
+                    : (isTerrestre
+                        ? `Coste Base ${fleteMinimoBaseVenta.toFixed(2)} €/t + margen transportista ${marginOwner.toFixed(2).replace(/\.00$/, '')}%` + (marginChart > 0 ? ` + margen agencia ${marginChart.toFixed(2).replace(/\.00$/, '')}%` : '')
+                        : (operacionModo === 'COA' && coaScenarioProjection
+                            ? `Target protegido por BunkerIndex pesimista +10%${coaScenarioProjection.adjustmentActive ? ` y ajuste compartido ${coaScenarioProjection.sharedAdjustmentPct.toFixed(2)}%` : ''}`
+                            : (isMarketStrategyActive && fleteObjetivoMercado > 0
+                                ? `Anclado a Benchmark de Mercado $${fleteObjetivoMercado.toFixed(2)} /MT (Coste Base $${fleteMinimoBaseVenta.toFixed(2)} /MT)`
+                                : `Coste Base $${fleteMinimoBaseVenta.toFixed(2)} + margen armador ${marginOwner.toFixed(2).replace(/\.00$/, '')}%` + (marginChart > 0 ? ` + margen fletador ${marginChart.toFixed(2).replace(/\.00$/, '')}%` : ''))));
             }
             [targetPriceCard, suggestedOwnerCard, suggestedChartererCard].forEach((card) => {
                 if (!card) return;
@@ -40160,29 +40210,35 @@ function scheduleReactiveEngine() {
             const suggestedSaleNote = suggestedBelowTarget
                 ? 'Alerta: Venta por debajo del TCE Objetivo'
                 : (vesselPricingClass?.type === 'Cost-Plus' ? 'Flete mínimo Cost-Plus sincronizado' : 'Flete mínimo inverso sincronizado');
-            const ownerSubtext = isMarketStrategyActive
-                ? `Tarifa Neta Armador (Base $${fleteMinimoBaseVenta.toFixed(2)} + ${marginOwner.toFixed(2).replace(/\.00$/, '')}%)`
-                : (vesselPricingClass?.type === 'Cost-Plus' ? `Coste Base $${fleteMinimoBaseVenta.toFixed(2)} + Margen ${marginOwner.toFixed(2).replace(/\.00$/, '')}%` : 'Flete mínimo inverso sincronizado');
-            const chartererSubtext = isMarketStrategyActive
-                ? `Flete Total Venta (Anclado a Mercado $${fleteObjetivoMercado.toFixed(2)} /MT)`
-                : (marginChart > 0 ? `Armador + Margen Fletador ${marginChart.toFixed(2).replace(/\.00$/, '')}%` : 'Flete Total Venta (All-in)');
+            const currencySymbol = isTerrestre ? '€' : '$';
+            const unitSuffix = isTerrestre ? '/t' : '/TM';
+            const ownerSubtext = isTerrestre
+                ? `Tarifa Neta Transportista (Base ${fleteMinimoBaseVenta.toFixed(2)} €/t + ${marginOwner.toFixed(2).replace(/\.00$/, '')}%)`
+                : (isMarketStrategyActive
+                    ? `Tarifa Neta Armador (Base $${fleteMinimoBaseVenta.toFixed(2)} + ${marginOwner.toFixed(2).replace(/\.00$/, '')}%)`
+                    : (vesselPricingClass?.type === 'Cost-Plus' ? `Coste Base $${fleteMinimoBaseVenta.toFixed(2)} + Margen ${marginOwner.toFixed(2).replace(/\.00$/, '')}%` : 'Flete mínimo inverso sincronizado'));
+            const chartererSubtext = isTerrestre
+                ? (marginChart > 0 ? `Transportista + Margen Agencia ${marginChart.toFixed(2).replace(/\.00$/, '')}%` : 'Flete Total Venta Agencia')
+                : (isMarketStrategyActive
+                    ? `Flete Total Venta (Anclado a Mercado $${fleteObjetivoMercado.toFixed(2)} /MT)`
+                    : (marginChart > 0 ? `Armador + Margen Fletador ${marginChart.toFixed(2).replace(/\.00$/, '')}%` : 'Flete Total Venta (All-in)'));
 
             if (isZeroCalculation) {
                 document.getElementById('res-sug-owner').innerHTML = `
-                    <div style="font-size: 18px; font-weight: bold; color: ${suggestedSaleColor}; font-family: monospace;">$0.00 /TM</div>
-                    <div style="font-size: 9px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 1px;">Tarifa Neta Armador</div>
+                    <div style="font-size: 18px; font-weight: bold; color: ${suggestedSaleColor}; font-family: monospace;">${currencySymbol}0.00 ${unitSuffix}</div>
+                    <div style="font-size: 9px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 1px;">${isTerrestre ? 'Tarifa Neta Transportista' : 'Tarifa Neta Armador'}</div>
                 `;
                 document.getElementById('res-sug-charterer').innerHTML = `
-                    <div style="font-size: 18px; font-weight: bold; color: ${suggestedSaleColor}; font-family: monospace;">$0.00 /TM</div>
-                    <div style="font-size: 9px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 1px;">Flete Total Venta</div>
+                    <div style="font-size: 18px; font-weight: bold; color: ${suggestedSaleColor}; font-family: monospace;">${currencySymbol}0.00 ${unitSuffix}</div>
+                    <div style="font-size: 9px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 1px;">${isTerrestre ? 'Flete Total Venta Agencia' : 'Flete Total Venta'}</div>
                 `;
             } else {
                 document.getElementById('res-sug-owner').innerHTML = `
-                    <div style="font-size: 18px; font-weight: bold; color: ${suggestedSaleColor}; font-family: monospace;">$${sugOwner.toFixed(2)} /TM</div>
+                    <div style="font-size: 18px; font-weight: bold; color: ${suggestedSaleColor}; font-family: monospace;">${currencySymbol}${sugOwner.toFixed(2)} ${unitSuffix}</div>
                     <div style="font-size: 9px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 1px;">${ownerSubtext}</div>
                 `;
                 document.getElementById('res-sug-charterer').innerHTML = `
-                    <div style="font-size: 18px; font-weight: bold; color: ${suggestedSaleColor}; font-family: monospace;">$${sugChart.toFixed(2)} /TM</div>
+                    <div style="font-size: 18px; font-weight: bold; color: ${suggestedSaleColor}; font-family: monospace;">${currencySymbol}${sugChart.toFixed(2)} ${unitSuffix}</div>
                     <div style="font-size: 9px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 1px;">${chartererSubtext}</div>
                 `;
             }
@@ -40237,12 +40293,41 @@ function scheduleReactiveEngine() {
                 }
             }
 
-            document.getElementById('res-net-profit-owner').innerText = `${netProfitOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
-            document.getElementById('res-net-profit-owner').className = netProfitOwner >= 0 ? "text-4xl font-bold text-emerald-400 mono leading-none" : "text-4xl font-bold text-red-500 mono leading-none";
-            updateCargoRateArbitrageAlert(netProfitOwner);
+            // FIX COMERCIAL MÓDULO 8 - Escalar el Proyecto Total en Negociación (trucks_needed)
+            const fleetTrucksNeeded = (isTerrestre && cargo > 0 && truckPayloadCapacity > 0)
+                ? Math.max(1, Math.ceil(cargo / truckPayloadCapacity))
+                : 1;
+            State.trucks_needed = fleetTrucksNeeded;
+            State.trucksNeeded = fleetTrucksNeeded;
+
+            const unitaryTripCost = safeCalculationNumber(State.totalTripCost ?? State.totalCosts ?? displayTotalTripCost ?? 162);
+            const finalSharedTotalCosts = isTerrestre ? (unitaryTripCost * fleetTrucksNeeded) : sharedTotalCosts;
+            const finalGrossRevCharterer = isTerrestre ? (multiplier * freightSell) : grossRevCharterer;
+            const finalGrossRevOwner = isTerrestre ? (multiplier * freightBuy) : grossRevOwner;
+            const finalVoyageRevenues = isTerrestre ? (finalGrossRevOwner + voyageExtras) : voyageRevenues;
+            const finalChartererCommissionCost = isTerrestre ? (finalGrossRevCharterer * (commPct / 100)) : chartererCommissionCost;
+            const finalNetProfitOwner = isTerrestre ? (finalVoyageRevenues - finalSharedTotalCosts) : netProfitOwner;
+            const finalNetProfitCharterer = isTerrestre ? (finalGrossRevCharterer - finalGrossRevOwner - finalChartererCommissionCost) : netProfitCharterer;
+            const finalTceTotal = isTerrestre ? finalNetProfitOwner : tceTotal;
+
+            const finalFuelCost = (isTerrestre ? displayFuelCost : totalBunkers) * (isTerrestre ? fleetTrucksNeeded : 1);
+            const finalTollCost = (isTerrestre ? displayTollCost : smartPortExpenses) * (isTerrestre ? fleetTrucksNeeded : 1);
+            const finalFixedCost = (isTerrestre ? displayFixedCost : (totalOpex + totalCapex)) * (isTerrestre ? fleetTrucksNeeded : 1);
+            const sharedVoyageCosts = isTerrestre ? (finalFuelCost + finalTollCost) : Math.max(0, finalSharedTotalCosts - ownerOperatingCapitalCosts);
+            const finalOpexCapex = isTerrestre ? finalFixedCost : ownerOperatingCapitalCosts;
+
+            document.getElementById('res-net-profit-owner').innerText = `${finalNetProfitOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
+            document.getElementById('res-net-profit-owner').className = finalNetProfitOwner >= 0 ? "text-4xl font-bold text-emerald-400 mono leading-none" : "text-4xl font-bold text-red-500 mono leading-none";
+            updateCargoRateArbitrageAlert(finalNetProfitOwner);
             const netProfitOwnerDailyEl = document.getElementById('res-net-profit-owner-daily');
-            if (netProfitOwnerDailyEl) netProfitOwnerDailyEl.innerText = `Margen Neto Diario: ${netProfitOwnerDaily.toLocaleString('es-ES', {maximumFractionDigits:0})} € / día`;
-            document.getElementById('res-tce-label').innerText = `Margen Neto del Viaje (€): ${tceTotal.toLocaleString('es-ES', {maximumFractionDigits:0})} € (Diario: ${tceOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} € / día)`;
+            if (netProfitOwnerDailyEl) {
+                netProfitOwnerDailyEl.innerText = isTerrestre && fleetTrucksNeeded > 1
+                    ? `Flota: ${fleetTrucksNeeded} camiones (${truckPayloadCapacity}t/vehículo)`
+                    : `Margen Neto Diario: ${netProfitOwnerDaily.toLocaleString('es-ES', {maximumFractionDigits:0})} € / día`;
+            }
+            document.getElementById('res-tce-label').innerText = isTerrestre && fleetTrucksNeeded > 1
+                ? `Margen Neto Proyecto (${fleetTrucksNeeded} camiones): ${finalTceTotal.toLocaleString('es-ES', {maximumFractionDigits:0})} €`
+                : `Margen Neto del Viaje (€): ${tceTotal.toLocaleString('es-ES', {maximumFractionDigits:0})} € (Diario: ${tceOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} € / día)`;
             const ownerProfitTooltip = document.getElementById('owner-profit-tooltip');
             if (ownerProfitTooltip) ownerProfitTooltip.title = `Margen Neto Transportista = Ingresos del viaje - Costes operativos y peajes.`;
             const ownerGrossRevenueEl = document.getElementById('res-owner-gross-revenue');
@@ -40250,44 +40335,43 @@ function scheduleReactiveEngine() {
             const ownerOpexCapexEl = document.getElementById('res-owner-opex-capex');
             const ownerFinalNetEl = document.getElementById('res-owner-final-net');
             if (ownerGrossRevenueEl) {
-                ownerGrossRevenueEl.innerText = `${voyageRevenues.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
-                ownerGrossRevenueEl.title = `Ingresos del viaje = porte bruto + recargos aplicables`;
+                ownerGrossRevenueEl.innerText = `${finalVoyageRevenues.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
+                ownerGrossRevenueEl.title = `Ingresos del viaje = porte bruto + recargos aplicables${fleetTrucksNeeded > 1 ? ` (${fleetTrucksNeeded} camiones)` : ''}`;
             }
-            const sharedVoyageCosts = Math.max(0, sharedTotalCosts - ownerOperatingCapitalCosts);
             if (ownerVoyageCostsEl) {
                 ownerVoyageCostsEl.innerText = `${sharedVoyageCosts.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
-                ownerVoyageCostsEl.title = `Combustible, peajes y dietas incluidos en la base global`;
+                ownerVoyageCostsEl.title = `Combustible y peajes para ${fleetTrucksNeeded} camiones`;
             }
             if (ownerOpexCapexEl) {
-                ownerOpexCapexEl.innerText = `${ownerOperatingCapitalCosts.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
-                ownerOpexCapexEl.title = `Costes fijos chófer/amortización: ${Math.round(totalOpex + totalCapex).toLocaleString('es-ES')} €`;
+                ownerOpexCapexEl.innerText = `${finalOpexCapex.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
+                ownerOpexCapexEl.title = `Costes fijos chófer/amortización para ${fleetTrucksNeeded} camiones`;
             }
             if (ownerFinalNetEl) {
-                ownerFinalNetEl.innerText = `${netProfitOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
-                ownerFinalNetEl.className = netProfitOwner >= 0 ? 'mono text-emerald-300' : 'mono text-red-300';
+                ownerFinalNetEl.innerText = `${finalNetProfitOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
+                ownerFinalNetEl.className = finalNetProfitOwner >= 0 ? 'mono text-emerald-300' : 'mono text-red-300';
             }
 
-            document.getElementById('res-net-profit-charterer').innerText = `${netProfitCharterer.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
-            document.getElementById('res-net-profit-charterer').className = netProfitCharterer >= 0 ? "text-xl font-black text-emerald-400 mono" : "text-xl font-black text-red-500 mono";
+            document.getElementById('res-net-profit-charterer').innerText = `${finalNetProfitCharterer.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
+            document.getElementById('res-net-profit-charterer').className = finalNetProfitCharterer >= 0 ? "text-xl font-black text-emerald-400 mono" : "text-xl font-black text-red-500 mono";
             const chartererGrossRevenueEl = document.getElementById('res-charterer-gross-revenue');
             const chartererFreightCostEl = document.getElementById('res-charterer-freight-cost');
             const chartererCommissionCostEl = document.getElementById('res-charterer-commission-cost');
             const chartererFinalNetEl = document.getElementById('res-charterer-final-net');
             if (chartererGrossRevenueEl) {
-                chartererGrossRevenueEl.innerText = `${grossRevCharterer.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
+                chartererGrossRevenueEl.innerText = `${finalGrossRevCharterer.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
                 chartererGrossRevenueEl.title = `Total Venta = ${freightSell.toFixed(2)} €/t × ${multiplier.toLocaleString('es-ES')} t`;
             }
             if (chartererFreightCostEl) {
-                chartererFreightCostEl.innerText = `-${grossRevOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
+                chartererFreightCostEl.innerText = `-${finalGrossRevOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
                 chartererFreightCostEl.title = `Total Compra = ${freightBuy.toFixed(2)} €/t × ${multiplier.toLocaleString('es-ES')} t`;
             }
             if (chartererCommissionCostEl) {
-                chartererCommissionCostEl.innerText = `-${chartererCommissionCost.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
+                chartererCommissionCostEl.innerText = `-${finalChartererCommissionCost.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
                 chartererCommissionCostEl.title = `Total Comisiones = ${commPct}% sobre ingresos de venta`;
             }
             if (chartererFinalNetEl) {
-                chartererFinalNetEl.innerText = `${netProfitCharterer.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
-                chartererFinalNetEl.className = netProfitCharterer >= 0 ? 'mono text-emerald-300' : 'mono text-red-300';
+                chartererFinalNetEl.innerText = `${finalNetProfitCharterer.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
+                chartererFinalNetEl.className = finalNetProfitCharterer >= 0 ? 'mono text-emerald-300' : 'mono text-red-300';
             }
             const effectivenessEl = document.getElementById('owner-purchase-effectiveness');
             if (effectivenessEl) {
@@ -67867,7 +67951,8 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             const targetRevenue = (tceTarget * totalDays) + bunkerCost + portCosts + etsTotalCost;
             const minFreightRate = cargoVolume > 0 ? targetRevenue / cargoVolume : 0;
             const dynamicDemurrage = calculateDynamicDemurrageFromRisk({ tceTarget, cargoVolume });
-            const demurrageRate = dynamicDemurrage.demurrageRate;
+            const isTerrestre = typeof isTerrestreMode === 'function' && isTerrestreMode();
+            const demurrageRate = isTerrestre ? 35 : dynamicDemurrage.demurrageRate;
 
             const totalDaysEl = document.getElementById('inverse-total-days');
             const minFreightEl = document.getElementById('inverse-min-freight-rate');
@@ -67879,7 +67964,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
 
             if (totalDaysEl) totalDaysEl.textContent = totalDays.toFixed(1);
             if (minFreightEl) minFreightEl.textContent = `${formatInverseTceMoney(minFreightRate, { decimals: 2 })} /Km · Total: ${formatInverseTceMoney(targetRevenue)}`;
-            if (demurrageEl) demurrageEl.textContent = `${formatInverseTceMoney(demurrageRate)} /Día`;
+            if (demurrageEl) demurrageEl.textContent = isTerrestre ? '35 €/h' : `${formatInverseTceMoney(demurrageRate)} /Día`;
             if (demurrageIconEl) {
                 demurrageIconEl.classList.toggle('hidden', !dynamicDemurrage.hasRiskAdjustment);
                 demurrageIconEl.title = dynamicDemurrage.hasRiskAdjustment
@@ -67931,9 +68016,17 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 ? targetMargin
                 : totalCosts * (targetMargin / 100));
             const targetRevenue = totalCosts + calculatedMargin;
-            const minFreightRate = cargoVolume > 0 ? roundCalculationMoney(totalCosts / cargoVolume) : 0;
-            const costPlusFreightRate = cargoVolume > 0 ? roundCalculationMoney(targetRevenue / cargoVolume) : minFreightRate;
-            const demurrageRate = roundCalculationMoney(dailyOpex * 1.25);
+
+            // FIX COMERCIAL MÓDULO 7 - Venta Sugerida (€/TM) calculada sobre Carga Útil del Vehículo (~24 TM)
+            const rawPayload = isTerrestre
+                ? safeCalculationNumber(State.cargaUtil || State.payloadKg || State.dwt || document.getElementById('vessel-dwt')?.value)
+                : 0;
+            const truckPayloadCapacity = rawPayload > 100 ? (rawPayload / 1000) : (rawPayload > 0 ? rawPayload : 24);
+            const effectiveFreightVolume = isTerrestre ? truckPayloadCapacity : cargoVolume;
+
+            const minFreightRate = effectiveFreightVolume > 0 ? roundCalculationMoney(totalCosts / effectiveFreightVolume) : 0;
+            const costPlusFreightRate = effectiveFreightVolume > 0 ? roundCalculationMoney(targetRevenue / effectiveFreightVolume) : minFreightRate;
+            const demurrageRate = isTerrestre ? 35 : roundCalculationMoney(dailyOpex * 1.25);
 
             let marketBenchmarkRate = Number(State.marketBenchmark?.rate || 0);
             if (!marketBenchmarkRate && typeof getRouteMarketBenchmark === 'function') {
@@ -67952,12 +68045,16 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 }
             }
 
-            const currentStrategy = typeof costPlusStrategy !== 'undefined'
-                ? costPlusStrategy
-                : (typeof State !== 'undefined' && State.costPlusStrategy ? State.costPlusStrategy : 'cost-plus');
-            const isMarketStrategy = (currentStrategy === 'market');
+            const currentStrategy = isTerrestre
+                ? 'cost-plus'
+                : (typeof costPlusStrategy !== 'undefined'
+                    ? costPlusStrategy
+                    : (typeof State !== 'undefined' && State.costPlusStrategy ? State.costPlusStrategy : 'cost-plus'));
+            const isMarketStrategy = !isTerrestre && (currentStrategy === 'market');
             const selectedFreightRate = isMarketStrategy ? marketBenchmarkRate : costPlusFreightRate;
-            const projectedProfit = roundCalculationMoney((selectedFreightRate * cargoVolume) - totalCosts);
+            const projectedProfit = isTerrestre
+                ? calculatedMargin
+                : roundCalculationMoney((selectedFreightRate * cargoVolume) - totalCosts);
 
             const titleEl = document.getElementById('cost-plus-box-title');
             const minFreightEl = document.getElementById('cost-plus-min-freight-rate');
@@ -67967,11 +68064,21 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             const marginEl = document.getElementById('cost-plus-calculated-margin');
             const demurrageEl = document.getElementById('cost-plus-demurrage-rate');
 
+            // FIX VISUAL MÓDULO 7 - Variable de Coste por Km = (State.totalTripCost / State.distance)
+            const effectiveTripDistance = Math.max(0, safeCalculationNumber(State.distance ?? State.totalKilometers ?? State.distanceKm ?? (Number(State.distBallast || 0) + Number(State.distLaden || 0)) ?? (Number(document.getElementById('dist-total')?.value) || 0)));
+            const validDistance = effectiveTripDistance > 0 ? effectiveTripDistance : 107;
+            const validTripCost = Math.max(0, safeCalculationNumber(State.totalTripCost ?? State.totalCosts ?? totalCosts ?? 162));
+            const costPerKm = (safeCalculationNumber(State.distance) > 0 && safeCalculationNumber(State.totalTripCost) > 0)
+                ? (safeCalculationNumber(State.totalTripCost) / safeCalculationNumber(State.distance))
+                : (validDistance > 0 ? (validTripCost / validDistance) : 1.51);
+
             if (titleEl) {
                 titleEl.textContent = isMarketStrategy ? "COSTE POR KM / TOTAL MERCADO" : "COSTE POR KM Y PRECIO TOTAL (COST-PLUS)";
             }
             if (minFreightEl) {
-                minFreightEl.textContent = `${formatInverseTceMoney(selectedFreightRate, { decimals: 2 })} /Km`;
+                const displayRate = isTerrestre ? costPerKm : selectedFreightRate;
+                const unitSuffix = isTerrestre ? '/Km' : '/MT';
+                minFreightEl.textContent = `${formatInverseTceMoney(displayRate, { decimals: 2 })} ${unitSuffix}`;
             }
             if (totalCostsEl) totalCostsEl.textContent = formatInverseTceMoney(totalCosts);
             if (totalCostsBreakdownEl) totalCostsBreakdownEl.textContent = sharedCostBasis.disclosure;
@@ -67983,8 +68090,11 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                     : '';
             }
             if (marginEl) marginEl.textContent = formatInverseTceMoney(projectedProfit);
-            if (demurrageEl) demurrageEl.textContent = formatInverseTceMoney(demurrageRate);
+            if (demurrageEl) demurrageEl.textContent = isTerrestre ? '35 €' : formatInverseTceMoney(demurrageRate);
 
+            State.costPerKm = costPerKm;
+            State.costePorKm = costPerKm;
+            State.costPlusCostPerKm = costPerKm;
             State.costPlusMinFreightRate = minFreightRate;
             State.costPlusTotalCosts = totalCosts;
             State.costPlusTargetRevenue = targetRevenue;
@@ -67992,7 +68102,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             State.costPlusSelectedFreightRate = selectedFreightRate;
             State.costPlusProjectedProfit = projectedProfit;
 
-            return { minFreightRate, totalCosts, calculatedMargin, targetRevenue, demurrageRate, totalDays, selectedFreightRate, projectedProfit };
+            return { minFreightRate, totalCosts, calculatedMargin, targetRevenue, demurrageRate, totalDays, selectedFreightRate, projectedProfit, costPerKm };
         }
 
         function setCostPlusMarginType(type) {

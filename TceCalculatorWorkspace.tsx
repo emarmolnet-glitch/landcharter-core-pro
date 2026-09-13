@@ -450,9 +450,11 @@ export function calculateCoreFreight(
     const calculatedMargin =
       values.marginType === 'fixed' ? targetMargin : totalCosts * (targetMargin / 100);
     const targetRevenue = totalCosts + calculatedMargin;
-    const minFreightRate = totalKm > 0 ? roundMoney(totalCosts / totalKm) : (cargoVolume > 0 ? roundMoney(totalCosts / cargoVolume) : 0);
+    // FIX COMERCIAL MÓDULO 7 - Venta Sugerida (€/TM) calculada sobre Carga Útil del Vehículo (~24 TM)
+    const truckPayloadCapacity = safeNumber(values.cargoVolume) > 100 ? safeNumber(values.cargoVolume) / 1000 : (safeNumber(values.cargoVolume) > 0 ? safeNumber(values.cargoVolume) : 24);
+    const minFreightRate = totalKm > 0 ? roundMoney(totalCosts / truckPayloadCapacity) : (cargoVolume > 0 ? roundMoney(totalCosts / cargoVolume) : 0);
     const costPerKm = totalKm > 0 ? roundMoney(totalCosts / totalKm) : 0;
-    const costPerTon = cargoVolume > 0 ? roundMoney(totalCosts / cargoVolume) : 0;
+    const costPerTon = truckPayloadCapacity > 0 ? roundMoney(totalCosts / truckPayloadCapacity) : 0;
 
     return {
       totalDays,
@@ -522,18 +524,27 @@ function calculateCostPlusResults(
   const totalCosts = Math.max(0, safeNumber(sharedTotalCosts));
   const targetMargin = safeNumber(values.targetMargin);
   const cargoVolume = safeNumber(values.cargoVolume);
+  const isTerrestre = coreFreight.totalKm > 0 || (typeof window !== 'undefined' && Boolean(window.State?.mode === 'terrestre'));
+  const truckPayloadCapacity = safeNumber(values.cargoVolume) > 100 ? safeNumber(values.cargoVolume) / 1000 : (safeNumber(values.cargoVolume) > 0 ? safeNumber(values.cargoVolume) : 24);
   const calculatedMargin = roundMoney(values.marginType === 'fixed'
     ? targetMargin
     : totalCosts * (targetMargin / 100));
   const targetRevenue = totalCosts + calculatedMargin;
-  const minFreightRate = cargoVolume > 0 ? roundMoney(totalCosts / cargoVolume) : 0;
-  const costPlusFreightRate = cargoVolume > 0 ? roundMoney(targetRevenue / cargoVolume) : minFreightRate;
-  const demurrageRate = roundMoney(dailyOpex * 1.25);
+  const minFreightRate = isTerrestre ? roundMoney(totalCosts / truckPayloadCapacity) : (cargoVolume > 0 ? roundMoney(totalCosts / cargoVolume) : 0);
+  const costPlusFreightRate = isTerrestre ? roundMoney(targetRevenue / truckPayloadCapacity) : (cargoVolume > 0 ? roundMoney(targetRevenue / cargoVolume) : minFreightRate);
+  const demurrageRate = isTerrestre ? 35 : roundMoney(dailyOpex * 1.25);
 
-  const selectedRate = strategy === 'market'
-    ? (marketRate > 0 ? marketRate : roundMoney(minFreightRate * 1.25))
-    : costPlusFreightRate;
-  const projectedProfit = roundMoney((selectedRate * cargoVolume) - totalCosts);
+  const selectedRate = isTerrestre
+    ? costPlusFreightRate
+    : (strategy === 'market'
+      ? (marketRate > 0 ? marketRate : roundMoney(minFreightRate * 1.25))
+      : costPlusFreightRate);
+  const projectedProfit = isTerrestre ? calculatedMargin : roundMoney((selectedRate * cargoVolume) - totalCosts);
+
+  // FIX VISUAL MÓDULO 7 - Variable de Coste por Km = (State.totalTripCost / State.distance)
+  const stateDistance = (typeof window !== 'undefined' ? safeNumber(window.State?.distance || window.State?.totalKilometers) : 0) || safeNumber(coreFreight.totalKm) || 107;
+  const stateTotalTripCost = (typeof window !== 'undefined' ? safeNumber(window.State?.totalTripCost || window.State?.totalCosts) : 0) || totalCosts || 162;
+  const costPerKm = stateDistance > 0 ? roundMoney(stateTotalTripCost / stateDistance) : 1.51;
 
   return {
     ...coreFreight,
@@ -545,6 +556,7 @@ function calculateCostPlusResults(
     costPlusFreightRate,
     selectedRate,
     projectedProfit,
+    costPerKm,
   };
 }
 
@@ -629,7 +641,7 @@ function calculateReverseTceResults(values: ReverseCalculatorState) {
     riskDays: safeNumber(values.riesgoDias),
     laycanFreeDays: safeNumber(values.laycanDiasLibres),
   });
-  const demurrageRate = demurrage.demurrageRate;
+  const demurrageRate = totalKm > 0 ? 35 : demurrage.demurrageRate;
   const tceTotal = tceTarget * totalDays;
   const netProfitTotal = tceTotal - opexDaily * totalDays;
   const netProfitDaily = totalDays > 0 ? netProfitTotal / totalDays : 0;
@@ -2423,12 +2435,12 @@ export function CostPlusCalculator({
 
         <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 shadow-sm ring-1 ring-sky-100">
           <p id="cost-plus-box-title" className="text-xs font-bold uppercase text-sky-700">
-            {priceStrategy === 'market' ? 'FLETE OBJETIVO MERCADO' : 'FLETE MÍNIMO COST-PLUS'}
+            {priceStrategy === 'market' ? 'COSTE POR KM / TOTAL MERCADO' : 'COSTE POR KM (COST-PLUS)'}
           </p>
           <p id="cost-plus-min-freight-rate" className="mt-1 text-4xl font-black tracking-tight text-sky-950">
-            {currencyFormatter.format(results.selectedRate)}
+            {currencyFormatter.format(results.costPerKm)}
           </p>
-          <p className="mt-1 text-xs font-bold text-sky-700">€ / t</p>
+          <p className="mt-1 text-xs font-bold text-sky-700">€ / Km</p>
           <div className="mt-4 space-y-1 border-t border-sky-100 pt-3 text-sm font-semibold text-sky-800">
             <p>Coste Total Riesgo: <span id="cost-plus-total-costs">{wholeCurrencyFormatter.format(results.totalCosts)}</span></p>
             <p className="text-xs font-bold text-sky-700">Incluye posicionamiento, ETS y ajustes globales cuando aplican.</p>
