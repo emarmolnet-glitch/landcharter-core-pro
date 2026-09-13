@@ -913,6 +913,192 @@ export async function fetchMultimodalPorts(ref) {
 }
 
 /**
+ * Geocodifica un puerto multimodal programáticamente usando Nominatim / OSM o diccionario integrado,
+ * y sincroniza las coordenadas en el estado global (destinationCoords / originCoords, app_state, DOM).
+ */
+export async function geocodeMultimodalPort(query, targetInput = null, isImport = false) {
+  if (!query) return null;
+  const rawQuery = String(query).trim();
+  if (!rawQuery) return null;
+  const cleanQuery = rawQuery.replace(/\s*\([A-Za-z0-9\-_]{2,4}\)\s*/g, ' ').trim() || rawQuery;
+
+  let geoObj = null;
+
+  // 1. Invocación programática a selectFirstWpiAutocompleteMatch si está disponible en DOM
+  if (targetInput && typeof window !== 'undefined' && typeof window.selectFirstWpiAutocompleteMatch === 'function') {
+    try {
+      const match = await window.selectFirstWpiAutocompleteMatch(targetInput, rawQuery) ||
+                    (cleanQuery !== rawQuery ? await window.selectFirstWpiAutocompleteMatch(targetInput, cleanQuery) : null);
+      if (match && Number.isFinite(Number(match.lat)) && Number.isFinite(Number(match.lon))) {
+        const lat = Number(match.lat);
+        const lon = Number(match.lon);
+        const name = match.label || match.placeName || rawQuery;
+        geoObj = { name, lat, lon, latitude: lat, longitude: lon, displayName: name };
+      }
+    } catch (_) {}
+  }
+
+  // 2. Si no se resolvió, consultar getCoordinates si está disponible
+  if (!geoObj && typeof window !== 'undefined' && typeof window.getCoordinates === 'function') {
+    try {
+      const coords = await window.getCoordinates(rawQuery) ||
+                     (cleanQuery !== rawQuery ? await window.getCoordinates(cleanQuery) : null);
+      if (coords && Number.isFinite(Number(coords.lat)) && Number.isFinite(Number(coords.lon))) {
+        const lat = Number(coords.lat);
+        const lon = Number(coords.lon);
+        const name = coords.displayName || coords.name || rawQuery;
+        geoObj = { name, lat, lon, latitude: lat, longitude: lon, displayName: name };
+      }
+    } catch (_) {}
+  }
+
+  // 3. Fallback directo a Nominatim / OpenStreetMap
+  if (!geoObj && typeof fetch === 'function') {
+    for (const q of [rawQuery, cleanQuery]) {
+      if (!q) continue;
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`, {
+          headers: { Accept: 'application/json' }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const item = data[0];
+            const lat = parseFloat(item.lat);
+            const lon = parseFloat(item.lon);
+            if (Number.isFinite(lat) && Number.isFinite(lon)) {
+              const name = item.display_name || q;
+              geoObj = { name, lat, lon, latitude: lat, longitude: lon, displayName: name };
+              break;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  // 4. Fallback a diccionario terrestre prioritario (Bejaia, Sétif, etc.)
+  if (!geoObj) {
+    const qNorm = rawQuery.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const dic = {
+      'bejaia': { lat: 36.7512, lon: 5.0644, name: 'Béjaïa, Daïra Béjaïa, Béjaïa, Algérie' },
+      'setif': { lat: 36.1893, lon: 5.4047, name: 'Sétif, Daïra Sétif, Sétif, Algérie' },
+      'moriles': { lat: 37.4354, lon: -4.6096, name: 'Moriles, Córdoba, Andalucía, España' },
+      'prat': { lat: 41.3275, lon: 2.0959, name: 'El Prat de Llobregat, Baix Llobregat, Barcelona, Catalunya, España' }
+    };
+    for (const key in dic) {
+      if (qNorm.includes(key)) {
+        const d = dic[key];
+        geoObj = { name: d.name, lat: d.lat, lon: d.lon, latitude: d.lat, longitude: d.lon, displayName: d.name };
+        break;
+      }
+    }
+  }
+
+  if (!geoObj) return null;
+
+  // Actualizar estado del mapa y estado global con el objeto geográfico completo
+  const coordKey = isImport ? 'originCoords' : 'destinationCoords';
+  const legacyRole = isImport ? 'pol' : 'pod';
+  const roleLabel = isImport ? 'origin' : 'destination';
+
+  if (typeof window !== 'undefined') {
+    window[coordKey] = geoObj;
+    if (isImport) {
+      window.originCoords = geoObj;
+    } else {
+      window.destinationCoords = geoObj;
+    }
+
+    if (window.State) {
+      window.State[coordKey] = geoObj;
+      window.State[isImport ? 'polCoords' : 'podCoords'] = geoObj;
+      window.State[roleLabel] = geoObj.name || rawQuery;
+      window.State[legacyRole] = geoObj.name || rawQuery;
+    }
+
+    if (window.GlobalStore) {
+      window.GlobalStore[coordKey] = geoObj;
+      window.GlobalStore[isImport ? 'polCoords' : 'podCoords'] = geoObj;
+      window.GlobalStore[isImport ? 'polCoordinates' : 'podCoordinates'] = { lat: geoObj.lat, lon: geoObj.lon };
+      window.GlobalStore[roleLabel] = geoObj.name || rawQuery;
+      window.GlobalStore[legacyRole] = geoObj.name || rawQuery;
+    }
+
+    if (window.multimodalState) {
+      window.multimodalState[coordKey] = geoObj;
+      window.multimodalState[isImport ? 'polCoords' : 'podCoords'] = geoObj;
+    }
+
+    if (window.LandData) {
+      window.LandData[roleLabel] = {
+        query: rawQuery,
+        lat: geoObj.lat,
+        lon: geoObj.lon,
+        name: geoObj.name,
+        displayName: geoObj.name
+      };
+    } else {
+      window.LandData = {
+        [roleLabel]: {
+          query: rawQuery,
+          lat: geoObj.lat,
+          lon: geoObj.lon,
+          name: geoObj.name,
+          displayName: geoObj.name
+        }
+      };
+    }
+
+    window.app_state = window.app_state || {};
+    window.app_state[coordKey] = geoObj;
+
+    // Actualizar datasets en los inputs correspondientes del DOM
+    const inputIds = isImport
+      ? ['map-port-pol', 'port-pol', 'input-pol']
+      : ['map-port-pod', 'port-pod', 'input-pod'];
+    inputIds.forEach((id) => {
+      const el = typeof document !== 'undefined' ? document.getElementById(id) : null;
+      if (el) {
+        el.dataset.selectedLatitude = String(geoObj.lat);
+        el.dataset.selectedLongitude = String(geoObj.lon);
+        el.dataset.lat = String(geoObj.lat);
+        el.dataset.lon = String(geoObj.lon);
+        el.dataset.selectedPortLabel = geoObj.name;
+      }
+    });
+
+    // Notificar persistencia remota en /api/app-state de forma no bloqueante
+    try {
+      if (typeof fetch === 'function') {
+        fetch('/api/app-state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: coordKey, value: geoObj })
+        }).catch(() => {});
+      }
+    } catch (_) {}
+
+    // Disparar eventos reactivos
+    if (typeof window.dispatchEvent === 'function') {
+      try {
+        window.dispatchEvent(new CustomEvent('multimodal:coords-updated', {
+          detail: { role: roleLabel, coords: geoObj }
+        }));
+        window.dispatchEvent(new CustomEvent(isImport ? 'map:origin-updated' : 'map:destination-updated', {
+          detail: geoObj
+        }));
+        window.dispatchEvent(new CustomEvent(isImport ? 'multimodal:origin-geocoded' : 'multimodal:destination-geocoded', {
+          detail: geoObj
+        }));
+      } catch (_) {}
+    }
+  }
+
+  return geoObj;
+}
+
+/**
  * Aplica la lógica de precarga suave en los inputs geográficos:
  * - Para Exportación (Pre-carriage): Precarga Destino = POL marítimo; deja Origen vacío.
  * - Para Importación (On-carriage): Precarga Origen = POD marítimo; deja Destino vacío.
@@ -928,6 +1114,8 @@ export function applyMultimodalPortPreload({ pol = '', pod = '', mode = 'export'
   const podInputs = ['map-port-pod', 'port-pod', 'input-pod']
     .map((id) => (typeof document !== 'undefined' ? document.getElementById(id) : null))
     .filter(Boolean);
+
+  let coordsPromise = null;
 
   if (isImport) {
     const podValue = String(pod || '').trim();
@@ -951,6 +1139,15 @@ export function applyMultimodalPortPreload({ pol = '', pod = '', mode = 'export'
       if (!window.State.userEditedDestination) {
         window.State.pod = '';
         window.State.destination = '';
+      }
+    }
+
+    if (podValue) {
+      const geocodeFn = typeof geocodeMultimodalPort === 'function' ? geocodeMultimodalPort : (typeof window !== 'undefined' && typeof window.geocodeMultimodalPort === 'function' ? window.geocodeMultimodalPort : null);
+      if (geocodeFn) {
+        try {
+          coordsPromise = geocodeFn(podValue, polInputs[0] || null, true).catch(() => null);
+        } catch (_) {}
       }
     }
   } else {
@@ -977,6 +1174,15 @@ export function applyMultimodalPortPreload({ pol = '', pod = '', mode = 'export'
         window.State.origin = '';
       }
     }
+
+    if (polValue) {
+      const geocodeFn = typeof geocodeMultimodalPort === 'function' ? geocodeMultimodalPort : (typeof window !== 'undefined' && typeof window.geocodeMultimodalPort === 'function' ? window.geocodeMultimodalPort : null);
+      if (geocodeFn) {
+        try {
+          coordsPromise = geocodeFn(polValue, podInputs[0] || null, false).catch(() => null);
+        } catch (_) {}
+      }
+    }
   }
 
   // Garantizar sinergia con Cerebro IA y el operador humano: nunca deshabilitar
@@ -987,7 +1193,14 @@ export function applyMultimodalPortPreload({ pol = '', pod = '', mode = 'export'
     input.removeAttribute?.('disabled');
   });
 
-  return { mode: isImport ? 'import' : 'export', pol, pod };
+  return {
+    mode: isImport ? 'import' : 'export',
+    pol,
+    pod,
+    coordsPromise,
+    destinationCoords: typeof window !== 'undefined' ? (window.destinationCoords || null) : null,
+    originCoords: typeof window !== 'undefined' ? (window.originCoords || null) : null
+  };
 }
 
 /**
@@ -1008,17 +1221,30 @@ export async function fetchAndApplyMultimodalPorts(ref, explicitMode) {
 
   const portData = await fetchMultimodalPorts(ref);
   if (portData && (portData.pol || portData.pod)) {
-    applyMultimodalPortPreload({
+    const preloadResult = applyMultimodalPortPreload({
       pol: portData.pol,
       pod: portData.pod,
       mode: modeParam
     });
+    if (preloadResult && preloadResult.coordsPromise) {
+      const resolvedCoords = await preloadResult.coordsPromise;
+      if (resolvedCoords) {
+        const normMode = String(modeParam).toLowerCase();
+        const isImport = normMode.includes('import') || normMode.includes('on-carriage') || normMode.includes('oncarriage');
+        if (isImport) {
+          portData.originCoords = resolvedCoords;
+        } else {
+          portData.destinationCoords = resolvedCoords;
+        }
+      }
+    }
     return portData;
   }
   return null;
 }
 
 if (typeof window !== 'undefined') {
+  window.geocodeMultimodalPort = geocodeMultimodalPort;
   window.fetchMultimodalPorts = fetchMultimodalPorts;
   window.applyMultimodalPortPreload = applyMultimodalPortPreload;
   window.fetchAndApplyMultimodalPorts = fetchAndApplyMultimodalPorts;
