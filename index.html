@@ -778,6 +778,13 @@
     <script type="module" src="./src/tachograph-module.mjs"></script>
     <script type="module" src="./src/forwarder-workspace-entry.jsx"></script>
     <script type="module" src="./dual-mode-overlay.js"></script>
+    <script type="module">
+        import { syncRoadMetricsToBridge, buildRoadSyncPayload, showSyncSuccessUI, URL_BASE_DATABRIDGE } from './dataBridgeSyncService.js';
+        window.syncRoadMetricsToBridge = syncRoadMetricsToBridge;
+        window.buildRoadSyncPayload = buildRoadSyncPayload;
+        window.showSyncSuccessUI = showSyncSuccessUI;
+        window.URL_BASE_DATABRIDGE = window.URL_BASE_DATABRIDGE || URL_BASE_DATABRIDGE;
+    </script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
@@ -8768,6 +8775,7 @@
                 <i class="fa-solid fa-hashtag text-[10px] text-slate-400"></i>
                 <span class="text-slate-400 font-sans text-[10px] uppercase font-bold tracking-wider">Ref:</span>
                 <input type="text" id="quick-ref" class="bg-transparent font-mono text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1 w-36 transition-all" value="" oninput="syncQuickRef(this.value)" title="Referencia Única del Viaje / Contrato">
+                <span id="header-sync-status-badge" class="hidden items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shadow-2xs transition-all" title="Data Bridge Sincronizado"><i class="fa-solid fa-check text-emerald-600 text-[10px]"></i> Sincronizado</span>
             </div>
             <div class="tools-dropdown-container">
                 <button
@@ -33624,6 +33632,19 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                         toggle?.click();
                     }
                 }
+
+                // Sincronización Inversa en segundo plano a Data Bridge (Non-blocking)
+                try {
+                    const roadSyncFn = typeof syncRoadMetricsToBridge === 'function'
+                        ? syncRoadMetricsToBridge
+                        : (typeof window !== 'undefined' && typeof window.syncRoadMetricsToBridge === 'function' ? window.syncRoadMetricsToBridge : null);
+                    if (typeof roadSyncFn === 'function') {
+                        void roadSyncFn();
+                    }
+                } catch (syncErr) {
+                    console.warn('[Data Bridge] Error al invocar sincronización en segundo plano:', syncErr);
+                }
+
                 return calculationResult;
             } catch (error) {
                 console.error('Error en el cálculo maestro de la operación:', error);
@@ -40495,6 +40516,7 @@ function scheduleReactiveEngine() {
                 : 1;
             State.trucks_needed = trucks_needed;
             State.trucksNeeded = trucks_needed;
+            State.total_trucks = fleetTrucksNeeded;
 
             const unitaryTripCost = safeCalculationNumber(State.totalTripCost ?? State.totalCosts ?? displayTotalTripCost ?? 162);
             const finalSharedTotalCosts = isTerrestre ? (unitaryTripCost * fleetTrucksNeeded) : sharedTotalCosts;
@@ -40740,6 +40762,7 @@ function scheduleReactiveEngine() {
             State.projectCargoAssessment = projectCargoAssessment;
             
             State.netProfitOwner = isTerrestre ? finalNetProfitOwner : netProfitOwner;
+            State.road_net_margin = isTerrestre ? finalNetProfitOwner : netProfitOwner;
             State.netProfitOwnerDaily = netProfitOwnerDaily;
             State.ownerNetBreakdown = {
                 grossRevenue: isTerrestre ? finalVoyageRevenues : voyageRevenues,
@@ -41231,6 +41254,15 @@ function scheduleReactiveEngine() {
             const totalDaysEl = document.getElementById('tacografo-total-transit-days');
             if (totalDaysEl) {
                 totalDaysEl.textContent = tiempo_total_dias.toFixed(2);
+            }
+
+            if (typeof State !== 'undefined' && State) {
+                State.road_transit_days = tiempo_total_dias;
+                State.roadTransitDays = tiempo_total_dias;
+            }
+            if (typeof window !== 'undefined' && window.State) {
+                window.State.road_transit_days = tiempo_total_dias;
+                window.State.roadTransitDays = tiempo_total_dias;
             }
 
             return {
@@ -42209,6 +42241,18 @@ function scheduleReactiveEngine() {
 
             renderizarRecomendaciones(recomendaciones);
             renderizarRatioTiempo(totalPortDaysCalc, seaDays);
+
+            // Sincronización Inversa en segundo plano a Data Bridge (Resultados definitivos DSS)
+            try {
+                const roadSyncFn = typeof syncRoadMetricsToBridge === 'function'
+                    ? syncRoadMetricsToBridge
+                    : (typeof window !== 'undefined' && typeof window.syncRoadMetricsToBridge === 'function' ? window.syncRoadMetricsToBridge : null);
+                if (typeof roadSyncFn === 'function') {
+                    void roadSyncFn();
+                }
+            } catch (syncErr) {
+                console.warn('[Data Bridge] Error al invocar sincronización desde DSS:', syncErr);
+            }
         }
         window.generarAuditoriaOperativa = generarAuditoriaOperativa;
 
