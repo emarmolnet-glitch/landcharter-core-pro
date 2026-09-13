@@ -775,6 +775,7 @@
     <script type="module" src="./src/market-intelligence-hydration.js?v=20260826-visual-mirror"></script>
     <script type="module" src="./src/step7-baltic-spot-reference.js?v=20260826-visual-mirror"></script>
     <script type="module" src="./src/compatibilidad-module.js"></script>
+    <script type="module" src="./src/tachograph-module.mjs"></script>
     <script type="module" src="./src/forwarder-workspace-entry.jsx"></script>
     <script type="module" src="./dual-mode-overlay.js"></script>
 
@@ -9871,6 +9872,108 @@
                                 <i class="fa-solid fa-calculator text-sm"></i>
                                 <span>Validar Especificaciones / Calcular</span>
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Módulo de Tiempos de Conducción y Tacógrafo -->
+                    <div id="section-tacografo" class="collapsible-section bg-slate-900 border border-slate-700 rounded-xl p-5 shadow-lg" data-collapsible-section data-default-open="false">
+                        <div class="collapsible-section-header flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
+                            <h2 id="tacografo-header-title" class="text-sm font-bold text-blue-400 uppercase">
+                                <i class="fa-solid fa-clock mr-2"></i> TIEMPOS DE CONDUCCIÓN Y TACÓGRAFO (REG. 561/2006)
+                            </h2>
+                            <div class="collapsible-section-actions flex items-center gap-2">
+                                <span class="bg-blue-900/50 text-blue-300 text-[10px] font-bold px-2 py-1 rounded border border-blue-700/50 uppercase tracking-widest">Reg. 561/2006</span>
+                            </div>
+                        </div>
+
+                        <!-- Parametrización: Velocidad Media y Distancia Sincronizada -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div class="input-group">
+                                <label id="label-tacografo-speed" for="tacografo-speed" class="text-blue-400 font-bold block mb-1 text-xs">
+                                    Velocidad Media (km/h)
+                                </label>
+                                <div class="relative flex items-center w-full">
+                                    <input type="number" id="tacografo-speed" class="input-gc font-bold text-white w-full pr-14" value="80" min="1" max="130" step="1" placeholder="80" oninput="calculateTachographTimes()">
+                                    <span class="absolute right-3 text-slate-400 text-xs font-semibold pointer-events-none">km/h</span>
+                                </div>
+                                <p class="mt-1 text-[10px] text-slate-400">Velocidad media de camión pesado (80 km/h por defecto)</p>
+                            </div>
+                            <div class="input-group">
+                                <label id="label-tacografo-distance" for="tacografo-distance-display" class="text-emerald-400 font-bold block mb-1 text-xs">
+                                    Distancia Total del Viaje
+                                </label>
+                                <div class="relative flex items-center w-full">
+                                    <input type="text" id="tacografo-distance-display" class="input-gc font-bold text-emerald-300 w-full bg-slate-950/60 cursor-not-allowed" readonly value="0 km">
+                                    <span class="absolute right-3 text-slate-400 text-xs font-semibold pointer-events-none"><i class="fa-solid fa-route text-sky-400"></i></span>
+                                </div>
+                                <p class="mt-1 text-[10px] text-slate-400">Extraída automáticamente del input del Módulo 1</p>
+                            </div>
+                        </div>
+
+                        <!-- Métricas de Tacógrafo y Tiempos de Tránsito -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                            <!-- Conducción Efectiva (h) -->
+                            <div class="bg-slate-950 p-3.5 rounded-lg border border-slate-800 flex flex-col justify-between">
+                                <div class="flex items-center justify-between text-slate-400 mb-1">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Conducción Efectiva (h)</span>
+                                    <i class="fa-solid fa-truck text-sky-400 text-xs" aria-hidden="true"></i>
+                                </div>
+                                <div>
+                                    <span id="tacografo-driving-hours" class="text-xl font-black text-sky-300 font-mono">0.00</span>
+                                    <span class="text-xs text-sky-400 font-bold ml-1">h</span>
+                                </div>
+                                <div class="mt-1 text-[10px] text-slate-500">Horas puras de conducción</div>
+                            </div>
+
+                            <!-- Pausas Reglamentarias (h) -->
+                            <div class="bg-slate-950 p-3.5 rounded-lg border border-slate-800 flex flex-col justify-between">
+                                <div class="flex items-center justify-between text-slate-400 mb-1">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Pausas Reglamentarias (h)</span>
+                                    <i class="fa-solid fa-mug-hot text-amber-400 text-xs" aria-hidden="true"></i>
+                                </div>
+                                <div>
+                                    <span id="tacografo-break-hours" class="text-xl font-black text-amber-300 font-mono">0.00</span>
+                                    <span class="text-xs text-amber-400 font-bold ml-1">h</span>
+                                </div>
+                                <div id="tacografo-break-count" class="mt-1 text-[10px] text-slate-500">0 pausas de 45 min</div>
+                            </div>
+
+                            <!-- Descansos Diarios (h) -->
+                            <div class="bg-slate-950 p-3.5 rounded-lg border border-slate-800 flex flex-col justify-between">
+                                <div class="flex items-center justify-between text-slate-400 mb-1">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Descansos Diarios (h)</span>
+                                    <i class="fa-solid fa-bed text-indigo-400 text-xs" aria-hidden="true"></i>
+                                </div>
+                                <div>
+                                    <span id="tacografo-daily-rest-hours" class="text-xl font-black text-indigo-300 font-mono">0.00</span>
+                                    <span class="text-xs text-indigo-400 font-bold ml-1">h</span>
+                                </div>
+                                <div id="tacografo-rest-days-count" class="mt-1 text-[10px] text-slate-500">0 descansos diarios (11h)</div>
+                            </div>
+
+                            <!-- Tiempo Total de Tránsito (h y días) -->
+                            <div class="bg-slate-950 p-3.5 rounded-lg border border-indigo-900/50 bg-gradient-to-br from-slate-950 to-indigo-950/30 flex flex-col justify-between">
+                                <div class="flex items-center justify-between text-slate-400 mb-1">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Tiempo Total de Tránsito</span>
+                                    <i class="fa-solid fa-hourglass-half text-emerald-400 text-xs" aria-hidden="true"></i>
+                                </div>
+                                <div>
+                                    <span id="tacografo-total-transit-hours" class="text-xl font-black text-emerald-300 font-mono">0.00</span>
+                                    <span class="text-xs text-emerald-400 font-bold ml-1">h</span>
+                                </div>
+                                <div class="mt-1 text-xs font-semibold text-emerald-400/90 font-mono">
+                                    ≈ <span id="tacografo-total-transit-days">0.00</span> días
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Nota explicativa normativa -->
+                        <div class="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
+                            <i class="fa-solid fa-circle-info text-sky-400 mt-0.5" aria-hidden="true"></i>
+                            <div>
+                                <span class="font-bold text-slate-300">Reglamento (CE) Nº 561/2006:</span>
+                                <span>Pausa de 45 min cada 4.5h de conducción. Máximo 9h de conducción diaria por jornada y 11h de descanso diario obligatorio entre jornadas.</span>
+                            </div>
                         </div>
                     </div>
 
@@ -41019,6 +41122,9 @@ function scheduleReactiveEngine() {
             } else if (typeof renderStressTestScenario === 'function') {
                 renderStressTestScenario(State);
             }
+            if (typeof calculateTachographTimes === 'function') {
+                calculateTachographTimes();
+            }
             notifyPendingDraftRecalculation();
             } finally {
                 isRunningEngine = false;
@@ -41027,6 +41133,128 @@ function scheduleReactiveEngine() {
         if (typeof window !== 'undefined') {
             window.runEngine = runEngine;
             window.__actualRunEngine = runEngine;
+        }
+
+        /**
+         * Módulo de Tiempos de Conducción y Tacógrafo (Reg. 561/2006)
+         * Calcula descansos, pausas reglamentarias, jornadas y tiempo total de tránsito
+         * basándose en la distancia total del viaje y velocidad media de camión pesado.
+         */
+        function calculateTachographTimes(customDist, customSpeed) {
+            let distancia_total;
+            if (customDist !== undefined && customDist !== null && !isNaN(customDist)) {
+                distancia_total = Number(customDist);
+            } else {
+                const distTotalInput = document.getElementById('dist-total');
+                const rawTotal = distTotalInput ? parseFloat(distTotalInput.value) : NaN;
+                if (Number.isFinite(rawTotal) && rawTotal > 0) {
+                    distancia_total = rawTotal;
+                } else {
+                    const distLaden = parseFloat(document.getElementById('dist-laden')?.value) || 0;
+                    const distBallast = parseFloat(document.getElementById('dist-ballast')?.value) || 0;
+                    distancia_total = distLaden + distBallast;
+                    if (distancia_total <= 0 && window.State) {
+                        distancia_total = Number(window.State.totalKilometers) || ((Number(window.State.distBallast) || 0) + (Number(window.State.distLaden) || 0));
+                    }
+                }
+            }
+            distancia_total = (Number.isFinite(distancia_total) && distancia_total > 0) ? distancia_total : 0;
+
+            let velocidad_media;
+            if (customSpeed !== undefined && customSpeed !== null && !isNaN(customSpeed)) {
+                velocidad_media = Number(customSpeed);
+            } else {
+                const speedInput = document.getElementById('tacografo-speed');
+                const rawSpeed = speedInput ? parseFloat(speedInput.value) : NaN;
+                velocidad_media = (Number.isFinite(rawSpeed) && rawSpeed > 0) ? rawSpeed : 80;
+            }
+
+            // Algoritmo:
+            // horas_conduccion_pura = distancia_total / velocidad_media
+            const horas_conduccion_pura = (distancia_total > 0 && velocidad_media > 0) ? (distancia_total / velocidad_media) : 0;
+
+            // pausas_45m = Math.floor(horas_conduccion_pura / 4.5) (45 min pausa cada 4.5h)
+            const pausas_45m = Math.floor(horas_conduccion_pura / 4.5);
+
+            // horas_de_pausa = pausas_45m * 0.75
+            const horas_de_pausa = pausas_45m * 0.75;
+
+            // jornadas_laborales = Math.ceil(horas_conduccion_pura / 9) (Máx 9h conducción diaria)
+            const jornadas_laborales = Math.ceil(horas_conduccion_pura / 9);
+
+            // descansos_diarios_horas = jornadas_laborales > 1 ? (jornadas_laborales - 1) * 11 : 0 (11h descanso entre jornadas)
+            const descansos_diarios_horas = jornadas_laborales > 1 ? (jornadas_laborales - 1) * 11 : 0;
+
+            // tiempo_total_transito = horas_conduccion_pura + horas_de_pausa + descansos_diarios_horas
+            const tiempo_total_transito = horas_conduccion_pura + horas_de_pausa + descansos_diarios_horas;
+
+            // Conversión a días
+            const tiempo_total_dias = tiempo_total_transito > 0 ? (tiempo_total_transito / 24) : 0;
+
+            // Renderizado interno del panel
+            const distDisplayEl = document.getElementById('tacografo-distance-display');
+            if (distDisplayEl) {
+                distDisplayEl.value = `${Math.round(distancia_total).toLocaleString('es-ES')} km`;
+            }
+
+            const drivingEl = document.getElementById('tacografo-driving-hours');
+            if (drivingEl) {
+                drivingEl.textContent = horas_conduccion_pura.toFixed(2);
+            }
+
+            const pauseEl = document.getElementById('tacografo-break-hours');
+            if (pauseEl) {
+                pauseEl.textContent = horas_de_pausa.toFixed(2);
+            }
+
+            const pauseCountEl = document.getElementById('tacografo-break-count');
+            if (pauseCountEl) {
+                pauseCountEl.textContent = `${pausas_45m} ${pausas_45m === 1 ? 'pausa' : 'pausas'} de 45 min`;
+            }
+
+            const dailyRestEl = document.getElementById('tacografo-daily-rest-hours');
+            if (dailyRestEl) {
+                dailyRestEl.textContent = descansos_diarios_horas.toFixed(2);
+            }
+
+            const restDaysCountEl = document.getElementById('tacografo-rest-days-count');
+            if (restDaysCountEl) {
+                const pernoctas = jornadas_laborales > 1 ? (jornadas_laborales - 1) : 0;
+                restDaysCountEl.textContent = `${pernoctas} ${pernoctas === 1 ? 'descanso diario (11h)' : 'descansos diarios (11h)'}`;
+            }
+
+            const totalHoursEl = document.getElementById('tacografo-total-transit-hours');
+            if (totalHoursEl) {
+                totalHoursEl.textContent = tiempo_total_transito.toFixed(2);
+            }
+
+            const totalDaysEl = document.getElementById('tacografo-total-transit-days');
+            if (totalDaysEl) {
+                totalDaysEl.textContent = tiempo_total_dias.toFixed(2);
+            }
+
+            return {
+                distancia_total,
+                velocidad_media,
+                horas_conduccion_pura,
+                pausas_45m,
+                horas_de_pausa,
+                jornadas_laborales,
+                descansos_diarios_horas,
+                tiempo_total_transito,
+                tiempo_total_dias
+            };
+        }
+        window.calculateTachographTimes = calculateTachographTimes;
+
+        if (typeof document !== 'undefined') {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    calculateTachographTimes();
+                });
+            } else {
+                calculateTachographTimes();
+            }
         }
 
         function bindShadowEstimator() {
