@@ -1,5 +1,6 @@
 /api/voyage/active /.netlify/functions/voyage-active 200!
 /api-land-data /.netlify/functions/api-land-data 200!
+/api/save-land-route /.netlify/functions/save-land-route 200!
 /api/get-bunker-prices /.netlify/functions/get-bunker-prices 200!
 /api/forwarder-projects /.netlify/functions/forwarder-projects 200!
 /api/dossiers /.netlify/functions/dossiers 200!

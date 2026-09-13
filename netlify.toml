@@ -78,6 +78,12 @@
   force = true
 
 [[redirects]]
+  from = "/api/save-land-route"
+  to = "/.netlify/functions/save-land-route"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/forwarder-projects"
   to = "/.netlify/functions/forwarder-projects"
   status = 200
