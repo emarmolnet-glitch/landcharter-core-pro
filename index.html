@@ -9388,8 +9388,9 @@
                                 </div>
                             </div>
                             <div class="input-group">
-                                <label id="label-vessel-dwt" class="text-blue-400 flex items-center min-h-[28px]">Carga Útil (kg)</label>
-                                <input type="number" id="vessel-dwt" class="input-gc font-bold text-blue-300" value="0" step="any" oninput="updateSection2LocalState('vessel-dwt', this.value); handleDWTChange(true, false)" onblur="detectVesselSegmentFromInputs()">
+                                <label id="label-vessel-dwt" for="truckPayloadCapacity" class="text-blue-400 flex items-center min-h-[28px]">Carga Útil (TM)</label>
+                                <input type="number" id="truckPayloadCapacity" name="truckPayloadCapacity" data-input-alias="vessel-dwt" class="input-gc font-bold text-blue-300" value="24" step="any" oninput="updateSection2LocalState('truckPayloadCapacity', this.value); updateSection2LocalState('vessel-dwt', this.value); handleDWTChange(true, false)" onblur="detectVesselSegmentFromInputs()">
+                                <input type="hidden" id="vessel-dwt" value="24">
                             </div>
                             <div class="input-group hidden" style="display: none;">
                                 <label for="vessel-has-scrubber-no" class="text-blue-400 flex items-center gap-1 min-h-[28px]">
@@ -16189,12 +16190,17 @@
             if (document.body?.dataset?.mode === 'terrestre') return true;
             return true;
         }
+        function isTerrestreModeContext() {
+            return isTerrestreMode();
+        }
         window.isTerrestreMode = isTerrestreMode;
+        window.isTerrestreModeContext = isTerrestreModeContext;
 
         const State = {
             mode: 'terrestre',
             modeNarrative: 'terrestre',
             vehicleType: 'Camión / Tráiler',
+            truckPayloadCapacity: 24,
             fixedDailyCost: 350,
             dieselPrice: 1.48,
             adbluePrice: 0.60,
@@ -16204,7 +16210,7 @@
             totalTripCost: 162,
             costPerKm: 1.51,
             activeReference: window.generateVoyageRef?.() || '',
-            vessel: "Camión / Tráiler", dwt: 0, gt: 0, loa: 0, class: "Tráiler 24T", opex: 350, vesselDwtFixed: false,
+            vessel: "Camión / Tráiler", dwt: 24, gt: 0, loa: 0, class: "Tráiler 24T", opex: 350, vesselDwtFixed: false,
             userHasEditedSpecialty: false,
             uploadedFile: null,
             nplDataOrigin: "Externo",
@@ -27835,6 +27841,31 @@ function createRouteAnchorElement(type) {
                     return fetchVesselByImo(imo);
                 }
 
+                const cargoFromUrl = parseFloat(searchParams.get('cargo') || searchParams.get('cargoQty') || searchParams.get('cargo_qty') || searchParams.get('tonnage') || '') || 0;
+                const truckCapFromUrl = parseFloat(searchParams.get('truckPayloadCapacity') || searchParams.get('payload') || '') || 0;
+                if (truckCapFromUrl > 0) {
+                    const truckCapInput = document.getElementById('truckPayloadCapacity');
+                    if (truckCapInput) truckCapInput.value = String(truckCapFromUrl);
+                    if (window.State) window.State.truckPayloadCapacity = truckCapFromUrl;
+                }
+                if (cargoFromUrl > 0) {
+                    const cargoInput = document.getElementById('cargo-qty');
+                    if (cargoInput) cargoInput.value = String(cargoFromUrl);
+                    if (window.State) {
+                        window.State.cargo = cargoFromUrl;
+                        window.State.cargoQuantity = cargoFromUrl;
+                    }
+                }
+                const totalCargoTonnage = cargoFromUrl || parseFloat(document.getElementById('cargo-qty')?.value || document.getElementById('cost-plus-cargo-volume')?.value || '0') || window.State?.cargo || 0;
+                const currentTruckPayload = truckCapFromUrl || parseFloat(document.getElementById('truckPayloadCapacity')?.value || '0') || window.State?.truckPayloadCapacity || 24;
+                if (totalCargoTonnage > 0 && currentTruckPayload === 24) {
+                    if (typeof window.handleMasterValidationAndCalculate === 'function') {
+                        void window.handleMasterValidationAndCalculate();
+                    } else if (typeof window.validarYCalcularSeccion2 === 'function') {
+                        void window.validarYCalcularSeccion2({ deferDependentCalculations: false, showFeedback: false });
+                    }
+                }
+
                 return true;
             } finally {
                 if (hasVesselData) {
@@ -32374,6 +32405,18 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
         function autoScaleVesselAndCosts() {
             const options = arguments[0] || {};
             const deferDependentCalculations = options.deferDependentCalculations === true;
+            const isTerrestre = (typeof isTerrestreModeContext === 'function' && isTerrestreModeContext()) || (typeof isTerrestreMode === 'function' && isTerrestreMode());
+            if (isTerrestre) {
+                const currentVal = parseFloat(document.getElementById('vessel-dwt')?.value) || 0;
+                if (!currentVal) {
+                    const defaultPayload = State.cargaUtil || State.payloadKg || State.dwt || 24;
+                    const inputDwt = document.getElementById('vessel-dwt');
+                    if (inputDwt) inputDwt.value = defaultPayload;
+                }
+                handleDWTChange(false, !deferDependentCalculations);
+                updateCargoUnit();
+                return;
+            }
             const cargo = parseFloat(document.getElementById('cargo-qty').value) || 0;
             const vesselName = (document.getElementById('vessel-name').value || '').trim();
             const isRealVessel = vesselName && vesselName.toUpperCase() !== 'TBN';
@@ -33478,7 +33521,19 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
             if (isManual) {
                 State.vesselDwtFixed = true;
             }
-            const dwt = parseFloat(document.getElementById('vessel-dwt').value) || 0;
+            const truckPayloadInput = document.getElementById('truckPayloadCapacity');
+            const hiddenDwtInput = document.getElementById('vessel-dwt');
+            if (truckPayloadInput && hiddenDwtInput) {
+                if (document.activeElement === truckPayloadInput) {
+                    hiddenDwtInput.value = truckPayloadInput.value;
+                } else if (document.activeElement === hiddenDwtInput) {
+                    truckPayloadInput.value = hiddenDwtInput.value;
+                } else if (truckPayloadInput.value !== hiddenDwtInput.value) {
+                    if (truckPayloadInput.value) hiddenDwtInput.value = truckPayloadInput.value;
+                    else if (hiddenDwtInput.value) truckPayloadInput.value = hiddenDwtInput.value;
+                }
+            }
+            const dwt = parseFloat(document.getElementById('truckPayloadCapacity')?.value || document.getElementById('vessel-dwt')?.value) || 0;
             updateCalculatorDwtBadge(dwt);
             if (typeof updateVesselPricingRouter === 'function') {
                 updateVesselPricingRouter();
@@ -33494,6 +33549,9 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                 State.class = 'Tráiler 24T';
                 State.vessel = 'Camión / Tráiler';
                 State.vehicleType = 'Camión / Tráiler';
+                State.dwt = dwt;
+                State.cargaUtil = dwt;
+                State.truckPayloadCapacity = dwt;
                 const opexDailyEl = document.getElementById('opex-daily');
                 if (opexDailyEl) opexDailyEl.value = '350';
                 State.fixedDailyCost = 350;
@@ -33558,6 +33616,12 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
         function refreshVesselCompatibilityWarning() {
             const warningEl = document.getElementById('vessel-compatibility-warning');
             if (!warningEl) return;
+            const isTerrestre = (typeof isTerrestreModeContext === 'function' && isTerrestreModeContext()) || (typeof isTerrestreMode === 'function' && isTerrestreMode());
+            if (isTerrestre) {
+                warningEl.innerText = '';
+                warningEl.classList.add('hidden');
+                return;
+            }
             const vesselDwtVal = parseFloat(document.getElementById('vessel-dwt')?.value) || 0;
             const cargo = parseFloat(document.getElementById('cargo-qty')?.value) || 0;
             const currentCargoType = document.getElementById('cargo-type')?.value || '';
@@ -34995,7 +35059,8 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                     showToast(`✅ Especificaciones del buque "${vesselName}" cargadas.`);
                     runEngine();
                     const cargoQty = parseFloat(document.getElementById('cargo-qty').value) || 0;
-                    if (dwt > 0 && cargoQty > 0 && dwt < cargoQty) {
+                    const isTerrestreToast = (typeof isTerrestreModeContext === 'function' && isTerrestreModeContext()) || (typeof isTerrestreMode === 'function' && isTerrestreMode());
+                    if (!isTerrestreToast && dwt > 0 && cargoQty > 0 && dwt < cargoQty) {
                         showToast("<strong class='text-red-400'>NOTICE: THIS VESSEL IS NOT COMPATIBLE DUE TO EXCESS WEIGHT.</strong>");
                     }
                 } else {
@@ -37007,6 +37072,7 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                 State.dwt = matched.payloadKg;
                 State.payloadKg = matched.payloadKg;
                 State.cargaUtil = matched.payloadKg;
+                State.truckPayloadCapacity = matched.payloadKg;
 
                 const inputBuque = document.getElementById('nombre-buque-calculadora');
                 if (inputBuque && inputBuque.value !== matched.name && query === (matched.id || '').toLowerCase()) {
@@ -37022,6 +37088,10 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                     netCons.textContent = `Consumo Medio Estimado: ${matched.consumptionPer100Km} L/100km`;
                 }
 
+                const truckCapInput = document.getElementById('truckPayloadCapacity');
+                if (truckCapInput) {
+                    truckCapInput.value = matched.payloadKg;
+                }
                 const dwtInput = document.getElementById('vessel-dwt');
                 if (dwtInput) {
                     dwtInput.value = matched.payloadKg;
@@ -38994,7 +39064,7 @@ function scheduleReactiveEngine() {
             try {
             const options = arguments[0] || {};
             const deferStoreCommit = options.deferStoreCommit === true;
-            const isTerrestre = typeof isTerrestreMode === 'function' ? isTerrestreMode() : true;
+            const isTerrestre = (typeof isTerrestreModeContext === 'function' && isTerrestreModeContext()) || (typeof isTerrestreMode === 'function' && isTerrestreMode());
             if (typeof isInputInteraction === 'function' && isInputInteraction()) {
                 scheduleDebouncedCalculation(300);
                 return;
@@ -40016,9 +40086,10 @@ function scheduleReactiveEngine() {
                 : Number(State.marketBenchmark?.rate || 0);
 
             const rawVehiclePayload = isTerrestre
-                ? safeCalculationNumber(State.cargaUtil || State.payloadKg || State.dwt || document.getElementById('vessel-dwt')?.value)
+                ? safeCalculationNumber(document.getElementById('truckPayloadCapacity')?.value || State.truckPayloadCapacity || document.getElementById('vessel-dwt')?.value || State.dwt || State.cargaUtil)
                 : 0;
-            const truckPayloadCapacity = rawVehiclePayload > 100 ? (rawVehiclePayload / 1000) : (rawVehiclePayload > 0 ? rawVehiclePayload : 24);
+            const truckPayloadCapacity = rawVehiclePayload > 0 ? rawVehiclePayload : 24;
+            State.truckPayloadCapacity = truckPayloadCapacity;
             const roadCostPerTon = isTerrestre && truckPayloadCapacity > 0
                 ? (safeCalculationNumber(State.totalTripCost ?? State.totalCosts ?? displayTotalTripCost ?? 162) / truckPayloadCapacity)
                 : 0;
@@ -40294,11 +40365,15 @@ function scheduleReactiveEngine() {
             }
 
             // FIX COMERCIAL MÓDULO 8 - Escalar el Proyecto Total en Negociación (trucks_needed)
+            const totalCargoTonnage = cargo;
+            const trucks_needed = (isTerrestre && totalCargoTonnage > 0 && truckPayloadCapacity > 0)
+                ? Math.ceil(totalCargoTonnage / truckPayloadCapacity)
+                : 1;
             const fleetTrucksNeeded = (isTerrestre && cargo > 0 && truckPayloadCapacity > 0)
                 ? Math.max(1, Math.ceil(cargo / truckPayloadCapacity))
                 : 1;
-            State.trucks_needed = fleetTrucksNeeded;
-            State.trucksNeeded = fleetTrucksNeeded;
+            State.trucks_needed = trucks_needed;
+            State.trucksNeeded = trucks_needed;
 
             const unitaryTripCost = safeCalculationNumber(State.totalTripCost ?? State.totalCosts ?? displayTotalTripCost ?? 162);
             const finalSharedTotalCosts = isTerrestre ? (unitaryTripCost * fleetTrucksNeeded) : sharedTotalCosts;
@@ -40543,21 +40618,24 @@ function scheduleReactiveEngine() {
             State.operationalRisk = operationalRisk;
             State.projectCargoAssessment = projectCargoAssessment;
             
-            State.netProfitOwner = netProfitOwner;
+            State.netProfitOwner = isTerrestre ? finalNetProfitOwner : netProfitOwner;
             State.netProfitOwnerDaily = netProfitOwnerDaily;
             State.ownerNetBreakdown = {
-                grossRevenue: voyageRevenues,
+                grossRevenue: isTerrestre ? finalVoyageRevenues : voyageRevenues,
                 bunkerAndPortCosts: sharedVoyageCosts,
-                opex: totalOpex,
-                capex: totalCapex,
-                operatingCapitalCosts: ownerOperatingCapitalCosts,
-                finalNet: netProfitOwner,
+                opex: isTerrestre ? finalFixedCost : totalOpex,
+                capex: isTerrestre ? 0 : totalCapex,
+                operatingCapitalCosts: isTerrestre ? finalOpexCapex : ownerOperatingCapitalCosts,
+                finalNet: isTerrestre ? finalNetProfitOwner : netProfitOwner,
                 capexDaily,
-                vesselClass: ownerClassAnalysis?.shipClass?.label || 'Buque estándar'
+                vesselClass: isTerrestre ? 'Camión / Tráiler' : (ownerClassAnalysis?.shipClass?.label || 'Buque estándar')
             };
             State.tceOwner = tceOwner;
-            State.tceOwnerTotal = tceTotal;
-            State.netProfitCharterer = netProfitCharterer;
+            State.tceOwnerTotal = isTerrestre ? finalNetProfitOwner : tceTotal;
+            State.tceTotal = isTerrestre ? finalNetProfitOwner : tceTotal;
+            State.netProfitCharterer = isTerrestre ? finalNetProfitCharterer : netProfitCharterer;
+            State.totalCosts = isTerrestre ? finalSharedTotalCosts : sharedTotalCosts;
+            State.totalRevenue = isTerrestre ? finalGrossRevCharterer : totalRevenue;
             State.sugOwner = sugOwner;
             State.sugCharterer = sugChart;
             State.emissionsCO2 = emissionsCO2;
@@ -47086,7 +47164,8 @@ function scheduleReactiveEngine() {
                 loaderText = "Mise à jour des données du moteur Land Charter Core PRO...";
             }
 
-            if (dwt > 0 && cargo > 0 && dwt < cargo) {
+            const isTerrestreViability = (typeof isTerrestreModeContext === 'function' && isTerrestreModeContext()) || (typeof isTerrestreMode === 'function' && isTerrestreMode());
+            if (!isTerrestreViability && dwt > 0 && cargo > 0 && dwt < cargo) {
                 openAIModal(modalTitle, loaderText);
                 document.getElementById('ai-modal').classList.add('light-mode');
                 document.getElementById('ai-modal-loader').classList.add('hidden');
@@ -66053,6 +66132,25 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                     if (vessels.length > 0 && typeof window.receiveDataBridgeOpportunities === 'function') {
                         window.receiveDataBridgeOpportunities(vessels);
                     }
+
+                    const cargoFromBridge = parseFloat(payload.cargo || payload.cargoQty || payload.cargoQuantity || payload.tonnage || event.data.cargo || event.data.cargoQty || 0);
+                    if (cargoFromBridge > 0) {
+                        const cargoInput = document.getElementById('cargo-qty');
+                        if (cargoInput) cargoInput.value = String(cargoFromBridge);
+                        if (window.State) {
+                            window.State.cargo = cargoFromBridge;
+                            window.State.cargoQuantity = cargoFromBridge;
+                        }
+                    }
+                    const totalCargoTonnage = cargoFromBridge || parseFloat(document.getElementById('cargo-qty')?.value || document.getElementById('cost-plus-cargo-volume')?.value || '0') || window.State?.cargo || 0;
+                    const truckPayloadCapacity = parseFloat(document.getElementById('truckPayloadCapacity')?.value || '0') || window.State?.truckPayloadCapacity || 24;
+                    if (totalCargoTonnage > 0 && truckPayloadCapacity === 24) {
+                        if (typeof window.handleMasterValidationAndCalculate === 'function') {
+                            void window.handleMasterValidationAndCalculate();
+                        } else if (typeof window.validarYCalcularSeccion2 === 'function') {
+                            void window.validarYCalcularSeccion2({ deferDependentCalculations: false, showFeedback: false });
+                        }
+                    }
                 } finally {
                     setTimeout(() => referenceManager?.setInjectionLock?.(false), 200);
                 }
@@ -68019,9 +68117,10 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
 
             // FIX COMERCIAL MÓDULO 7 - Venta Sugerida (€/TM) calculada sobre Carga Útil del Vehículo (~24 TM)
             const rawPayload = isTerrestre
-                ? safeCalculationNumber(State.cargaUtil || State.payloadKg || State.dwt || document.getElementById('vessel-dwt')?.value)
+                ? safeCalculationNumber(document.getElementById('truckPayloadCapacity')?.value || State.truckPayloadCapacity || document.getElementById('vessel-dwt')?.value || State.dwt || State.cargaUtil)
                 : 0;
-            const truckPayloadCapacity = rawPayload > 100 ? (rawPayload / 1000) : (rawPayload > 0 ? rawPayload : 24);
+            const truckPayloadCapacity = rawPayload > 0 ? rawPayload : 24;
+            State.truckPayloadCapacity = truckPayloadCapacity;
             const effectiveFreightVolume = isTerrestre ? truckPayloadCapacity : cargoVolume;
 
             const minFreightRate = effectiveFreightVolume > 0 ? roundCalculationMoney(totalCosts / effectiveFreightVolume) : 0;
@@ -69155,6 +69254,17 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             recalcularDiasPuerto();
             actualizarCamposTipoCarga();
             setCalculatorWaitingState();
+
+            // Auto-cálculo automático si totalCargoTonnage > 0 y truckPayloadCapacity es 24
+            const initialCargoTonnage = parseFloat(document.getElementById('cargo-qty')?.value || document.getElementById('cost-plus-cargo-volume')?.value || '0') || State.cargo || 0;
+            const initialTruckPayload = parseFloat(document.getElementById('truckPayloadCapacity')?.value || '0') || State.truckPayloadCapacity || 24;
+            if (initialCargoTonnage > 0 && initialTruckPayload === 24) {
+                if (typeof handleMasterValidationAndCalculate === 'function') {
+                    void handleMasterValidationAndCalculate();
+                } else if (typeof validarYCalcularSeccion2 === 'function') {
+                    void validarYCalcularSeccion2({ deferDependentCalculations: false, showFeedback: false });
+                }
+            }
 
             const etaRadarInput = document.getElementById('eta-radar');
             if (etaRadarInput) etaRadarInput.value = '';

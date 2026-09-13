@@ -137,7 +137,7 @@ test('6. Fix Visual Módulo 7: Coste por Km = (State.totalTripCost / State.dista
 
 test('7. Fix Comercial Módulo 7: Venta Sugerida (€/TM) sobre Capacidad del Vehículo (~24 TM)', () => {
   // index.html calculates min freight / suggested sale on truckPayloadCapacity in terrestrial mode
-  assert.match(indexSource, /truckPayloadCapacity\s*=\s*rawPayload\s*>\s*100\s*\?\s*\(rawPayload\s*\/\s*1000\)\s*:\s*\(rawPayload\s*>\s*0\s*\?\s*rawPayload\s*:\s*24\)/);
+  assert.match(indexSource, /truckPayloadCapacity\s*=\s*rawPayload\s*>\s*0\s*\?\s*rawPayload\s*:\s*24/);
   assert.match(indexSource, /effectiveFreightVolume\s*=\s*isTerrestre\s*\?\s*truckPayloadCapacity\s*:\s*cargoVolume/);
   assert.match(indexSource, /roadCostPerTon\s*=\s*isTerrestre\s*&&\s*truckPayloadCapacity\s*>\s*0/);
 

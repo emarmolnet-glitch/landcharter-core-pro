@@ -161,7 +161,7 @@ const DEFAULT_VALUES: ReverseCalculatorState = {
   mgoPrice: 830,
   bunkerCost: 104625,
   portCosts: 60000,
-  cargoVolume: 30000,
+  cargoVolume: 24,
   bunkerDailyPortCost: 2250,
   totalCo2Emissions: 809.7,
   euaPrice: 75.5,
@@ -186,7 +186,7 @@ const COST_PLUS_DEFAULT_VALUES: CostPlusCalculatorState = {
   daysPort: 6,
   bunkerCost: 25000,
   portCosts: 18000,
-  cargoVolume: 8000,
+  cargoVolume: 24,
 };
 
 const COST_PLUS_INPUTS: Array<{
@@ -198,7 +198,7 @@ const COST_PLUS_INPUTS: Array<{
   { key: 'daysPort', label: 'Descanso', suffix: 'días' },
   { key: 'bunkerCost', label: 'Coste combustible', suffix: '€' },
   { key: 'portCosts', label: 'Peajes y Dietas', suffix: '€' },
-  { key: 'cargoVolume', label: 'Carga Útil (kg)', suffix: 'kg' },
+  { key: 'cargoVolume', label: 'Carga Útil (TM)', suffix: 'TM' },
 ];
 
 const INPUTS: Array<{
@@ -213,7 +213,7 @@ const INPUTS: Array<{
   { key: 'seaFuelConsumption', label: 'Consumo conducción', suffix: 't/d', step: 'any' },
   { key: 'portFuelConsumption', label: 'Consumo paradas', suffix: 't/d', step: 'any' },
   { key: 'portCosts', label: 'Peajes y Dietas', suffix: '€' },
-  { key: 'cargoVolume', label: 'Carga Útil (kg)', suffix: 'kg' },
+  { key: 'cargoVolume', label: 'Carga Útil (TM)', suffix: 'TM' },
   { key: 'bunkerDailyPortCost', label: 'Bunker diario en paradas', suffix: '€/día' },
   { key: 'totalCo2Emissions', label: 'Emisiones CO2 ETS', suffix: 'tCO2', step: '0.1' },
   { key: 'euaPrice', label: 'Precio EUA', suffix: '€/t', step: '0.01' },
@@ -451,7 +451,7 @@ export function calculateCoreFreight(
       values.marginType === 'fixed' ? targetMargin : totalCosts * (targetMargin / 100);
     const targetRevenue = totalCosts + calculatedMargin;
     // FIX COMERCIAL MÓDULO 7 - Venta Sugerida (€/TM) calculada sobre Carga Útil del Vehículo (~24 TM)
-    const truckPayloadCapacity = safeNumber(values.cargoVolume) > 100 ? safeNumber(values.cargoVolume) / 1000 : (safeNumber(values.cargoVolume) > 0 ? safeNumber(values.cargoVolume) : 24);
+    const truckPayloadCapacity = safeNumber(values.cargoVolume) > 0 ? safeNumber(values.cargoVolume) : 24;
     const minFreightRate = totalKm > 0 ? roundMoney(totalCosts / truckPayloadCapacity) : (cargoVolume > 0 ? roundMoney(totalCosts / cargoVolume) : 0);
     const costPerKm = totalKm > 0 ? roundMoney(totalCosts / totalKm) : 0;
     const costPerTon = truckPayloadCapacity > 0 ? roundMoney(totalCosts / truckPayloadCapacity) : 0;
@@ -525,7 +525,7 @@ function calculateCostPlusResults(
   const targetMargin = safeNumber(values.targetMargin);
   const cargoVolume = safeNumber(values.cargoVolume);
   const isTerrestre = coreFreight.totalKm > 0 || (typeof window !== 'undefined' && Boolean(window.State?.mode === 'terrestre'));
-  const truckPayloadCapacity = safeNumber(values.cargoVolume) > 100 ? safeNumber(values.cargoVolume) / 1000 : (safeNumber(values.cargoVolume) > 0 ? safeNumber(values.cargoVolume) : 24);
+  const truckPayloadCapacity = safeNumber(values.cargoVolume) > 0 ? safeNumber(values.cargoVolume) : 24;
   const calculatedMargin = roundMoney(values.marginType === 'fixed'
     ? targetMargin
     : totalCosts * (targetMargin / 100));
@@ -2465,20 +2465,33 @@ export function CostPlusCalculator({
 }
 
 export function VesselPricingRouter({
-  vesselDwt = 12000,
+  vesselDwt = 24,
   cargoVolume,
   daysSea,
   daysPort,
   syncedCostData,
 }: VesselPricingRouterProps) {
-  const [localDwt, setLocalDwt] = useState(vesselDwt);
+  const [localDwt, setLocalDwt] = useState(vesselDwt || 24);
+  const [truckPayloadCapacity, setTruckPayloadCapacity] = useState<number>(24);
   const [hasScrubber, setHasScrubber] = useState(false);
   const [calculationRefreshSignal, setCalculationRefreshSignal] = useState(0);
   const previousModeRef = useRef<VesselCalculationMode | null>(null);
 
   useEffect(() => {
-    setLocalDwt(vesselDwt);
+    setLocalDwt(vesselDwt || 24);
   }, [vesselDwt]);
+
+  // Auto-cálculo si totalCargoTonnage > 0 y la capacidad del camión es 24
+  useEffect(() => {
+    const totalCargoTonnage = safeNumber(cargoVolume) || safeNumber(syncedCostData?.cargo);
+    const capacity = safeNumber(localDwt) || 24;
+    if (totalCargoTonnage > 0 && capacity === 24) {
+      const masterCalc = (window as unknown as { handleMasterValidationAndCalculate?: () => Promise<unknown> }).handleMasterValidationAndCalculate;
+      if (typeof masterCalc === 'function') {
+        void masterCalc();
+      }
+    }
+  }, [cargoVolume, localDwt, syncedCostData]);
 
   const activeDwt = safeNumber(localDwt);
   const vesselClass = getVesselClass(activeDwt);
@@ -2537,9 +2550,11 @@ export function VesselPricingRouter({
         </div>
         <label className="block min-w-[13rem]">
           <span className="mb-1 block text-[11px] font-black uppercase tracking-wide text-slate-500">
-            Carga Útil (kg)
+            Carga Útil (TM)
           </span>
           <input
+            id="truckPayloadCapacity"
+            name="truckPayloadCapacity"
             type="number"
             step="any"
             value={localDwt}

@@ -671,6 +671,7 @@ let hasTriggeredLandDataBridge = false;
 export function useLandDataBridgeSync() {
   const [landData, setLandData] = useState(null);
   const [dieselPrice, setDieselPrice] = useState(1.48);
+  const [truckPayloadCapacity, setTruckPayloadCapacity] = useState(24);
   const [totalKilometers, setTotalKilometers] = useState(0);
   const [drivingHours, setDrivingHours] = useState(0);
   const fetchAttemptedRef = useRef(false);
@@ -705,12 +706,14 @@ export function useLandDataBridgeSync() {
           window.State.tollCostPerKm = tollPerKm;
           window.State.fixedDailyCost = fixedDaily;
           window.State.vehicleTypes = vehicleTypes;
+          window.State.truckPayloadCapacity = window.State.truckPayloadCapacity || 24;
 
           window.SeaCharterStore?.set?.({
             dieselPrice: dPrice,
             tollCostPerKm: tollPerKm,
             fixedDailyCost: fixedDaily,
-            vehicleTypes
+            vehicleTypes,
+            truckPayloadCapacity: 24
           });
 
           const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
@@ -723,7 +726,8 @@ export function useLandDataBridgeSync() {
                   dieselPrice: dPrice,
                   tollCostPerKm: tollPerKm,
                   fixedDailyCost: fixedDaily,
-                  vehicleTypes
+                  vehicleTypes,
+                  truckPayloadCapacity: 24
                 }
               }));
             }
@@ -737,6 +741,34 @@ export function useLandDataBridgeSync() {
     initDataBridge();
     return () => { isMounted = false; };
   }, []);
+
+  // Auto-cálculo si totalCargoTonnage > 0 y la capacidad del camión es 24
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const checkAndTriggerCalculation = () => {
+      const searchParams = window.location?.search ? new URLSearchParams(window.location.search) : null;
+      const urlCargo = searchParams ? (parseFloat(searchParams.get('cargo') || searchParams.get('cargoQty') || searchParams.get('cargoVolume') || searchParams.get('tonnage') || searchParams.get('totalCargoTonnage') || '') || 0) : 0;
+      const domCargo = parseFloat(document.getElementById('cargo-qty')?.value || document.getElementById('cost-plus-cargo-volume')?.value || '0') || 0;
+      const stateCargo = window.State?.cargo || window.State?.cargoQuantity || 0;
+      const totalCargoTonnage = urlCargo || domCargo || stateCargo || 0;
+
+      const domTruckPayload = parseFloat(document.getElementById('truckPayloadCapacity')?.value || document.getElementById('vessel-dwt')?.value || '0') || 0;
+      const effectiveTruckPayload = domTruckPayload > 0 ? domTruckPayload : (truckPayloadCapacity || window.State?.truckPayloadCapacity || 24);
+
+      if (totalCargoTonnage > 0 && effectiveTruckPayload === 24) {
+        if (typeof window.handleMasterValidationAndCalculate === 'function') {
+          void window.handleMasterValidationAndCalculate();
+        } else if (typeof window.validarYCalcularSeccion2 === 'function') {
+          void window.validarYCalcularSeccion2({ deferDependentCalculations: false, showFeedback: false });
+        }
+      }
+    };
+
+    checkAndTriggerCalculation();
+    const timer = setTimeout(checkAndTriggerCalculation, 300);
+    return () => clearTimeout(timer);
+  }, [truckPayloadCapacity]);
 
   // Inyección de Distancia (Map -> State)
   useEffect(() => {

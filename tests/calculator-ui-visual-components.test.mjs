@@ -63,11 +63,11 @@ test('2. Módulo 1 (Inputs): Origen/Destino, Nominatim y OSRM', async () => {
   assert.match(routeConfiguratorSource, /confirmCharterParty\(\)[\s\S]*className="[^"]*hidden"[\s\S]*style=\{\{\s*display:\s*['"]none['"]\s*\}\}/);
 });
 
-test('3. Módulo 2 (Especificaciones): Nombre del Buque -> Tipo de Vehículo, Capacidad DWT -> Carga Útil (kg), y campos marítimos ocultos del DOM', async () => {
+test('3. Módulo 2 (Especificaciones): Nombre del Buque -> Tipo de Vehículo, Capacidad DWT -> Carga Útil (TM), y campos marítimos ocultos del DOM', async () => {
   const indexSource = await readFile('index.html', 'utf8');
   // Visual labels
   assert.match(indexSource, /<span id="label-vessel-name-real">Tipo de Vehículo<\/span>/);
-  assert.match(indexSource, /<label id="label-vessel-dwt"[^>]*>Carga Útil \(kg\)<\/label>/);
+  assert.match(indexSource, /<label id="label-vessel-dwt"[^>]*>Carga Útil \(TM\)<\/label>/);
 
   // Hidden inputs in Module 2: Scrubber, Velocidad Lastre, IMO, Bandera, Año, Calado
   assert.match(indexSource, /<div class="input-group hidden" style="display: none;">\s*<label for="vessel-has-scrubber-no"/);
@@ -79,7 +79,7 @@ test('3. Módulo 2 (Especificaciones): Nombre del Buque -> Tipo de Vehículo, Ca
 
   // TceCalculatorWorkspace React component
   const tceWorkspaceSource = await readFile('TceCalculatorWorkspace.tsx', 'utf8');
-  assert.match(tceWorkspaceSource, /Carga Útil \(kg\)/);
+  assert.match(tceWorkspaceSource, /Carga Útil \(TM\)/);
   assert.match(tceWorkspaceSource, /<div className="min-w-\[16rem\] hidden" style=\{\{\s*display:\s*['"]none['"]\s*\}\}>/);
 });
 
