@@ -273,149 +273,165 @@
         <!-- GRID DE 3 COLUMNAS PARA SEMÁFOROS (RIESGO CRÍTICO, ADVERTENCIA, SEGURO) -->
         <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-            <!-- TARJETA 1: RIESGO DE LAYCAN -->
+            <!-- TARJETA 1: RIESGOS DE TRÁNSITO Y ENTREGA -->
             <div id="card-laycan" class="bg-slate-800 border border-slate-700 border-l-4 border-l-red-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4">
                 <div>
                     <div class="flex items-center justify-between mb-3">
-                        <span class="text-xs font-bold uppercase tracking-wider text-red-400 flex items-center gap-1.5">
-                            🔴 Riesgo de Laycan
+                        <span class="text-xs font-bold uppercase tracking-wider text-red-400 flex items-center gap-1.5" id="label-transit-risk">
+                            🔴 Riesgos de Tránsito y Entrega
                         </span>
                         <span id="badge-laycan-status" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-red-950 text-red-300 border border-red-800">
                             ALERTA CRÍTICA
                         </span>
                     </div>
                     <h3 id="laycan-title" class="text-lg font-bold text-white mb-2">
-                        Margen de Laycan Peligroso
+                        Riesgos de Tránsito y Entrega
                     </h3>
                     <p id="laycan-desc" class="text-sm text-slate-300 leading-relaxed">
-                        Evaluando margen operativo...
+                        Evaluando margen de tránsito terrestre...
                     </p>
                 </div>
                 <div class="pt-3 border-t border-slate-700/60 text-xs text-slate-400 space-y-1.5">
                     <div class="flex justify-between">
-                        <span>ETA POL (Est. Llegada):</span>
-                        <span id="val-laycan-eta" class="font-bold text-slate-200">--</span>
+                        <span>Ventana de Despacho:</span>
+                        <span id="val-ventana-despacho" class="font-bold text-slate-200">--</span>
                     </div>
                     <div class="flex justify-between">
-                        <span>Cancelling Date (Límite):</span>
-                        <span id="val-laycan-cancelling" class="font-bold text-slate-200">--</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Laycan Días Restantes:</span>
-                        <span id="val-laycan-left" class="font-bold text-slate-200">--</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Días Est. Navegación:</span>
-                        <span id="val-laycan-voyage" class="font-bold text-slate-200">--</span>
+                        <span>Tiempo de Tránsito Estimado:</span>
+                        <span id="val-transito-estimado" class="font-bold text-slate-200">--</span>
                     </div>
                     <div class="flex justify-between font-semibold pt-1 border-t border-slate-700/40">
-                        <span>Buffer de Seguridad (Margen Neto):</span>
-                        <span id="val-laycan-buffer" class="text-red-400">--</span>
+                        <span>Buffer de Entrega:</span>
+                        <span id="val-buffer-entrega" class="text-red-400">--</span>
                     </div>
+                    <!-- Elementos de resguardo ocultos para compatibilidad -->
+                    <span id="val-laycan-eta" class="hidden"></span>
+                    <span id="val-laycan-cancelling" class="hidden"></span>
+                    <span id="val-laycan-left" class="hidden"></span>
+                    <span id="val-laycan-voyage" class="hidden"></span>
+                    <span id="val-laycan-buffer" class="hidden"></span>
                 </div>
             </div>
 
-            <!-- TARJETA 2: OPERACIONES DE PUERTO (POL / POD) -->
+            <!-- TARJETA 2: CADENCIA DE DESPACHO Y PLANTA -->
             <div id="card-loadrate" class="bg-slate-800 border border-slate-700 border-l-4 border-l-amber-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4">
                 <div>
                     <div class="flex items-center justify-between mb-3">
-                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                            🟡 Operaciones de Puerto
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5" id="label-dispatch-cadence">
+                            🟡 Cadencia de Despacho y Planta
                         </span>
                         <span id="badge-loadrate-status" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-950 text-amber-300 border border-amber-800">
                             ADVERTENCIA
                         </span>
                     </div>
                     <h3 id="loadrate-title" class="text-lg font-bold text-white mb-2">
-                        Ritmo de Operación
+                        Cadencia de Despacho y Planta
                     </h3>
                     <p id="loadrate-desc" class="text-sm text-slate-300 leading-relaxed">
-                        Evaluando velocidad de carga y descarga...
+                        Evaluando tiempos en planta y capacidad de flota...
                     </p>
                 </div>
                 
                 <div class="pt-3 border-t border-slate-700/60 text-xs text-slate-400 space-y-2.5">
-                    <!-- Bloque POL -->
+                    <!-- Bloque Origen (Carga) -->
                     <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50 space-y-1">
-                        <div class="text-[11px] font-bold text-indigo-300 uppercase tracking-wide mb-1">Puerto Carga (POL)</div>
+                        <div class="text-[11px] font-bold text-indigo-300 uppercase tracking-wide mb-1">Origen (Carga)</div>
                         <div class="flex justify-between">
-                            <span>Ritmo Carga Actual:</span>
-                            <span id="val-loadrate-current" class="font-bold text-slate-200">--</span>
+                            <span>Punto de Carga:</span>
+                            <span id="val-origen-carga" class="font-bold text-slate-200">--</span>
                         </div>
                         <div class="flex justify-between">
-                            <span>Días Teóricos Carga:</span>
-                            <span id="val-loadrate-days" class="font-bold text-amber-400">--</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>Load Rate Requerido:</span>
-                            <span id="val-loadrate-required" class="font-bold text-emerald-400">--</span>
+                            <span>Tiempo Est. Carga:</span>
+                            <span id="val-tiempo-carga" class="font-bold text-amber-400">--</span>
                         </div>
                     </div>
 
-                    <!-- Bloque POD -->
+                    <!-- Bloque Destino (Descarga) -->
                     <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50 space-y-1">
-                        <div class="text-[11px] font-bold text-indigo-300 uppercase tracking-wide mb-1">Puerto Descarga (POD)</div>
+                        <div class="text-[11px] font-bold text-indigo-300 uppercase tracking-wide mb-1">Destino (Descarga)</div>
                         <div class="flex justify-between">
-                            <span>Ritmo Descarga Actual:</span>
-                            <span id="val-dischargerate-current" class="font-bold text-slate-200">--</span>
+                            <span>Punto de Descarga:</span>
+                            <span id="val-destino-descarga" class="font-bold text-slate-200">--</span>
                         </div>
                         <div class="flex justify-between">
-                            <span>Días Teóricos Descarga:</span>
-                            <span id="val-dischargerate-days" class="font-bold text-amber-400">--</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>Discharge Rate Requerido:</span>
-                            <span id="val-dischargerate-required" class="font-bold text-emerald-400">--</span>
+                            <span>Tiempo Est. Descarga:</span>
+                            <span id="val-tiempo-descarga" class="font-bold text-amber-400">--</span>
                         </div>
                     </div>
 
-                    <!-- Totalizador -->
+                    <!-- Métrica Flota Total y Cadencia Sugerida -->
+                    <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50 space-y-1">
+                        <div class="flex justify-between">
+                            <span>Flota Total:</span>
+                            <span id="val-flota-total" class="font-bold text-indigo-300">-- camiones</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Cadencia Sugerida:</span>
+                            <span id="val-cadencia-sugerida" class="font-bold text-emerald-400">-- camiones/día</span>
+                        </div>
+                    </div>
+
+                    <!-- Indicador de Riesgo para Paralizaciones -->
                     <div class="flex justify-between font-bold text-slate-200 pt-1 border-t border-slate-700/60">
-                        <span>Total Días en Puertos (Port Days):</span>
+                        <span>Riesgo Paralizaciones:</span>
+                        <span id="val-riesgo-paralizaciones" class="text-emerald-400">BAJO (Dentro de horas libres)</span>
+                    </div>
+
+                    <!-- Totalizador de tiempo en planta -->
+                    <div class="flex justify-between font-medium text-slate-400 text-[11px]">
+                        <span>Tiempo Total en Plantas:</span>
                         <span id="val-portdays-total" class="text-indigo-400">--</span>
                     </div>
+                    <!-- Elementos de resguardo ocultos para compatibilidad -->
+                    <span id="val-loadrate-current" class="hidden"></span>
+                    <span id="val-loadrate-days" class="hidden"></span>
+                    <span id="val-loadrate-required" class="hidden"></span>
+                    <span id="val-dischargerate-current" class="hidden"></span>
+                    <span id="val-dischargerate-days" class="hidden"></span>
+                    <span id="val-dischargerate-required" class="hidden"></span>
                 </div>
             </div>
 
-            <!-- TARJETA 3: SALUD FINANCIERA (DESGLOSE UNITARIO) -->
+            <!-- TARJETA 3: SALUD FINANCIERA DE LA FLOTA -->
             <div id="card-financial" class="bg-slate-800 border border-slate-700 border-l-4 border-l-emerald-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4">
                 <div>
                     <div class="flex items-center justify-between mb-3">
-                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                            🟢 Salud Financiera
+                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5" id="label-fleet-financial">
+                            🟢 Salud Financiera de la Flota
                         </span>
                         <span id="badge-financial-status" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-950 text-emerald-300 border border-emerald-800">
                             APROBADO
                         </span>
                     </div>
                     <h3 id="financial-title" class="text-lg font-bold text-white mb-2">
-                        Rentabilidad Aprobada
+                        Salud Financiera de la Flota
                     </h3>
                     <p id="financial-desc" class="text-sm text-slate-300 leading-relaxed">
-                        Evaluando margen de beneficio...
+                        Evaluando rentabilidad de la operación terrestre...
                     </p>
                 </div>
                 <div class="pt-3 border-t border-slate-700/60 text-xs text-slate-400 space-y-1.5">
                     <div class="flex justify-between">
-                        <span>Flete Estimado Total:</span>
-                        <span id="val-financial-flete" class="font-bold text-slate-200">--</span>
+                        <span>Margen Neto del Proyecto:</span>
+                        <span id="val-margen-neto-proyecto" class="transition-all duration-300 font-bold text-slate-200">-- €</span>
                     </div>
                     <div class="flex justify-between font-semibold text-indigo-300">
-                        <span>Flete Unitario:</span>
-                        <span id="val-financial-flete-unit" class="font-bold text-indigo-300">--</span>
+                        <span>Beneficio Neto por Camión:</span>
+                        <span id="val-beneficio-neto-camion" class="transition-all duration-300 font-bold text-indigo-300">-- €</span>
                     </div>
-                    <div class="flex justify-between pt-1 border-t border-slate-700/40">
-                        <span>Break-Even Total:</span>
-                        <span id="val-financial-breakeven" class="font-bold text-slate-200">--</span>
-                    </div>
-                    <div class="flex justify-between font-semibold text-amber-300">
-                        <span>Break-Even Unitario:</span>
-                        <span id="val-financial-breakeven-unit" class="font-bold text-amber-300">--</span>
+                    <div class="flex justify-between font-semibold text-amber-300 pt-1 border-t border-slate-700/40">
+                        <span>Coste Base por Kilómetro (€/km):</span>
+                        <span id="val-coste-base-km" class="font-bold text-amber-300">-- €/km</span>
                     </div>
                     <div class="flex justify-between font-bold pt-1 border-t border-slate-700/60">
-                        <span>Margen Bruto Calculado:</span>
-                        <span id="val-financial-margin" class="text-emerald-400">--</span>
+                        <span>Margen Operativo Calculado:</span>
+                        <span id="val-financial-margin" class="text-emerald-400">--%</span>
                     </div>
+                    <!-- Elementos de resguardo ocultos para compatibilidad -->
+                    <span id="val-financial-flete" class="hidden"></span>
+                    <span id="val-financial-flete-unit" class="hidden"></span>
+                    <span id="val-financial-breakeven" class="hidden"></span>
+                    <span id="val-financial-breakeven-unit" class="hidden"></span>
                 </div>
             </div>
 
@@ -428,6 +444,53 @@
                     <h2 class="text-xl font-bold text-white flex items-center gap-2">
                         <span>🎯 Motor de Recomendaciones Comerciales</span>
                     </h2>
+                    <p class="text-xs text-slate-400">
+                        Estrategias terrestres de transporte por carretera y gestión de flota generadas en tiempo real.
+                    </p>
+                </div>
+                <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-900 text-indigo-400 border border-indigo-500/30">
+                    DSS Algorithmic Directives
+                </span>
+            </div>
+
+            <div id="contenedor-recomendaciones" class="space-y-3">
+                <!-- Se inyectan dinámicamente -->
+            </div>
+        </section>
+
+        <!-- BARRA DE PROGRESO VISUAL: RATIO DE TIEMPO (PLANTA VS CONDUCCIÓN) -->
+        <section class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700 pb-4">
+                <div>
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <span>⏱️ Distribución de Tiempo Operativo (Planta vs Conducción)</span>
+                    </h2>
+                    <p class="text-xs text-slate-400">
+                        Análisis visual de estancia en plantas frente a horas efectivas de conducción terrestre (OSRM).
+                    </p>
+                </div>
+                <div class="flex items-center gap-4 text-xs font-semibold">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+                        <span class="text-slate-300">Tiempo en Plantas: <span id="label-port-days-count" class="text-amber-400">0</span> d (<span id="label-port-pct" class="text-amber-400">0%</span>)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3 h-3 rounded-full bg-indigo-500 inline-block"></span>
+                        <span class="text-slate-300">Tiempo Conducción: <span id="label-sea-days-count" class="text-indigo-400">0</span> d (<span id="label-sea-pct" class="text-indigo-400">0%</span>)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenedor de la barra de progreso dual -->
+            <div class="space-y-2">
+                <div class="w-full bg-slate-900 h-6 rounded-full overflow-hidden flex border border-slate-700 shadow-inner">
+                    <div id="bar-port" class="bg-amber-500 h-full text-[11px] font-extrabold text-slate-950 flex items-center justify-center transition-all duration-500" style="width: 50%;">
+                        50% Planta
+                    </div>
+                    <div id="bar-sea" class="bg-indigo-600 h-full text-[11px] font-extrabold text-white flex items-center justify-center transition-all duration-500" style="width: 50%;">
+                        50% Conducción
+                    </div>
+                </div>
                     <p class="text-xs text-slate-400">
                         Estrategias quirúrgicas de negociación Armador ↔ Fletador generadas automáticamente en tiempo real.
                     </p>
@@ -625,6 +688,15 @@
             const valLaycanVoyage = document.getElementById('val-laycan-voyage');
             const valLaycanBuffer = document.getElementById('val-laycan-buffer');
 
+            // Enlace de datos terrestres para Tarjeta 1
+            const valVentanaDespacho = document.getElementById('val-ventana-despacho');
+            const valTransitoEstimado = document.getElementById('val-transito-estimado');
+            const valBufferEntrega = document.getElementById('val-buffer-entrega');
+
+            if (valVentanaDespacho) valVentanaDespacho.textContent = cancellingStr;
+            if (valTransitoEstimado) valTransitoEstimado.textContent = `${Number(estimatedVoyageDays).toFixed(1)} días`;
+            if (valBufferEntrega) valBufferEntrega.textContent = `${laycanBuffer.toFixed(1)} días`;
+
             if (valLaycanEta) valLaycanEta.textContent = etaStr;
             if (valLaycanCancelling) valLaycanCancelling.textContent = cancellingStr;
             if (valLaycanLeft) valLaycanLeft.textContent = `${Number(dynamicLaycanLeft).toFixed(1)} días`;
@@ -638,16 +710,16 @@
                         badgeLaycan.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold bg-red-950 text-red-300 border border-red-800';
                         badgeLaycan.textContent = 'ALERTA CRÍTICA';
                     }
-                    if (titleLaycan) titleLaycan.textContent = 'Margen de Laycan Peligroso';
-                    if (descLaycan) descLaycan.textContent = `El tiempo restante para vencimiento de Laycan (${Number(dynamicLaycanLeft).toFixed(1)}d) ofrece un margen insuficiente frente a los días de navegación estimados (${Number(estimatedVoyageDays).toFixed(1)}d).`;
+                    if (titleLaycan) titleLaycan.textContent = 'Riesgos de Tránsito y Entrega Críticos';
+                    if (descLaycan) descLaycan.textContent = `Ventana de entrega comprometida. El tiempo estimado de tránsito (${Number(estimatedVoyageDays).toFixed(1)}d) excede el margen con la fecha límite pactada.`;
                     if (valLaycanBuffer) valLaycanBuffer.className = 'font-bold text-red-400';
 
                     recomendaciones.push({
                         tipo: 'critico',
                         icono: '🔴',
-                        titulo: 'Riesgo de Cancelación de Laycan (Cancelling Date)',
-                        texto: `Riesgo de Cancelación Alto (Buffer: ${laycanBuffer.toFixed(1)}d). Se recomienda pasar de términos SHEX a SHINC o SSHINC para forzar operativa ininterrumpida y solicitar al fletador ampliar Cancelling Date a mínimo ${(estimatedVoyageDays + 3).toFixed(1)} días. Añadir cláusula WIBON WIPON WIFPON WICCON para proteger el tendido del N.O.R.`,
-                        accion: 'Negociar Términos SSHINC y Cláusula WIBON/WIPON'
+                        titulo: 'Alerta de Tiempos de Conducción y Descanso',
+                        texto: `Tiempo de tránsito ajustado (Buffer: ${laycanBuffer.toFixed(1)}d). Si la ruta requiere pernocta del chófer o supera las horas máximas de conducción según tacógrafo, programar relevo de conductor o ajustar franja horaria de entrega.`,
+                        accion: 'Planificar Relevo / Revisar Tacógrafo'
                     });
                 } else if (esLaycanNeutral) {
                     cardLaycan.className = 'bg-slate-800 border border-slate-700 border-l-4 border-l-amber-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4';
@@ -655,16 +727,16 @@
                         badgeLaycan.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-950 text-amber-300 border border-amber-800';
                         badgeLaycan.textContent = 'NEUTRAL';
                     }
-                    if (titleLaycan) titleLaycan.textContent = 'Margen de Laycan Neutro / Aceptable';
-                    if (descLaycan) descLaycan.textContent = `Buffer moderado de ${laycanBuffer.toFixed(1)} días entre tiempo de llegada estimado (${etaStr}) y fecha de cancelación (${cancellingStr}).`;
+                    if (titleLaycan) titleLaycan.textContent = 'Ventana de Entrega con Margen Moderado';
+                    if (descLaycan) descLaycan.textContent = `Buffer moderado de ${laycanBuffer.toFixed(1)} días entre tiempo de tránsito estimado y fecha límite del cliente.`;
                     if (valLaycanBuffer) valLaycanBuffer.className = 'font-bold text-amber-400';
 
                     recomendaciones.push({
                         tipo: 'alerta',
                         icono: '🟡',
-                        titulo: 'Ventana de Laycan con Margen Moderado',
-                        texto: `Buffer moderado de ${laycanBuffer.toFixed(1)} días. Monitorear progreso de navegación y emitir avisos de ETA a puerto de carga.`,
-                        accion: 'Seguimiento de ETA y Avisos N.O.R.'
+                        titulo: 'Auditoría de Incoterm y Custodia de Carga',
+                        texto: `Buffer moderado de ${laycanBuffer.toFixed(1)} días. Comprobar condiciones FCA/EXW o CPT pactadas. Mantener seguimiento telemático GPS del vehículo para anticipar desvíos.`,
+                        accion: 'Auditar Incoterm y Seguimiento GPS'
                     });
                 } else {
                     cardLaycan.className = 'bg-slate-800 border border-slate-700 border-l-4 border-l-emerald-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4';
@@ -672,26 +744,33 @@
                         badgeLaycan.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-950 text-emerald-300 border border-emerald-800';
                         badgeLaycan.textContent = 'SEGURO';
                     }
-                    if (titleLaycan) titleLaycan.textContent = 'Margen de Laycan Seguro';
-                    if (descLaycan) descLaycan.textContent = `Buffer holgado de ${laycanBuffer.toFixed(1)} días entre tiempo de llegada estimado (${etaStr}) y fecha de cancelación (${cancellingStr}).`;
+                    if (titleLaycan) titleLaycan.textContent = 'Ventana de Entrega Segura: Buffer adecuado entre el tiempo de tránsito y la fecha límite del cliente.';
+                    if (descLaycan) descLaycan.textContent = `Ventana de Entrega Segura: Buffer adecuado entre el tiempo de tránsito y la fecha límite del cliente.`;
                     if (valLaycanBuffer) valLaycanBuffer.className = 'font-bold text-emerald-400';
 
                     recomendaciones.push({
                         tipo: 'seguro',
                         icono: '🟢',
-                        titulo: 'Ventana de Laycan Protegida',
-                        texto: `Buffer adecuado de ${laycanBuffer.toFixed(1)} días. Mantener programación y tender N.O.R. bajo términos SHEX UU o SHINC según acuerdo portuario.`,
-                        accion: 'Confirmar ETA y N.O.R.'
+                        titulo: 'Ventana de Entrega Protegida',
+                        texto: `Programación de flota viable. Mantener seguimiento de ruta para cumplir ventana de entrega.`,
+                        accion: 'Confirmar Asignación de Flota'
                     });
                 }
             }
 
-            // --- REGLA 2: OPERACIONES DE PUERTO (DESGLOSE POL / POD) ---
+            // --- REGLA 2: OPERACIONES DE PLANTA (CADENCIA DE DESPACHO Y ALMACÉN) ---
             const loadRateVal = Math.max(1, Number(loadRate) || 1);
             const dischargeRateVal = Math.max(1, Number(dischargeRate) || loadRateVal);
 
-            const diasCargaTeoricos = cargoQty > 0 ? cargoQty / loadRateVal : 0;
-            const diasDescargaTeoricos = cargoQty > 0 ? cargoQty / dischargeRateVal : 0;
+            // Factor de corrección horario para entorno terrestre (LOTT / Plataformas logísticas):
+            // La variable introducida en terrestre representa MT/hora. Asumiendo una jornada estándar de 8 horas de trabajo en planta por día:
+            // dias_carga = totalCargo / (loadRate * 8)
+            const horasJornadaPlanta = 8;
+            const ritmoDiarioCarga = loadRateVal <= 500 ? (loadRateVal * horasJornadaPlanta) : loadRateVal;
+            const ritmoDiarioDescarga = dischargeRateVal <= 500 ? (dischargeRateVal * horasJornadaPlanta) : dischargeRateVal;
+
+            const diasCargaTeoricos = cargoQty > 0 ? (cargoQty / ritmoDiarioCarga) : 0;
+            const diasDescargaTeoricos = cargoQty > 0 ? (cargoQty / ritmoDiarioDescarga) : 0;
 
             const mainEnginePortDays = (typeof State !== 'undefined' && State && (State.portDays || State.totalPortDays || State.tPort))
                 ? Number(State.portDays || State.totalPortDays || State.tPort)
@@ -704,7 +783,24 @@
             const loadRateRequerido = Math.ceil(cargoQty / 5);
             const dischargeRateRequerido = Math.ceil(cargoQty / 5);
 
-            const esRitmoIneficiente = diasCargaTeoricos > 8 || diasDescargaTeoricos > 8 || totalPortDaysCalc > 12;
+            const fleetTrucks = (typeof State !== 'undefined' && (State.trucks_needed || State.trucksNeeded))
+                ? Number(State.trucks_needed || State.trucksNeeded)
+                : (Math.max(1, Math.ceil(cargoQty / 24)));
+
+            const diasOperativosCarga = diasCargaTeoricos > 0 ? diasCargaTeoricos : 1;
+            const cadenciaCalculada = Math.max(1, Math.ceil(fleetTrucks / diasOperativosCarga));
+
+            // Evaluación de Paralizaciones (LOTT):
+            // En transporte terrestre, cada camión dispone de franquicia de horas libres (máx. 2h según LOTT).
+            // A 24 MT estándar por vehículo, calculamos el tiempo individual de carga y descarga por camión:
+            const payloadUnit = 24;
+            const horasCargaPorCamion = loadRateVal > 0 ? (payloadUnit / (loadRateVal <= 500 ? loadRateVal : (loadRateVal / 8))) : 1;
+            const horasDescargaPorCamion = dischargeRateVal > 0 ? (payloadUnit / (dischargeRateVal <= 500 ? dischargeRateVal : (dischargeRateVal / 8))) : 1;
+            const cadenciaCoherente = cadenciaCalculada >= 1 && horasCargaPorCamion <= 2.5 && horasDescargaPorCamion <= 2.5;
+
+            const esRitmoIneficiente = fleetTrucks > 1
+                ? (!cadenciaCoherente || (activeState.portDays && Number(activeState.portDays) > 20))
+                : (diasCargaTeoricos > 8 || diasDescargaTeoricos > 8 || totalPortDaysCalc > 12);
 
             const cardLoadrate = document.getElementById('card-loadrate');
             const badgeLoadrate = document.getElementById('badge-loadrate-status');
@@ -730,33 +826,60 @@
 
             if (valPortdaysTotal) valPortdaysTotal.textContent = `${totalPortDaysCalc.toFixed(1)} días`;
 
+            // Enlace de datos terrestres para Tarjeta 2 (Cadencia de Despacho y Planta)
+            const valOrigenCarga = document.getElementById('val-origen-carga');
+            const valDestinoDescarga = document.getElementById('val-destino-descarga');
+            const valTiempoCarga = document.getElementById('val-tiempo-carga');
+            const valTiempoDescarga = document.getElementById('val-tiempo-descarga');
+            const valFlotaTotal = document.getElementById('val-flota-total');
+            const valCadenciaSugerida = document.getElementById('val-cadencia-sugerida');
+            const valRiesgoParalizaciones = document.getElementById('val-riesgo-paralizaciones');
+
+            if (valOrigenCarga) valOrigenCarga.textContent = pol || 'Origen no definido';
+            if (valDestinoDescarga) valDestinoDescarga.textContent = pod || 'Destino no definido';
+            if (valTiempoCarga) valTiempoCarga.textContent = `${diasCargaTeoricos.toFixed(1)} días (${(diasCargaTeoricos * horasJornadaPlanta).toFixed(0)}h)`;
+            if (valTiempoDescarga) valTiempoDescarga.textContent = `${diasDescargaTeoricos.toFixed(1)} días (${(diasDescargaTeoricos * horasJornadaPlanta).toFixed(0)}h)`;
+
+            if (valFlotaTotal) valFlotaTotal.textContent = `${fleetTrucks} camiones`;
+            if (valCadenciaSugerida) valCadenciaSugerida.textContent = `${cadenciaCalculada} camiones/día`;
+
+            if (valRiesgoParalizaciones) {
+                if (esRitmoIneficiente) {
+                    valRiesgoParalizaciones.textContent = 'ALTO (Excede horas libres LOTT)';
+                    valRiesgoParalizaciones.className = 'font-bold text-amber-400';
+                } else {
+                    valRiesgoParalizaciones.textContent = 'BAJO (Dentro de horas libres)';
+                    valRiesgoParalizaciones.className = 'font-bold text-emerald-400';
+                }
+            }
+
             if (esRitmoIneficiente) {
                 cardLoadrate.className = 'bg-slate-800 border border-slate-700 border-l-4 border-l-amber-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4';
                 badgeLoadrate.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-950 text-amber-300 border border-amber-800';
                 badgeLoadrate.textContent = 'ADVERTENCIA';
-                titleLoadrate.textContent = 'Ritmo de Operación Ineficiente / Riesgo de Demoras';
-                descLoadrate.textContent = `Plancha exigida en puertos (POL: ${diasCargaTeoricos.toFixed(1)}d, POD: ${diasDescargaTeoricos.toFixed(1)}d) genera un total de ${totalPortDaysCalc.toFixed(1)} port days.`;
+                titleLoadrate.textContent = 'Cadencia Lenta / Riesgo de Paralizaciones en Planta';
+                descLoadrate.textContent = `Operativa lenta en plantas (Carga: ${diasCargaTeoricos.toFixed(1)}d, Descarga: ${diasDescargaTeoricos.toFixed(1)}d) con exposición a sobrecostes por paralizaciones.`;
 
                 recomendaciones.push({
                     tipo: 'advertencia',
                     icono: '🟡',
-                    titulo: 'Riesgo de Demora y Congestión Portuaria',
-                    texto: `Riesgo de Demora y Congestión Alto: Se recomienda negociar carga/descarga de ${Number(cargoQty).toLocaleString('es-ES')} MT bajo términos ${cargoTerms} y tiempo ${laycanBuffer < 3 ? 'SSHINC' : 'SHINC'}. Añadir cláusula WIBON WIPON WIFPON WICCON para proteger el tendido del N.O.R.`,
-                    accion: `Aumentar Ritmo bajo ${cargoTerms} / SSHINC`
+                    titulo: 'Alerta de Paralizaciones en Carga / Descarga',
+                    texto: `Tiempos de espera elevados en almacén. Pactar franquicia de horas libres (máx. 2h según LOTT) y estipular tarifa de paralización por hora de camión inmovilizado.`,
+                    accion: `Cláusula de Paralizaciones LOTT`
                 });
             } else {
                 cardLoadrate.className = 'bg-slate-800 border border-slate-700 border-l-4 border-l-emerald-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4';
                 badgeLoadrate.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-950 text-emerald-300 border border-emerald-800';
                 badgeLoadrate.textContent = 'ÓPTIMO';
-                titleLoadrate.textContent = 'Operaciones Portuarias Eficientes';
-                descLoadrate.textContent = `Operación portuaria fluida proyectada en ${totalPortDaysCalc.toFixed(1)} días totales en puertos (POL: ${diasCargaTeoricos.toFixed(1)}d, POD: ${diasDescargaTeoricos.toFixed(1)}d).`;
+                titleLoadrate.textContent = 'Operaciones en Planta Eficientes';
+                descLoadrate.textContent = `Cadencia ágil proyectada en plantas (${cadenciaCalculada} camiones/día, ${totalPortDaysCalc.toFixed(1)} días totales de maniobra de flota).`;
 
                 recomendaciones.push({
                     tipo: 'seguro',
                     icono: '🟢',
-                    titulo: 'Operativa Portuaria Agilizada',
-                    texto: `Ritmos de carga (${Math.round(loadRateVal)} MT/d) y descarga (${Math.round(dischargeRateVal)} MT/d) optimizados. Se sugiere fijar bajo términos ${cargoTerms} con plancha SHEX EIU.`,
-                    accion: `Validar Términos ${cargoTerms} / SHEX`
+                    titulo: 'Cadencia en Planta',
+                    texto: `Ritmos de carga/descarga optimizados (${cadenciaCalculada} camiones/día). Franquicia de horas libres LOTT asegurada.`,
+                    accion: `Verificar Franquicia en Planta`
                 });
             }
 
@@ -801,35 +924,57 @@
             if (valFinancialBreakevenUnit) valFinancialBreakevenUnit.textContent = `${formatearUSD(breakEvenUnitarioCalculado)} / MT`;
             if (valFinancialMargin) valFinancialMargin.textContent = `${margenBruto.toFixed(1)}%`;
 
+            // Enlace de datos terrestres para Tarjeta 3 (Salud Financiera de la Flota)
+            const valMargenNetoProyecto = document.getElementById('val-margen-neto-proyecto');
+            const valBeneficioNetoCamion = document.getElementById('val-beneficio-neto-camion');
+            const valCosteBaseKm = document.getElementById('val-coste-base-km');
+
+            const totalProjectProfit = (typeof State !== 'undefined' && State.netProfitOwner !== undefined && State.netProfitOwner !== null)
+                ? Number(State.netProfitOwner)
+                : (fleteTotalCalculado - breakEvenTotalCalculado);
+            const profitPerTruck = fleetTrucks > 0 ? (totalProjectProfit / fleetTrucks) : totalProjectProfit;
+
+            const totalKmFleet = (typeof State !== 'undefined' && (State.totalKilometers || State.distanceKm || State.distance))
+                ? Number(State.totalKilometers || State.distanceKm || State.distance)
+                : 107;
+            const tripBaseCost = (typeof State !== 'undefined' && State.totalTripCost)
+                ? Number(State.totalTripCost)
+                : breakEvenTotalCalculado;
+            const baseCostPerKm = totalKmFleet > 0 ? (tripBaseCost / totalKmFleet) : 1.50;
+
+            if (valMargenNetoProyecto) valMargenNetoProyecto.textContent = `${totalProjectProfit.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+            if (valBeneficioNetoCamion) valBeneficioNetoCamion.textContent = `${profitPerTruck.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+            if (valCosteBaseKm) valCosteBaseKm.textContent = `${baseCostPerKm.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/km`;
+
             if (esRentable) {
                 cardFinancial.className = 'bg-slate-800 border border-slate-700 border-l-4 border-l-emerald-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4';
                 badgeFinancial.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-950 text-emerald-300 border border-emerald-800';
                 badgeFinancial.textContent = 'RENTABLE';
                 titleFinancial.textContent = `Rentabilidad Aprobada. Margen bruto del ${margenBruto.toFixed(1)}%.`;
-                descFinancial.textContent = `El flete unitario cotizado (${formatearUSD(fleteUnitarioCalculado)}/MT) proporciona cobertura holgada sobre el Break-Even unitario (${formatearUSD(breakEvenUnitarioCalculado)}/MT).`;
+                descFinancial.textContent = `La tarifa cotizada (${formatearUSD(fleteUnitarioCalculado)}) proporciona cobertura sobre el coste base por kilómetro (${formatearUSD(breakEvenUnitarioCalculado)}).`;
                 document.getElementById('val-financial-margin').className = 'font-bold text-emerald-400';
 
                 recomendaciones.push({
                     tipo: 'seguro',
                     icono: '🟢',
                     titulo: 'Salud Financiera Validada',
-                    texto: `Rentabilidad aprobada con margen bruto del ${margenBruto.toFixed(1)}% (${formatearUSD(fleteUnitarioCalculado)}/MT vs Break-Even ${formatearUSD(breakEvenUnitarioCalculado)}/MT). Operación aprobada bajo términos ${cargoTerms} y plancha SHINC con protección WIBON WIPON WIFPON WICCON.`,
-                    accion: 'Firmar CP (Charter Party)'
+                    texto: `Rentabilidad aprobada con margen operativo de flota del ${margenBruto.toFixed(1)}%. Tarifa validada frente a costes de combustible y peajes.`,
+                    accion: 'Cerrar Orden de Transporte'
                 });
             } else {
                 cardFinancial.className = 'bg-slate-800 border border-slate-700 border-l-4 border-l-red-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4';
                 badgeFinancial.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold bg-red-950 text-red-300 border border-red-800';
                 badgeFinancial.textContent = 'MARGEN BAJO';
                 titleFinancial.textContent = `Alerta Financiera: Margen bruto de ${margenBruto.toFixed(1)}%`;
-                descFinancial.textContent = `El flete unitario (${formatearUSD(fleteUnitarioCalculado)}/MT) está demasiado próximo o por debajo del Break-Even unitario (${formatearUSD(breakEvenUnitarioCalculado)}/MT).`;
+                descFinancial.textContent = `La tarifa (${formatearUSD(fleteUnitarioCalculado)}) está demasiado próxima al coste base por kilómetro (${formatearUSD(breakEvenUnitarioCalculado)}).`;
                 document.getElementById('val-financial-margin').className = 'font-bold text-red-400';
 
                 recomendaciones.push({
                     tipo: 'critico',
                     icono: '⚠️',
-                    titulo: 'Riesgo de Margen Negativo / Ineficiencia Comercial',
-                    texto: `Margen bruto deficitario o insuficiente (${margenBruto.toFixed(1)}%). Flete unitario (${formatearUSD(fleteUnitarioCalculado)}/MT) compromete el resultado frente al Break-Even (${formatearUSD(breakEvenUnitarioCalculado)}/MT). Para aislar costes operativos, pasar a términos ${cargoTerms} y tiempo CQD o SSHINC.`,
-                    accion: 'Elevar Flete Unitario o Términos FIOS/SSHINC'
+                    titulo: 'Riesgo de Margen Negativo en Flota',
+                    texto: `Margen de transporte insuficiente (${margenBruto.toFixed(1)}%). La tarifa no cubre holgadamente retornos en vacío ni fluctuaciones del gasóleo profesional.`,
+                    accion: 'Revisar Suplemento de Combustible'
                 });
             }
 
@@ -922,23 +1067,23 @@
             const barSea = document.getElementById('bar-sea');
 
             barPort.style.width = `${portPct}%`;
-            barPort.textContent = portPct > 12 ? `${portPct.toFixed(0)}% Puerto` : '';
+            barPort.textContent = portPct > 12 ? `${portPct.toFixed(0)}% Planta` : '';
 
             barSea.style.width = `${seaPct}%`;
-            barSea.textContent = seaPct > 12 ? `${seaPct.toFixed(0)}% Mar` : '';
+            barSea.textContent = seaPct > 12 ? `${seaPct.toFixed(0)}% Conducción` : '';
 
             // Diagnóstico operativo del ratio de tiempo
             const diagElem = document.getElementById('diagnostico-tiempo');
             if (portPct > 50) {
                 diagElem.innerHTML = `
                     <span class="flex items-center gap-2 text-amber-300">
-                        ⚠️ <strong>Atención:</strong> Exposición portuaria elevada (${portPct.toFixed(1)}%). El buque pasa más tiempo en puerto que navegando, aumentando costos operativos y riesgo de congestión.
+                        ⚠️ <strong>Atención:</strong> La flota pasa más tiempo en planta que en carretera, revisa los procesos de carga.
                     </span>
                 `;
             } else {
                 diagElem.innerHTML = `
                     <span class="flex items-center gap-2 text-emerald-300">
-                        🟢 <strong>Ratio Óptimo:</strong> Mayor proporción de tiempo en navegación marítima (${seaPct.toFixed(1)}%). Maximiza la eficiencia del buque.
+                        🟢 <strong>Ratio Óptimo:</strong> Mayor proporción de tiempo en carretera (${seaPct.toFixed(1)}%). Maximiza la productividad de la flota.
                     </span>
                 `;
             }

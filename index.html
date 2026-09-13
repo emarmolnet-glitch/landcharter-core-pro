@@ -41676,6 +41676,15 @@ function scheduleReactiveEngine() {
             const valLaycanVoyage = document.getElementById('val-laycan-voyage');
             const valLaycanBuffer = document.getElementById('val-laycan-buffer');
 
+            // Enlace de datos terrestres para Tarjeta 1
+            const valVentanaDespacho = document.getElementById('val-ventana-despacho');
+            const valTransitoEstimado = document.getElementById('val-transito-estimado');
+            const valBufferEntrega = document.getElementById('val-buffer-entrega');
+
+            if (valVentanaDespacho) valVentanaDespacho.textContent = cancellingStr;
+            if (valTransitoEstimado) valTransitoEstimado.textContent = `${Number(estimatedVoyageDays).toFixed(1)} días`;
+            if (valBufferEntrega) valBufferEntrega.textContent = `${laycanBuffer.toFixed(1)} días`;
+
             if (valLaycanEta) valLaycanEta.textContent = etaStr;
             if (valLaycanCancelling) valLaycanCancelling.textContent = cancellingStr;
             if (valLaycanLeft) valLaycanLeft.textContent = `${Number(dynamicLaycanLeft).toFixed(1)} días`;
@@ -41689,16 +41698,16 @@ function scheduleReactiveEngine() {
                         badgeLaycan.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold bg-red-950 text-red-300 border border-red-800';
                         badgeLaycan.textContent = 'ALERTA CRÍTICA';
                     }
-                    if (titleLaycan) titleLaycan.textContent = 'Margen de Laycan Peligroso';
-                    if (descLaycan) descLaycan.textContent = `El tiempo restante para vencimiento de Laycan (${Number(dynamicLaycanLeft).toFixed(1)}d) ofrece un margen insuficiente frente a los días de navegación estimados (${Number(estimatedVoyageDays).toFixed(1)}d).`;
+                    if (titleLaycan) titleLaycan.textContent = 'Riesgos de Tránsito y Entrega Críticos';
+                    if (descLaycan) descLaycan.textContent = `Ventana de entrega comprometida. El tiempo estimado de tránsito (${Number(estimatedVoyageDays).toFixed(1)}d) excede el margen con la fecha límite pactada.`;
                     if (valLaycanBuffer) valLaycanBuffer.className = 'font-bold text-red-400';
 
                     recomendaciones.push({
                         tipo: 'critico',
                         icono: '🔴',
-                        titulo: 'Riesgo de Cancelación de Laycan (Cancelling Date)',
-                        texto: `Riesgo de Cancelación Alto (Buffer: ${laycanBuffer.toFixed(1)}d). Se recomienda pasar de términos SHEX a SHINC o SSHINC para forzar operativa ininterrumpida y solicitar al fletador ampliar Cancelling Date a mínimo ${(estimatedVoyageDays + 3).toFixed(1)} días. Añadir cláusula WIBON WIPON WIFPON WICCON para proteger el tendido del N.O.R.`,
-                        accion: 'Negociar Términos SSHINC y Cláusula WIBON/WIPON'
+                        titulo: 'Alerta de Tiempos de Conducción y Descanso',
+                        texto: `Tiempo de tránsito ajustado (Buffer: ${laycanBuffer.toFixed(1)}d). Si la ruta requiere pernocta del chófer o supera las horas máximas de conducción según tacógrafo, programar relevo de conductor o ajustar franja horaria de entrega.`,
+                        accion: 'Planificar Relevo / Revisar Tacógrafo'
                     });
                 } else if (esLaycanNeutral) {
                     cardLaycan.className = 'bg-slate-800 border border-slate-700 border-l-4 border-l-amber-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4';
@@ -41706,16 +41715,16 @@ function scheduleReactiveEngine() {
                         badgeLaycan.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-950 text-amber-300 border border-amber-800';
                         badgeLaycan.textContent = 'NEUTRAL';
                     }
-                    if (titleLaycan) titleLaycan.textContent = 'Margen de Laycan Neutro / Aceptable';
-                    if (descLaycan) descLaycan.textContent = `Buffer moderado de ${laycanBuffer.toFixed(1)} días entre tiempo de llegada estimado (${etaStr}) y fecha de cancelación (${cancellingStr}).`;
+                    if (titleLaycan) titleLaycan.textContent = 'Ventana de Entrega con Margen Moderado';
+                    if (descLaycan) descLaycan.textContent = `Buffer moderado de ${laycanBuffer.toFixed(1)} días entre tiempo de tránsito estimado y fecha límite del cliente.`;
                     if (valLaycanBuffer) valLaycanBuffer.className = 'font-bold text-amber-400';
 
                     recomendaciones.push({
                         tipo: 'alerta',
                         icono: '🟡',
-                        titulo: 'Ventana de Laycan con Margen Moderado',
-                        texto: `Buffer moderado de ${laycanBuffer.toFixed(1)} días. Monitorear progreso de navegación y emitir avisos de ETA a puerto de carga.`,
-                        accion: 'Seguimiento de ETA y Avisos N.O.R.'
+                        titulo: 'Auditoría de Incoterm y Custodia de Carga',
+                        texto: `Buffer moderado de ${laycanBuffer.toFixed(1)} días. Comprobar condiciones FCA/EXW o CPT pactadas. Mantener seguimiento telemático GPS del vehículo para anticipar desvíos.`,
+                        accion: 'Auditar Incoterm y Seguimiento GPS'
                     });
                 } else {
                     cardLaycan.className = 'bg-slate-800 border border-slate-700 border-l-4 border-l-emerald-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4';
@@ -41723,26 +41732,33 @@ function scheduleReactiveEngine() {
                         badgeLaycan.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-950 text-emerald-300 border border-emerald-800';
                         badgeLaycan.textContent = 'SEGURO';
                     }
-                    if (titleLaycan) titleLaycan.textContent = 'Margen de Laycan Seguro';
-                    if (descLaycan) descLaycan.textContent = `Buffer holgado de ${laycanBuffer.toFixed(1)} días entre tiempo de llegada estimado (${etaStr}) y fecha de cancelación (${cancellingStr}).`;
+                    if (titleLaycan) titleLaycan.textContent = 'Ventana de Entrega Segura: Buffer adecuado entre el tiempo de tránsito y la fecha límite del cliente.';
+                    if (descLaycan) descLaycan.textContent = `Ventana de Entrega Segura: Buffer adecuado entre el tiempo de tránsito y la fecha límite del cliente.`;
                     if (valLaycanBuffer) valLaycanBuffer.className = 'font-bold text-emerald-400';
 
                     recomendaciones.push({
                         tipo: 'seguro',
                         icono: '🟢',
-                        titulo: 'Ventana de Laycan Protegida',
-                        texto: `Buffer adecuado de ${laycanBuffer.toFixed(1)} días. Mantener programación y tender N.O.R. bajo términos SHEX UU o SHINC según acuerdo portuario.`,
-                        accion: 'Confirmar ETA y N.O.R.'
+                        titulo: 'Ventana de Entrega Protegida',
+                        texto: `Programación de flota viable. Mantener seguimiento de ruta para cumplir ventana de entrega.`,
+                        accion: 'Confirmar Asignación de Flota'
                     });
                 }
             }
 
-            // --- 2. TARJETA 2: OPERACIONES DE PUERTO (DESGLOSE POL / POD) ---
+            // --- 2. TARJETA 2: OPERACIONES DE PLANTA (CADENCIA DE DESPACHO Y ALMACÉN) ---
             const loadRateVal = Math.max(1, Number(loadRate) || 1);
             const dischargeRateVal = Math.max(1, Number(dischargeRate) || loadRateVal);
 
-            const diasCargaTeoricos = cargoQty > 0 ? cargoQty / loadRateVal : 0;
-            const diasDescargaTeoricos = cargoQty > 0 ? cargoQty / dischargeRateVal : 0;
+            // Factor de corrección horario para entorno terrestre (LOTT / Plataformas logísticas):
+            // La variable introducida en terrestre representa MT/hora. Asumiendo una jornada estándar de 8 horas de trabajo en planta por día:
+            // dias_carga = totalCargo / (loadRate * 8)
+            const horasJornadaPlanta = 8;
+            const ritmoDiarioCarga = loadRateVal <= 500 ? (loadRateVal * horasJornadaPlanta) : loadRateVal;
+            const ritmoDiarioDescarga = dischargeRateVal <= 500 ? (dischargeRateVal * horasJornadaPlanta) : dischargeRateVal;
+
+            const diasCargaTeoricos = cargoQty > 0 ? (cargoQty / ritmoDiarioCarga) : 0;
+            const diasDescargaTeoricos = cargoQty > 0 ? (cargoQty / ritmoDiarioDescarga) : 0;
 
             const mainEnginePortDays = (typeof State !== 'undefined' && State && (State.portDays || State.totalPortDays || State.tPort))
                 ? Number(State.portDays || State.totalPortDays || State.tPort)
@@ -41755,7 +41771,24 @@ function scheduleReactiveEngine() {
             const loadRateRequerido = Math.ceil(cargoQty / 5);
             const dischargeRateRequerido = Math.ceil(cargoQty / 5);
 
-            const esRitmoIneficiente = diasCargaTeoricos > 8 || diasDescargaTeoricos > 8 || totalPortDaysCalc > 12;
+            const fleetTrucks = (typeof State !== 'undefined' && (State.trucks_needed || State.trucksNeeded))
+                ? Number(State.trucks_needed || State.trucksNeeded)
+                : (Math.max(1, Math.ceil(cargoQty / 24)));
+
+            const diasOperativosCarga = diasCargaTeoricos > 0 ? diasCargaTeoricos : 1;
+            const cadenciaCalculada = Math.max(1, Math.ceil(fleetTrucks / diasOperativosCarga));
+
+            // Evaluación de Paralizaciones (LOTT):
+            // En transporte terrestre, cada camión dispone de franquicia de horas libres (máx. 2h según LOTT).
+            // A 24 MT estándar por vehículo, calculamos el tiempo individual de carga y descarga por camión:
+            const payloadUnit = 24;
+            const horasCargaPorCamion = loadRateVal > 0 ? (payloadUnit / (loadRateVal <= 500 ? loadRateVal : (loadRateVal / 8))) : 1;
+            const horasDescargaPorCamion = dischargeRateVal > 0 ? (payloadUnit / (dischargeRateVal <= 500 ? dischargeRateVal : (dischargeRateVal / 8))) : 1;
+            const cadenciaCoherente = cadenciaCalculada >= 1 && horasCargaPorCamion <= 2.5 && horasDescargaPorCamion <= 2.5;
+
+            const esRitmoIneficiente = fleetTrucks > 1
+                ? (!cadenciaCoherente || (activeState.portDays && Number(activeState.portDays) > 20))
+                : (diasCargaTeoricos > 8 || diasDescargaTeoricos > 8 || totalPortDaysCalc > 12);
 
             const cardLoadrate = document.getElementById('card-loadrate');
             const badgeLoadrate = document.getElementById('badge-loadrate-status');
@@ -41781,6 +41814,33 @@ function scheduleReactiveEngine() {
 
             if (valPortdaysTotal) valPortdaysTotal.textContent = `${totalPortDaysCalc.toFixed(1)} días`;
 
+            // Enlace de datos terrestres para Tarjeta 2 (Cadencia de Despacho y Planta)
+            const valOrigenCarga = document.getElementById('val-origen-carga');
+            const valDestinoDescarga = document.getElementById('val-destino-descarga');
+            const valTiempoCarga = document.getElementById('val-tiempo-carga');
+            const valTiempoDescarga = document.getElementById('val-tiempo-descarga');
+            const valFlotaTotal = document.getElementById('val-flota-total');
+            const valCadenciaSugerida = document.getElementById('val-cadencia-sugerida');
+            const valRiesgoParalizaciones = document.getElementById('val-riesgo-paralizaciones');
+
+            if (valOrigenCarga) valOrigenCarga.textContent = pol || 'Origen no definido';
+            if (valDestinoDescarga) valDestinoDescarga.textContent = pod || 'Destino no definido';
+            if (valTiempoCarga) valTiempoCarga.textContent = `${diasCargaTeoricos.toFixed(1)} días (${(diasCargaTeoricos * horasJornadaPlanta).toFixed(0)}h)`;
+            if (valTiempoDescarga) valTiempoDescarga.textContent = `${diasDescargaTeoricos.toFixed(1)} días (${(diasDescargaTeoricos * horasJornadaPlanta).toFixed(0)}h)`;
+
+            if (valFlotaTotal) valFlotaTotal.textContent = `${fleetTrucks} camiones`;
+            if (valCadenciaSugerida) valCadenciaSugerida.textContent = `${cadenciaCalculada} camiones/día`;
+
+            if (valRiesgoParalizaciones) {
+                if (esRitmoIneficiente) {
+                    valRiesgoParalizaciones.textContent = 'ALTO (Excede horas libres LOTT)';
+                    valRiesgoParalizaciones.className = 'font-bold text-amber-400';
+                } else {
+                    valRiesgoParalizaciones.textContent = 'BAJO (Dentro de horas libres)';
+                    valRiesgoParalizaciones.className = 'font-bold text-emerald-400';
+                }
+            }
+
             if (cardLoadrate) {
                 if (esRitmoIneficiente) {
                     cardLoadrate.className = 'bg-slate-800 border border-slate-700 border-l-4 border-l-amber-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4';
@@ -41788,15 +41848,15 @@ function scheduleReactiveEngine() {
                         badgeLoadrate.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-950 text-amber-300 border border-amber-800';
                         badgeLoadrate.textContent = 'ADVERTENCIA';
                     }
-                    if (titleLoadrate) titleLoadrate.textContent = 'Ritmo de Operación Ineficiente / Riesgo de Demoras';
-                    if (descLoadrate) descLoadrate.textContent = `Plancha exigida en puertos (POL: ${diasCargaTeoricos.toFixed(1)}d, POD: ${diasDescargaTeoricos.toFixed(1)}d) genera un total de ${totalPortDaysCalc.toFixed(1)} port days.`;
+                    if (titleLoadrate) titleLoadrate.textContent = 'Cadencia Lenta / Riesgo de Paralizaciones en Planta';
+                    if (descLoadrate) descLoadrate.textContent = `Operativa lenta en plantas (Carga: ${diasCargaTeoricos.toFixed(1)}d, Descarga: ${diasDescargaTeoricos.toFixed(1)}d) con exposición a sobrecostes por paralizaciones.`;
 
                     recomendaciones.push({
                         tipo: 'advertencia',
                         icono: '🟡',
-                        titulo: 'Riesgo de Demora y Congestión Portuaria',
-                        texto: `Riesgo de Demora y Congestión Alto: Se recomienda negociar carga/descarga de ${Number(cargoQty).toLocaleString('es-ES')} MT bajo términos ${cargoTerms} y tiempo ${laycanBuffer < 3 ? 'SSHINC' : 'SHINC'}. Añadir cláusula WIBON WIPON WIFPON WICCON para proteger el tendido del N.O.R.`,
-                        accion: `Aumentar Ritmo bajo ${cargoTerms} / SSHINC`
+                        titulo: 'Alerta de Paralizaciones en Carga / Descarga',
+                        texto: `Tiempos de espera elevados en almacén. Pactar franquicia de horas libres (máx. 2h según LOTT) y estipular tarifa de paralización por hora de camión inmovilizado.`,
+                        accion: `Cláusula de Paralizaciones LOTT`
                     });
                 } else {
                     cardLoadrate.className = 'bg-slate-800 border border-slate-700 border-l-4 border-l-emerald-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4';
@@ -41804,24 +41864,24 @@ function scheduleReactiveEngine() {
                         badgeLoadrate.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-950 text-emerald-300 border border-emerald-800';
                         badgeLoadrate.textContent = 'ÓPTIMO';
                     }
-                    if (titleLoadrate) titleLoadrate.textContent = 'Operaciones Portuarias Eficientes';
-                    if (descLoadrate) descLoadrate.textContent = `Operación portuaria fluida proyectada en ${totalPortDaysCalc.toFixed(1)} días totales en puertos (POL: ${diasCargaTeoricos.toFixed(1)}d, POD: ${diasDescargaTeoricos.toFixed(1)}d).`;
+                    if (titleLoadrate) titleLoadrate.textContent = 'Operaciones en Planta Eficientes';
+                    if (descLoadrate) descLoadrate.textContent = `Cadencia ágil proyectada en plantas (${cadenciaCalculada} camiones/día, ${totalPortDaysCalc.toFixed(1)} días totales de maniobra de flota).`;
 
                     recomendaciones.push({
                         tipo: 'seguro',
                         icono: '🟢',
-                        titulo: 'Operativa Portuaria Agilizada',
-                        texto: `Ritmos de carga (${Math.round(loadRateVal)} MT/d) y descarga (${Math.round(dischargeRateVal)} MT/d) optimizados. Se sugiere fijar bajo términos ${cargoTerms} con plancha SHEX EIU.`,
-                        accion: `Validar Términos ${cargoTerms} / SHEX`
+                        titulo: 'Cadencia en Planta',
+                        texto: `Ritmos de carga/descarga optimizados (${cadenciaCalculada} camiones/día). Franquicia de horas libres LOTT asegurada.`,
+                        accion: `Verificar Franquicia en Planta`
                     });
                 }
             }
 
             // --- 3. TARJETA 3: SALUD FINANCIERA (VARIABLES DERIVADAS Y FORMATEO SEGURO) ---
             const formatearUSD = (valor) => {
-                return new Intl.NumberFormat('en-US', {
+                return new Intl.NumberFormat('es-ES', {
                     style: 'currency',
-                    currency: 'USD',
+                    currency: 'EUR',
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                 }).format(Number(valor) || 0);
@@ -41831,14 +41891,9 @@ function scheduleReactiveEngine() {
             const rawFleteVal = Number(fleteEstimado) || 0;
             const rawBreakEvenVal = Number(breakEven) || 0;
 
-            // Determinar si la entrada recibida representa flete Total (ej. > 1000) o Unitario ($/MT)
             const fleteUnitarioCalculado = rawFleteVal > 1000 ? rawFleteVal / qty : rawFleteVal;
             const fleteTotalCalculado = rawFleteVal > 1000 ? rawFleteVal : rawFleteVal * qty;
 
-            // SSOT: el break-even se toma del motor principal (siempre $/MT). La
-            // heurística ">1000" queda sólo como red de seguridad si el motor no ha
-            // corrido todavía; antes reinterpretaba el break-even TOTAL filtrado por
-            // el estimador sombra como coste de viaje, produciendo la divergencia.
             const canonicalAudit = (typeof getCanonicalVoyageFinancials === 'function') ? getCanonicalVoyageFinancials() : null;
             const breakEvenUnitarioCalculado = Number(canonicalAudit?.breakEvenFreight)
                 || (rawBreakEvenVal > 1000 ? rawBreakEvenVal / qty : rawBreakEvenVal);
@@ -41864,6 +41919,28 @@ function scheduleReactiveEngine() {
             if (valFinancialBreakevenUnit) valFinancialBreakevenUnit.textContent = `${formatearUSD(breakEvenUnitarioCalculado)} / MT`;
             if (valFinancialMargin) valFinancialMargin.textContent = `${margenBruto.toFixed(1)}%`;
 
+            // Enlace de datos terrestres para Tarjeta 3 (Salud Financiera de la Flota)
+            const valMargenNetoProyecto = document.getElementById('val-margen-neto-proyecto');
+            const valBeneficioNetoCamion = document.getElementById('val-beneficio-neto-camion');
+            const valCosteBaseKm = document.getElementById('val-coste-base-km');
+
+            const totalProjectProfit = (typeof State !== 'undefined' && State.netProfitOwner !== undefined && State.netProfitOwner !== null)
+                ? Number(State.netProfitOwner)
+                : (fleteTotalCalculado - breakEvenTotalCalculado);
+            const profitPerTruck = fleetTrucks > 0 ? (totalProjectProfit / fleetTrucks) : totalProjectProfit;
+
+            const totalKmFleet = (typeof State !== 'undefined' && (State.totalKilometers || State.distanceKm || State.distance))
+                ? Number(State.totalKilometers || State.distanceKm || State.distance)
+                : 107;
+            const tripBaseCost = (typeof State !== 'undefined' && State.totalTripCost)
+                ? Number(State.totalTripCost)
+                : breakEvenTotalCalculado;
+            const baseCostPerKm = totalKmFleet > 0 ? (tripBaseCost / totalKmFleet) : 1.50;
+
+            if (valMargenNetoProyecto) valMargenNetoProyecto.textContent = `${totalProjectProfit.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+            if (valBeneficioNetoCamion) valBeneficioNetoCamion.textContent = `${profitPerTruck.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+            if (valCosteBaseKm) valCosteBaseKm.textContent = `${baseCostPerKm.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/km`;
+
             if (cardFinancial) {
                 if (esRentable) {
                     cardFinancial.className = 'bg-slate-800 border border-slate-700 border-l-4 border-l-emerald-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4';
@@ -41871,16 +41948,16 @@ function scheduleReactiveEngine() {
                         badgeFinancial.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-950 text-emerald-300 border border-emerald-800';
                         badgeFinancial.textContent = 'RENTABLE';
                     }
-                    if (titleFinancial) titleFinancial.textContent = `Rentabilidad Aprobada. Margen bruto del ${margenBruto.toFixed(1)}%.`;
-                    if (descFinancial) descFinancial.textContent = `El flete unitario cotizado (${formatearUSD(fleteUnitarioCalculado)}/MT) proporciona cobertura holgada sobre el Break-Even unitario (${formatearUSD(breakEvenUnitarioCalculado)}/MT).`;
+                    if (titleFinancial) titleFinancial.textContent = `Rentabilidad Aprobada. Margen operativo del ${margenBruto.toFixed(1)}%.`;
+                    if (descFinancial) descFinancial.textContent = `La tarifa cotizada (${formatearUSD(fleteUnitarioCalculado)}) proporciona cobertura sobre el coste base por kilómetro (${formatearUSD(breakEvenUnitarioCalculado)}).`;
                     if (valFinancialMargin) valFinancialMargin.className = 'font-bold text-emerald-400';
 
                     recomendaciones.push({
                         tipo: 'seguro',
                         icono: '🟢',
                         titulo: 'Salud Financiera Validada',
-                        texto: `Rentabilidad aprobada con margen bruto del ${margenBruto.toFixed(1)}% (${formatearUSD(fleteUnitarioCalculado)}/MT vs Break-Even ${formatearUSD(breakEvenUnitarioCalculado)}/MT). Operación aprobada bajo términos ${cargoTerms} y plancha SHINC con protección WIBON WIPON WIFPON WICCON.`,
-                        accion: 'Firmar CP (Charter Party)'
+                        texto: `Rentabilidad aprobada con margen operativo de flota del ${margenBruto.toFixed(1)}%. Tarifa validada frente a costes de combustible y peajes.`,
+                        accion: 'Cerrar Orden de Transporte'
                     });
                 } else {
                     cardFinancial.className = 'bg-slate-800 border border-slate-700 border-l-4 border-l-red-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4';
@@ -41888,16 +41965,16 @@ function scheduleReactiveEngine() {
                         badgeFinancial.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold bg-red-950 text-red-300 border border-red-800';
                         badgeFinancial.textContent = 'MARGEN BAJO';
                     }
-                    if (titleFinancial) titleFinancial.textContent = `Alerta Financiera: Margen bruto de ${margenBruto.toFixed(1)}%`;
-                    if (descFinancial) descFinancial.textContent = `El flete unitario (${formatearUSD(fleteUnitarioCalculado)}/MT) está demasiado próximo o por debajo del Break-Even unitario (${formatearUSD(breakEvenUnitarioCalculado)}/MT).`;
+                    if (titleFinancial) titleFinancial.textContent = `Alerta Financiera: Margen operativo de ${margenBruto.toFixed(1)}%`;
+                    if (descFinancial) descFinancial.textContent = `La tarifa (${formatearUSD(fleteUnitarioCalculado)}) está demasiado próxima al coste base por kilómetro (${formatearUSD(breakEvenUnitarioCalculado)}).`;
                     if (valFinancialMargin) valFinancialMargin.className = 'font-bold text-red-400';
 
                     recomendaciones.push({
                         tipo: 'critico',
                         icono: '⚠️',
-                        titulo: 'Riesgo de Margen Negativo / Ineficiencia Comercial',
-                        texto: `Margen bruto deficitario o insuficiente (${margenBruto.toFixed(1)}%). Flete unitario (${formatearUSD(fleteUnitarioCalculado)}/MT) compromete el resultado frente al Break-Even (${formatearUSD(breakEvenUnitarioCalculado)}/MT). Para aislar costes operativos, pasar a términos ${cargoTerms} y tiempo CQD o SSHINC.`,
-                        accion: 'Elevar Flete Unitario o Términos FIOS/SSHINC'
+                        titulo: 'Riesgo de Margen Negativo en Flota',
+                        texto: `Margen de transporte insuficiente (${margenBruto.toFixed(1)}%). La tarifa no cubre holgadamente retornos en vacío ni fluctuaciones del gasóleo profesional.`,
+                        accion: 'Revisar Suplemento de Combustible'
                     });
                 }
             }
@@ -41985,12 +42062,12 @@ function scheduleReactiveEngine() {
 
             if (barPort) {
                 barPort.style.width = `${portPct}%`;
-                barPort.textContent = portPct > 12 ? `${portPct.toFixed(0)}% Puerto` : '';
+                barPort.textContent = portPct > 12 ? `${portPct.toFixed(0)}% Planta` : '';
             }
 
             if (barSea) {
                 barSea.style.width = `${seaPct}%`;
-                barSea.textContent = seaPct > 12 ? `${seaPct.toFixed(0)}% Mar` : '';
+                barSea.textContent = seaPct > 12 ? `${seaPct.toFixed(0)}% Conducción` : '';
             }
 
             const diagElem = document.getElementById('diagnostico-tiempo');
@@ -41998,13 +42075,13 @@ function scheduleReactiveEngine() {
                 if (portPct > 50) {
                     diagElem.innerHTML = `
                         <span class="flex items-center gap-2 text-amber-300">
-                            ⚠️ <strong>Atención:</strong> Exposición portuaria elevada (${portPct.toFixed(1)}%). El buque pasa más tiempo en puerto que navegando, aumentando costos operativos y riesgo de congestión.
+                            ⚠️ <strong>Atención:</strong> La flota pasa más tiempo en planta que en carretera, revisa los procesos de carga.
                         </span>
                     `;
                 } else {
                     diagElem.innerHTML = `
                         <span class="flex items-center gap-2 text-emerald-300">
-                            🟢 <strong>Ratio Óptimo:</strong> Mayor proporción de tiempo en navegación marítima (${seaPct.toFixed(1)}%). Maximiza la eficiencia del buque.
+                            🟢 <strong>Ratio Óptimo:</strong> Mayor proporción de tiempo en carretera (${seaPct.toFixed(1)}%). Maximiza la productividad de la flota.
                         </span>
                     `;
                 }
