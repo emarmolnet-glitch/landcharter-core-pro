@@ -4454,6 +4454,23 @@ export function ForwarderWorkspace() {
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
+                            id="btn-save-export-land-quote-fw"
+                            onClick={() => {
+                              if (typeof window !== 'undefined' && typeof window.saveLandRouteQuote === 'function') {
+                                window.saveLandRouteQuote({
+                                  contractRef: projectReference || 'RDM-ACTIVE',
+                                  origin_name: cbamOrigin || 'Origen',
+                                  destination_name: cbamDestination || 'Destino',
+                                  freight_cost: freightRate * quantityNum,
+                                });
+                              }
+                            }}
+                            className="rounded-lg bg-sky-700 px-3.5 py-2 text-xs font-black text-white shadow-md transition hover:bg-sky-800 cursor-pointer flex items-center gap-1.5"
+                          >
+                            <span>💾</span> Guardar/Exportar Cotización
+                          </button>
+                          <button
+                            type="button"
                             id="btn-export-cbam-proforma"
                             onClick={handleExportProforma}
                             className="rounded-lg bg-white px-3.5 py-2 text-xs font-black text-[#002060] shadow-md transition hover:bg-teal-50 cursor-pointer flex items-center gap-1.5"

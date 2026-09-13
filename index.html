@@ -9180,6 +9180,10 @@
                                     <i class="fa-solid fa-file-lines" aria-hidden="true"></i>
                                     <span>Ver Reporte Ejecutivo del Viaje</span>
                                 </button>
+                                <button id="btn-save-export-cotizacion" type="button" onclick="saveLandRouteQuote()" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-sky-600 bg-sky-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2" title="Guardar/Exportar Cotización de transporte terrestre en Neon DB">
+                                    <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
+                                    <span>Guardar/Exportar Cotización</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -10326,6 +10330,9 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <button id="btn-market-report" onclick="generateMarketReport()" class="w-full min-h-12 bg-emerald-700 hover:bg-emerald-800 border border-emerald-800 text-white text-xs font-bold px-4 py-3 rounded-lg shadow transition col-span-1 sm:col-span-2">
                                 <i class="fa-solid fa-file-pdf mr-1.5"></i> Generar Reporte de Mercado Actual
+                            </button>
+                            <button id="btn-save-export-cotizacion-sec5" onclick="saveLandRouteQuote()" class="w-full min-h-12 bg-sky-700 hover:bg-sky-800 border border-sky-800 text-white text-xs font-bold px-4 py-3 rounded-lg shadow transition col-span-1 sm:col-span-2 flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i> Guardar/Exportar Cotización
                             </button>
                             <button id="btn-executive-report" data-executive-report-action onclick="generateExecutiveReport()" class="w-full min-h-12 bg-white hover:bg-slate-50 border border-slate-300 text-[#1E3A8A] text-xs font-bold px-4 py-3 rounded-lg shadow-sm transition">
                                 <i class="fa-solid fa-eye mr-1"></i> Reporte Ejecutivo
@@ -50310,6 +50317,9 @@ Example:
                         <p class="mt-1 text-[11px] text-slate-400">${modeNarrative}: ${narrativeText}</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                        <button onclick="saveLandRouteQuote()" class="no-print bg-sky-600 hover:bg-sky-500 border border-sky-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 transition whitespace-nowrap">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Guardar/Exportar Cotización
+                        </button>
                         <button onclick="printExecutiveScreenReport()" class="no-print bg-emerald-600 hover:bg-emerald-500 border border-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 transition whitespace-nowrap">
                             <i class="fa-solid fa-print"></i> 🖨️ Imprimir Documento Oficial
                         </button>
@@ -50577,6 +50587,9 @@ Example:
                     <div class="no-print pt-2 flex justify-end gap-2 border-t border-slate-800">
                         <button onclick="closeAIModal()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition">
                             ${r.closeBtn}
+                        </button>
+                        <button onclick="saveLandRouteQuote()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Guardar/Exportar Cotización
                         </button>
                         <button onclick="printExecutiveScreenReport()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-1.5 transition">
                             <i class="fa-solid fa-print"></i> 🖨️ Imprimir Documento Oficial
@@ -52606,6 +52619,136 @@ Example:
         // Variable local to store currently loaded historical quote
         let loadedHistoricalQuote = null;
 
+        async function saveLandRouteQuote(customParams = {}) {
+            if (typeof runEngine === 'function') {
+                try { runEngine(); } catch (_) {}
+            }
+
+            // 1. Contract Reference
+            const ref = customParams.contractRef
+                || (typeof window.getActiveContractRef === 'function' ? window.getActiveContractRef() : '')
+                || window.anchoredReference
+                || window.ContractRefManager?.getActiveContractRef?.()
+                || window.ContractReference?.getActiveContractRef?.()
+                || window.State?.activeReference
+                || (new URLSearchParams(window.location.search).get('ref'))
+                || document.getElementById('quick-ref')?.value?.trim()
+                || document.getElementById('gc-ref')?.value?.trim()
+                || document.getElementById('asb-ref')?.value?.trim()
+                || `RDM-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+            // 2. Origen y Destino
+            const origin_name = customParams.origin_name
+                || window.State?.pol
+                || document.getElementById('map-port-pol')?.value?.trim()
+                || document.getElementById('port-pol')?.value?.trim()
+                || document.getElementById('input-pol')?.value?.trim()
+                || window.GlobalStore?.pol
+                || 'Origen';
+
+            const destination_name = customParams.destination_name
+                || window.State?.pod
+                || document.getElementById('map-port-pod')?.value?.trim()
+                || document.getElementById('port-pod')?.value?.trim()
+                || document.getElementById('input-pod')?.value?.trim()
+                || window.GlobalStore?.pod
+                || 'Destino';
+
+            // 3. Distancia Total (km)
+            const total_distance_km = Number(customParams.total_distance_km
+                ?? window.State?.totalKilometers
+                ?? window.State?.distanceKm
+                ?? window.currentCalculatedDistance
+                ?? window.GlobalStore?.totalKilometers
+                ?? window.LandData?.totalKilometers
+                ?? parseFloat(document.getElementById('dist-total')?.value)
+                ?? 0);
+
+            // 4. Coste de Flete
+            const freight_cost = Number(customParams.freight_cost
+                ?? window.State?.grossFreightRevenue
+                ?? window.State?.freight_cost
+                ?? window.State?.freightCost
+                ?? window.State?.totalTripCost
+                ?? window.State?.totalCosts
+                ?? window.State?.costTotal
+                ?? (function() {
+                    const el = document.getElementById('res-cost-total');
+                    if (el) {
+                        const parsed = parseFloat(el.innerText.replace(/[^0-9.,]/g, '').replace(',', '.'));
+                        return Number.isFinite(parsed) ? parsed : 0;
+                    }
+                    return 0;
+                })()
+                ?? 0);
+
+            // 5. Detalles de Carga (tonelaje/equipamiento)
+            const cargo_details = customParams.cargo_details || {
+                tonnage: Number(window.State?.cargo) || Number(window.State?.cargaUtil) || 24.0,
+                equipment: window.State?.vehicleType || document.getElementById('nombre-buque-calculadora')?.value || 'Tráiler Estándar 24T',
+                cargo_type: window.State?.cargoType || 'Carga General',
+                adr: Boolean(window.State?.isAdr)
+            };
+
+            // 6. Modo (Pre-carriage / On-carriage)
+            const mode = customParams.mode
+                || window.multimodalMode
+                || window.multimodalState?.mode
+                || (new URLSearchParams(window.location.search).get('mode'))
+                || 'export';
+            const route_type = String(mode).toLowerCase().includes('import') || String(mode).toLowerCase().includes('on-carriage')
+                ? 'on-carriage'
+                : 'pre-carriage';
+
+            const driving_hours = Number(window.LandData?.drivingHours ?? window.State?.drivingHours ?? 0);
+
+            const payload = {
+                contractRef: ref,
+                origin_name,
+                destination_name,
+                total_distance_km,
+                freight_cost,
+                cargo_details,
+                mode,
+                route_type,
+                driving_hours
+            };
+
+            try {
+                if (typeof showToast === 'function') {
+                    showToast("💾 Guardando ruta terrestre en Neon DB...");
+                }
+                const response = await fetch('/api/save-land-route', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json().catch(() => ({}));
+                if (response.ok && result.success) {
+                    if (typeof showToast === 'function') {
+                        showToast("✅ Ruta terrestre persistida con éxito en Neon DB");
+                    }
+                    return result;
+                } else {
+                    const errMsg = result.error || `HTTP ${response.status}`;
+                    if (typeof showToast === 'function') {
+                        showToast("❌ Error al guardar ruta terrestre: " + errMsg);
+                    }
+                    return result;
+                }
+            } catch (err) {
+                console.error("Error in saveLandRouteQuote:", err);
+                if (typeof showToast === 'function') {
+                    showToast("❌ Error de red guardando ruta terrestre: " + err.message);
+                }
+                throw err;
+            }
+        }
+        window.saveLandRouteQuote = saveLandRouteQuote;
+
         async function saveCotizacion(uniqueReference, issueDate) {
             const currentRisk = window.SeaCharterSensitivityAnalysis?.risk || State.sensitivityAnalysis?.risk;
             if (currentRisk?.blocksSave) {
@@ -52645,6 +52788,11 @@ Example:
                 } else {
                     showToast("❌ Error guardando en BD: " + (result.error || "Error desconocido"));
                 }
+                
+                // Persistir ruta terrestre (pre-carriage / on-carriage) en segundo plano
+                saveLandRouteQuote({ contractRef: uniqueReference }).catch((e) => {
+                    console.warn('Land route sync warning in saveCotizacion:', e);
+                });
             } catch (err) {
                 console.error("Error in saveCotizacion:", err);
                 showToast("❌ Error de red guardando en BD: " + err.message);

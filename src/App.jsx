@@ -1243,11 +1243,80 @@ export async function fetchAndApplyMultimodalPorts(ref, explicitMode) {
   return null;
 }
 
+/**
+ * Persiste la ruta terrestre calculada hacia el POL/POD (Pre-carriage / On-carriage)
+ * en la base de datos de Neon vinculada al contractRef.
+ */
+export async function saveLandRouteQuote(customParams = {}) {
+  const isBrowser = typeof window !== 'undefined';
+  const state = isBrowser ? (window.State || {}) : {};
+
+  const ref = customParams.contractRef
+    || (isBrowser && typeof window.getActiveContractRef === 'function' ? window.getActiveContractRef() : '')
+    || (isBrowser ? window.anchoredReference : '')
+    || state.activeReference
+    || (isBrowser ? new URLSearchParams(window.location.search).get('ref') : '')
+    || 'RDM-2026-ACTIVE';
+
+  const origin_name = customParams.origin_name
+    || state.pol
+    || (isBrowser ? document.getElementById('map-port-pol')?.value : '')
+    || 'Origen';
+
+  const destination_name = customParams.destination_name
+    || state.pod
+    || (isBrowser ? document.getElementById('map-port-pod')?.value : '')
+    || 'Destino';
+
+  const total_distance_km = Number(customParams.total_distance_km
+    ?? state.totalKilometers
+    ?? state.distanceKm
+    ?? (isBrowser ? window.currentCalculatedDistance : 0)
+    ?? 0);
+
+  const freight_cost = Number(customParams.freight_cost
+    ?? state.grossFreightRevenue
+    ?? state.freight_cost
+    ?? state.freightCost
+    ?? state.totalTripCost
+    ?? 0);
+
+  const cargo_details = customParams.cargo_details || {
+    tonnage: Number(state.cargo) || 24.0,
+    equipment: state.vehicleType || 'Tráiler Estándar 24T'
+  };
+
+  const mode = customParams.mode || (isBrowser ? window.multimodalMode : 'export') || 'export';
+  const route_type = String(mode).toLowerCase().includes('import') || String(mode).toLowerCase().includes('on-carriage')
+    ? 'on-carriage'
+    : 'pre-carriage';
+
+  const payload = {
+    contractRef: ref,
+    origin_name,
+    destination_name,
+    total_distance_km,
+    freight_cost,
+    cargo_details,
+    mode,
+    route_type
+  };
+
+  const response = await fetch(getApiUrl('/api/save-land-route'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  return await response.json();
+}
+
 if (typeof window !== 'undefined') {
   window.geocodeMultimodalPort = geocodeMultimodalPort;
   window.fetchMultimodalPorts = fetchMultimodalPorts;
   window.applyMultimodalPortPreload = applyMultimodalPortPreload;
   window.fetchAndApplyMultimodalPorts = fetchAndApplyMultimodalPorts;
+  window.saveLandRouteQuote = saveLandRouteQuote;
 }
 
 /**
