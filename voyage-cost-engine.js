@@ -522,10 +522,35 @@
         const cargoQuantity = Math.max(0, toNumber(calcResults.cargoQty));
         const loadRate = Math.max(0, toNumber(calcResults.loadRate));
         const dischargeRate = Math.max(0, toNumber(calcResults.dischargeRate));
+        const isExplicitMaritime = (calcResults.mode === 'maritimo' || calcResults.modeNarrative === 'maritimo')
+            || (calcResults.loadMethod && /grúa|grua|barco/i.test(calcResults.loadMethod))
+            || (calcResults.dischargeMethod && /grúa|grua|barco/i.test(calcResults.dischargeMethod))
+            || (rawVesselType && /(bulker|buque|coaster|ship|panamax|capesize|handysize|handymax|supramax|ultramax|tanker)/i.test(rawVesselType));
+        const isTerrestre = !isExplicitMaritime && (isTerrestreModeContext() || calcResults.modeNarrative === 'terrestre' || calcResults.mode === 'terrestre');
         const hasOperationalRates = loadRate > 0 && dischargeRate > 0;
         const insightParts = [];
 
-        if (hasOperationalRates) {
+        if (isTerrestre && hasOperationalRates) {
+            // FIX CRÍTICO REPORTE EJECUTIVO - Escalado de Flota en Insight Comercial
+            // Carga útil de 1 camión (~24 TM)
+            const rawPayload = toNumber(calcResults.vehiclePayload || calcResults.payloadKg || (calcResults.dwt ? calcResults.dwt : 0));
+            const truckPayloadCapacity = rawPayload > 100 ? (rawPayload / 1000) : (rawPayload > 0 ? rawPayload : 24);
+            const trucks_needed = cargoQuantity > 0 ? Math.max(1, Math.ceil(cargoQuantity / truckPayloadCapacity)) : 1;
+            const effectiveLoadRate = loadRate > 0 ? loadRate : 25;
+            const effectiveDischargeRate = dischargeRate > 0 ? dischargeRate : 25;
+            const horas_carga_por_camion = Math.round((truckPayloadCapacity / effectiveLoadRate) * 10) / 10;
+            const horas_descarga_por_camion = Math.round((truckPayloadCapacity / effectiveDischargeRate) * 10) / 10;
+            const total_horas_carga = Math.round(trucks_needed * horas_carga_por_camion);
+
+            const roadFleetInsight = `Operación de flota: Se requieren ~${trucks_needed} vehículos para mover ${cargoQuantity}t. Tiempo operativo unitario estimado: ~${horas_carga_por_camion}h de carga y ~${horas_descarga_por_camion}h de descarga por vehículo. (Total horas-hombre del proyecto: ${total_horas_carga}h).`;
+            insightParts.push(roadFleetInsight);
+
+            if (roadRisk.insights && roadRisk.insights.length > 0) {
+                insightParts.push(...roadRisk.insights);
+            } else {
+                insightParts.push('Ruta terrestre optimizada: cumplimiento de tacógrafo para 1 chófer, sin demoras aduaneras y sin restricciones ADR.');
+            }
+        } else if (hasOperationalRates) {
             const loadingHours = (cargoQuantity / loadRate) * 24;
             const dischargeHours = (cargoQuantity / dischargeRate) * 24;
             insightParts.push(`Tiempo operativo estimado: ${formatOperationalDuration(loadingHours)} de carga en ${toText(calcResults.pol)} y ${formatOperationalDuration(dischargeHours)} de descarga en ${toText(calcResults.pod)}.`);
@@ -541,21 +566,21 @@
             ?? riskData.overtimeSurcharge
             ?? riskData.penaltyAmount
         ));
-        if (overtimeHours > 0) {
+        if (!isTerrestre && overtimeHours > 0) {
             insightParts.push(`La simulación horaria asigna ${standardHours.toFixed(1)} h a turnos ordinarios y ${overtimeHours.toFixed(1)} h a Overtime${countries.length ? ` en ${countries.join(' y ')}` : ''}.`);
         }
 
-        // Nuevos Insights de Riesgo Terrestre (Fronterizo, Tacógrafo, ADR)
-        if (roadRisk.insights && roadRisk.insights.length > 0) {
+        // Nuevos Insights de Riesgo Terrestre (Fronterizo, Tacógrafo, ADR) para modo marítimo mixto si aplica
+        if (!isTerrestre && roadRisk.insights && roadRisk.insights.length > 0) {
             insightParts.push(...roadRisk.insights);
         }
 
-        if (riskData.hasMinorityBerthAvailability) {
+        if (!isTerrestre && riskData.hasMinorityBerthAvailability) {
             const compatibleBerths = Math.max(0, toNumber(riskData.compatibleBerths));
             const totalBerths = Math.max(0, toNumber(riskData.totalBerths));
             insightParts.push(`Solo ${compatibleBerths} de ${totalBerths} muelles admiten el calado del buque; el riesgo de espera en fondeo escala a ALTO.`);
         }
-        if (overtimeSurcharge > 0) {
+        if (!isTerrestre && overtimeSurcharge > 0) {
             insightParts.push(`Se ha integrado un coste incremental de ${moneyFormatter.format(overtimeSurcharge)} en la PDA por recargos operativos (FHEX/SHEX).`);
         }
 

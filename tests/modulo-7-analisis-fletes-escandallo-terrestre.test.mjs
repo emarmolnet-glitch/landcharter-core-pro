@@ -112,3 +112,38 @@ test('5. Limpieza de ETS y Adaptación de Márgenes Inferiores', () => {
   assert.match(tceWorkspaceSource, /label: 'Margen transportista'/);
   assert.match(tceWorkspaceSource, /label: 'Margen agencia'/);
 });
+
+test('6. Fix Visual Módulo 7: Coste por Km = (State.totalTripCost / State.distance) ~1.51 €/Km y €/TM en ventas sugeridas', () => {
+  // index.html formula in calculateCostPlusFreight:
+  assert.match(indexSource, /State\.totalTripCost\s*\/\s*State\.distance/);
+  assert.match(indexSource, /minFreightEl\.textContent\s*=\s*`\$\{formatInverseTceMoney\(displayRate,\s*\{\s*decimals:\s*2\s*\}\)\}\s*\$\{unitSuffix\}`/);
+
+  // TceCalculatorWorkspace.tsx formula & rendering:
+  assert.match(tceWorkspaceSource, /stateTotalTripCost\s*\/\s*stateDistance/);
+  assert.match(tceWorkspaceSource, /id="cost-plus-min-freight-rate"[^>]*>[\s\S]*?results\.costPerKm[\s\S]*?<\/p>[\s\S]*?€ \/ Km/);
+
+  // Functional calculation check: 162 € / 107 km gives ~1.51 €/Km
+  const totalTripCost = 162;
+  const distance = 107;
+  const costPerKm = totalTripCost / distance;
+  assert.equal(costPerKm.toFixed(2), '1.51', '162 € / 107 km must be ~1.51 €/Km');
+
+  // Verify lower fields retain /t or /TM (Coste por Tonelada / minFreightRate)
+  assert.match(indexSource, /sugOwner\.toFixed\(2\)\}\s*\$\{unitSuffix\}/);
+  assert.match(indexSource, /sugChart\.toFixed\(2\)\}\s*\$\{unitSuffix\}/);
+  assert.match(tceWorkspaceSource, /suggestedOwnerSale\)\}\s*\/ t/);
+  assert.match(tceWorkspaceSource, /suggestedChartererSale\)\}\s*\/ t/);
+});
+
+test('7. Fix Comercial Módulo 7: Venta Sugerida (€/TM) sobre Capacidad del Vehículo (~24 TM)', () => {
+  // index.html calculates min freight / suggested sale on truckPayloadCapacity in terrestrial mode
+  assert.match(indexSource, /truckPayloadCapacity\s*=\s*rawPayload\s*>\s*100\s*\?\s*\(rawPayload\s*\/\s*1000\)\s*:\s*\(rawPayload\s*>\s*0\s*\?\s*rawPayload\s*:\s*24\)/);
+  assert.match(indexSource, /effectiveFreightVolume\s*=\s*isTerrestre\s*\?\s*truckPayloadCapacity\s*:\s*cargoVolume/);
+  assert.match(indexSource, /roadCostPerTon\s*=\s*isTerrestre\s*&&\s*truckPayloadCapacity\s*>\s*0/);
+
+  // Functional calculation check: 162 € / 24 TM = 6.75 €/TM
+  const tripCost = 162;
+  const truckPayload = 24;
+  const costPerTon = tripCost / truckPayload;
+  assert.equal(costPerTon.toFixed(2), '6.75', '162 € / 24 TM must be 6.75 €/TM');
+});

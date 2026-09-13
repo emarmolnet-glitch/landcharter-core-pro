@@ -150,3 +150,68 @@ test('4. TceCalculatorWorkspace formats pricing and outputs with EUR and road tr
   assert.doesNotMatch(tceSource, /Demurrage \(\$\/d\)/);
   assert.doesNotMatch(tceSource, /USD \/ MT/);
 });
+
+test('5. Executive Insight Comercial scales fleet (trucks_needed) and calculates unit operational hours for road transport', async () => {
+  const scriptSource = await readFile(voyageCostEnginePath, 'utf8');
+  const elements = new Map([
+    ['exec-pol', { textContent: '' }],
+    ['exec-pod', { textContent: '' }],
+    ['exec-operation-icon', { textContent: '' }],
+    ['exec-operation-status', { textContent: '' }],
+    ['exec-total-margin', { textContent: '' }],
+    ['exec-cargo-qty', { textContent: '' }],
+    ['exec-cargo-type', { textContent: '' }],
+    ['exec-load-rate', { textContent: '' }],
+    ['exec-disch-rate', { textContent: '' }],
+    ['exec-vessel-type', { textContent: '' }],
+    ['exec-sea-days', { textContent: '' }],
+    ['exec-port-days', { textContent: '' }],
+    ['exec-total-days', { textContent: '' }],
+    ['exec-buy-freight', { textContent: '' }],
+    ['exec-tce', { textContent: '' }],
+    ['exec-sell-freight', { textContent: '' }],
+    ['exec-charterer-profit', { textContent: '' }],
+    ['exec-spread-mt', { textContent: '' }],
+    ['exec-risk-level', { textContent: '', style: {} }],
+    ['exec-insight-text', { textContent: '', style: {} }],
+  ]);
+  const fakeDoc = { getElementById: (id) => elements.get(id) || null };
+
+  const sandbox = {
+    window: {},
+    document: fakeDoc,
+    console,
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(scriptSource, sandbox);
+
+  const engine = sandbox.window.SeaCharterVoyageCostEngine;
+  assert.ok(engine, 'Engine must be exported');
+
+  // Project cargo of 8000t with 24t payload per truck -> Math.ceil(8000 / 24) = 334 trucks
+  // loadRate = 25 t/h, dischargeRate = 25 t/h -> 24 / 25 = ~1.0h unit time
+  engine.updateExecutiveDashboard({
+    pol: 'Madrid',
+    pod: 'Valencia',
+    cargoQty: 8000,
+    cargoType: 'Carga de Proyecto',
+    loadRate: 25,
+    dischargeRate: 25,
+    vesselType: 'Camión / Tráiler',
+    vehiclePayload: 24,
+    mode: 'terrestre',
+    totalKm: 350,
+  }, { riskLevel: 'BAJO' }, fakeDoc);
+
+  const insightText = elements.get('exec-insight-text').textContent;
+
+  // Verify the exact required fleet insight text template:
+  assert.match(insightText, /Operación de flota: Se requieren ~334 vehículos para mover 8000t\./);
+  assert.match(insightText, /Tiempo operativo unitario estimado: ~1h de carga y ~1h de descarga por vehículo\./);
+  assert.match(insightText, /\(Total horas-hombre del proyecto: 334h\)\./);
+  assert.match(insightText, /Ruta terrestre optimizada: cumplimiento de tacógrafo para 1 chófer, sin demoras aduaneras y sin restricciones ADR\./);
+
+  // Confirm no multi-day sequential hours (no "320 días" or "7680 horas")
+  assert.doesNotMatch(insightText, /días.*horas.*de carga en/i);
+});
+
