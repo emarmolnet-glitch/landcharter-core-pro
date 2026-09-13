@@ -533,9 +533,10 @@
         if (isTerrestre && hasOperationalRates) {
             // FIX CRÍTICO REPORTE EJECUTIVO - Escalado de Flota en Insight Comercial
             // Carga útil de 1 camión (~24 TM)
-            const rawPayload = toNumber(calcResults.vehiclePayload || calcResults.payloadKg || (calcResults.dwt ? calcResults.dwt : 0));
-            const truckPayloadCapacity = rawPayload > 100 ? (rawPayload / 1000) : (rawPayload > 0 ? rawPayload : 24);
-            const trucks_needed = cargoQuantity > 0 ? Math.max(1, Math.ceil(cargoQuantity / truckPayloadCapacity)) : 1;
+            const rawPayload = toNumber(calcResults.truckPayloadCapacity || calcResults.vehiclePayload || calcResults.payloadKg || (calcResults.dwt ? calcResults.dwt : 0));
+            const truckPayloadCapacity = rawPayload > 0 ? rawPayload : 24;
+            const totalCargoTonnage = cargoQuantity;
+            const trucks_needed = totalCargoTonnage > 0 ? Math.max(1, Math.ceil(totalCargoTonnage / truckPayloadCapacity)) : 1;
             const effectiveLoadRate = loadRate > 0 ? loadRate : 25;
             const effectiveDischargeRate = dischargeRate > 0 ? dischargeRate : 25;
             const horas_carga_por_camion = Math.round((truckPayloadCapacity / effectiveLoadRate) * 10) / 10;
