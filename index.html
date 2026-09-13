@@ -512,7 +512,25 @@
                 } catch (_error) {}
             };
 
+            let isRefAnchored = false;
+            let initialUrlRef = '';
+            try {
+                if (typeof globalObject.location !== 'undefined' && globalObject.location?.search) {
+                    const initialParams = new URLSearchParams(globalObject.location.search);
+                    const r = initialParams.get('ref') || initialParams.get('contract_ref');
+                    if (r && String(r).trim()) {
+                        initialUrlRef = normalizeReference(r) || String(r).trim();
+                        activeCachedReference = initialUrlRef;
+                        isRefAnchored = true;
+                        if (globalObject.State) globalObject.State.activeReference = initialUrlRef;
+                        globalObject.anchoredReference = initialUrlRef;
+                        globalObject.isRefAnchored = true;
+                    }
+                }
+            } catch (_) {}
+
             const generateVoyageRef = function() {
+                if (isRefAnchored && activeCachedReference) return activeCachedReference;
                 const randomValues = new Uint32Array(1);
                 if (globalObject.crypto?.getRandomValues) globalObject.crypto.getRandomValues(randomValues);
                 else randomValues[0] = Math.floor(Math.random() * 0xFFFFFFFF);
@@ -528,12 +546,13 @@
                 return activeCachedReference || readUrlReference() || readSessionReference() || '';
             };
             const getActiveContractRef = function() {
-                if (activeCachedReference) {
+                if (isRefAnchored && activeCachedReference) {
                     return activeCachedReference;
                 }
                 const fromUrl = readUrlReference();
                 if (fromUrl) {
                     activeCachedReference = fromUrl;
+                    if (initialUrlRef) isRefAnchored = true;
                     writeSessionReference(fromUrl);
                     writeSharedActiveSession(fromUrl);
                     return fromUrl;
@@ -544,6 +563,9 @@
                     writeUrlReference(fromSession);
                     writeSharedActiveSession(fromSession);
                     return fromSession;
+                }
+                if (activeCachedReference) {
+                    return activeCachedReference;
                 }
                 const newRef = generateVoyageRef();
                 activeCachedReference = newRef;
@@ -753,7 +775,7 @@
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="./public/components.js"></script>
-    <script defer src="./contract-reference.js"></script>
+    <script defer src="/contract-reference.js"></script>
     <script defer src="./npl-data-analysis-engine.js"></script>
     <script defer src="./npl-secret-module.js"></script>
     <script type="module" src="./public/ConnectionStatusBar.js"></script>
@@ -9080,6 +9102,14 @@
                         <p class="text-xs text-slate-600 mt-1">Los puntos de ruta, laycan y kilómetros alimentan automáticamente la calculadora y los contratos.</p>
                     </div>
                     <div class="space-y-3">
+                        <div class="multimodal-mode-selector flex rounded-lg p-1 bg-slate-100 border border-slate-200 text-xs gap-1" id="multimodal-mode-container" title="Operativa Multimodal: Seleccionar tramo terrestre">
+                            <button type="button" id="btn-mode-export" class="flex-1 py-1 px-2 text-center rounded font-semibold text-xs transition-colors bg-white text-blue-700 shadow-2xs border border-slate-200" onclick="window.setMultimodalMode('export')">
+                                <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> Exportación (Pre-carriage)
+                            </button>
+                            <button type="button" id="btn-mode-import" class="flex-1 py-1 px-2 text-center rounded font-semibold text-xs transition-colors text-slate-600 hover:text-slate-900" onclick="window.setMultimodalMode('import')">
+                                <i class="fa-solid fa-arrow-down-left-and-up-right-to-bracket mr-1"></i> Importación (On-carriage)
+                            </button>
+                        </div>
                         <div class="input-group">
                             <label data-i18n="map_label_pol">Origen</label>
                             <input type="text" id="map-port-pol" class="input-gc" placeholder="Ej: Madrid" autocomplete="off" inputmode="text" spellcheck="false">
@@ -19125,6 +19155,296 @@ window.calculateLandRouteByCoordinates = calculateLandRouteByCoordinates;
 window.calculateLandRoute = calculateLandRouteByCoordinates;
 window.calculateOsrmRoute = calculateLandRouteByCoordinates;
 window.calculateOpenRouteService = calculateLandRouteByCoordinates;
+
+// ==========================================
+// SINERGIA CEREBRO IA: PRECARGA MULTIMODAL Y BLOQUEO DE REFERENCIA
+// ==========================================
+window.multimodalState = {
+    mode: 'export',
+    pol: '',
+    pod: '',
+    reference: '',
+    source: ''
+};
+
+async function fetchMultimodalExpedientePorts(reference) {
+    if (!reference) return null;
+    const cleanRef = String(reference).trim();
+    const resolveUrl = typeof window !== 'undefined' && typeof window.getApiUrl === 'function'
+        ? window.getApiUrl
+        : (p) => p;
+
+    // Helper para verificar y parsear JSON de forma segura descartando fallbacks HTML
+    async function safeFetchJson(url) {
+        try {
+            const res = await fetch(url, {
+                headers: { Accept: 'application/json' },
+                cache: 'no-store'
+            });
+            if (!res.ok) return null;
+            const contentType = res.headers?.get('content-type') || '';
+            // Si el servidor devolvió HTML (fallback SPA o 404 manejado como 200 HTML), descartar
+            if (contentType && !contentType.includes('application/json') && contentType.includes('text/html')) {
+                console.warn('[Multimodal Ports] Respuesta HTML descartada en vez de JSON desde:', url);
+                return null;
+            }
+            const data = await res.json();
+            return data;
+        } catch (err) {
+            console.warn('[Multimodal Ports] Error obteniendo JSON desde:', url, err?.message || err);
+            return null;
+        }
+    }
+
+    // 1. Consulta directa a la función serverless de Netlify (evita fallbacks 404 de redirecciones)
+    try {
+        const response = await fetch('/.netlify/functions/voyage-active?contractRef=' + encodeURIComponent(cleanRef), {
+            headers: { Accept: 'application/json' },
+            cache: 'no-store'
+        });
+        if (response.ok) {
+            const contentType = response.headers?.get('content-type') || '';
+            if (!contentType.includes('text/html')) {
+                const data = await response.json();
+                if (data && (data.pol || data.pod || data.voyage)) {
+                    const pol = data.pol || data.voyage?.loadPort?.name || data.voyage?.loadPortName || '';
+                    const pod = data.pod || data.voyage?.dischargePort?.name || data.voyage?.dischargePortName || '';
+                    if (pol || pod) {
+                        return { pol: String(pol || '').trim(), pod: String(pod || '').trim(), source: 'voyage_active' };
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.warn('[Multimodal Ports] Error en consulta directa a voyage-active:', err?.message || err);
+    }
+
+    // 2. Consulta de respaldo a la tabla forwarder_projects (Neon DB)
+    const forwarderEndpoints = [
+        resolveUrl(`/api/forwarder-projects?ref=${encodeURIComponent(cleanRef)}`),
+        resolveUrl(`/.netlify/functions/forwarder-projects?ref=${encodeURIComponent(cleanRef)}`)
+    ];
+
+    for (const url of forwarderEndpoints) {
+        const data = await safeFetchJson(url);
+        if (data) {
+            const list = Array.isArray(data) ? data : (data.projects || [data]);
+            const project = list.find((p) => String(p.project_ref || '').toUpperCase() === cleanRef.toUpperCase()) || list[0];
+            if (project) {
+                const route = project.route_and_chartering ||
+                    project.items?.[0]?.payload_data?.route_and_chartering ||
+                    project.line_items?.[0]?.payload_data?.route_and_chartering ||
+                    project.data?.route_and_chartering ||
+                    project.data || {};
+                const pol = route.pol || project.pol || project.load_port || '';
+                const pod = route.pod || project.pod || project.discharge_port || '';
+                if (pol || pod) {
+                    return { pol: String(pol || '').trim(), pod: String(pod || '').trim(), source: 'forwarder_projects' };
+                }
+            }
+        }
+    }
+
+    // 3. Consulta de respaldo al equivalente marítimo (/api/dossiers / charter_dossiers en Neon DB)
+    const dossierEndpoints = [
+        resolveUrl(`/api/dossiers?q=${encodeURIComponent(cleanRef)}`),
+        resolveUrl(`/.netlify/functions/dossiers?q=${encodeURIComponent(cleanRef)}`)
+    ];
+
+    for (const url of dossierEndpoints) {
+        const data = await safeFetchJson(url);
+        if (data) {
+            const list = Array.isArray(data.dossiers) ? data.dossiers : (Array.isArray(data) ? data : []);
+            const dossier = list.find((d) => String(d.reference || '').toUpperCase() === cleanRef.toUpperCase()) || list[0];
+            if (dossier && (dossier.pol || dossier.pod)) {
+                return { pol: String(dossier.pol || '').trim(), pod: String(dossier.pod || '').trim(), source: 'dossiers' };
+            }
+        }
+    }
+
+    return null;
+}
+
+function applyMultimodalPortPreload(options = {}) {
+    const pol = options.pol !== undefined ? options.pol : window.multimodalState.pol;
+    const pod = options.pod !== undefined ? options.pod : window.multimodalState.pod;
+    const mode = options.mode || window.multimodalState.mode || 'export';
+
+    window.multimodalState.pol = pol;
+    window.multimodalState.pod = pod;
+    window.multimodalState.mode = mode;
+
+    const normMode = String(mode).toLowerCase();
+    const isImport = normMode.includes('import') || normMode.includes('on-carriage') || normMode.includes('oncarriage');
+
+    const btnExport = document.getElementById('btn-mode-export');
+    const btnImport = document.getElementById('btn-mode-import');
+    if (btnExport && btnImport) {
+        if (isImport) {
+            btnImport.className = 'flex-1 py-1 px-2 text-center rounded font-semibold text-xs transition-colors bg-white text-blue-700 shadow-2xs border border-slate-200';
+            btnExport.className = 'flex-1 py-1 px-2 text-center rounded font-semibold text-xs transition-colors text-slate-600 hover:text-slate-900';
+        } else {
+            btnExport.className = 'flex-1 py-1 px-2 text-center rounded font-semibold text-xs transition-colors bg-white text-blue-700 shadow-2xs border border-slate-200';
+            btnImport.className = 'flex-1 py-1 px-2 text-center rounded font-semibold text-xs transition-colors text-slate-600 hover:text-slate-900';
+        }
+    }
+
+    const polInputs = ['map-port-pol', 'port-pol', 'input-pol']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
+    const podInputs = ['map-port-pod', 'port-pod', 'input-pod']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
+
+    if (isImport) {
+        // Para Importación (On-carriage): Precarga automáticamente el campo Origen con el valor del POD marítimo.
+        // Deja el campo Destino vacío.
+        const podVal = String(pod || '').trim();
+        polInputs.forEach((input) => {
+            input.value = podVal;
+            input.dataset.preloaded = 'true';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        podInputs.forEach((input) => {
+            if (!input.dataset.userEdited) {
+                input.value = '';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+        if (window.State) {
+            window.State.pol = podVal;
+            window.State.origin = podVal;
+            if (!window.State.userEditedDestination) {
+                window.State.pod = '';
+                window.State.destination = '';
+            }
+        }
+    } else {
+        // Para Exportación (Pre-carriage): Precarga automáticamente el campo Destino con el valor del POL marítimo.
+        // Deja el campo Origen vacío para que el usuario o el Cerebro IA introduzcan la fábrica (ej. Sétif).
+        const polVal = String(pol || '').trim();
+        podInputs.forEach((input) => {
+            input.value = polVal;
+            input.dataset.preloaded = 'true';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        polInputs.forEach((input) => {
+            if (!input.dataset.userEdited) {
+                input.value = '';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+        if (window.State) {
+            window.State.pod = polVal;
+            window.State.destination = polVal;
+            if (!window.State.userEditedOrigin) {
+                window.State.pol = '';
+                window.State.origin = '';
+            }
+        }
+    }
+
+    // Sinergia con Cerebro IA y el usuario: inputs permanecen siempre habilitados e interactivos
+    [...polInputs, ...podInputs].forEach((input) => {
+        input.readOnly = false;
+        input.disabled = false;
+        input.removeAttribute?.('readonly');
+        input.removeAttribute?.('disabled');
+    });
+
+    return { mode: isImport ? 'import' : 'export', pol, pod };
+}
+
+function setMultimodalMode(mode) {
+    window.multimodalState.mode = mode;
+    // Si ya tenemos puertos en memoria, aplicar directamente
+    if (window.multimodalState.pol || window.multimodalState.pod) {
+        applyMultimodalPortPreload({ mode });
+        return;
+    }
+    // Si no tenemos puertos en memoria pero hay una referencia activa, obtenerlos y precargar
+    const activeRef = window.anchoredReference ||
+        (new URLSearchParams(window.location.search)).get('ref') ||
+        window.State?.activeReference ||
+        (window.ContractRefManager?.getActiveContractRef ? window.ContractRefManager.getActiveContractRef() : '') ||
+        document.getElementById('quick-ref')?.value ||
+        '';
+    if (activeRef && activeRef.trim()) {
+        void fetchAndApplyMultimodalPorts(activeRef.trim(), mode);
+    } else {
+        applyMultimodalPortPreload({ mode });
+    }
+}
+
+async function fetchAndApplyMultimodalPorts(reference, explicitMode) {
+    if (!reference) return null;
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = explicitMode ||
+        urlParams.get('mode') ||
+        urlParams.get('flow') ||
+        urlParams.get('type') ||
+        urlParams.get('tramo') ||
+        urlParams.get('operation') ||
+        window.multimodalState?.mode ||
+        'export';
+
+    const portData = await fetchMultimodalExpedientePorts(reference);
+    if (portData && (portData.pol || portData.pod)) {
+        window.multimodalPorts = portData;
+        window.multimodalState.pol = portData.pol;
+        window.multimodalState.pod = portData.pod;
+        window.multimodalState.reference = reference;
+        applyMultimodalPortPreload({ pol: portData.pol, pod: portData.pod, mode });
+        return portData;
+    }
+    return null;
+}
+
+window.fetchMultimodalExpedientePorts = fetchMultimodalExpedientePorts;
+window.fetchMultimodalPorts = fetchMultimodalExpedientePorts;
+window.applyMultimodalPortPreload = applyMultimodalPortPreload;
+window.setMultimodalMode = setMultimodalMode;
+window.fetchAndApplyMultimodalPorts = fetchAndApplyMultimodalPorts;
+
+// Bloqueo de Referencia y Precarga Automática en Carga Inicial
+(function initReferenceAndMultimodal() {
+    function runInit() {
+        try {
+            const ref = new URLSearchParams(window.location.search).get('ref');
+            if (ref && ref.trim()) {
+                const cleanRef = ref.trim();
+                window.anchoredReference = cleanRef;
+                window.isRefAnchored = true;
+                if (window.State) window.State.activeReference = cleanRef;
+                if (window.ContractRefManager?.setActiveContractRef) {
+                    window.ContractRefManager.setActiveContractRef(cleanRef);
+                    window.ContractRefManager.setInjectionLock?.(true);
+                } else if (window.setActiveContractRef) {
+                    window.setActiveContractRef(cleanRef);
+                }
+
+                const quickRef = document.getElementById('quick-ref');
+                if (quickRef) quickRef.value = cleanRef;
+                ['gc-ref', 'asb-ref', 'tracking-live-contract-ref'].forEach((id) => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = cleanRef;
+                });
+
+                void fetchAndApplyMultimodalPorts(cleanRef);
+            }
+        } catch (_) {}
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', runInit);
+    } else {
+        runInit();
+    }
+})();
 
 async function applyMapRouteToCalculator(forceGeocode = false) {
     if (!validateGeographicLaycanDates()) {

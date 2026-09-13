@@ -875,11 +875,21 @@ export function ForwarderWorkspace() {
       const data = await res.json();
       const list = Array.isArray(data) ? data : (data.projects || []);
       setProjects(list);
+      const urlRef = typeof window !== 'undefined' && window.location?.search
+        ? new URLSearchParams(window.location.search).get('ref')
+        : null;
+
       if (activeProject) {
         const updated = list.find((p) => p.id === activeProject.id || p.project_ref === activeProject.project_ref);
         if (updated) {
           setActiveProject(updated);
           setprojectDocuments(updated.documents || updated.files || []);
+        }
+      } else if (urlRef) {
+        const matching = list.find((p) => String(p.project_ref || '').toUpperCase() === urlRef.toUpperCase());
+        if (matching) {
+          setActiveProject(matching);
+          setprojectDocuments(matching.documents || matching.files || []);
         }
       }
     } catch (err) {
@@ -1597,9 +1607,12 @@ export function ForwarderWorkspace() {
         currentProject = projects[0];
         setActiveProject(currentProject);
       } else {
+        const urlRef = typeof window !== 'undefined' && window.location?.search
+          ? new URLSearchParams(window.location.search).get('ref')
+          : null;
         const defaultProj = {
           id: `proj-${Date.now()}`,
-          project_ref: 'RDM/2026-001',
+          project_ref: urlRef || 'RDM/2026-001',
           client_name: 'Proyecto Principal / Agente',
           status: 'Borrador',
           items: [],

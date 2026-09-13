@@ -809,10 +809,267 @@ export function useLandDataBridgeSync() {
   return { landData, dieselPrice, totalKilometers, drivingHours };
 }
 
+export default function App(props) {
+  return (
+    <HashRouter>
+      <AppLayout {...props} />
+    </HashRouter>
+  );
+}
+
+/**
+ * Fetch maritime POL (Port of Loading) and POD (Port of Discharge) for an anchored reference.
+ * Queries forwarder_projects, charter_dossiers, or voyage-active endpoints with strict JSON validation.
+ */
+export async function fetchMultimodalPorts(ref) {
+  if (!ref) return null;
+  const cleanRef = String(ref).trim();
+  const resolveUrl = typeof window !== 'undefined' && typeof window.getApiUrl === 'function'
+    ? window.getApiUrl
+    : (p) => p;
+
+  async function safeFetchJson(url) {
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store'
+      });
+      if (!res.ok) return null;
+      const contentType = res.headers?.get('content-type') || '';
+      if (contentType && !contentType.includes('application/json') && contentType.includes('text/html')) {
+        return null;
+      }
+      return await res.json();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // 1. Consulta directa a la función serverless de Netlify (evita fallbacks 404 de redirecciones)
+  try {
+    const response = await fetch('/.netlify/functions/voyage-active?contractRef=' + encodeURIComponent(cleanRef), {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store'
+    });
+    if (response.ok) {
+      const contentType = response.headers?.get('content-type') || '';
+      if (!contentType.includes('text/html')) {
+        const data = await response.json();
+        if (data && (data.pol || data.pod || data.voyage)) {
+          const pol = data.pol || data.voyage?.loadPort?.name || data.voyage?.loadPortName || '';
+          const pod = data.pod || data.voyage?.dischargePort?.name || data.voyage?.dischargePortName || '';
+          if (pol || pod) {
+            return { pol: String(pol || '').trim(), pod: String(pod || '').trim(), source: 'voyage_active' };
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
+  // 2. Consulta de respaldo a la tabla forwarder_projects (Neon DB)
+  const forwarderEndpoints = [
+    resolveUrl(`/api/forwarder-projects?ref=${encodeURIComponent(cleanRef)}`),
+    resolveUrl(`/.netlify/functions/forwarder-projects?ref=${encodeURIComponent(cleanRef)}`)
+  ];
+
+  for (const url of forwarderEndpoints) {
+    const data = await safeFetchJson(url);
+    if (data) {
+      const list = Array.isArray(data) ? data : (data.projects || [data]);
+      const project = list.find((p) => String(p.project_ref || '').toUpperCase() === cleanRef.toUpperCase()) || list[0];
+      if (project) {
+        const route = project.route_and_chartering ||
+          project.items?.[0]?.payload_data?.route_and_chartering ||
+          project.line_items?.[0]?.payload_data?.route_and_chartering ||
+          project.data?.route_and_chartering ||
+          project.data || {};
+        const pol = route.pol || project.pol || project.load_port || '';
+        const pod = route.pod || project.pod || project.discharge_port || '';
+        if (pol || pod) {
+          return { pol: String(pol || '').trim(), pod: String(pod || '').trim(), source: 'forwarder_projects' };
+        }
+      }
+    }
+  }
+
+  // 3. Consulta de respaldo al equivalente marítimo (/api/dossiers / charter_dossiers en Neon DB)
+  const dossierEndpoints = [
+    resolveUrl(`/api/dossiers?q=${encodeURIComponent(cleanRef)}`),
+    resolveUrl(`/.netlify/functions/dossiers?q=${encodeURIComponent(cleanRef)}`)
+  ];
+
+  for (const url of dossierEndpoints) {
+    const data = await safeFetchJson(url);
+    if (data) {
+      const list = Array.isArray(data.dossiers) ? data.dossiers : (Array.isArray(data) ? data : []);
+      const dossier = list.find((d) => String(d.reference || '').toUpperCase() === cleanRef.toUpperCase()) || list[0];
+      if (dossier && (dossier.pol || dossier.pod)) {
+        return { pol: String(dossier.pol || '').trim(), pod: String(dossier.pod || '').trim(), source: 'dossiers' };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Aplica la lógica de precarga suave en los inputs geográficos:
+ * - Para Exportación (Pre-carriage): Precarga Destino = POL marítimo; deja Origen vacío.
+ * - Para Importación (On-carriage): Precarga Origen = POD marítimo; deja Destino vacío.
+ * No deshabilita ni bloquea los inputs para asegurar sinergia con Cerebro IA y el usuario.
+ */
+export function applyMultimodalPortPreload({ pol = '', pod = '', mode = 'export' } = {}) {
+  const normMode = String(mode || '').toLowerCase();
+  const isImport = normMode.includes('import') || normMode.includes('on-carriage') || normMode.includes('oncarriage');
+
+  const polInputs = ['map-port-pol', 'port-pol', 'input-pol']
+    .map((id) => (typeof document !== 'undefined' ? document.getElementById(id) : null))
+    .filter(Boolean);
+  const podInputs = ['map-port-pod', 'port-pod', 'input-pod']
+    .map((id) => (typeof document !== 'undefined' ? document.getElementById(id) : null))
+    .filter(Boolean);
+
+  if (isImport) {
+    const podValue = String(pod || '').trim();
+    polInputs.forEach((input) => {
+      input.value = podValue;
+      input.dataset.preloaded = 'true';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    podInputs.forEach((input) => {
+      if (!input.dataset.userEdited) {
+        input.value = '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    if (typeof window !== 'undefined' && window.State) {
+      window.State.pol = podValue;
+      window.State.origin = podValue;
+      if (!window.State.userEditedDestination) {
+        window.State.pod = '';
+        window.State.destination = '';
+      }
+    }
+  } else {
+    const polValue = String(pol || '').trim();
+    podInputs.forEach((input) => {
+      input.value = polValue;
+      input.dataset.preloaded = 'true';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    polInputs.forEach((input) => {
+      if (!input.dataset.userEdited) {
+        input.value = '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    if (typeof window !== 'undefined' && window.State) {
+      window.State.pod = polValue;
+      window.State.destination = polValue;
+      if (!window.State.userEditedOrigin) {
+        window.State.pol = '';
+        window.State.origin = '';
+      }
+    }
+  }
+
+  // Garantizar sinergia con Cerebro IA y el operador humano: nunca deshabilitar
+  [...polInputs, ...podInputs].forEach((input) => {
+    input.readOnly = false;
+    input.disabled = false;
+    input.removeAttribute?.('readonly');
+    input.removeAttribute?.('disabled');
+  });
+
+  return { mode: isImport ? 'import' : 'export', pol, pod };
+}
+
+/**
+ * Fetch and apply multimodal port preload for a given reference.
+ */
+export async function fetchAndApplyMultimodalPorts(ref, explicitMode) {
+  if (!ref) return null;
+  const urlParams = typeof window !== 'undefined' && window.location?.search
+    ? new URLSearchParams(window.location.search)
+    : null;
+  const modeParam = explicitMode ||
+    urlParams?.get('mode') ||
+    urlParams?.get('flow') ||
+    urlParams?.get('type') ||
+    urlParams?.get('tramo') ||
+    urlParams?.get('operation') ||
+    'export';
+
+  const portData = await fetchMultimodalPorts(ref);
+  if (portData && (portData.pol || portData.pod)) {
+    applyMultimodalPortPreload({
+      pol: portData.pol,
+      pod: portData.pod,
+      mode: modeParam
+    });
+    return portData;
+  }
+  return null;
+}
+
+if (typeof window !== 'undefined') {
+  window.fetchMultimodalPorts = fetchMultimodalPorts;
+  window.applyMultimodalPortPreload = applyMultimodalPortPreload;
+  window.fetchAndApplyMultimodalPorts = fetchAndApplyMultimodalPorts;
+}
+
+/**
+ * Bloqueo de Referencia y Sincronización Multimodal en inicialización.
+ */
+export function useUrlReferenceSync() {
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // 1. Bloqueo de Referencia: leer parámetro URL
+    const ref = new URLSearchParams(window.location.search).get('ref');
+    if (ref && String(ref).trim()) {
+      const cleanRef = String(ref).trim();
+
+      // Fijar como referencia definitiva en el estado global
+      window.State = window.State || {};
+      window.State.activeReference = cleanRef;
+      window.anchoredReference = cleanRef;
+      window.isRefAnchored = true;
+
+      if (window.ContractRefManager?.setActiveContractRef) {
+        window.ContractRefManager.setActiveContractRef(cleanRef);
+        window.ContractRefManager.setInjectionLock?.(true);
+      } else if (window.setActiveContractRef) {
+        window.setActiveContractRef(cleanRef);
+      }
+
+      // La cabecera muestra únicamente la referencia anclada
+      const quickRef = document.getElementById('quick-ref');
+      if (quickRef && quickRef.value !== cleanRef) {
+        quickRef.value = cleanRef;
+      }
+      ['gc-ref', 'asb-ref', 'tracking-live-contract-ref'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el && el.value !== cleanRef) el.value = cleanRef;
+      });
+
+      // 2. Precarga Inteligente de Puertos (POL / POD)
+      void fetchAndApplyMultimodalPorts(cleanRef);
+    }
+  }, []);
+}
+
 /**
  * Main Application / Layout wrapper component for Land Charter Core PRO.
  */
 export function AppLayout({ children, currentView: initialView = 'MAP', defaultHeaderVisible = true }) {
+  useUrlReferenceSync();
   useSeaCharterSync();
   useUrlImoAutoLookup();
   usePendingImoSync();
@@ -884,14 +1141,6 @@ export function AppLayout({ children, currentView: initialView = 'MAP', defaultH
         children
       )}
     </div>
-  );
-}
-
-export default function App(props) {
-  return (
-    <HashRouter>
-      <AppLayout {...props} />
-    </HashRouter>
   );
 }
 

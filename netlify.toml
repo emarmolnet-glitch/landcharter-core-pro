@@ -72,6 +72,18 @@
   status = 200
 
 [[redirects]]
+  from = "/api/voyage/active"
+  to = "/.netlify/functions/voyage-active"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/forwarder-projects"
+  to = "/.netlify/functions/forwarder-projects"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/dossiers"
   to = "/.netlify/functions/dossiers"
   status = 200
