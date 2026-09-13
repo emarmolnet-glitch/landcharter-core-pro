@@ -6140,6 +6140,7 @@
             font-size: 0.78rem !important;
             font-weight: 600 !important;
             text-align: left !important;
+            text-decoration: none !important;
             cursor: pointer !important;
         }
 
@@ -8857,7 +8858,7 @@
                             <circle cx="12" cy="19" r="1.5" />
                         </svg>
                     </button>
-                    <ul id="tools-dropdown-menu" class="tools-dropdown-menu" aria-label="Utilidades de sesión" onclick="if (event.target.closest('button')) setTimeout(closeMobileSessionMenu, 0);">
+                    <ul id="tools-dropdown-menu" class="tools-dropdown-menu" aria-label="Utilidades de sesión" onclick="if (event.target.closest('button, a')) setTimeout(closeMobileSessionMenu, 0);">
                         <li class="tools-dropdown-item">
                             <button id="btn-market-report-nav" type="button" onclick="generateMarketReport(); closeMobileSessionMenu();" class="tools-dropdown-action" title="Generar Reporte de Mercado Actual" aria-label="Generar Reporte de Mercado Actual">
                                 <svg class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -8891,7 +8892,7 @@
                             </button>
                         </li>
                         <li class="tools-dropdown-item">
-                            <button id="btn-toggle-databridge" onclick="openDataBridgeDashboard(); closeMobileSessionMenu();" class="hidden tools-dropdown-action" title="Abrir Data Bridge" aria-label="Abrir Data Bridge">
+                            <a id="btn-toggle-databridge" href="https://calm-shortbread-55bcfc.netlify.app/" target="_blank" rel="noopener noreferrer" onclick="openDataBridgeDashboard(event); closeMobileSessionMenu();" class="hidden tools-dropdown-action" title="Abrir Data Bridge" aria-label="Abrir Data Bridge">
                                 <svg id="icon-toggle-databridge" class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                                     <ellipse cx="12" cy="5" rx="7" ry="3" />
                                     <path d="M5 5v6c0 1.66 3.13 3 7 3s7-1.34 7-3V5" />
@@ -8908,7 +8909,7 @@
 	                                        <span data-databridge-transport-label>Bajo demanda</span>
                                     </span>
                                 </span>
-                            </button>
+                            </a>
                         </li>
                         <li class="tools-dropdown-item">
                             <button id="btn-open-databridge-direct" type="button" class="tools-dropdown-action" title="Conectar Data Bridge" aria-label="Conectar Data Bridge">
@@ -8919,6 +8920,20 @@
                                 </svg>
                                 <span>Data Bridge Link</span>
                             </button>
+                        </li>
+                        <li class="tools-dropdown-item">
+                            <a
+                                id="link-seacharter-core-pro"
+                                href="https://neon-seachartercorepro-4ce09d.netlify.app/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="tools-dropdown-action"
+                                title="SeaCharter Core PRO"
+                                aria-label="SeaCharter Core PRO"
+                                onclick="updateAppSwitcherLinks(); if (typeof closeMobileSessionMenu === 'function') closeMobileSessionMenu();"
+                            >
+                                <span>SeaCharter Core PRO</span>
+                            </a>
                         </li>
                         <li class="tools-dropdown-item">
                             <button onclick="exitAuditSession(); closeMobileSessionMenu();" class="tools-dropdown-action" title="Salir" aria-label="Salir">
@@ -30226,6 +30241,9 @@ function createRouteAnchorElement(type) {
 
         function toggleMobileSessionMenu(event) {
             if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+            if (typeof updateAppSwitcherLinks === 'function') {
+                updateAppSwitcherLinks();
+            }
             const menu = document.getElementById('tools-dropdown-menu');
             const legacyMenu = document.getElementById('session-actions');
             const button = document.getElementById('mobile-session-menu-btn');
@@ -45609,13 +45627,104 @@ function scheduleReactiveEngine() {
                 const input = document.getElementById(id);
                 if (input && input.value !== activeReference) input.value = activeReference;
             });
+            if (typeof updateAppSwitcherLinks === 'function') {
+                updateAppSwitcherLinks();
+            }
             return activeReference;
         }
 
         window.syncActiveContractReference = syncActiveContractReference;
 
+        function getCurrentVoyageReference() {
+            let ref = '';
+            try {
+                const input = document.getElementById('quick-ref');
+                if (input && input.value && input.value.trim()) {
+                    ref = input.value.trim();
+                }
+            } catch (_e) {}
+            if (!ref) {
+                try {
+                    if (typeof getSafeActiveContractRef === 'function') {
+                        ref = getSafeActiveContractRef() || '';
+                    }
+                } catch (_e) {}
+            }
+            if (!ref) {
+                try {
+                    const manager = window.ContractRefManager || window.ContractReference;
+                    if (manager && typeof manager.getActiveContractRef === 'function') {
+                        ref = manager.getActiveContractRef() || '';
+                    }
+                } catch (_e) {}
+            }
+            if (!ref) {
+                try {
+                    if (typeof window.getActiveContractRef === 'function') {
+                        ref = window.getActiveContractRef() || '';
+                    }
+                } catch (_e) {}
+            }
+            if (!ref && window.State && window.State.activeReference) {
+                ref = String(window.State.activeReference).trim();
+            }
+            if (!ref) {
+                try {
+                    const params = new URLSearchParams(window.location.search);
+                    ref = params.get('ref') || params.get('contract_ref') || '';
+                } catch (_e) {}
+            }
+            if (!ref) {
+                try {
+                    ref = sessionStorage.getItem('active_contract_ref') || localStorage.getItem('active_contract_ref') || '';
+                } catch (_e) {}
+            }
+            return String(ref || '').trim();
+        }
+
+        function updateAppSwitcherLinks() {
+            const currentReference = getCurrentVoyageReference();
+
+            const seaCharterLink = document.getElementById('link-seacharter-core-pro');
+            if (seaCharterLink) {
+                const targetSeaCharterUrl = currentReference
+                    ? `https://neon-seachartercorepro-4ce09d.netlify.app/?ref=${currentReference}`
+                    : 'https://neon-seachartercorepro-4ce09d.netlify.app/';
+                seaCharterLink.setAttribute('href', targetSeaCharterUrl);
+                seaCharterLink.setAttribute('target', '_blank');
+                seaCharterLink.setAttribute('rel', 'noopener noreferrer');
+                seaCharterLink.setAttribute('title', 'SeaCharter Core PRO');
+                seaCharterLink.setAttribute('aria-label', 'SeaCharter Core PRO');
+            }
+
+            const dataBridgeLink = document.getElementById('btn-toggle-databridge');
+            if (dataBridgeLink) {
+                const targetDataBridgeUrl = currentReference
+                    ? `https://calm-shortbread-55bcfc.netlify.app/?ref=${currentReference}`
+                    : 'https://calm-shortbread-55bcfc.netlify.app/';
+                dataBridgeLink.setAttribute('href', targetDataBridgeUrl);
+                dataBridgeLink.setAttribute('target', '_blank');
+                dataBridgeLink.setAttribute('rel', 'noopener noreferrer');
+            }
+        }
+
+        window.getCurrentVoyageReference = getCurrentVoyageReference;
+        window.updateAppSwitcherLinks = updateAppSwitcherLinks;
+
+        if (typeof document !== 'undefined') {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', updateAppSwitcherLinks);
+            } else {
+                updateAppSwitcherLinks();
+            }
+            window.addEventListener('load', updateAppSwitcherLinks);
+        }
+
         window.addEventListener('contract-reference:changed', (event) => {
             const reference = event.detail?.reference;
+            if (typeof updateAppSwitcherLinks === 'function') {
+                updateAppSwitcherLinks();
+            }
             if (!reference || State.activeReference === reference) return;
             State.activeReference = reference;
             ['quick-ref', 'gc-ref', 'asb-ref', 'tracking-live-contract-ref'].forEach((id) => {
@@ -66073,6 +66182,9 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             });
 	            bindDataBridgeLinkForm();
 	            updateDataBridgeConnectionIndicator();
+            if (typeof updateAppSwitcherLinks === 'function') {
+                updateAppSwitcherLinks();
+            }
             
             // Check if we are running in an Electron environment with our API exposed
             if (window.dataBridgeAPI) {
@@ -66489,8 +66601,26 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             }));
         }
 
-        function openDataBridgeDashboard() {
-            window.open(DATA_BRIDGE_FRONTEND_URL, '_blank', 'noopener');
+        function openDataBridgeDashboard(event) {
+            if (typeof updateAppSwitcherLinks === 'function') {
+                updateAppSwitcherLinks();
+            }
+            const currentReference = typeof getCurrentVoyageReference === 'function' ? getCurrentVoyageReference() : '';
+            const rawBase = (typeof DATA_BRIDGE_FRONTEND_URL !== 'undefined' ? DATA_BRIDGE_FRONTEND_URL : '') || DEFAULT_DATA_BRIDGE_FRONTEND_URL;
+            const baseDataBridgeUrl = rawBase.replace(/\/+$/, '');
+            const targetUrl = currentReference
+                ? `${baseDataBridgeUrl}/?ref=${currentReference}`
+                : `${baseDataBridgeUrl}/`;
+
+            const btn = document.getElementById('btn-toggle-databridge');
+            if (btn) btn.setAttribute('href', targetUrl);
+
+            if (typeof closeMobileSessionMenu === 'function') {
+                closeMobileSessionMenu();
+            }
+            if (!event || !event.target || (event.target.tagName !== 'A' && !event.target.closest('a'))) {
+                window.open(targetUrl, '_blank', 'noopener');
+            }
         }
 
         export function openDataBridgeLinkModal() {
