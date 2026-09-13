@@ -10,8 +10,8 @@ const DECISION_SUPPORT_TEMPLATE = String.raw`
                         </h1>
                         <span class="hidden md:inline text-slate-600">|</span>
                         <p id="voyage-summary-subtitle" class="text-xs md:text-sm text-slate-300 font-medium">
-                            POL: <span id="summary-pol" class="text-indigo-400 font-bold">—</span> ➔
-                            POD: <span id="summary-pod" class="text-indigo-400 font-bold">—</span> |
+                            Origen: <span id="summary-pol" class="text-indigo-400 font-bold">—</span> ➔
+                            Destino: <span id="summary-pod" class="text-indigo-400 font-bold">—</span> |
                             <span id="summary-qty" class="text-emerald-400 font-bold">0 MT</span> ·
                             <span id="summary-commodity" class="text-slate-200">Esperando datos de ruta</span>
                         </p>
@@ -73,7 +73,7 @@ const DECISION_SUPPORT_TEMPLATE = String.raw`
                             <button type="button" id="btn-toggle-variables" onclick="toggleAccordion('variables')" class="w-full flex items-center justify-between px-4 py-3 bg-slate-100/90 hover:bg-slate-200/80 font-semibold text-xs text-slate-700 transition-colors select-none">
                                 <span class="flex items-center gap-2">
                                     <i class="fa-solid fa-sliders text-indigo-600"></i>
-                                    <span>Variables del Viaje (Ruta, Carga, Laycan y Ritmos)</span>
+                                    <span>Variables del Transporte (Ruta, Carga, Tiempos y Ritmos)</span>
                                     <span id="badge-variables-status" class="ml-2 text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">🔒 Solo Lectura (Situación Actual)</span>
                                 </span>
                                 <i id="icon-accordion-variables" class="fa-solid fa-chevron-up text-xs text-slate-500 transition-transform duration-300"></i>
@@ -81,11 +81,11 @@ const DECISION_SUPPORT_TEMPLATE = String.raw`
                             <div id="body-accordion-variables" class="p-4 transition-all duration-300 ease-in-out">
                                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
                                     <div>
-                                        <label class="block text-slate-600 font-semibold mb-1">Puerto Origen (POL)</label>
+                                        <label class="block text-slate-600 font-semibold mb-1">Origen (Carga)</label>
                                         <input type="text" id="input-pol" value="" oninput="actualizarDesdeFormulario()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                                     </div>
                                     <div>
-                                        <label class="block text-slate-600 font-semibold mb-1">Puerto Destino (POD)</label>
+                                        <label class="block text-slate-600 font-semibold mb-1">Destino (Descarga)</label>
                                         <input type="text" id="input-pod" value="" oninput="actualizarDesdeFormulario()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                                     </div>
                                     <div>
@@ -97,11 +97,11 @@ const DECISION_SUPPORT_TEMPLATE = String.raw`
                                         <input type="text" id="input-commodity" value="Siderúrgico / Carga General" oninput="actualizarDesdeFormulario()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                                     </div>
                                     <div>
-                                        <label class="block text-slate-600 font-semibold mb-1">Días Restantes Laycan</label>
+                                        <label class="block text-slate-600 font-semibold mb-1">Horas de Carga</label>
                                         <input type="number" id="input-laycanDaysLeft" value="10" oninput="actualizarDesdeFormulario()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                                     </div>
                                     <div>
-                                        <label class="block text-slate-600 font-semibold mb-1">Días Est. Navegación</label>
+                                        <label class="block text-slate-600 font-semibold mb-1">Tiempo de Tránsito</label>
                                         <input type="number" id="input-estimatedVoyageDays" value="8" oninput="actualizarDesdeFormulario()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                                     </div>
                                     <div>
@@ -113,11 +113,11 @@ const DECISION_SUPPORT_TEMPLATE = String.raw`
                                         <input type="number" id="input-dischargeRate" value="5000" oninput="actualizarDesdeFormulario()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                                     </div>
                                     <div>
-                                        <label class="block text-slate-600 font-semibold mb-1">Días en Puerto (Port Days)</label>
+                                        <label class="block text-slate-600 font-semibold mb-1">Horas de Descarga</label>
                                         <input type="number" id="input-portDays" value="10" oninput="actualizarDesdeFormulario()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                                     </div>
                                     <div>
-                                        <label class="block text-slate-600 font-semibold mb-1">Días Navegando (Sea Days)</label>
+                                        <label class="block text-slate-600 font-semibold mb-1">Tiempo en Tránsito Terrestre</label>
                                         <input type="number" id="input-seaDays" value="8" oninput="actualizarDesdeFormulario()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                                     </div>
                                 </div>
@@ -129,68 +129,49 @@ const DECISION_SUPPORT_TEMPLATE = String.raw`
                             <button type="button" id="btn-toggle-fletes" onclick="toggleAccordion('fletes')" class="w-full flex items-center justify-between px-4 py-3 bg-slate-100/90 hover:bg-slate-200/80 font-semibold text-xs text-slate-700 transition-colors select-none">
                                 <span class="flex items-center gap-2">
                                     <i class="fa-solid fa-calculator text-emerald-600"></i>
-                                    <span>Calculadora de Fletes</span>
+                                    <span>Calculadora de Fletes Terrestres</span>
                                 </span>
                                 <i id="icon-accordion-fletes" class="fa-solid fa-chevron-up text-xs text-slate-500 transition-transform duration-300"></i>
                             </button>
                             <div id="body-accordion-fletes" class="p-4 transition-all duration-300 ease-in-out">
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                                     <div>
-                                        <label class="block text-slate-600 font-semibold mb-1">Flete Unitario ($/MT)</label>
+                                        <label class="block text-slate-600 font-semibold mb-1">Tarifa Flete (€/camión o €/km)</label>
                                         <input type="number" id="input-fleteEstimado" value="35" step="any" oninput="actualizarDesdeFormulario()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                                     </div>
                                     <div>
-                                        <label class="block text-slate-600 font-semibold mb-1">Break-Even Unitario ($/MT)</label>
+                                        <label class="block text-slate-600 font-semibold mb-1">Break-Even (€/camión o €/km)</label>
                                         <input type="number" id="input-breakEven" value="25" step="any" oninput="actualizarDesdeFormulario()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- ACORDEÓN 3: PRIMAS DE RIESGO & REPOSICIONAMIENTO -->
+                        <!-- ACORDEÓN 3: GESTIÓN DE RIESGO Y SOBRECOSTES TERRESTRES -->
                         <div id="accordion-section-riesgo-reposicionamiento" class="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50 shadow-sm">
                             <button type="button" id="btn-toggle-riesgo" onclick="toggleAccordion('riesgo-reposicionamiento')" class="w-full flex items-center justify-between px-4 py-3 bg-slate-100/90 hover:bg-slate-200/80 font-semibold text-xs text-slate-700 transition-colors select-none">
                                 <span class="flex items-center gap-2">
                                     <i class="fa-solid fa-shield-halved text-amber-600"></i>
-                                    <span>Primas de Riesgo & Reposicionamiento</span>
+                                    <span>Sobrecostes de Ruta y Retornos en Vacío (Primas de Riesgo & Reposicionamiento)</span>
                                 </span>
                                 <i id="icon-accordion-riesgo-reposicionamiento" class="fa-solid fa-chevron-up text-xs text-slate-500 transition-transform duration-300"></i>
                             </button>
                             <div id="body-accordion-riesgo-reposicionamiento" class="p-4 transition-all duration-300 ease-in-out">
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                                    <!-- BANNER DE ALERTA DE DÉFICIT DE EXPORTACIÓN EN POD -->
-                                    <div id="pod-export-deficit-alert" class="hidden sm:col-span-3 bg-amber-50 border border-amber-300 rounded-lg p-3 text-amber-900 flex items-start gap-2.5 shadow-sm transition-all duration-200">
-                                        <i class="fa-solid fa-triangle-exclamation text-amber-600 text-base mt-0.5 flex-shrink-0"></i>
-                                        <div class="text-xs leading-relaxed font-medium">
-                                            Atención: Este puerto suele presentar déficit de carga de exportación para buques de carga general. Considera incrementar los Días de Lastre, ya que el armador cotizará el reposicionamiento.
-                                        </div>
-                                    </div>
-                                    <div class="sm:col-span-3 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 flex flex-wrap items-center justify-between gap-3">
-                                        <div class="flex items-center gap-2 font-semibold text-slate-800 select-none text-xs">
-                                            <input type="checkbox" id="input-jwlaRiskActive" class="hidden" disabled>
-                                            <i class="fa-solid fa-shield-halved text-amber-600"></i>
-                                            <span>Ruta JWC (Joint War Committee):</span>
-                                            <span id="badge-jwc-auto-status" class="px-2.5 py-1 text-xs font-bold rounded-lg border bg-slate-200 text-slate-600 border-slate-300">
-                                                NORMAL (Sin Recargo Geopolítico)
-                                            </span>
-                                        </div>
-                                        <div id="container-jwlaPremiumUSD" class="flex items-center gap-2">
-                                            <label for="input-jwlaPremiumUSD" class="text-slate-600 font-medium text-xs">Prima JWLA ($):</label>
-                                            <input type="number" id="input-jwlaPremiumUSD" value="0" step="100" min="0" oninput="actualizarDesdeFormulario()" class="w-32 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900 font-bold text-xs focus:outline-none focus:border-amber-500">
-                                        </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                                    <div>
+                                        <label class="block text-slate-600 font-semibold mb-1">Kilómetros en Vacío (Aproximación / Retorno)</label>
+                                        <input type="number" id="input-km-vacio" value="0" min="0" placeholder="0 km" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold">
                                     </div>
                                     <div>
-                                        <label class="block text-slate-600 font-semibold mb-1 flex items-center justify-between" for="input-ballastDays">
-                                            <span>Días de Lastre (Reposicionamiento)</span>
-                                            <span class="text-[10px] font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded flex items-center gap-1" title="Campo autocalculado por Matriz de Distancias DSS">
-                                                <i class="fa-solid fa-robot text-indigo-500"></i> AUTO
-                                            </span>
-                                        </label>
-                                        <input type="number" id="input-ballastDays" value="0" step="0.1" min="0" readonly class="w-full bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-slate-700 font-extrabold focus:outline-none cursor-not-allowed" title="Autocalculado por Matriz de Distancias DSS (Read-Only)">
+                                        <label class="block text-slate-600 font-semibold mb-1">Sobrecostes de Ruta (Peajes / Desvíos €)</label>
+                                        <input type="number" id="input-sobrecostes-ruta" value="0" min="0" placeholder="0 €" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold">
                                     </div>
-                                    <div>
-                                        <label class="block text-slate-600 font-semibold mb-1" for="input-actualCargoIntake">Ajuste de Calado (Short Lift MT)</label>
-                                        <input type="number" id="input-actualCargoIntake" value="0" step="100" min="0" oninput="actualizarDesdeFormulario()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                                    <!-- Inputs residuales mantenidos ocultos para compatibilidad técnica sin romper motores -->
+                                    <div class="hidden">
+                                        <input type="checkbox" id="input-jwlaRiskActive" disabled>
+                                        <input type="number" id="input-jwlaPremiumUSD" value="0">
+                                        <input type="number" id="input-ballastDays" value="0" readonly>
+                                        <input type="number" id="input-actualCargoIntake" value="0">
                                     </div>
                                 </div>
                             </div>
@@ -204,32 +185,26 @@ const DECISION_SUPPORT_TEMPLATE = String.raw`
                                         <i class="fa-solid fa-chart-line text-emerald-400"></i>
                                         <span>DSS ALL-IN RATE ENGINE</span>
                                     </span>
-                                    <h3 class="text-sm font-bold text-white">Flete Orientativo ALL-IN (Floor Rate) Gross</h3>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <div id="badge-jwc-risk" class="hidden px-2.5 py-1 bg-amber-500/20 text-amber-300 font-bold text-xs rounded-lg border border-amber-500/40 flex items-center gap-1">
-                                        <i class="fa-solid fa-shield-halved text-amber-400"></i>
-                                        <span>Zona JWC (Riesgo Geopolítico)</span>
-                                    </div>
+                                    <h3 class="text-sm font-bold text-white">Tarifa Orientativa ALL-IN Flota Terrestre</h3>
                                 </div>
                             </div>
                             
                             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs mb-3">
                                 <div class="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
-                                    <span class="text-slate-400 block text-[11px]">Flete Neto Base ($/MT)</span>
-                                    <strong id="display-net-freight" class="text-slate-200 font-extrabold text-sm">$0.00</strong>
+                                    <span class="text-slate-400 block text-[11px]">Tarifa Neta Base (€)</span>
+                                    <strong id="display-net-freight" class="text-slate-200 font-extrabold text-sm">€0.00</strong>
                                 </div>
                                 <div class="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
-                                    <span class="text-slate-400 block text-[11px]">Recargo JWC / Lastre ($)</span>
-                                    <strong id="display-surcharges-total" class="text-amber-300 font-extrabold text-sm">$0</strong>
+                                    <span class="text-slate-400 block text-[11px]">Sobrecostes Ruta / Peajes (€)</span>
+                                    <strong id="display-surcharges-total" class="text-amber-300 font-extrabold text-sm">€0</strong>
                                 </div>
                                 <div class="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
-                                    <span class="text-slate-400 block text-[11px]">Gross-Up Comisiones (%)</span>
+                                    <span class="text-slate-400 block text-[11px]">Gross-Up Gestión (%)</span>
                                     <strong id="display-commission-pct" class="text-slate-200 font-extrabold text-sm">5.0%</strong>
                                 </div>
                                 <div class="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700 flex flex-col justify-between">
-                                    <span class="text-slate-300 font-bold text-[11px]">FLETE ALL-IN GROSS</span>
-                                    <strong id="display-all-in-gross" class="text-emerald-400 font-bold text-xl">$0.00 / MT</strong>
+                                    <span class="text-slate-300 font-bold text-[11px]">TARIFA ALL-IN GROSS</span>
+                                    <strong id="display-all-in-gross" class="text-emerald-400 font-bold text-xl">€0.00</strong>
                                 </div>
                             </div>
 
@@ -261,149 +236,165 @@ const DECISION_SUPPORT_TEMPLATE = String.raw`
                 <!-- GRID DE 3 COLUMNAS PARA SEMÁFOROS (RIESGO CRÍTICO, ADVERTENCIA, SEGURO) -->
                 <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-                    <!-- TARJETA 1: RIESGO DE LAYCAN -->
+                    <!-- TARJETA 1: RIESGOS DE TRÁNSITO Y ENTREGA -->
                     <div id="card-laycan" class="bg-slate-800 border border-slate-700 border-l-4 border-l-red-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4">
                         <div>
                             <div class="flex items-center justify-between mb-3">
-                                <span class="text-xs font-bold uppercase tracking-wider text-red-400 flex items-center gap-1.5">
-                                    🔴 Riesgo de Laycan
+                                <span class="text-xs font-bold uppercase tracking-wider text-red-400 flex items-center gap-1.5" id="label-transit-risk">
+                                    🔴 Riesgos de Tránsito y Entrega
                                 </span>
                                 <span id="badge-laycan-status" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-red-950 text-red-300 border border-red-800">
                                     ALERTA CRÍTICA
                                 </span>
                             </div>
                             <h3 id="laycan-title" class="text-lg font-bold text-white mb-2">
-                                Margen de Laycan Peligroso
+                                Riesgos de Tránsito y Entrega
                             </h3>
                             <p id="laycan-desc" class="text-sm text-slate-300 leading-relaxed">
-                                Evaluando margen operativo...
+                                Evaluando margen de tránsito terrestre...
                             </p>
                         </div>
                         <div class="pt-3 border-t border-slate-700/60 text-xs text-slate-400 space-y-1.5">
                             <div class="flex justify-between">
-                                <span>ETA POL (Est. Llegada):</span>
-                                <span id="val-laycan-eta" class="font-bold text-slate-200">--</span>
+                                <span>Ventana de Despacho:</span>
+                                <span id="val-ventana-despacho" class="font-bold text-slate-200">--</span>
                             </div>
                             <div class="flex justify-between">
-                                <span>Cancelling Date (Límite):</span>
-                                <span id="val-laycan-cancelling" class="font-bold text-slate-200">--</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>Laycan Días Restantes:</span>
-                                <span id="val-laycan-left" class="font-bold text-slate-200">--</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>Días Est. Navegación:</span>
-                                <span id="val-laycan-voyage" class="font-bold text-slate-200">--</span>
+                                <span>Tiempo de Tránsito Estimado:</span>
+                                <span id="val-transito-estimado" class="font-bold text-slate-200">--</span>
                             </div>
                             <div class="flex justify-between font-semibold pt-1 border-t border-slate-700/40">
-                                <span>Buffer de Seguridad (Margen Neto):</span>
-                                <span id="val-laycan-buffer" class="text-red-400">--</span>
+                                <span>Buffer de Entrega:</span>
+                                <span id="val-buffer-entrega" class="text-red-400">--</span>
                             </div>
+                            <!-- Elementos de resguardo ocultos para compatibilidad -->
+                            <span id="val-laycan-eta" class="hidden"></span>
+                            <span id="val-laycan-cancelling" class="hidden"></span>
+                            <span id="val-laycan-left" class="hidden"></span>
+                            <span id="val-laycan-voyage" class="hidden"></span>
+                            <span id="val-laycan-buffer" class="hidden"></span>
                         </div>
                     </div>
 
-                    <!-- TARJETA 2: OPERACIONES DE PUERTO (POL / POD) -->
+                    <!-- TARJETA 2: CADENCIA DE DESPACHO Y PLANTA -->
                     <div id="card-loadrate" class="bg-slate-800 border border-slate-700 border-l-4 border-l-amber-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4">
                         <div>
                             <div class="flex items-center justify-between mb-3">
-                                <span class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                                    🟡 Operaciones de Puerto
+                                <span class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5" id="label-dispatch-cadence">
+                                    🟡 Cadencia de Despacho y Planta
                                 </span>
                                 <span id="badge-loadrate-status" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-950 text-amber-300 border border-amber-800">
                                     ADVERTENCIA
                                 </span>
                             </div>
                             <h3 id="loadrate-title" class="text-lg font-bold text-white mb-2">
-                                Ritmo de Operación
+                                Cadencia de Despacho y Planta
                             </h3>
                             <p id="loadrate-desc" class="text-sm text-slate-300 leading-relaxed">
-                                Evaluando velocidad de carga y descarga...
+                                Evaluando tiempos en planta y capacidad de flota...
                             </p>
                         </div>
                         
                         <div class="pt-3 border-t border-slate-700/60 text-xs text-slate-400 space-y-2.5">
-                            <!-- Bloque POL -->
+                            <!-- Bloque Origen (Carga) -->
                             <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50 space-y-1">
-                                <div class="text-[11px] font-bold text-indigo-300 uppercase tracking-wide mb-1">Puerto Carga (POL)</div>
+                                <div class="text-[11px] font-bold text-indigo-300 uppercase tracking-wide mb-1">Origen (Carga)</div>
                                 <div class="flex justify-between">
-                                    <span>Ritmo Carga Actual:</span>
-                                    <span id="val-loadrate-current" class="font-bold text-slate-200">--</span>
+                                    <span>Punto de Carga:</span>
+                                    <span id="val-origen-carga" class="font-bold text-slate-200">--</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span>Días Teóricos Carga:</span>
-                                    <span id="val-loadrate-days" class="font-bold text-amber-400">--</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span>Load Rate Requerido:</span>
-                                    <span id="val-loadrate-required" class="font-bold text-emerald-400">--</span>
+                                    <span>Tiempo Est. Carga:</span>
+                                    <span id="val-tiempo-carga" class="font-bold text-amber-400">--</span>
                                 </div>
                             </div>
 
-                            <!-- Bloque POD -->
+                            <!-- Bloque Destino (Descarga) -->
                             <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50 space-y-1">
-                                <div class="text-[11px] font-bold text-indigo-300 uppercase tracking-wide mb-1">Puerto Descarga (POD)</div>
+                                <div class="text-[11px] font-bold text-indigo-300 uppercase tracking-wide mb-1">Destino (Descarga)</div>
                                 <div class="flex justify-between">
-                                    <span>Ritmo Descarga Actual:</span>
-                                    <span id="val-dischargerate-current" class="font-bold text-slate-200">--</span>
+                                    <span>Punto de Descarga:</span>
+                                    <span id="val-destino-descarga" class="font-bold text-slate-200">--</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span>Días Teóricos Descarga:</span>
-                                    <span id="val-dischargerate-days" class="font-bold text-amber-400">--</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span>Discharge Rate Requerido:</span>
-                                    <span id="val-dischargerate-required" class="font-bold text-emerald-400">--</span>
+                                    <span>Tiempo Est. Descarga:</span>
+                                    <span id="val-tiempo-descarga" class="font-bold text-amber-400">--</span>
                                 </div>
                             </div>
 
-                            <!-- Totalizador -->
+                            <!-- Métrica Flota Total y Cadencia Sugerida -->
+                            <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50 space-y-1">
+                                <div class="flex justify-between">
+                                    <span>Flota Total:</span>
+                                    <span id="val-flota-total" class="font-bold text-indigo-300">-- camiones</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Cadencia Sugerida:</span>
+                                    <span id="val-cadencia-sugerida" class="font-bold text-emerald-400">-- camiones/día</span>
+                                </div>
+                            </div>
+
+                            <!-- Indicador de Riesgo para Paralizaciones -->
                             <div class="flex justify-between font-bold text-slate-200 pt-1 border-t border-slate-700/60">
-                                <span>Total Días en Puertos (Port Days):</span>
+                                <span>Riesgo Paralizaciones:</span>
+                                <span id="val-riesgo-paralizaciones" class="text-emerald-400">BAJO (Dentro de horas libres)</span>
+                            </div>
+
+                            <!-- Totalizador de tiempo en planta -->
+                            <div class="flex justify-between font-medium text-slate-400 text-[11px]">
+                                <span>Tiempo Total en Plantas:</span>
                                 <span id="val-portdays-total" class="text-indigo-400">--</span>
                             </div>
+                            <!-- Elementos de resguardo ocultos para compatibilidad -->
+                            <span id="val-loadrate-current" class="hidden"></span>
+                            <span id="val-loadrate-days" class="hidden"></span>
+                            <span id="val-loadrate-required" class="hidden"></span>
+                            <span id="val-dischargerate-current" class="hidden"></span>
+                            <span id="val-dischargerate-days" class="hidden"></span>
+                            <span id="val-dischargerate-required" class="hidden"></span>
                         </div>
                     </div>
 
-                    <!-- TARJETA 3: SALUD FINANCIERA (DESGLOSE UNITARIO) -->
+                    <!-- TARJETA 3: SALUD FINANCIERA DE LA FLOTA -->
                     <div id="card-financial" class="bg-slate-800 border border-slate-700 border-l-4 border-l-emerald-500 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4">
                         <div>
                             <div class="flex items-center justify-between mb-3">
-                                <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                                    🟢 Salud Financiera
+                                <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5" id="label-fleet-financial">
+                                    🟢 Salud Financiera de la Flota
                                 </span>
                                 <span id="badge-financial-status" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-950 text-emerald-300 border border-emerald-800">
                                     APROBADO
                                 </span>
                             </div>
                             <h3 id="financial-title" class="text-lg font-bold text-white mb-2">
-                                Rentabilidad Aprobada
+                                Salud Financiera de la Flota
                             </h3>
                             <p id="financial-desc" class="text-sm text-slate-300 leading-relaxed">
-                                Evaluando margen de beneficio...
+                                Evaluando rentabilidad de la operación terrestre...
                             </p>
                         </div>
                         <div class="pt-3 border-t border-slate-700/60 text-xs text-slate-400 space-y-1.5">
                             <div class="flex justify-between">
-                                <span>Flete Estimado Total:</span>
-                                <span id="val-financial-flete" class="transition-all duration-300 font-bold text-slate-200">--</span>
+                                <span>Margen Neto del Proyecto:</span>
+                                <span id="val-margen-neto-proyecto" class="transition-all duration-300 font-bold text-slate-200">-- €</span>
                             </div>
                             <div class="flex justify-between font-semibold text-indigo-300">
-                                <span>Flete Unitario:</span>
-                                <span id="val-financial-flete-unit" class="transition-all duration-300 font-bold text-indigo-300">--</span>
+                                <span>Beneficio Neto por Camión:</span>
+                                <span id="val-beneficio-neto-camion" class="transition-all duration-300 font-bold text-indigo-300">-- €</span>
                             </div>
-                            <div class="flex justify-between pt-1 border-t border-slate-700/40">
-                                <span>Break-Even Total:</span>
-                                <span id="val-financial-breakeven" class="font-bold text-slate-200">--</span>
-                            </div>
-                            <div class="flex justify-between font-semibold text-amber-300">
-                                <span>Break-Even Unitario:</span>
-                                <span id="val-financial-breakeven-unit" class="font-bold text-amber-300">--</span>
+                            <div class="flex justify-between font-semibold text-amber-300 pt-1 border-t border-slate-700/40">
+                                <span>Coste Base por Kilómetro (€/km):</span>
+                                <span id="val-coste-base-km" class="font-bold text-amber-300">-- €/km</span>
                             </div>
                             <div class="flex justify-between font-bold pt-1 border-t border-slate-700/60">
-                                <span>Margen Bruto Calculado:</span>
-                                <span id="val-financial-margin" class="text-emerald-400">--</span>
+                                <span>Margen Operativo Calculado:</span>
+                                <span id="val-financial-margin" class="text-emerald-400">--%</span>
                             </div>
+                            <!-- Elementos de resguardo ocultos para compatibilidad -->
+                            <span id="val-financial-flete" class="hidden"></span>
+                            <span id="val-financial-flete-unit" class="hidden"></span>
+                            <span id="val-financial-breakeven" class="hidden"></span>
+                            <span id="val-financial-breakeven-unit" class="hidden"></span>
                         </div>
                     </div>
 
@@ -417,7 +408,7 @@ const DECISION_SUPPORT_TEMPLATE = String.raw`
                                 <span>🎯 Motor de Recomendaciones Comerciales</span>
                             </h2>
                             <p class="text-xs text-slate-400">
-                                Estrategias quirúrgicas de negociación Armador ↔ Fletador generadas automáticamente en tiempo real.
+                                Estrategias terrestres de transporte por carretera y gestión de flota generadas en tiempo real.
                             </p>
                         </div>
                         <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-900 text-indigo-400 border border-indigo-500/30">
@@ -430,25 +421,25 @@ const DECISION_SUPPORT_TEMPLATE = String.raw`
                     </div>
                 </section>
 
-                <!-- BARRA DE PROGRESO VISUAL: RATIO DE TIEMPO (PUERTO VS NAVEGACIÓN) -->
+                <!-- BARRA DE PROGRESO VISUAL: RATIO DE TIEMPO (PLANTA VS CONDUCCIÓN) -->
                 <section class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl space-y-4">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700 pb-4">
                         <div>
                             <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                                <span>⏱️ Distribución de Tiempo Operativo (Puerto vs Navegación)</span>
+                                <span>⏱️ Distribución de Tiempo Operativo (Planta vs Conducción)</span>
                             </h2>
                             <p class="text-xs text-slate-400">
-                                Análisis visual de exposición a puerto (Port Days) frente a días efectivos de mar (Sea Days).
+                                Análisis visual de estancia en plantas frente a horas efectivas de conducción terrestre (OSRM).
                             </p>
                         </div>
                         <div class="flex items-center gap-4 text-xs font-semibold">
                             <div class="flex items-center gap-1.5">
                                 <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
-                                <span class="text-slate-300">Días en Puerto: <span id="label-port-days-count" class="text-amber-400">0</span> d (<span id="label-port-pct" class="text-amber-400">0%</span>)</span>
+                                <span class="text-slate-300">Tiempo en Plantas: <span id="label-port-days-count" class="text-amber-400">0</span> d (<span id="label-port-pct" class="text-amber-400">0%</span>)</span>
                             </div>
                             <div class="flex items-center gap-1.5">
                                 <span class="w-3 h-3 rounded-full bg-indigo-500 inline-block"></span>
-                                <span class="text-slate-300">Días Navegando: <span id="label-sea-days-count" class="text-indigo-400">0</span> d (<span id="label-sea-pct" class="text-indigo-400">0%</span>)</span>
+                                <span class="text-slate-300">Tiempo Conducción: <span id="label-sea-days-count" class="text-indigo-400">0</span> d (<span id="label-sea-pct" class="text-indigo-400">0%</span>)</span>
                             </div>
                         </div>
                     </div>
@@ -457,10 +448,10 @@ const DECISION_SUPPORT_TEMPLATE = String.raw`
                     <div class="space-y-2">
                         <div class="w-full bg-slate-900 h-6 rounded-full overflow-hidden flex border border-slate-700 shadow-inner">
                             <div id="bar-port" class="bg-amber-500 h-full text-[11px] font-extrabold text-slate-950 flex items-center justify-center transition-all duration-500" style="width: 50%;">
-                                50% Puerto
+                                50% Planta
                             </div>
                             <div id="bar-sea" class="bg-indigo-600 h-full text-[11px] font-extrabold text-white flex items-center justify-center transition-all duration-500" style="width: 50%;">
-                                50% Mar
+                                50% Conducción
                             </div>
                         </div>
 

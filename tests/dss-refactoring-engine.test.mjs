@@ -98,14 +98,14 @@ test('PARTE 2: Mathematical formulas (Unit vs Total Freight, Derived Port Days) 
   assert.match(indexHtml, /id="val-laycan-cancelling"/, 'index.html must include val-laycan-cancelling');
   assert.match(indexHtml, /id="val-laycan-buffer"/, 'index.html must include val-laycan-buffer');
 
-  // Check Card 2 (Port Operations): POL and POD blocks + totalizer
-  assert.match(indexHtml, /Puerto Carga \(POL\)/, 'index.html must include POL Port block');
-  assert.match(indexHtml, /Puerto Descarga \(POD\)/, 'index.html must include POD Port block');
+  // Check Card 2 (Plant & Dispatch Cadence): Origen/Destino blocks + totalizer
+  assert.match(indexHtml, /Origen \(Carga\)/, 'index.html must include Origen (Carga) block');
+  assert.match(indexHtml, /Destino \(Descarga\)/, 'index.html must include Destino (Descarga) block');
   assert.match(indexHtml, /id="val-loadrate-current"/, 'index.html must include POL load rate element');
   assert.match(indexHtml, /id="val-dischargerate-current"/, 'index.html must include POD discharge rate element');
   assert.match(indexHtml, /id="val-portdays-total"/, 'index.html must include Total Port Days element');
 
-  // Check Card 3 (Financial Health): USD/MT unit breakdown
+  // Check Card 3 (Financial Health): unit breakdown
   assert.match(indexHtml, /id="val-financial-flete-unit"/, 'index.html must include val-financial-flete-unit element');
   assert.match(indexHtml, /id="val-financial-breakeven-unit"/, 'index.html must include val-financial-breakeven-unit element');
 
@@ -166,11 +166,11 @@ test('PARTE 2: Mathematical formulas (Unit vs Total Freight, Derived Port Days) 
   assert.equal(mockDomElements['val-loadrate-days'].textContent, '2.0 días', 'POL days must be 2.0 días');
   assert.equal(mockDomElements['val-dischargerate-days'].textContent, '2.0 días', 'POD days must be 2.0 días');
 
-  // 2. Financial totals MUST BE fleteUnitario * cargoQty = 30 * 10000 = $300,000 Total, Unit = $30.00 / MT
-  assert.equal(mockDomElements['val-financial-flete-unit'].textContent, '$30.00 / MT', 'Unit freight must equal received unit freight ($30.00 / MT)');
-  assert.equal(mockDomElements['val-financial-flete'].textContent, '$300,000.00', 'Total freight must be fleteUnitario * cargoQty ($300,000.00)');
-  assert.equal(mockDomElements['val-financial-breakeven-unit'].textContent, '$20.00 / MT', 'Unit break-even must equal received unit break-even ($20.00 / MT)');
-  assert.equal(mockDomElements['val-financial-breakeven'].textContent, '$200,000.00', 'Total break-even must be breakEvenUnitario * cargoQty ($200,000.00)');
+  // 2. Financial totals MUST BE fleteUnitario * cargoQty = 30 * 10000 = 300.000,00 € Total, Unit = 30,00 € / MT
+  assert.match(mockDomElements['val-financial-flete-unit'].textContent, /30,00\s*€\s*\/\s*MT/, 'Unit freight must equal received unit freight');
+  assert.match(mockDomElements['val-financial-flete'].textContent, /300\.000,00\s*€/, 'Total freight must be fleteUnitario * cargoQty');
+  assert.match(mockDomElements['val-financial-breakeven-unit'].textContent, /20,00\s*€\s*\/\s*MT/, 'Unit break-even must equal received unit break-even');
+  assert.match(mockDomElements['val-financial-breakeven'].textContent, /200\.000,00\s*€/, 'Total break-even must be breakEvenUnitario * cargoQty');
 });
 
 test('PARTE 3: Commercial Recommendation Engine uses strict chartering catalogs (FIO/SHINC/WIBON terms)', () => {
@@ -232,10 +232,10 @@ test('PARTE 3: Commercial Recommendation Engine uses strict chartering catalogs 
   const resultContainer = evalFn(mockDocument, riskState);
   const renderedHTML = resultContainer.innerHTML;
 
-  // Assert expected catalog terms are rendered
-  assert.match(renderedHTML, /FIOS|FIOT|FIOST/, 'Recommendation output must contain Cargo terms (e.g. FIOS)');
-  assert.match(renderedHTML, /SSHINC|SHINC/, 'Recommendation output must contain Laytime terms (e.g. SSHINC)');
-  assert.match(renderedHTML, /WIBON WIPON WIFPON WICCON/, 'Recommendation output must contain N.O.R. clause');
+  // Assert expected road transport terms are rendered
+  assert.match(renderedHTML, /Conducción|Tacógrafo|Entrega/, 'Recommendation output must contain road driving/transit terms');
+  assert.match(renderedHTML, /Paralizaciones|LOTT/, 'Recommendation output must contain road standstill/plant terms');
+  assert.match(renderedHTML, /Flota|Combustible/, 'Recommendation output must contain fleet terms');
 });
 
 test('PARTE 4: Isolated dssSimulationState, local cancellingDate rendering, and context restoration', () => {
@@ -725,4 +725,72 @@ test('PARTE 7: Refactorización Interfaz DSS - Tab Situación Actual, Paneles Co
   fakeWin.cargarEscenario('optimo');
   assert.equal(elements['input-pol'].disabled, false, 'input-pol must be enabled in simulation scenario');
   assert.equal(elements['input-cargoQty'].disabled, false, 'input-cargoQty must be enabled in simulation scenario');
-  });
+});
+
+test('PARTE 9: Terrestrial Plant Cadence & 8-hour Operational Day Calculation', () => {
+  const helperStart = indexHtml.indexOf('function determinarTerminoCargo(commodity)');
+  const helperEnd = indexHtml.indexOf('function buildAuditHTMLTemplate', helperStart);
+  const helpersCode = indexHtml.slice(helperStart, helperEnd);
+
+  const mockDomElements = {};
+  const mockDocument = {
+    getElementById: (id) => {
+      if (!mockDomElements[id]) {
+        mockDomElements[id] = {
+          textContent: '',
+          className: '',
+          innerHTML: '',
+          classList: { toggle: () => {} },
+          style: {}
+        };
+      }
+      return mockDomElements[id];
+    }
+  };
+
+  const fakeWindow = {
+    State: {
+      trucks_needed: 334,
+      totalKilometers: 500,
+      netProfitOwner: 15000,
+      totalTripCost: 12000
+    }
+  };
+  globalThis.window = fakeWindow;
+
+  const evalFn = new Function(
+    'document',
+    'state',
+    `
+    ${helpersCode}
+    generarAuditoriaOperativa(state);
+    return document;
+    `
+  );
+
+  // Scenario: 8000 MT, loadRate: 25 MT/h, dischargeRate: 25 MT/h, fleet: 334 trucks
+  // dias_carga = 8000 / (25 * 8) = 40.0 days
+  // cadencia = ceil(334 / 40) = 9 trucks/day
+  // individual truck load = 24 / 25 = 0.96h <= 2.5h (within LOTT)
+  const roadState = {
+    pol: 'Madrid',
+    pod: 'Valencia',
+    cargoQty: 8000,
+    commodity: 'Granel Industrial',
+    laycanDaysLeft: 15,
+    estimatedVoyageDays: 2,
+    loadRate: 25, // MT/h
+    dischargeRate: 25, // MT/h
+    fleteEstimado: 35,
+    breakEven: 25
+  };
+
+  evalFn(mockDocument, roadState);
+
+  assert.equal(mockDomElements['val-flota-total'].textContent, '334 camiones', 'Total fleet must reflect 334 trucks');
+  assert.equal(mockDomElements['val-cadencia-sugerida'].textContent, '9 camiones/día', 'Suggested cadence must be 9 trucks/day (not 2 trucks/day)');
+  assert.equal(mockDomElements['val-loadrate-days'].textContent, '40.0 días', 'Loading duration must be 40.0 days (not 320 days)');
+  assert.match(mockDomElements['val-tiempo-carga'].textContent, /40\.0 días \(320h\)/, 'Operational hours must show 40.0 days (320h)');
+  assert.equal(mockDomElements['val-riesgo-paralizaciones'].textContent, 'BAJO (Dentro de horas libres)', 'Standstill risk must be BAJO for coherent cadence');
+  assert.equal(mockDomElements['badge-loadrate-status'].textContent, 'ÓPTIMO', 'Plant operational status badge must be ÓPTIMO');
+});
