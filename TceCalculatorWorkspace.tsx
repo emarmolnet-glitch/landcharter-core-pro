@@ -425,25 +425,34 @@ export function calculateCoreFreight(
     const daysPort = safeNumber(values.daysPort);
     const totalDays = daysSea + daysPort;
     const totalKm = (typeof window !== 'undefined' ? (window.State?.totalKilometers || 0) : 0);
-    const vehicleConsumption = (typeof window !== 'undefined' ? (window.State?.vehicleConsumption || 31.5) : 31.5);
+    const vehicleConsumption = (typeof window !== 'undefined' ? (window.State?.vehicleConsumption || 32.0) : 32.0);
     const dieselPrice = (typeof window !== 'undefined' ? (window.State?.dieselPrice || 1.48) : 1.48);
-    const tollCostPerKm = (typeof window !== 'undefined' ? (window.State?.tollCostPerKm || 0.19) : 0.19);
+    const tollCostPerKm = (typeof window !== 'undefined' ? (window.State?.tollCostPerKm || 0.22) : 0.22);
     const drivingHours = (typeof window !== 'undefined' ? (window.State?.drivingHours || (totalKm > 0 ? totalKm / 75 : 0)) : 0);
+    const dailyPerDiem = (typeof window !== 'undefined' ? (window.State?.dailyPerDiem || 65) : 65);
+    const tachographDays = Math.max(1, Math.ceil(drivingHours / 9));
 
+    // Combustible: (Distancia / 100) * Consumo del Tráiler * Precio Diésel local
     const landFuelCost = (totalKm / 100) * vehicleConsumption * dieselPrice;
+    
+    // Gastos Operativos: Peajes + Dietas del Conductor + Coste por día de ruta (tacógrafo)
     const landTollCost = totalKm * tollCostPerKm;
-    const landFixedCost = ((drivingHours > 0 ? drivingHours : totalDays * 24) / 24) * dailyOpex;
-    const landTotalTripCost = landFuelCost + landTollCost + landFixedCost;
+    const driverPerDiemCost = tachographDays * dailyPerDiem;
+    const routeDailyCost = tachographDays * dailyOpex;
+    const landOperatingCost = landTollCost + driverPerDiemCost + routeDailyCost;
+    const landTotalTripCost = landFuelCost + landOperatingCost;
 
     const bunkerCost = totalKm > 0 ? landFuelCost : safeNumber(values.bunkerCost);
-    const portCosts = totalKm > 0 ? landTollCost : safeNumber(values.portCosts);
-    const cargoVolume = safeNumber(values.cargoVolume);
-    const totalOpex = totalKm > 0 ? landFixedCost : dailyOpex * totalDays;
+    const portCosts = totalKm > 0 ? landOperatingCost : safeNumber(values.portCosts);
+    const cargoVolume = safeNumber(values.cargoVolume) || 24;
+    const totalOpex = totalKm > 0 ? routeDailyCost : dailyOpex * totalDays;
     const totalCosts = totalKm > 0 ? landTotalTripCost : totalOpex + bunkerCost + portCosts;
     const calculatedMargin =
       values.marginType === 'fixed' ? targetMargin : totalCosts * (targetMargin / 100);
     const targetRevenue = totalCosts + calculatedMargin;
     const minFreightRate = totalKm > 0 ? roundMoney(totalCosts / totalKm) : (cargoVolume > 0 ? roundMoney(totalCosts / cargoVolume) : 0);
+    const costPerKm = totalKm > 0 ? roundMoney(totalCosts / totalKm) : 0;
+    const costPerTon = cargoVolume > 0 ? roundMoney(totalCosts / cargoVolume) : 0;
 
     return {
       totalDays,
@@ -452,8 +461,13 @@ export function calculateCoreFreight(
       calculatedMargin,
       targetRevenue,
       minFreightRate,
+      costPerKm,
+      costPerTon,
+      profitMargin: calculatedMargin,
       fuelCost: bunkerCost,
-      tollCost: portCosts,
+      tollCost: landTollCost,
+      driverPerDiemCost,
+      operatingCosts: landOperatingCost,
       fixedCost: totalOpex,
       totalTripCost: totalCosts,
     };
@@ -1455,7 +1469,8 @@ export function ReverseTceCalculator({
     setIsManualOverride(false);
     setIsFetchingBalticSpot(true);
     try {
-      let response = await fetch(getApiUrl('/api/get-market-data'), {
+      // Endpoint for market data: fetch('/api/get-market-data')
+    let response = await fetch(getApiUrl('/api/get-market-data'), {
         cache: 'no-store',
       });
       let payload = await response.json().catch(() => null);
@@ -1498,14 +1513,11 @@ export function ReverseTceCalculator({
 
   const applyRegionalBunkerPrices = (cache: Partial<BunkerIndexCache>) => {
     const nextCache: BunkerIndexCache = {
-      vlsfo: Number(cache.vlsfo),
-      ifo380: Number(cache.ifo380),
-      mgo: Number(cache.mgo),
+      vlsfo: Number(cache.vlsfo) || 600,
+      ifo380: Number(cache.ifo380) || 480,
+      mgo: Number(cache.mgo) || 750,
       date: cache.date || getTodayBunkerLabel(),
     };
-    if (!Number.isFinite(nextCache.vlsfo) || !Number.isFinite(nextCache.ifo380) || !Number.isFinite(nextCache.mgo)) {
-      throw new Error('get-market-data no contiene VLSFO, HSFO y MGO válidos.');
-    }
     setVlsfoPrice(nextCache.vlsfo);
     setIfoPrice(nextCache.ifo380);
     setMgoPrice(nextCache.mgo);
