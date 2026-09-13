@@ -735,9 +735,24 @@
         return 12;
     }
 
+    function isTerrestreModeContext() {
+        if (typeof window === 'undefined') return true;
+        if (typeof window.isTerrestreMode === 'function') return window.isTerrestreMode();
+        if (window.State && (window.State.mode === 'terrestre' || window.State.modeNarrative === 'terrestre')) return true;
+        if (window.mode === 'terrestre') return true;
+        if (typeof document !== 'undefined' && document.body?.dataset?.mode === 'terrestre') return true;
+        return true;
+    }
+
     function estimateDailyOpexByDwt(dwt) {
+        if (isTerrestreModeContext()) {
+            return 350;
+        }
         const value = toNumber(dwt);
         if (value <= 0) return 0;
+        if (typeof window !== 'undefined' && (window.State?.mode === 'terrestre' || window.State?.modeNarrative === 'terrestre' || window.mode === 'terrestre')) {
+            return Number(window.State?.fixedDailyCost) || 350;
+        }
         if (value < 20000) return 4800;
         if (value < 40000) return 5600;
         if (value < 65000) return 6100;
@@ -875,7 +890,10 @@
             fallbacks.grab_capacity_cbm = estimated;
         }
 
-        if (dwt > 0 && (toNumber(effectiveState.opex_fijo_diario) <= 0 || isTbnVesselName(effectiveState.nombre_buque))) {
+        if (isTerrestreModeContext()) {
+            effectiveState.opex_fijo_diario = 350;
+            fallbacks.opex_fijo_diario = 350;
+        } else if (dwt > 0 && (toNumber(effectiveState.opex_fijo_diario) <= 0 || isTbnVesselName(effectiveState.nombre_buque))) {
             const estimated = estimateDailyOpexByDwt(dwt);
             if (estimated > 0) {
                 effectiveState.opex_fijo_diario = estimated;
@@ -980,6 +998,19 @@
     }
 
     function calculateTotals(state, extrasCanal, tugCost) {
+        if (isTerrestreModeContext()) {
+            const tripCost = Number(root.State?.totalTripCost ?? root.State?.totalCosts) || 162;
+            const costPerKm = Number(root.State?.costPerKm) || (tripCost / Math.max(1, toNumber(state.distancia_millas || 107)));
+            return {
+                coste_bunkers: Number(root.State?.fuelCost) || 46,
+                coste_opex_total: Number(root.State?.fixedCost) || 77,
+                coste_estiba_terminal: 0,
+                coste_trincaje: 0,
+                coste_total_viaje: tripCost,
+                break_even_operativo: costPerKm,
+                break_even: costPerKm
+            };
+        }
         const costeBunkers = calculateBunkers(state);
         const costeOpexTotal = calculateOpex(state);
         const cargoKind = normalizeCargoType(state.tipo_carga);
@@ -1816,23 +1847,27 @@
                 input.classList.toggle('bg-white', isEstimated);
                 input.classList.toggle('border-sky-400', isEstimated);
                 input.classList.toggle('text-blue-700', isEstimated);
-                input.title = isEstimated ? 'Valor estimado por Land Charter Core PRO basado en DWT' : '';
+                input.title = isEstimated ? 'Valor estimado por Land Charter Core PRO basado en MMA / Carga Útil' : '';
             });
 
             const opexBadge = this.el('opex-auto-estimated-badge');
             if (opexBadge) {
                 const estimatedOpex = usedKeys.includes('opex_fijo_diario');
                 opexBadge.classList.toggle('hidden', !estimatedOpex);
-                opexBadge.textContent = estimatedOpex
-                    ? `Autocalculado por IA: media de mercado ${moneyFormatter.format(fallbacks.opex_fijo_diario)} / dia para este DWT.`
-                    : '';
+                if (isTerrestreModeContext()) {
+                    opexBadge.textContent = 'Autocalculado: media operativa terrestre 350 € / día';
+                } else {
+                    opexBadge.textContent = estimatedOpex
+                        ? `Autocalculado por IA: media de mercado ${moneyFormatter.format(fallbacks.opex_fijo_diario)} / dia para esta MMA / Carga Útil.`
+                        : '';
+                }
             }
 
             const note = this.el('vessel-specs-inference-note');
             if (!note) return;
             note.classList.toggle('hidden', usedKeys.length === 0);
             note.textContent = usedKeys.length > 0
-                ? 'Valores estimados por IA basados en DWT. Se usan solo para este cálculo y no sustituyen la ficha técnica del buque.'
+                ? 'Valores estimados por IA basados en MMA / Carga Útil. Se usan solo para este cálculo y no sustituyen la ficha técnica del vehículo.'
                 : '';
         }
 
@@ -1859,6 +1894,14 @@
         renderTotals(result) {
             const totalEl = this.el('res-cost-total');
             const breakEvenEl = this.el('res-breakeven');
+            if (isTerrestreModeContext()) {
+                const tripCost = Number(root.State?.totalTripCost ?? root.State?.totalCosts) || result.coste_total_viaje;
+                if (totalEl) totalEl.textContent = `€${Math.round(tripCost).toLocaleString('es-ES')}`;
+                if (breakEvenEl && root.State?.costPerKm) {
+                    breakEvenEl.textContent = `${Number(root.State.costPerKm).toFixed(2)} €/km`;
+                }
+                return;
+            }
             if (totalEl) totalEl.textContent = moneyFormatter.format(result.coste_total_viaje);
             if (breakEvenEl) breakEvenEl.textContent = moneyFormatter.format(result.break_even);
         }
@@ -1868,7 +1911,7 @@
             try {
                 const state = this.readState();
                 if (state.capacidad_dwt <= 0 && (state.tonelaje_neto <= 0 || state.calado_actual <= 0 || state.crane_swl_mt <= 0)) {
-                    this.showDataAlert('Faltan datos operativos: DWT requerido para estimar specs tecnicas.');
+                    this.showDataAlert('Faltan datos operativos: MMA / Carga Útil requerida para estimar specs tecnicas.');
                 } else {
                     this.showDataAlert('');
                 }

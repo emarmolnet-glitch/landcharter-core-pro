@@ -9320,7 +9320,7 @@
                                 Mostrando datos sin filtrar (Sincronizado de Radar)
                             </span>
                         </div>
-                        <div id="ais-radar-status-badge" class="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                        <div id="ais-radar-status-badge" class="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-300 hidden" style="display: none !important;">
                             <span id="ais-radar-status-dot" class="h-2 w-2 rounded-full bg-slate-300"></span>
                             <span id="ais-radar-status-text">Radar en espera: Introduzca puertos y laycan</span>
                         </div>
@@ -9328,7 +9328,7 @@
                         <div id="route-configurator-root"></div>
 
                         <!-- Open-Meteo Marine Weather Section -->
-                        <div id="weather-section" class="collapsible-section mt-4 bg-slate-950 p-4 rounded-lg border border-slate-800 hidden" data-collapsible-section data-default-open="false">
+                        <div id="weather-section" class="collapsible-section mt-4 bg-slate-950 p-4 rounded-lg border border-slate-800 hidden" style="display: none !important;" data-collapsible-section data-default-open="false">
                             <div class="collapsible-section-header flex justify-between items-center gap-3">
                                 <span id="weather-header-title" data-collapsible-title class="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
                                     <i class="fa-solid fa-cloud-sun-rain" aria-hidden="true"></i>
@@ -9361,28 +9361,28 @@
                                     <span>Datos recuperados de Data Bridge</span>
                                 </span>
                                 <span id="vessel-profile-completeness-badge" hidden data-profile-state="partial" role="status" aria-live="polite"></span>
-                                <span id="vessel-badge" class="bg-blue-900/50 text-blue-300 text-[10px] font-bold px-2 py-1 rounded border border-blue-700/50 uppercase tracking-widest">Desconocido</span>
-                            </div>
-                        </div>
-                        
-                        <div id="vessel-compatibility-warning" class="hidden bg-red-950/80 border border-red-500 text-red-200 font-bold p-3 rounded-lg mb-4 text-center tracking-wide text-sm">
-                            NOTICE: THIS VESSEL IS NOT COMPATIBLE DUE TO EXCESS WEIGHT.
-                        </div>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
-                            <div class="input-group">
+                                <span id="vessel-badge" class="bg-blue-900/50 text-blue-300 text-[10px] font-bold px-2 py-1 rounded border border-blue-700/50 uppercase tracking-widest">Camión / Tráiler</span>
+                                </div>
+                                </div>
+
+                                <div id="vessel-compatibility-warning" class="hidden bg-red-950/80 border border-red-500 text-red-200 font-bold p-3 rounded-lg mb-4 text-center tracking-wide text-sm">
+                                NOTICE: THIS VESSEL IS NOT COMPATIBLE DUE TO EXCESS WEIGHT.
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+                                <div class="input-group">
                                 <label class="flex items-center min-h-[28px]">
                                     <span id="label-vessel-name-real">Tipo de Vehículo</span>
                                 </label>
                                 <div class="relative flex items-center w-full">
-                                    <input type="text" id="nombre-buque-calculadora" list="vehicle-types-datalist" class="input-gc font-bold text-white pr-8 w-full" value="Lona Estándar" oninput="updateSection2LocalState('nombre-buque-calculadora', this.value); handleVehicleTypeSelection(this.value); autoClassifySpecialtyFromInputs()" onchange="handleVehicleTypeSelection(this.value)">
+                                    <input type="text" id="nombre-buque-calculadora" list="vehicle-types-datalist" class="input-gc font-bold text-white pr-8 w-full" value="Camión / Tráiler" oninput="updateSection2LocalState('nombre-buque-calculadora', this.value); handleVehicleTypeSelection(this.value); autoClassifySpecialtyFromInputs()" onchange="handleVehicleTypeSelection(this.value)">
                                     <datalist id="vehicle-types-datalist">
+                                        <option value="Camión / Tráiler">Camión / Tráiler · 32.0 L/100km · 24t</option>
                                         <option value="Frigorífico">Frigorífico · 34.0 L/100km · 22t</option>
                                         <option value="Lona Estándar">Lona Estándar · 31.5 L/100km · 24t</option>
                                         <option value="Mega Lona">Mega Lona · 33.0 L/100km · 24t</option>
                                         <option value="Tren de Carretera">Tren de Carretera · 42.0 L/100km · 44t</option>
-                                    </datalist>
-                                    <button type="button" id="btn-vessel-specs-real-2" onclick="searchLocalVesselDataBridge()" class="absolute right-2 text-slate-400 hover:text-sky-400 transition" title="Buscar vehículo en Data Bridge (Local)" aria-label="Buscar datos reales del vehículo">
+                                    </datalist>                                    <button type="button" id="btn-vessel-specs-real-2" onclick="searchLocalVesselDataBridge()" class="absolute right-2 text-slate-400 hover:text-sky-400 transition" title="Buscar vehículo en Data Bridge (Local)" aria-label="Buscar datos reales del vehículo">
                                         <i class="fa-solid fa-magnifying-glass text-xs"></i>
                                     </button>
                                 </div>
@@ -9739,7 +9739,7 @@
                                 </select>
                                 <p id="cargo-auto-classification" class="text-[10px] text-teal-300 mt-1 min-h-[14px]"></p>
                             </div>
-                            <div class="input-group">
+                            <div class="input-group hidden" style="display: none !important;">
                                 <label id="label-product-sector" class="text-teal-400 flex items-center min-h-[24px]" title="Sector regulado por el Mecanismo de Ajuste en Frontera por Carbono (CBAM) de la UE">Sector CBAM</label>
                                 <select id="product-sector" class="input-gc font-bold text-teal-300" disabled aria-disabled="true" onchange="updateSection2LocalState('product-sector', this.value)">
                                     <option value="">— N/A —</option>
@@ -9909,15 +9909,15 @@
                             </div>
 
                             <!-- SECA/ECA Zone Status Indicators -->
-                            <div class="border-t border-slate-800 pt-3 mt-3">
+                            <div id="seca-regulation-panel" class="border-t border-slate-800 pt-3 mt-3 hidden" style="display: none !important;">
                                 <h4 id="fuel-regulation-title" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Estatus de Regulación de Emisiones / Zona Ambiental (ZBE)</h4>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <!-- POL Indicator -->
-                                    <div id="seca-pol-indicator" class="rounded-lg p-3 transition-colors duration-300 flex flex-col justify-between border">
+                                    <div id="seca-pol-indicator" class="rounded-lg p-3 transition-colors duration-300 flex flex-col justify-between border hidden" style="display: none !important;">
                                         <!-- Will be populated by JS -->
                                     </div>
                                     <!-- POD Indicator -->
-                                    <div id="seca-pod-indicator" class="rounded-lg p-3 transition-colors duration-300 flex flex-col justify-between border">
+                                    <div id="seca-pod-indicator" class="rounded-lg p-3 transition-colors duration-300 flex flex-col justify-between border hidden" style="display: none !important;">
                                         <!-- Will be populated by JS -->
                                     </div>
                                 </div>
@@ -9929,9 +9929,9 @@
                             <div class="input-group relative">
                                 <label id="label-opex-daily" class="text-orange-400">Coste Fijo Diario (Chófer, Seguros, Amortización)</label>
                                 <input type="number" id="opex-daily" class="input-gc font-bold text-orange-300" value="0" placeholder="0" step="any" oninput="runEngine()">
-                                <div id="opex-auto-estimated-badge" class="hidden mt-1 inline-flex items-center gap-1 rounded-md border border-blue-200 bg-white px-2 py-1 text-[10px] font-semibold text-[#1d4ed8] shadow-sm">
+                                <div id="opex-auto-estimated-badge" class="mt-1 inline-flex items-center gap-1 rounded-md border border-blue-200 bg-white px-2 py-1 text-[10px] font-semibold text-[#1d4ed8] shadow-sm">
                                     <i class="fa-solid fa-wand-magic-sparkles text-blue-500"></i>
-                                    <span>Autocalculado por IA</span>
+                                    <span>Autocalculado: media operativa terrestre 350 € / día</span>
                                 </div>
                                 <div id="opex-category-box" class="text-[10px] mt-1 text-slate-400 leading-tight bg-slate-950/80 border border-slate-800 rounded p-1.5 hidden transition-all duration-300"></div>
                             </div>
@@ -16017,6 +16017,17 @@
         window.findPortData = findPortData;
 
         function autoPopulateRouteLimits() {
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                ['port-ballast-limits', 'port-pol-limits', 'port-pod-limits'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = '';
+                });
+                ['port-ballast-draft', 'port-ballast-length', 'port-pol-draft', 'port-pol-length', 'port-pod-draft', 'port-pod-length'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '-';
+                });
+                return;
+            }
             const pBallast = document.getElementById('port-ballast')?.value.trim() || '';
             const pPol = document.getElementById('port-pol')?.value.trim() || '';
             const pPod = document.getElementById('port-pod')?.value.trim() || '';
@@ -16097,6 +16108,12 @@
                 }
 
                 if (!item.data) {
+                    if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                        if (el) el.textContent = '';
+                        if (draftEl) draftEl.value = '-';
+                        if (lengthEl) lengthEl.value = '-';
+                        return;
+                    }
                     let notFoundText = 'Puerto no encontrado en base WPI';
                     if (currentLang === 'en') {
                         notFoundText = 'Port not found in WPI database';
@@ -16165,9 +16182,25 @@
         window.DEFAULT_OWNER_MARGIN = DEFAULT_OWNER_MARGIN;
         window.DEFAULT_CHARTERER_MARGIN = DEFAULT_CHARTERER_MARGIN;
 
+        function isTerrestreMode() {
+            if (typeof window === 'undefined') return true;
+            if (window.State && (window.State.mode === 'terrestre' || window.State.modeNarrative === 'terrestre')) return true;
+            if (window.mode === 'terrestre') return true;
+            if (document.body?.dataset?.mode === 'terrestre') return true;
+            return true;
+        }
+        window.isTerrestreMode = isTerrestreMode;
+
         const State = {
+            mode: 'terrestre',
+            modeNarrative: 'terrestre',
+            vehicleType: 'Camión / Tráiler',
+            fixedDailyCost: 350,
+            dieselPrice: 1.48,
+            adbluePrice: 0.60,
+            vehicleConsumption: 32,
             activeReference: window.generateVoyageRef?.() || '',
-            vessel: "", dwt: 0, gt: 0, loa: 0, class: "", opex: 0, vesselDwtFixed: false,
+            vessel: "Camión / Tráiler", dwt: 0, gt: 0, loa: 0, class: "Tráiler 24T", opex: 350, vesselDwtFixed: false,
             userHasEditedSpecialty: false,
             uploadedFile: null,
             nplDataOrigin: "Externo",
@@ -19672,6 +19705,19 @@ function createRouteAnchorElement(type) {
         // --- ACTUALIZADOR DE INDICADOR VISUAL SECA ---
         function updateSecaIndicator(elementId, portName, isSeca) {
             const el = document.getElementById(elementId);
+            const parentPanel = document.getElementById('seca-regulation-panel');
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                if (el) {
+                    el.style.display = 'none';
+                    el.classList.add('hidden');
+                    el.innerHTML = '';
+                }
+                if (parentPanel) {
+                    parentPanel.style.display = 'none';
+                    parentPanel.classList.add('hidden');
+                }
+                return;
+            }
             if (!el) return;
 
             if (!portName || portName.trim() === "") {
@@ -32703,6 +32749,9 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
         }
 
         function calculateFixedOpex(dwt, specialty, name, flag, psc) {
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                return 350;
+            }
             let finalFlag = flag;
             let finalPsc = psc;
             if (typeof document !== 'undefined') {
@@ -32860,6 +32909,9 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
         }));
 
         function detectVesselSegment(dwt) {
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                return { segment: "Camión / Tráiler", minDwt: 0, maxDwt: 24000, speedBallast: 80, speedLaden: 75 };
+            }
             const numericDwt = Math.max(0, parseFloat(dwt) || 0);
             return VESSEL_SEGMENT_SPEEDS.find((row) => numericDwt >= row.minDwt && numericDwt <= row.maxDwt) || VESSEL_SEGMENT_SPEEDS[0];
         }
@@ -33427,6 +33479,29 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
             if (typeof updateVesselPricingRouter === 'function') {
                 updateVesselPricingRouter();
             }
+
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                const consSeaEl = document.getElementById('cons-sea');
+                if (consSeaEl) consSeaEl.value = '32.0';
+                const consPortEl = document.getElementById('cons-port');
+                if (consPortEl) consPortEl.value = '1.8';
+                const badgeEl = document.getElementById('vessel-badge');
+                if (badgeEl) badgeEl.innerText = 'Camión / Tráiler';
+                State.class = 'Tráiler 24T';
+                State.vessel = 'Camión / Tráiler';
+                State.vehicleType = 'Camión / Tráiler';
+                const opexDailyEl = document.getElementById('opex-daily');
+                if (opexDailyEl) opexDailyEl.value = '350';
+                State.fixedDailyCost = 350;
+                State.opex = 350;
+                State.vehicleConsumption = 32;
+                State.consSea = 32;
+                if (triggerEngine && typeof runEngine === 'function') {
+                    runEngine();
+                }
+                return;
+            }
+
             if (dwt <= 0) return;
 
             const cSea = Math.max(3.0, dwt * 0.0006);
@@ -34039,6 +34114,9 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
 	        }
 
 	        function calculateGlobalPdaEstimateBreakdown(vesselData) {
+	            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+	                return { totalPDA: 0, tasasAutoridad: 0, navManiobra: 0, muelleEstadia: 0, agenciaVarios: 0, gtFactor: 1, loaFactor: 1, pdaPremium: 1 };
+	            }
 	            const dwt = Number(vesselData?.dwt) || 0;
 	            const inputGT = Number(vesselData?.gt) || 0;
 
@@ -34088,6 +34166,14 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
 	        }
 
 	        function getPortPdaBreakdown(type, portTotal) {
+	            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+	                const normalizedTotal = Math.round(portTotal) || 0;
+	                if (normalizedTotal <= 0) return [];
+	                return [{
+	                    item: type === 'pol' ? 'Peajes de autopista' : 'Dietas y pernoctas chófer',
+	                    amount: normalizedTotal
+	                }];
+	            }
 	            const existingBreakdown = type === 'pol' ? State.pdaPolBreakdown : State.pdaPodBreakdown;
 	            const normalizedTotal = Math.round(portTotal) || 0;
 	            if (normalizedTotal <= 0) return [];
@@ -34155,6 +34241,29 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
         function readOperationalPdaBase(type) {
             const input = document.getElementById(`pda-${type}`);
             if (!input) return 0;
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                if (input.dataset.userModified === 'true') {
+                    const parsed = parseFloat(input.value);
+                    if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+                }
+                const distKm = Math.max(0,
+                    parseFloat(document.getElementById('dist-total')?.value) ||
+                    parseFloat(document.getElementById('dist-laden')?.value) ||
+                    parseFloat(window.State?.totalKilometers) ||
+                    parseFloat(window.State?.distLaden) ||
+                    0
+                );
+                const drivingHours = (typeof window !== 'undefined' && Number(window.LandData?.drivingHours))
+                    || Number(window.State?.drivingHours)
+                    || (distKm > 0 ? (distKm / 75) : 0);
+                const pernoctasCalculadasTacografo = Math.floor(drivingHours / 9);
+                const costeDietaBase = Number(window.State?.dailyPerDiem) || 65.0;
+                const peajeUnitario = Math.round(distKm * (Number(window.State?.tollCostPerKm) || 0.18));
+                const dietas = costeDietaBase * pernoctasCalculadasTacografo;
+                const defaultVal = type === 'pol' ? peajeUnitario : dietas;
+                input.value = String(defaultVal);
+                return defaultVal;
+            }
             const currentValue = Math.max(0, Number(input.value) || 0);
             const lastPublishedTotal = Number(input.dataset.operationalPdaTotal);
             const lastPublishedBase = Number(input.dataset.operationalPdaBase);
@@ -34173,6 +34282,19 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
 
         function publishOperationalPdaTotal(type, basePda, incrementalCost) {
             const input = document.getElementById(`pda-${type}`);
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                const totalPda = Math.max(0, Number(basePda) || 0);
+                if (input) {
+                    input.value = String(totalPda);
+                    input.dataset.operationalPdaBase = String(totalPda);
+                    input.dataset.operationalPdaTotal = String(totalPda);
+                    delete input.dataset.operationalPdaIncrement;
+                    input.title = type === 'pol' ? `Peajes estimados: ${totalPda} €` : `Dietas chófer: ${totalPda} €`;
+                }
+                if (type === 'pol') State.pdaPol = totalPda;
+                else State.pdaPod = totalPda;
+                return totalPda;
+            }
             const normalizedBase = Math.max(0, Number(basePda) || 0);
             const normalizedIncrement = Math.max(0, Number(incrementalCost) || 0);
             const totalPda = normalizedBase + normalizedIncrement;
@@ -34525,6 +34647,52 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
 	                clearTimeout(timers[type]);
 	                timers[type] = null;
 	            }
+
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                const distKm = Math.max(0,
+                    parseFloat(document.getElementById('dist-total')?.value) ||
+                    parseFloat(document.getElementById('dist-laden')?.value) ||
+                    parseFloat(window.State?.totalKilometers) ||
+                    parseFloat(window.State?.distLaden) ||
+                    0
+                );
+                const drivingHours = (typeof window !== 'undefined' && Number(window.LandData?.drivingHours))
+                    || Number(window.State?.drivingHours)
+                    || (distKm > 0 ? (distKm / 75) : 0);
+                const pernoctasCalculadasTacografo = Math.floor(drivingHours / 9);
+                const pernoctas = pernoctasCalculadasTacografo;
+                const costeDietaBase = Number(window.State?.dailyPerDiem) || 65.0;
+                const peajeUnitario = Math.round(distKm * 0.18);
+                const dietasUnitarias = costeDietaBase * pernoctasCalculadasTacografo; // dietasUnitarias = pernoctas * 65
+
+                const pdaInput = document.getElementById(type === 'pol' ? 'pda-pol' : 'pda-pod');
+                const finalCost = type === 'pol' ? peajeUnitario : dietasUnitarias;
+                if (pdaInput) {
+                    pdaInput.value = String(finalCost);
+                    pdaInput.dataset.basePda = String(finalCost);
+                    pdaInput.dataset.operationalPdaBase = String(finalCost);
+                    pdaInput.dataset.operationalPdaTotal = String(finalCost);
+                    delete pdaInput.dataset.operationalPdaIncrement;
+                    delete pdaInput.dataset.userModified;
+                }
+                if (type === 'pol') {
+                    if (window.State) {
+                        window.State.basePdaPol = finalCost;
+                        window.State.pdaPol = finalCost;
+                        window.State.peajes = finalCost;
+                    }
+                } else {
+                    if (window.State) {
+                        window.State.basePdaPod = finalCost;
+                        window.State.pdaPod = finalCost;
+                        window.State.dietas = finalCost;
+                    }
+                }
+                if (options.deferEngine !== true && typeof runEngine === 'function') {
+                    runEngine();
+                }
+                return { totalPDA: finalCost };
+            }
 
 	            const readNumber = (id) => {
 	                const raw = document.getElementById(id)?.value;
@@ -35253,13 +35421,24 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
             });
 
             // Bind sea & port fuel consumptions if present
-            if (vessel.cons_sea || vessel.fuel_consumption_laden) {
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
                 const consSeaInput = document.getElementById('cons-sea');
-                if (consSeaInput) consSeaInput.value = String(vessel.cons_sea || vessel.fuel_consumption_laden);
-            }
-            if (vessel.cons_port || vessel.fuel_consumption_port) {
+                if (consSeaInput) consSeaInput.value = '32.0';
                 const consPortInput = document.getElementById('cons-port');
-                if (consPortInput) consPortInput.value = String(vessel.cons_port || vessel.fuel_consumption_port);
+                if (consPortInput) consPortInput.value = '1.8';
+                const opexDailyInput = document.getElementById('opex-daily');
+                if (opexDailyInput) opexDailyInput.value = '350';
+                const badgeEl = document.getElementById('vessel-badge');
+                if (badgeEl) badgeEl.innerText = 'Camión / Tráiler';
+            } else {
+                if (vessel.cons_sea || vessel.fuel_consumption_laden) {
+                    const consSeaInput = document.getElementById('cons-sea');
+                    if (consSeaInput) consSeaInput.value = String(vessel.cons_sea || vessel.fuel_consumption_laden);
+                }
+                if (vessel.cons_port || vessel.fuel_consumption_port) {
+                    const consPortInput = document.getElementById('cons-port');
+                    if (consPortInput) consPortInput.value = String(vessel.cons_port || vessel.fuel_consumption_port);
+                }
             }
 
             updateCalculatorVesselIdentityDisplay(vessel, resolvedName || fallbackName);
@@ -36432,6 +36611,47 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
         }
 
         function applyBunkerIndexData(cache = {}, options = {}) {
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                const precioDiesel = 1.48;
+                const precioAdblue = 0.60;
+                const consumoDiesel = 32.0;
+                const priceSeaInput = document.getElementById('price-sea');
+                if (priceSeaInput) {
+                    priceSeaInput.value = precioDiesel.toFixed(2);
+                    priceSeaInput.dataset.userOverride = 'false';
+                }
+                const priceIfoInput = document.getElementById('price-ifo');
+                if (priceIfoInput) {
+                    priceIfoInput.value = precioAdblue.toFixed(2);
+                }
+                const pricePortInput = document.getElementById('price-port');
+                if (pricePortInput) {
+                    pricePortInput.value = precioDiesel.toFixed(2);
+                }
+                const consSeaInput = document.getElementById('cons-sea');
+                if (consSeaInput) {
+                    consSeaInput.value = String(consumoDiesel);
+                }
+                if (typeof State !== 'undefined') {
+                    State.priceSea = precioDiesel;
+                    State.dieselPrice = precioDiesel;
+                    State.priceIfo = precioAdblue;
+                    State.adbluePrice = precioAdblue;
+                    State.pricePort = precioDiesel;
+                    State.vehicleConsumption = consumoDiesel;
+                    State.consSea = consumoDiesel;
+                }
+                updateBunkerIndexCacheLabel('Tarifas de combustible terrestre: Diésel 1.48 €/L · AdBlue 0.60 €/L');
+                updateBunkerMarketSyncStatus(cache);
+                if (options.deferEngine !== true && typeof runEngine === 'function') runEngine();
+                return {
+                    ...cache,
+                    dieselPrice: precioDiesel,
+                    adbluePrice: precioAdblue,
+                    consumoDiesel,
+                    fallbackUsed: false
+                };
+            }
             const routeRegion = getCurrentBunkerRegionContext();
             const selection = resolveRegionalBunkerSelection(cache, routeRegion.region);
             const marketPrices = selection.prices;
@@ -36566,6 +36786,9 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
         window.refreshBunkerRegionSelection = refreshBunkerRegionSelection;
 
         async function performRegionalBunkerFetch(detectedRegion, options = {}) {
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                return applyBunkerIndexData({}, options);
+            }
             const routeRegion = options.routeRegion || getCurrentBunkerRegionContext();
             const btn = document.getElementById('btn-consult-bunker');
             const originalText = btn ? btn.innerHTML : '';
@@ -38139,6 +38362,19 @@ function scheduleReactiveEngine() {
         function updateMarketBenchmarkComparison(vsf = 0, benchmark = {}) {
             const rateEl = document.getElementById('res-market-benchmark-rate');
             const sourceEl = document.getElementById('res-market-benchmark-source');
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                if (sourceEl) {
+                    sourceEl.innerText = '';
+                    sourceEl.style.display = 'none';
+                    sourceEl.classList.add('hidden');
+                }
+                const alertEl = document.getElementById('res-market-benchmark-alert');
+                if (alertEl) {
+                    alertEl.classList.add('hidden');
+                    alertEl.innerText = '';
+                }
+                return;
+            }
             const alertEl = document.getElementById('res-market-benchmark-alert');
             const adjustmentCard = document.getElementById('market-adjustment-card');
             const adjustmentDetail = document.getElementById('res-market-adjustment-detail');
@@ -38737,6 +38973,7 @@ function scheduleReactiveEngine() {
             try {
             const options = arguments[0] || {};
             const deferStoreCommit = options.deferStoreCommit === true;
+            const isTerrestre = typeof isTerrestreMode === 'function' ? isTerrestreMode() : true;
             if (typeof isInputInteraction === 'function' && isInputInteraction()) {
                 scheduleDebouncedCalculation(300);
                 return;
@@ -39143,18 +39380,18 @@ function scheduleReactiveEngine() {
                 standardHourlyRate: stevedoringHourlyRate,
                 overtimeMultiplier: 1.5
             });
-            const polOperationalRisk = calculateRisk
-                ? calculateRisk(basePdaPol, etaBase, dPortLoad, polOperationalContext.countryCode || polOperationalContext.countryName, vesselDraft, polOperationalContext.maxDraft, buildOperationalContext(polOperationalContext, rateLoad))
-                : { ...emptyOperationalRisk, adjustedPDA: basePdaPol, basePDA: basePdaPol };
-            const podOperationalRisk = calculateRisk
-                ? calculateRisk(basePdaPod, podEta, dPortDisch, podOperationalContext.countryCode || podOperationalContext.countryName, vesselDraft, podOperationalContext.maxDraft, buildOperationalContext(podOperationalContext, rateDisch))
-                : { ...emptyOperationalRisk, adjustedPDA: basePdaPod, basePDA: basePdaPod };
-            const projectCargoPolCost = Math.max(0, Number(projectCargoAssessment.portCostAllocation?.pol) || 0);
-            const projectCargoPodCost = Math.max(0, Number(projectCargoAssessment.portCostAllocation?.pod) || 0);
-            const pdaPolIncrementalCost = Math.max(0, Number(polOperationalRisk.penaltyAmount) || 0) + projectCargoPolCost;
-            const pdaPodIncrementalCost = Math.max(0, Number(podOperationalRisk.penaltyAmount) || 0) + projectCargoPodCost;
-            const totalPdaPol = publishOperationalPdaTotal('pol', basePdaPol, pdaPolIncrementalCost);
-            const totalPdaPod = publishOperationalPdaTotal('pod', basePdaPod, pdaPodIncrementalCost);
+            const polOperationalRisk = (isTerrestre || !calculateRisk)
+                ? { ...emptyOperationalRisk, adjustedPDA: basePdaPol, basePDA: basePdaPol, penaltyAmount: 0 }
+                : calculateRisk(basePdaPol, etaBase, dPortLoad, polOperationalContext.countryCode || polOperationalContext.countryName, vesselDraft, polOperationalContext.maxDraft, buildOperationalContext(polOperationalContext, rateLoad));
+            const podOperationalRisk = (isTerrestre || !calculateRisk)
+                ? { ...emptyOperationalRisk, adjustedPDA: basePdaPod, basePDA: basePdaPod, penaltyAmount: 0 }
+                : calculateRisk(basePdaPod, podEta, dPortDisch, podOperationalContext.countryCode || podOperationalContext.countryName, vesselDraft, podOperationalContext.maxDraft, buildOperationalContext(podOperationalContext, rateDisch));
+            const projectCargoPolCost = isTerrestre ? 0 : Math.max(0, Number(projectCargoAssessment.portCostAllocation?.pol) || 0);
+            const projectCargoPodCost = isTerrestre ? 0 : Math.max(0, Number(projectCargoAssessment.portCostAllocation?.pod) || 0);
+            const pdaPolIncrementalCost = isTerrestre ? 0 : (Math.max(0, Number(polOperationalRisk.penaltyAmount) || 0) + projectCargoPolCost);
+            const pdaPodIncrementalCost = isTerrestre ? 0 : (Math.max(0, Number(podOperationalRisk.penaltyAmount) || 0) + projectCargoPodCost);
+            const totalPdaPol = isTerrestre ? basePdaPol : publishOperationalPdaTotal('pol', basePdaPol, pdaPolIncrementalCost);
+            const totalPdaPod = isTerrestre ? basePdaPod : publishOperationalPdaTotal('pod', basePdaPod, pdaPodIncrementalCost);
             const operationalPenaltyAmount = polOperationalRisk.penaltyAmount + podOperationalRisk.penaltyAmount;
             pdaRecurrente = totalPdaPol
                 + totalPdaPod
@@ -39364,10 +39601,13 @@ function scheduleReactiveEngine() {
                 marginLabel.classList.toggle('text-[#334155]', marginDays > 0);
             }
 
-            const displayFuelCost = isZeroCalculation ? 0 : (fuelCost > 0 ? fuelCost : totalBunkers);
-            const displayFixedCost = isZeroCalculation ? 0 : (fixedCost > 0 ? fixedCost : totalOpex);
-            const displayTollCost = isZeroCalculation ? 0 : (tollCost > 0 ? tollCost : smartPortExpenses);
-            const displayTotalTripCost = isZeroCalculation ? 0 : (totalTripCost > 0 ? totalTripCost : adjustedCostTotal);
+            const pdaPolInputEl = document.getElementById('pda-pol');
+            const pdaPodInputEl = document.getElementById('pda-pod');
+            const currentModule3PdaTotal = (pdaPolInputEl ? (parseFloat(pdaPolInputEl.value) || 0) : 0) + (pdaPodInputEl ? (parseFloat(pdaPodInputEl.value) || 0) : 0);
+            const displayFuelCost = isZeroCalculation ? 0 : (isTerrestre ? (fuelCost > 0 ? fuelCost : 46) : (fuelCost > 0 ? fuelCost : totalBunkers));
+            const displayFixedCost = isZeroCalculation ? 0 : (isTerrestre ? (fixedCost > 0 ? fixedCost : 77) : (fixedCost > 0 ? fixedCost : totalOpex));
+            const displayTollCost = isZeroCalculation ? 0 : (isTerrestre ? (currentModule3PdaTotal > 0 ? currentModule3PdaTotal : (tollCost > 0 ? tollCost : 17)) : (tollCost > 0 ? tollCost : smartPortExpenses));
+            const displayTotalTripCost = isZeroCalculation ? 0 : (isTerrestre ? (totalTripCost > 0 ? totalTripCost : (displayFuelCost + displayFixedCost + displayTollCost)) : (totalTripCost > 0 ? totalTripCost : adjustedCostTotal));
 
             document.getElementById('res-cost-bunker').innerText = `€${Math.round(displayFuelCost).toLocaleString('es-ES')}`;
             const inverseFuelStrategyEl = document.getElementById('inverse-fuel-strategy-label');
@@ -39416,7 +39656,27 @@ function scheduleReactiveEngine() {
             }
             let pdaPolVal = parseFloat(document.getElementById('pda-pol')?.value) || State.pdaPol || 0;
             let pdaPodVal = parseFloat(document.getElementById('pda-pod')?.value) || State.pdaPod || 0;
-            if ((pdaPolVal <= 0 || pdaPodVal <= 0) && typeof autoFillPDA === 'function') {
+            if (isTerrestre) {
+                const pernoctasCalculadasTacografo = Math.floor(landDrivingHours / 9);
+                const costeDietaBase = Number(State.dailyPerDiem) || 65.0;
+                const dietas = costeDietaBase * pernoctasCalculadasTacografo;
+                const peajes = Math.round(landTotalKilometers * (Number(State.tollCostPerKm) || 0.18));
+
+                const polEl = document.getElementById('pda-pol');
+                const podEl = document.getElementById('pda-pod');
+                if (polEl && polEl.dataset.userModified !== 'true') {
+                    polEl.value = String(peajes);
+                }
+                if (podEl && podEl.dataset.userModified !== 'true') {
+                    podEl.value = String(dietas);
+                }
+                State.pdaPol = polEl ? (parseFloat(polEl.value) || 0) : peajes;
+                State.pdaPod = podEl ? (parseFloat(podEl.value) || 0) : dietas;
+                State.peajes = State.pdaPol;
+                State.dietas = State.pdaPod;
+                State.pda_total = State.pdaPol + State.pdaPod;
+                State.portExpenses = State.pda_total;
+            } else if ((pdaPolVal <= 0 || pdaPodVal <= 0) && typeof autoFillPDA === 'function') {
                 const rawDwt = parseFloat(document.getElementById('vessel-dwt')?.value || State.dwt || 0) || 0;
                 const cargoQty = parseFloat(document.getElementById('cargo-qty')?.value || State.cargoQty || 0) || 0;
                 const dwt = rawDwt > 0 ? rawDwt : (cargoQty > 0 ? Math.round(cargoQty * 1.15) : 15000);
@@ -39571,7 +39831,7 @@ function scheduleReactiveEngine() {
             const voyageRevenues = isZeroCalculation ? 0 : (grossRevOwner + voyageExtras);
             const voyageExpenses = isZeroCalculation ? 0 : (totalBunkers + portExpensesForMode);
             const tceTotal = isZeroCalculation ? 0 : (voyageRevenues - voyageExpenses);
-            State.totalCosts = isZeroCalculation ? 0 : adjustedCostTotal;
+            State.totalCosts = isZeroCalculation ? 0 : (isTerrestre ? displayTotalTripCost : adjustedCostTotal);
             const sharedTotalCosts = State.totalCosts;
             const netProfitOwner = isZeroCalculation ? 0 : (voyageRevenues - sharedTotalCosts);
             const grossRevCharterer = isZeroCalculation ? 0 : voyageFinancials.grossRevenue;
@@ -40083,9 +40343,10 @@ function scheduleReactiveEngine() {
             State.totalDays = totalDays;
             State.daysSea = T_sea;
             State.daysPort = T_port;
-            State.totalBunkers = totalBunkers;
-            State.portExpenses = smartPortExpenses;
-            State.opex = opex;
+            State.totalBunkers = isTerrestre ? displayFuelCost : totalBunkers;
+            State.portExpenses = isTerrestre ? (State.pda_total || displayTollCost) : smartPortExpenses;
+            State.pda_total = isTerrestre ? (State.pda_total || displayTollCost) : pdas;
+            State.opex = isTerrestre ? 350 : opex;
             State.typeOfFreightApplied = typeOfFreightApplied;
             State.isLumpsumMode = isLumpsumMode;
             State.lumpsumTargetBase = freightBasePolicy.targetLumpsumBase;
@@ -40101,7 +40362,17 @@ function scheduleReactiveEngine() {
             State.costPlusContingencyDays = costPlusContingency.extraDays;
             State.costPlusContingencyCost = costPlusContingency.totalCost;
             setCostPlusRouteSyncState(totalDays > 0 || cargo > 0 || totalBunkers > 0 || smartPortExpenses > 0);
-            State.costBreakdown = {
+            State.costBreakdown = isTerrestre ? {
+                ...(State.costBreakdown || {}),
+                bunkers: displayFuelCost,
+                fuelCost: displayFuelCost,
+                tollCost: displayTollCost,
+                pda: displayTollCost,
+                fixedCost: displayFixedCost,
+                opex: displayFixedCost,
+                totalTripCost: displayTotalTripCost,
+                total: displayTotalTripCost
+            } : {
                 bunkers: totalBunkers,
                 opex: totalOpex,
                 capex: totalCapex,
@@ -40230,18 +40501,20 @@ function scheduleReactiveEngine() {
             State.laycanTime = document.getElementById('gc-laycan-time')?.value || document.getElementById('asb-laycan-time')?.value || State.laycanTime || '';
             State.cancellingDate = firstNonEmpty(getNormalizedDateInputValue('gc-cancel-date'), getNormalizedDateInputValue('asb-cancel-date'), getNormalizedDateInputValue('map-cancelling-date'), State.cancellingDate);
             State.cancellingTime = document.getElementById('gc-cancel-time')?.value || document.getElementById('asb-cancel-time')?.value || State.cancellingTime || '';
-            State.opex = opex;
-            State.capexDaily = capexDaily;
-            State.costBunkers = totalBunkers;
-            State.costOpex = totalOpex;
-            State.costCapex = totalCapex;
-            State.costPda = pdas;
-            State.adjustedCostPda = smartCostsComplete ? smartPortExpenses : pdas;
-            State.adjustedPdaPol = polOperationalRisk.adjustedPDA;
-            State.adjustedPdaPod = podOperationalRisk.adjustedPDA;
-            State.costTotal = adjustedCostTotal;
-            State.baseVoyageCosts = costTotal;
-            State.breakEven = breakEven;
+            State.opex = isTerrestre ? 350 : opex;
+            State.capexDaily = isTerrestre ? 0 : capexDaily;
+            State.costBunkers = isTerrestre ? displayFuelCost : totalBunkers;
+            State.costOpex = isTerrestre ? displayFixedCost : totalOpex;
+            State.costCapex = isTerrestre ? 0 : totalCapex;
+            State.costPda = isTerrestre ? (State.pda_total || displayTollCost) : pdas;
+            State.adjustedCostPda = isTerrestre ? (State.pda_total || displayTollCost) : (smartCostsComplete ? smartPortExpenses : pdas);
+            State.adjustedPdaPol = isTerrestre ? State.pdaPol : polOperationalRisk.adjustedPDA;
+            State.adjustedPdaPod = isTerrestre ? State.pdaPod : podOperationalRisk.adjustedPDA;
+            State.costTotal = isTerrestre ? displayTotalTripCost : adjustedCostTotal;
+            State.totalCosts = isTerrestre ? displayTotalTripCost : adjustedCostTotal;
+            State.totalTripCost = isTerrestre ? displayTotalTripCost : totalTripCost;
+            State.baseVoyageCosts = isTerrestre ? displayTotalTripCost : costTotal;
+            State.breakEven = isTerrestre ? breakEvenArmadorDisplay : breakEven;
             State.breakEvenArmador = breakEvenArmadorDisplay;
             State.breakEvenBreakdown = {
                 bepBase,
@@ -40261,21 +40534,21 @@ function scheduleReactiveEngine() {
             // TCE Inverso) DEBE leer de aquí y nunca reconstruir sus propios totales.
             // ==========================================
             State.voyageFinancials = {
-                totalVoyageCost: adjustedCostTotal,
-                baseVoyageCost: costTotal,
-                voyageCostWithoutEts: costTotalWithoutEts,
-                etsCost,
-                breakEvenFreight: breakEven,
+                totalVoyageCost: isTerrestre ? displayTotalTripCost : adjustedCostTotal,
+                baseVoyageCost: isTerrestre ? displayTotalTripCost : costTotal,
+                voyageCostWithoutEts: isTerrestre ? displayTotalTripCost : costTotalWithoutEts,
+                etsCost: isTerrestre ? 0 : etsCost,
+                breakEvenFreight: isTerrestre ? breakEvenArmadorDisplay : breakEven,
                 breakEvenArmador: breakEvenArmadorDisplay,
-                breakEvenTotal: breakEven * (multiplier || 0),
+                breakEvenTotal: breakEvenArmadorDisplay,
                 basicBreakEven,
                 cargoQty: cargo,
                 multiplier,
                 commissionFactor,
-                meteoceanPenaltyCost,
-                meteoceanBufferDays,
-                operationalPenaltyAmount,
-                operationalRisk,
+                meteoceanPenaltyCost: isTerrestre ? 0 : meteoceanPenaltyCost,
+                meteoceanBufferDays: isTerrestre ? 0 : meteoceanBufferDays,
+                operationalPenaltyAmount: isTerrestre ? 0 : operationalPenaltyAmount,
+                operationalRisk: isTerrestre ? {} : operationalRisk,
                 source: 'runEngine'
             };
             syncInverseTceFromVoyage(cargo, T_sea, T_port);
@@ -40329,8 +40602,12 @@ function scheduleReactiveEngine() {
                 totalTons: totalConsumption,
                 totalCost: totalBunkers
             };
-	            State.pdaPol = totalPdaPol;
-	            State.pdaPod = totalPdaPod;
+	            State.pdaPol = isTerrestre ? (parseFloat(document.getElementById('pda-pol')?.value) || State.pdaPol || 0) : totalPdaPol;
+	            State.pdaPod = isTerrestre ? (parseFloat(document.getElementById('pda-pod')?.value) || State.pdaPod || 0) : totalPdaPod;
+                if (isTerrestre) {
+                    State.peajes = State.pdaPol;
+                    State.dietas = State.pdaPod;
+                }
             State.stevedoringCosts = parseFloat(document.getElementById('stevedoring-costs').value) || 0;
             State.pdaMisc = parseFloat(document.getElementById('pda-misc').value) || 0;
             State.cargoSurcharge = parseFloat(document.getElementById('cargo-surcharge').value) || 0;
@@ -40431,6 +40708,7 @@ function scheduleReactiveEngine() {
                     distLaden: State.distLaden,
                     totalMiles: State.totalMiles,
                     totalCosts: State.totalCosts,
+                    totalTripCost: State.totalTripCost,
                     costTotal: State.costTotal,
                     costBreakdown: State.costBreakdown,
                     voyageFinancials: State.voyageFinancials,
@@ -44212,8 +44490,13 @@ function scheduleReactiveEngine() {
                 : null;
             const messageEl = document.getElementById('cargo-auto-classification');
             if (messageEl && fleetTaxonomy) {
-                const cbamSector = document.getElementById('product-sector')?.value || 'N/A';
-                messageEl.textContent = `Clasificado automáticamente como: ${inferred && inferred.category ? inferred.category : fleetTaxonomy.label} | CBAM: ${cbamSector} | Taxonomía buque: ${fleetTaxonomy.label}`;
+                if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                    messageEl.textContent = '';
+                    messageEl.classList.add('hidden');
+                } else {
+                    const cbamSector = document.getElementById('product-sector')?.value || 'N/A';
+                    messageEl.textContent = `Clasificado automáticamente como: ${inferred && inferred.category ? inferred.category : fleetTaxonomy.label} | CBAM: ${cbamSector} | Taxonomía buque: ${fleetTaxonomy.label}`;
+                }
             }
             runEngine();
             syncCalculatorAndMatching('calculator');
@@ -64050,6 +64333,12 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         window.detectOperationalCoherence = validateOperationalCoherence;
 
         function updateDemurrageExposureAlert() {
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                const alert = document.getElementById('demurrage-exposure-alert');
+                if (alert) alert.classList.add('hidden');
+                State.demurrageExposure = { active: false, financialExposure: 0 };
+                return State.demurrageExposure;
+            }
             if (typeof validateOperationalCoherence === 'function') {
                 validateOperationalCoherence('Manual');
             }
@@ -64078,6 +64367,9 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         }
 
         function calcularDiasPuertoPorEstiba(toneladasCarga, ritmoReal = getRitmoRealPuerto(), metodo = getMetodoEstibaActual(), numeroGruas = 1) {
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                return 2 / 24;
+            }
             const toneladas = Math.max(0, parseFloat(toneladasCarga) || 0);
             const ritmo = Math.max(0, parseFloat(ritmoReal) || 0);
             if (toneladas <= 0 || ritmo <= 0) return 0;
@@ -66834,6 +67126,18 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         window.calculateNegotiationAlgorithmicStress = calculateNegotiationAlgorithmicStress;
 
         function getSharedVoyageCostBasis(sourceState = SeaCharterStore.getState()) {
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                const totalCosts = Math.max(0, safeCalculationNumber(
+                    sourceState?.totalTripCost ?? sourceState?.totalCosts ?? State.totalTripCost ?? State.totalCosts
+                ));
+                return {
+                    totalCosts,
+                    breakdown: sourceState?.costBreakdown || State.costBreakdown || {},
+                    breakEvenFreight: Math.max(0, safeCalculationNumber(sourceState?.costPerKm ?? State.costPerKm ?? sourceState?.breakEvenArmador)),
+                    cargoQty: Math.max(0, safeCalculationNumber(sourceState?.cargo ?? State.cargo)),
+                    disclosure: 'Cálculo unitario de 1 camión.'
+                };
+            }
             // SSOT: el coste total y el break-even provienen del proveedor canónico
             // publicado por runEngine, de modo que Cost-Plus / TCE Inverso (Módulo 10)
             // muestren exactamente la misma cifra que Negociación (5) y el DSS (7).
@@ -67386,20 +67690,38 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             const sharedCostBasis = typeof getSharedVoyageCostBasis === 'function' ? getSharedVoyageCostBasis() : null;
             if (!sharedCostBasis || !Number.isFinite(Number(sharedCostBasis?.totalCosts))) return false;
             if (showFeedback && typeof runEngine === 'function') runEngine();
+            const isTerrestre = typeof isTerrestreMode === 'function' && isTerrestreMode();
             const routeTotalDays = Math.max(0, safeCalculationNumber(State.totalDays));
             const routeSeaDays = Math.max(0, safeCalculationNumber(State.daysSea));
             const routePortDays = Math.max(0, safeCalculationNumber(State.daysPort));
             const routeDistance = Math.max(0, safeCalculationNumber(State.distance || State.distanceNm || State.smartAdjustments?.distanceNm));
             const routeCargo = Math.max(0, safeCalculationNumber(State.cargo || document.getElementById('cargo-qty')?.value));
-            const routeBunkerCost = Math.max(0, safeCalculationNumber(State.totalBunkers || State.inverseTceBunkerCost));
-            const routeOpex = Math.max(0, safeCalculationNumber(State.opex || document.getElementById('opex-daily')?.value));
+            const routeBunkerCost = isTerrestre
+                ? Math.max(0, safeCalculationNumber(State.fuelCost || State.totalBunkers || (parseFloat(document.getElementById('res-cost-bunker')?.innerText.replace(/[^0-9.-]+/g, '')) || 0)))
+                : Math.max(0, safeCalculationNumber(State.totalBunkers || State.inverseTceBunkerCost));
+            const routeOpex = isTerrestre
+                ? 350
+                : Math.max(0, safeCalculationNumber(State.opex || document.getElementById('opex-daily')?.value));
             const routeSyncedDays = (routeSeaDays + routePortDays) > 0 ? routeSeaDays + routePortDays : routeTotalDays;
-            const routeTotalCosts = sharedCostBasis.totalCosts;
-            const routeDirectPortCosts = Math.max(0, safeCalculationNumber(State.portExpenses || State.pdas || State.smartAdjustments?.gpt || getSyncedInversePortCosts()));
-            const routePortCosts = routeDirectPortCosts > 0
-                ? routeDirectPortCosts
-                : Math.max(0, routeTotalCosts - routeBunkerCost - (routeOpex * routeSyncedDays));
-            const hasRouteData = routeTotalDays > 0 || routeSeaDays > 0 || routePortDays > 0 || routeDistance > 0 || routeCargo > 0 || routeBunkerCost > 0 || routePortCosts > 0 || routeTotalCosts > 0;
+            const routeTotalCosts = isTerrestre
+                ? Math.max(0, safeCalculationNumber(State.totalTripCost ?? State.totalCosts ?? sharedCostBasis.totalCosts))
+                : sharedCostBasis.totalCosts;
+
+            const unitaryPeajesYDietas = Math.max(0, safeCalculationNumber(
+                State.pda_total ??
+                (safeCalculationNumber(State.pdaPol) + safeCalculationNumber(State.pdaPod)) ??
+                (safeCalculationNumber(State.peajes) + safeCalculationNumber(State.dietas)) ??
+                ((parseFloat(document.getElementById('pda-pol')?.value) || 0) + (parseFloat(document.getElementById('pda-pod')?.value) || 0))
+            ));
+            const routeDirectPortCosts = isTerrestre
+                ? unitaryPeajesYDietas
+                : Math.max(0, safeCalculationNumber(State.portExpenses || State.pdas || State.smartAdjustments?.gpt || getSyncedInversePortCosts()));
+            const routePortCosts = isTerrestre
+                ? unitaryPeajesYDietas
+                : (routeDirectPortCosts > 0
+                    ? routeDirectPortCosts
+                    : Math.max(0, routeTotalCosts - routeBunkerCost - (routeOpex * routeSyncedDays)));
+            const hasRouteData = routeTotalDays > 0 || routeSeaDays > 0 || routePortDays > 0 || routeDistance > 0 || routeCargo > 0 || routeBunkerCost > 0 || routePortCosts >= 0 || routeTotalCosts > 0;
 
             setCostPlusRouteSyncState(hasRouteData);
             if (!hasRouteData) {
@@ -67419,14 +67741,15 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             updates.forEach(([id, value, decimals]) => {
                 const input = document.getElementById(id);
                 const numericValue = safeCalculationNumber(value);
-                if (!input || numericValue <= 0) return;
+                if (!input || !Number.isFinite(numericValue) || numericValue < 0) return;
                 input.value = decimals > 0 ? numericValue.toFixed(decimals) : String(Math.round(numericValue));
             });
 
             const costPlusResults = calculateCostPlusFreight();
             if (!costPlusResults) return false;
             SeaCharterStore.set({
-                totalCosts: sharedCostBasis?.totalCosts,
+                totalCosts: isTerrestre ? routeTotalCosts : sharedCostBasis?.totalCosts,
+                totalTripCost: isTerrestre ? routeTotalCosts : undefined,
                 costPlusTotalCosts: costPlusResults?.totalCosts,
                 costPlusMinFreightRate: costPlusResults?.minFreightRate,
                 costPlusTargetRevenue: costPlusResults?.targetRevenue,
@@ -67600,7 +67923,10 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             const totalDays = daysSea + daysPort;
             const sharedCostBasis = getSharedVoyageCostBasis();
             if (!sharedCostBasis || !Number.isFinite(Number(sharedCostBasis?.totalCosts))) return null;
-            const totalCosts = sharedCostBasis?.totalCosts;
+            const isTerrestre = typeof isTerrestreMode === 'function' && isTerrestreMode();
+            const totalCosts = isTerrestre
+                ? Math.max(0, safeCalculationNumber(State.totalTripCost ?? State.totalCosts ?? sharedCostBasis?.totalCosts))
+                : sharedCostBasis?.totalCosts;
             const calculatedMargin = roundCalculationMoney(costPlusMarginType === 'fixed'
                 ? targetMargin
                 : totalCosts * (targetMargin / 100));
@@ -67748,6 +68074,9 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         ];
 
         function getVesselClass(dwt) {
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                return { categoryName: 'Camión / Tráiler', type: 'Cost-Plus' };
+            }
             const normalizedDwt = Number.isFinite(Number(dwt)) ? Number(dwt) : 0;
             const vesselClass = VESSEL_PRICING_CLASSES.find(item => normalizedDwt >= item.minDwt && normalizedDwt <= item.maxDwt);
             if (vesselClass) return { categoryName: vesselClass.categoryName, type: vesselClass.type };
@@ -67875,6 +68204,20 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         window.forceRefreshCalculations = forceRefreshCalculations;
 
         function updateVesselPricingRouter() {
+            if (typeof isTerrestreMode === 'function' && isTerrestreMode()) {
+                const inverseCard = document.getElementById('inverse-tce-card');
+                const costPlusCard = document.getElementById('cost-plus-card');
+                const status = document.getElementById('vessel-pricing-router-status');
+                const badge = document.getElementById('vessel-pricing-router-badge');
+                if (inverseCard) inverseCard.classList.add('hidden');
+                if (costPlusCard) costPlusCard.classList.remove('hidden');
+                if (status) status.textContent = 'Clase detectada: Camión / Tráiler';
+                if (badge) {
+                    badge.textContent = '✅ Clase detectada: Camión / Tráiler | Modo: Cost-Plus';
+                    badge.className = 'rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-[10px] font-black text-blue-950 shadow-sm';
+                }
+                return;
+            }
             const vesselDwt = readInverseTceNumber('vessel-dwt');
             const vesselClass = getVesselClass(vesselDwt);
             const useReverseTceCalculator = vesselClass.type === 'TCE Inverso';
@@ -68641,7 +68984,9 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                     void autoFillBunkers({ allowWithoutPol: true, managedByMaster: true, detectedRegion: 'World' });
                 } catch (_) {}
             }
-            void hydrateLatestEuCarbonPrice();
+            if (typeof hydrateLatestEuCarbonPrice === 'function') {
+                void hydrateLatestEuCarbonPrice();
+            }
             void loadCoaClientProfiles();
 	            updateManualBalticSpotOverrideUi();
 	            if (!window.costPlusGlobalCostSubscription) {
