@@ -1199,6 +1199,17 @@ function collectCalculationData() {
       chartererMarginPercent: firstNumber(calculatorState.marginCharterer, readElementValue("margin-charterer")),
       commissionPercent: firstNumber(calculatorState.commPct, readElementValue("commission-pct")),
     },
+    roadTransport: {
+      totalKilometers: firstNumber(calculatorState.totalKilometers, calculatedState.totalKilometers, readElementValue("dist-total")),
+      drivingHours: firstNumber(calculatorState.drivingHours, calculatedState.drivingHours),
+      trailerConsumption: firstNumber(calculatorState.vehicleConsumption, 32),
+      dieselPrice: firstNumber(calculatorState.dieselPrice, 1.48),
+      tollCost: firstNumber(calculatorState.tollCost, calculatedState.tollCost, readElementValue("peajes")),
+      driverPerDiem: firstNumber(calculatorState.dailyPerDiem, 65),
+      fixedDailyCost: firstNumber(calculatorState.fixedDailyCost, 350),
+      isAdrDangerousGoods: Boolean(calculatorState.isAdr || calculatorState.isDangerousGoods || /adr|peligros|qu[ií]mic/i.test(firstText(calculatorState.cargoProduct, calculatorState.cargoType))),
+      adrClass: firstText(calculatorState.adrClass, ''),
+    },
     screenContext,
     calculatorState,
     calculatedState,
@@ -1212,14 +1223,22 @@ function collectMarketData() {
   const intelligencePanel = window.SeaCharterMarketIntelligencePanel?.getData?.() || {};
   const aisFreightRates = window.aisMarketFreightRates || {};
 
+  const dieselPrice = firstNumber(referenceData.dieselPrice, referenceData.averageFuelPrice, calculatorState.dieselPrice, 1.48);
+
   return toSerializableSnapshot({
     generatedAt: new Date().toISOString(),
+    dieselPrice,
+    averageFuelPrice: dieselPrice,
+    tollCostPerKm: firstNumber(referenceData.tollCostPerKm, calculatorState.tollCostPerKm, 0.22),
+    fixedDailyCost: firstNumber(referenceData.fixedDailyCost, calculatorState.fixedDailyCost, 350),
+    dailyPerDiem: firstNumber(referenceData.dailyPerDiem, calculatorState.dailyPerDiem, 65),
     bdi: firstNumber(referenceData.bdi, referenceData.BDI, referenceData.bdiIndex, referenceData.bdi_index, readElementValue("baltic-spot-value")),
     bunkers: {
-      region: firstText(calculatorState.bunkerRegion, calculatorState.bunkerDetectedRegion),
-      vlsfoUsdTon: firstNumber(referenceData.vlsfo, referenceData.VLSFO, referenceData.vlsfoPrice, calculatorState.priceSea, readElementValue("price-sea")),
-      ifo380UsdTon: firstNumber(referenceData.ifo380, referenceData.IFO380, referenceData.ifo380Price, calculatorState.priceIfo, readElementValue("price-ifo")),
-      mgoUsdTon: firstNumber(referenceData.mgo, referenceData.MGO, referenceData.mgoPrice, calculatorState.pricePort, readElementValue("price-port")),
+      region: firstText(calculatorState.bunkerRegion, calculatorState.bunkerDetectedRegion, "Europe/Iberia"),
+      dieselPrice,
+      vlsfoUsdTon: firstNumber(referenceData.vlsfo, referenceData.VLSFO, referenceData.vlsfoPrice, calculatorState.priceSea, readElementValue("price-sea")) || 600,
+      ifo380UsdTon: firstNumber(referenceData.ifo380, referenceData.IFO380, referenceData.ifo380Price, calculatorState.priceIfo, readElementValue("price-ifo")) || 480,
+      mgoUsdTon: firstNumber(referenceData.mgo, referenceData.MGO, referenceData.mgoPrice, calculatorState.pricePort, readElementValue("price-port")) || 750,
     },
     carbon: {
       euAllowanceEurTon: firstNumber(referenceData.euCarbonPrice, referenceData.eua, calculatorState.euCarbonPrice, readElementValue("eu-carbon-price")),

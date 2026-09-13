@@ -267,6 +267,82 @@
         };
     }
 
+    function isNonSchengenOrComplexBorder(countryText) {
+        if (!countryText) return false;
+        const normalized = toText(countryText)
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toUpperCase();
+        const COMPLEX_KEYWORDS = [
+            'MARRUECOS', 'MOROCCO', 'MAROC', 'ARGELIA', 'ALGERIA', 'TUNEZ', 'TUNISIA',
+            'EGIPTO', 'EGYPT', 'MAURITANIA', 'AFRICA',
+            'REINO UNIDO', 'UNITED KINGDOM', 'GREAT BRITAIN', 'ENGLAND', 'INGLATERRA', 'SCOTLAND', 'WALES',
+            'SUIZA', 'SWITZERLAND', 'SUISSE', 'SCHWEIZ',
+            'TURQUIA', 'TURKEY', 'TURKIYE', 'SERBIA', 'BOSNIA', 'ALBANIA',
+            'MONTENEGRO', 'MACEDONIA', 'KOSOVO', 'UCRANIA', 'UKRAINE', 'ANDORRA', 'GIBRALTAR',
+            'RUSIA', 'RUSSIA', 'BIELORRUSIA', 'BELARUS'
+        ];
+        return COMPLEX_KEYWORDS.some((kw) => normalized.includes(kw));
+    }
+
+    function evaluateRoadOperationalRisks(context = {}) {
+        const pol = toText(context.pol || context.origin);
+        const pod = toText(context.pod || context.destination);
+        const polCountry = toText(context.polCountry || context.originCountry);
+        const podCountry = toText(context.podCountry || context.destinationCountry);
+
+        // 1. Riesgo Fronterizo: Si Origen y Destino cruzan fronteras complejas (ej. África-Europa, fuera de Schengen)
+        const isPolBorderComplex = isNonSchengenOrComplexBorder(polCountry) || isNonSchengenOrComplexBorder(pol);
+        const isPodBorderComplex = isNonSchengenOrComplexBorder(podCountry) || isNonSchengenOrComplexBorder(pod);
+        const hasBorderRisk = isPolBorderComplex || isPodBorderComplex;
+
+        // 2. Riesgo Tacógrafo: Si la ruta supera las horas legales de conducción de un solo chófer sin descansos mayores (> 9h según Reglamento CE 561/2006)
+        const totalDistanceKm = toNumber(context.totalKm || context.distanceKm || context.distTotal);
+        const rawHours = toNumber(context.drivingHours)
+            || toNumber(context.seaDays ? context.seaDays * 24 : 0)
+            || (totalDistanceKm > 0 ? totalDistanceKm / 75 : 0);
+        const drivingHours = Math.max(0, rawHours);
+        const hasTachographRisk = drivingHours > 9.0;
+        const tachographDays = Math.max(1, Math.ceil(drivingHours / 9));
+
+        // 3. Riesgo ADR: Si el payload o mercancía incluye mercancía peligrosa
+        const cargoText = `${toText(context.cargoType)} ${toText(context.cargoProduct)} ${toText(context.cargoDescription)} ${toText(context.packaging)}`;
+        const hasAdrFlag = Boolean(context.isAdr || context.isDangerousGoods || context.adrClass || context.isHazardous);
+        const hasAdrText = /adr|peligros|qu[ií]mic|inflamab|corrosiv|t[oó]xic|explosiv|radioactiv|hazmat|bater[ií]as de litio|imo/i.test(cargoText);
+        const hasAdrRisk = hasAdrFlag || hasAdrText;
+
+        let riskLevel = 'BAJO';
+        if ((hasBorderRisk && hasTachographRisk) || (hasAdrRisk && (hasBorderRisk || hasTachographRisk))) {
+            riskLevel = 'ALTO';
+        } else if (hasBorderRisk || hasTachographRisk || hasAdrRisk) {
+            riskLevel = 'MODERADO';
+        }
+
+        const insights = [];
+        if (hasBorderRisk) {
+            insights.push('Posibles demoras aduaneras: La ruta cruza fronteras internacionales fuera del espacio aduanero común/Schengen (inspección documental y control T1/T2).');
+        }
+        if (hasTachographRisk) {
+            insights.push('Ruta requiere 2 conductores o pernocta obligatoria: El tiempo de conducción supera las 9 horas legales permitidas para un solo chófer (Reglamento CE 561/2006).');
+        }
+        if (hasAdrRisk) {
+            insights.push('Posibles restricciones en túneles o peajes: Transporte clasificado como mercancía peligrosa (ADR) sujeto a restricciones en túneles (B/C/D/E) y sobrecostes de seguridad.');
+        }
+        if (!insights.length) {
+            insights.push('Ruta terrestre optimizada: cumplimiento de tacógrafo para 1 chófer, sin demoras aduaneras y sin restricciones ADR.');
+        }
+
+        return {
+            hasBorderRisk,
+            hasTachographRisk,
+            hasAdrRisk,
+            riskLevel,
+            insights,
+            drivingHours,
+            tachographDays
+        };
+    }
+
     function updateExecutiveDashboard(calcResults = {}, riskData = {}, documentRef = root.document) {
         if (!documentRef || typeof documentRef.getElementById !== 'function') return false;
 
@@ -305,31 +381,20 @@
             const cargoType = toText(calcResults.cargoType) || 'carga declarada';
             const cargoKey = normalizeInsightText(cargoType);
             const methodsKey = normalizeInsightText(`${calcResults.loadMethod || ''} ${calcResults.dischargeMethod || ''}`);
-            const usesShipGear = /(grua barco|grua del buque|ship crane|geared|_barco)/.test(methodsKey);
             const equipmentPrefix = `Por la naturaleza de la carga (${cargoType}),`;
-
             if (/big bags?|sacos|ensacad/.test(`${cargoKey} ${methodsKey}`)) {
                 return `${equipmentPrefix} se requiere operatividad total de las grúas del buque (Geared), aparejos certificados y supervisión especial de estiba.`;
             }
-            if (/cement|clin?ker|yeso|cal|powder|polvo/.test(cargoKey)) {
-                return `${equipmentPrefix} se requieren bodegas limpias y secas, control de polvo y medios neumáticos o cinta transportadora compatibles en terminal.`;
-            }
-            if (/hierro|acero|steel|metal/.test(cargoKey)) {
-                return `${equipmentPrefix} se requieren grúas y aparejos certificados, material de trincaje y control reforzado de estiba y distribución de pesos.`;
-            }
             if (/maquinaria|vehiculo|equipo pesado|heavy|project cargo/.test(cargoKey)) {
-                return `${equipmentPrefix} se requiere capacidad Geared o Heavy Lift validada, plan de izado y medios de trincaje certificados.`;
+                return `${equipmentPrefix} se requiere góndola especial o plataforma rebajada y medios de trincaje certificados.`;
             }
             if (/fertiliz|quimic|plastic/.test(cargoKey)) {
-                return `${equipmentPrefix} se requieren bodegas limpias y secas, protección frente a humedad y segregación conforme a la ficha de seguridad.`;
+                return `${equipmentPrefix} se requiere semirremolque estanco, protección frente a humedad y ficha de seguridad ADR.`;
             }
             if (/cereal|grano|soja|carbon|mineral|granel|bulk/.test(cargoKey)) {
-                return `${equipmentPrefix} se requieren bodegas limpias, ventilación adecuada y disponibilidad de cucharas (grabs) o cinta transportadora en puerto.`;
+                return `${equipmentPrefix} se requiere bañera basculante o tráiler tolva con lona de protección.`;
             }
-            if (usesShipGear) {
-                return `${equipmentPrefix} la secuencia prevista depende de la plena disponibilidad de las grúas del buque (Geared) y de aparejos certificados.`;
-            }
-            return `${equipmentPrefix} deben confirmarse con POL y POD los medios de manipulación, la compatibilidad de bodegas y el plan de estiba antes del cierre.`;
+            return `${equipmentPrefix} confirmada la compatibilidad con tráiler estándar Tauliner y medios de carga habituales.`;
         };
         const hasVoyageDefinition = calcResults.forceEmpty !== true && Boolean(
             toText(calcResults.pol) &&
@@ -370,17 +435,73 @@
         setText('exec-cargo-type', calcResults.cargoType || 'Carga no definida');
         setText('exec-load-rate', formatDailyRate(calcResults.loadRate));
         setText('exec-disch-rate', formatDailyRate(calcResults.dischargeRate));
-        setText('exec-vessel-type', calcResults.vesselType || 'Vehículo estándar');
-        setText('exec-sea-days', formatDays(calcResults.seaDays));
-        setText('exec-port-days', formatDays(calcResults.portDays));
-        setText('exec-total-days', formatDays(calcResults.totalDays));
-        setText('exec-buy-freight', formatRate(calcResults.buyFreight));
-        setText('exec-tce', `${formatMoney(calcResults.tce)} / día`);
-        setText('exec-sell-freight', formatRate(calcResults.sellFreight));
-        setText('exec-charterer-profit', formatMoney(calcResults.chartererProfit));
-        setText('exec-spread-mt', `${formatMoney(toNumber(calcResults.sellFreight) - toNumber(calcResults.buyFreight), 2)} / km`);
+        const rawVesselType = toText(calcResults.vesselType);
+        const isMaritimeCatalogType = /(bulker|buque|coaster|ship|panamax|capesize|handysize|handymax|supramax|ultramax|tanker)/i.test(rawVesselType);
+        const resolvedVesselType = (calcResults.modeNarrative === 'terrestre' || calcResults.mode === 'terrestre' || isMaritimeCatalogType || !rawVesselType)
+            && (isMaritimeCatalogType || !rawVesselType)
+            ? 'Camión / Tráiler'
+            : (rawVesselType || 'Camión / Tráiler');
 
-        const riskLevel = ['BAJO', 'MODERADO', 'ALTO'].includes(riskData.riskLevel) ? riskData.riskLevel : 'BAJO';
+        // Override de Tiempos usando exclusivamente duración OSRM y descansos de tacógrafo (sin fórmulas náuticas)
+        const kmTotal = toNumber(calcResults.totalKm || calcResults.distanceKm);
+        const tiempoConduccion = toNumber(calcResults.drivingHours)
+            || (kmTotal > 0 ? (kmTotal / 75) : (toNumber(calcResults.seaDays) * 24));
+        const pausasTacografo = Math.floor(tiempoConduccion / 4.5) * 0.75;
+        const pernoctas = Math.floor(tiempoConduccion / 9);
+        const descansosDiarios = pernoctas * 11;
+        const tiempoTotalHoras = tiempoConduccion + pausasTacografo + descansosDiarios;
+
+        const effectiveTotalDays = (calcResults.drivingHours !== undefined || calcResults.modeNarrative === 'terrestre' || calcResults.mode === 'terrestre') && tiempoTotalHoras > 0
+            ? (tiempoTotalHoras / 24)
+            : toNumber(calcResults.totalDays);
+        const effectiveSeaDays = (calcResults.drivingHours !== undefined || calcResults.modeNarrative === 'terrestre' || calcResults.mode === 'terrestre') && tiempoConduccion > 0
+            ? (tiempoConduccion / 24)
+            : toNumber(calcResults.seaDays);
+        const effectivePortDays = (calcResults.drivingHours !== undefined || calcResults.modeNarrative === 'terrestre' || calcResults.mode === 'terrestre') && (pausasTacografo + descansosDiarios) > 0
+            ? ((pausasTacografo + descansosDiarios) / 24)
+            : toNumber(calcResults.portDays);
+
+        // Calibración de Coste base: (distancia * 1.30 €/km) + peajes + (dietas * pernoctas)
+        let effectiveBuyFreight = toNumber(calcResults.buyFreight);
+        let effectiveSellFreight = toNumber(calcResults.sellFreight);
+        if (kmTotal > 0 && (effectiveBuyFreight <= 0 || effectiveBuyFreight > 10)) {
+            const peajes = kmTotal * 0.22;
+            const dietas = pernoctas * 65.0;
+            const costePorteTotal = (kmTotal * 1.30) + peajes + dietas;
+            effectiveBuyFreight = costePorteTotal / kmTotal;
+            effectiveSellFreight = effectiveBuyFreight * 1.15;
+        }
+
+        setText('exec-vessel-type', resolvedVesselType);
+        setText('exec-sea-days', formatDays(effectiveSeaDays));
+        setText('exec-port-days', formatDays(effectivePortDays));
+        setText('exec-total-days', formatDays(effectiveTotalDays));
+        setText('exec-buy-freight', formatRate(effectiveBuyFreight));
+        setText('exec-tce', `${formatMoney(calcResults.tce)} / día`);
+        setText('exec-sell-freight', formatRate(effectiveSellFreight));
+        setText('exec-charterer-profit', formatMoney(calcResults.chartererProfit));
+        setText('exec-spread-mt', `${formatMoney(toNumber(effectiveSellFreight) - toNumber(effectiveBuyFreight), 2)} / km`);
+
+        const roadRisk = evaluateRoadOperationalRisks({
+            pol: calcResults.pol,
+            pod: calcResults.pod,
+            polCountry: riskData.polCountry || riskData.portCountry,
+            podCountry: riskData.podCountry,
+            drivingHours: calcResults.drivingHours || (calcResults.seaDays ? calcResults.seaDays * 24 : 0),
+            totalKm: calcResults.totalKm || calcResults.distanceKm,
+            cargoType: calcResults.cargoType,
+            cargoProduct: calcResults.cargoProduct,
+            cargoDescription: calcResults.cargoDescription,
+            packaging: calcResults.packaging,
+            isAdr: calcResults.isAdr || riskData.isAdr,
+            isDangerousGoods: calcResults.isDangerousGoods || riskData.isDangerousGoods,
+            adrClass: calcResults.adrClass || riskData.adrClass,
+        });
+
+        const effectiveRiskLevel = ['BAJO', 'MODERADO', 'ALTO'].includes(riskData.riskLevel)
+            ? riskData.riskLevel
+            : roadRisk.riskLevel;
+
         const riskElement = documentRef.getElementById('exec-risk-level');
         const riskStyles = {
             BAJO: { color: '#047857', backgroundColor: '#d1fae5' },
@@ -388,9 +509,9 @@
             ALTO: { color: '#b91c1c', backgroundColor: '#fee2e2' }
         };
         if (riskElement) {
-            riskElement.textContent = riskLevel;
-            riskElement.style.color = riskStyles[riskLevel].color;
-            riskElement.style.backgroundColor = riskStyles[riskLevel].backgroundColor;
+            riskElement.textContent = effectiveRiskLevel;
+            riskElement.style.color = riskStyles[effectiveRiskLevel]?.color || riskStyles.BAJO.color;
+            riskElement.style.backgroundColor = riskStyles[effectiveRiskLevel]?.backgroundColor || riskStyles.BAJO.backgroundColor;
             riskElement.style.padding = '0.2rem 0.55rem';
             riskElement.style.borderRadius = '9999px';
         }
@@ -403,6 +524,7 @@
         const dischargeRate = Math.max(0, toNumber(calcResults.dischargeRate));
         const hasOperationalRates = loadRate > 0 && dischargeRate > 0;
         const insightParts = [];
+
         if (hasOperationalRates) {
             const loadingHours = (cargoQuantity / loadRate) * 24;
             const dischargeHours = (cargoQuantity / dischargeRate) * 24;
@@ -411,6 +533,7 @@
         } else {
             insightParts.push('Define ritmos efectivos de carga y descarga en Modo Técnico para completar la previsión horaria y los medios requeridos.');
         }
+
         const overtimeHours = Math.max(0, toNumber(riskData.overtimeHours));
         const standardHours = Math.max(0, toNumber(riskData.standardHours));
         const overtimeSurcharge = Math.max(0, toNumber(
@@ -420,30 +543,22 @@
         ));
         if (overtimeHours > 0) {
             insightParts.push(`La simulación horaria asigna ${standardHours.toFixed(1)} h a turnos ordinarios y ${overtimeHours.toFixed(1)} h a Overtime${countries.length ? ` en ${countries.join(' y ')}` : ''}.`);
-        } else {
-            insightParts.push('La ventana operativa no genera horas de Overtime facturables con las tarifas informadas.');
         }
-        if (riskData.isDraftExceeded) {
-            insightParts.push('El calado del buque no es compatible con ningún muelle informado; requiere revisión inmediata.');
-        } else if (riskData.hasMinorityBerthAvailability) {
+
+        // Nuevos Insights de Riesgo Terrestre (Fronterizo, Tacógrafo, ADR)
+        if (roadRisk.insights && roadRisk.insights.length > 0) {
+            insightParts.push(...roadRisk.insights);
+        }
+
+        if (riskData.hasMinorityBerthAvailability) {
             const compatibleBerths = Math.max(0, toNumber(riskData.compatibleBerths));
             const totalBerths = Math.max(0, toNumber(riskData.totalBerths));
             insightParts.push(`Solo ${compatibleBerths} de ${totalBerths} muelles admiten el calado del buque; el riesgo de espera en fondeo escala a ALTO.`);
-        } else if (riskData.hasDraftData === false) {
-            insightParts.push('No hay matriz de calados por muelle disponible y se requiere validación manual.');
-        } else {
-            const compatibleBerths = Math.max(0, toNumber(riskData.compatibleBerths));
-            const totalBerths = Math.max(0, toNumber(riskData.totalBerths));
-            insightParts.push(totalBerths > 0
-                ? `El calado es compatible con ${compatibleBerths} de ${totalBerths} muelles informados.`
-                : 'Calado del buque dentro del límite general informado por el puerto.');
         }
-        if (riskData.hasAdjustedRates) {
-            insightParts.push('Los ritmos operativos contienen ajustes y elevan el seguimiento a riesgo moderado.');
+        if (overtimeSurcharge > 0) {
+            insightParts.push(`Se ha integrado un coste incremental de ${moneyFormatter.format(overtimeSurcharge)} en la PDA por recargos operativos (FHEX/SHEX).`);
         }
-        insightParts.push(overtimeSurcharge > 0
-            ? `Se ha integrado un coste incremental de ${moneyFormatter.format(overtimeSurcharge)} en la PDA por recargos operativos (FHEX/SHEX).`
-            : `No se ha aplicado coste incremental en la PDA por recargos operativos (FHEX/SHEX): ${moneyFormatter.format(0)}.`);
+
         const projectCargoAssessment = calcResults.projectCargoAssessment;
         if (projectCargoAssessment?.isProjectCargo) {
             insightParts.push(projectCargoAssessment.insightMessage);
@@ -1918,6 +2033,8 @@
         ISLAMIC_WEEKEND_COUNTRIES,
         calculateOperationalRisk,
         updateExecutiveDashboard,
+        evaluateRoadOperationalRisks,
+        isNonSchengenOrComplexBorder,
         BIG_BAGS_PORT_CRANE,
         isBigBagsPortCraneMethod,
         getBigBagsPortCraneLiftCapacityMt,
@@ -1951,6 +2068,7 @@
     root.ISLAMIC_WEEKEND_COUNTRIES = ISLAMIC_WEEKEND_COUNTRIES;
     root.calculateOperationalRisk = calculateOperationalRisk;
     root.updateExecutiveDashboard = updateExecutiveDashboard;
+    root.evaluateRoadOperationalRisks = evaluateRoadOperationalRisks;
 
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = api;
