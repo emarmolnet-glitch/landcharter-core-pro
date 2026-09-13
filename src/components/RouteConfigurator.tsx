@@ -541,6 +541,18 @@ export default function RouteConfigurator({ onConfirm }: RouteConfiguratorProps)
   const canValidate = Boolean(selection.portName && selection.vesselDraft > 0 && !isLoading);
   const canConfirm = Boolean((isCleared || isRiskAccepted) && !isLoading && !isSaving);
 
+  const isTerrestre = typeof window !== "undefined" && (
+    (window as any).State?.mode === "terrestre" ||
+    (window as any).State?.modeNarrative === "terrestre" ||
+    (window as any).mode === "terrestre" ||
+    document.body?.dataset?.mode === "terrestre" ||
+    true
+  );
+
+  if (isTerrestre) {
+    return null;
+  }
+
   return (
     <section className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
       <div className="flex flex-col gap-4 border-b border-slate-200 bg-slate-50/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
