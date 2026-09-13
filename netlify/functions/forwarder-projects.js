@@ -239,13 +239,28 @@ exports.handler = async (event) => {
 
     // 3. LISTAR TODOS LOS EXPEDIENTES (GET)
     if (httpMethod === 'GET') {
-      const query = `
-        SELECT id, project_ref, client_name, status, global_margin_percentage, documents, items,
-               TO_CHAR(created_at, 'DD/MM/YYYY') as date 
-        FROM forwarder_projects 
-        ORDER BY created_at DESC;
-      `;
-      const result = await dbPool.query(query);
+      const qParams = event.queryStringParameters || {};
+      const refFilter = (qParams.ref || qParams.project_ref || qParams.contractRef || '').trim();
+      let query;
+      let values = [];
+      if (refFilter) {
+        query = `
+          SELECT id, project_ref, client_name, status, global_margin_percentage, documents, items, data,
+                 TO_CHAR(created_at, 'DD/MM/YYYY') as date 
+          FROM forwarder_projects 
+          WHERE UPPER(project_ref) = UPPER($1)
+          ORDER BY created_at DESC;
+        `;
+        values = [refFilter];
+      } else {
+        query = `
+          SELECT id, project_ref, client_name, status, global_margin_percentage, documents, items, data,
+                 TO_CHAR(created_at, 'DD/MM/YYYY') as date 
+          FROM forwarder_projects 
+          ORDER BY created_at DESC;
+        `;
+      }
+      const result = await dbPool.query(query, values);
 
       return {
         statusCode: 200,

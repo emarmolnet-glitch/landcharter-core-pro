@@ -8,6 +8,7 @@
     const URL_KEYS = ['ref', 'contract_ref', 'reference', 'target_session_id', 'targetSessionId', 'sessionId', 'session_id'];
 
     let activeCachedReference = '';
+    let isInjectionLocked = false;
     let lastPersistedReference = '';
     let isSaving = false;
     let persistDebounceTimer = null;
@@ -250,7 +251,25 @@
         }
     }
 
+    let isRefAnchored = false;
+    let initialUrlRef = '';
+    try {
+        if (typeof globalObject.location !== 'undefined' && globalObject.location?.search) {
+            const initialParams = new URLSearchParams(globalObject.location.search);
+            const r = initialParams.get('ref') || initialParams.get('contract_ref');
+            if (r && String(r).trim()) {
+                initialUrlRef = normalizeReference(r) || String(r).trim();
+                activeCachedReference = initialUrlRef;
+                isRefAnchored = true;
+                isInjectionLocked = true;
+            }
+        }
+    } catch (_) {}
+
     function generateVoyageRef() {
+        if (isRefAnchored && activeCachedReference) {
+            return activeCachedReference;
+        }
         const randomValues = new Uint32Array(1);
         if (globalObject.crypto?.getRandomValues) {
             globalObject.crypto.getRandomValues(randomValues);
@@ -297,10 +316,17 @@
         const fromUrl = readUrlReference();
         if (fromUrl) {
             activeCachedReference = fromUrl;
+            if (initialUrlRef) {
+                isRefAnchored = true;
+                isInjectionLocked = true;
+            }
             writeSessionReference(fromUrl);
             writeUrlReference(fromUrl);
             writeSharedActiveSession(fromUrl);
             return fromUrl;
+        }
+        if (isRefAnchored && activeCachedReference) {
+            return activeCachedReference;
         }
         const fromSession = readSessionReference();
         if (fromSession) {
@@ -347,8 +373,6 @@
         }
         return ref;
     }
-
-    let isInjectionLocked = false;
 
     function setInjectionLock(locked) {
         isInjectionLocked = Boolean(locked);
