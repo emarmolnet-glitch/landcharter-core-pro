@@ -362,6 +362,16 @@
                 maximumFractionDigits: decimals
             })}`;
         };
+        const formatCurrency = (value, decimals = 0) => {
+            const amount = Number(value);
+            if (!Number.isFinite(amount)) return '0 €';
+            return amount.toLocaleString('es-ES', {
+                style: 'currency',
+                currency: 'EUR',
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            });
+        };
         const formatRate = (value) => `${Math.max(0, toNumber(value)).toFixed(2)} €/km`;
         const formatDays = (value) => `${Math.max(0, toNumber(value)).toFixed(1)} días`;
         const formatTons = (value) => `${Math.max(0, toNumber(value)).toLocaleString('es-ES', { maximumFractionDigits: 0 })} t`;
@@ -416,10 +426,18 @@
             setText('exec-port-days', formatDays(0));
             setText('exec-total-days', formatDays(0));
             setText('exec-buy-freight', formatRate(0));
+            setText('exec-buy-freight-total', formatCurrency(0));
+            setText('exec-carrier-sell-freight', formatRate(0));
+            setText('exec-carrier-sell-total', formatCurrency(0));
             setText('exec-tce', `${formatMoney(0)} / día`);
+            setText('exec-carrier-margin-km', formatRate(0));
             setText('exec-sell-freight', formatRate(0));
+            setText('exec-sell-freight-total', formatCurrency(0));
+            setText('exec-agency-cost-freight', formatRate(0));
+            setText('exec-agency-cost-total', formatCurrency(0));
             setText('exec-charterer-profit', formatMoney(0));
             setText('exec-spread-mt', `${formatMoney(0, 2)} / km`);
+            setText('exec-agency-spread-total', formatCurrency(0));
             setText('exec-risk-level', 'N/D');
             setText('exec-insight-text', 'Introduce POL, POD y volumen de carga para generar el análisis ejecutivo.');
             return true;
@@ -472,15 +490,43 @@
             effectiveSellFreight = effectiveBuyFreight * 1.15;
         }
 
+        const effectiveBuyTotal = toNumber(calcResults.buyFreightTotal || calcResults.totalTripCost) > 0
+            ? toNumber(calcResults.buyFreightTotal || calcResults.totalTripCost)
+            : (kmTotal > 0 ? (effectiveBuyFreight * kmTotal) : 0);
+
+        const effectiveSellTotal = toNumber(calcResults.sellFreightTotal || calcResults.totalRevenue) > 0
+            ? toNumber(calcResults.sellFreightTotal || calcResults.totalRevenue)
+            : (kmTotal > 0 ? (effectiveSellFreight * kmTotal) : 0);
+
+        const effectiveSpreadKm = Math.max(0, toNumber(effectiveSellFreight) - toNumber(effectiveBuyFreight));
+        const effectiveSpreadTotal = (toNumber(calcResults.chartererProfit) !== 0 || toNumber(calcResults.totalProfit) !== 0)
+            ? toNumber(calcResults.chartererProfit || calcResults.totalProfit)
+            : (kmTotal > 0 ? (effectiveSpreadKm * kmTotal) : Math.max(0, effectiveSellTotal - effectiveBuyTotal));
+
+        const carrierMargin = toNumber(calcResults.tce);
+        const carrierMarginKm = kmTotal > 0 && carrierMargin > 0 ? (carrierMargin / kmTotal) : 0;
+
         setText('exec-vessel-type', resolvedVesselType);
         setText('exec-sea-days', formatDays(effectiveSeaDays));
         setText('exec-port-days', formatDays(effectivePortDays));
         setText('exec-total-days', formatDays(effectiveTotalDays));
+
+        // Lado Transportista / Chófer
         setText('exec-buy-freight', formatRate(effectiveBuyFreight));
+        setText('exec-buy-freight-total', formatCurrency(effectiveBuyTotal));
+        setText('exec-carrier-sell-freight', formatRate(effectiveSellFreight));
+        setText('exec-carrier-sell-total', formatCurrency(effectiveSellTotal));
         setText('exec-tce', `${formatMoney(calcResults.tce)} / día`);
+        setText('exec-carrier-margin-km', formatRate(carrierMarginKm));
+
+        // Lado Agencia / Cliente (Nuestra Casa)
         setText('exec-sell-freight', formatRate(effectiveSellFreight));
+        setText('exec-sell-freight-total', formatCurrency(effectiveSellTotal));
+        setText('exec-agency-cost-freight', formatRate(effectiveBuyFreight));
+        setText('exec-agency-cost-total', formatCurrency(effectiveBuyTotal));
         setText('exec-charterer-profit', formatMoney(calcResults.chartererProfit));
-        setText('exec-spread-mt', `${formatMoney(toNumber(effectiveSellFreight) - toNumber(effectiveBuyFreight), 2)} / km`);
+        setText('exec-spread-mt', `${formatMoney(effectiveSpreadKm, 2)} / km`);
+        setText('exec-agency-spread-total', formatCurrency(effectiveSpreadTotal));
 
         const roadRisk = evaluateRoadOperationalRisks({
             pol: calcResults.pol,
