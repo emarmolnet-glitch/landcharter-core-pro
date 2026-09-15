@@ -11,6 +11,8 @@ function setupEnvironment({ isIframe = true, throwOnPostMessage = false, href = 
   const localStore = new Map();
   const postedMessages = [];
   const warnings = [];
+  const logs = [];
+  const messageListeners = [];
   const location = new URL(href);
 
   class MockBroadcastChannel {
@@ -44,7 +46,11 @@ function setupEnvironment({ isIframe = true, throwOnPostMessage = false, href = 
         return arr;
       },
     },
-    addEventListener() {},
+    addEventListener(event, handler) {
+      if (event === 'message') {
+        messageListeners.push(handler);
+      }
+    },
     dispatchEvent() {},
     history: {
       state: null,
@@ -65,6 +71,9 @@ function setupEnvironment({ isIframe = true, throwOnPostMessage = false, href = 
     },
     console: {
       ...console,
+      log(...args) {
+        logs.push(args);
+      },
       warn(...args) {
         warnings.push(args);
       },
@@ -95,6 +104,12 @@ function setupEnvironment({ isIframe = true, throwOnPostMessage = false, href = 
     parentMock,
     postedMessages,
     warnings,
+    logs,
+    dispatchMessage(data) {
+      for (const listener of messageListeners) {
+        listener({ data });
+      }
+    },
   };
 }
 
@@ -182,3 +197,91 @@ test('Both contract-reference.js and index.html contain the required SYNC_REFERE
   assert.match(indexSource, /type:\s*['"]SYNC_REFERENCE['"]/);
   assert.match(indexSource, /No se pudo emitir la referencia al parent/);
 });
+
+test('Micro-frontend iframe mode: obeys MASTER_FORCE_REFERENCE from MasterHub and updates reference', () => {
+  const { api, postedMessages, logs, dispatchMessage } = setupEnvironment({
+    isIframe: true,
+    href: 'https://app.test/?ref=RDM%2F2026-1000',
+  });
+
+  assert.equal(api.getActiveContractRef(), 'RDM/2026-1000');
+  postedMessages.length = 0;
+  logs.length = 0;
+
+  // MasterHub dictates a new reference
+  dispatchMessage({
+    type: 'MASTER_FORCE_REFERENCE',
+    reference: 'RDM/2026-8888',
+  });
+
+  // Reference must be updated
+  assert.equal(api.getActiveContractRef(), 'RDM/2026-8888');
+
+  // Subordinate log must be present
+  const subordinateLog = logs.find(
+    (l) => typeof l[0] === 'string' && l[0].includes('[Subordinado] Acatando referencia maestra de MasterHub:')
+  );
+  assert.ok(subordinateLog, 'Must log subordinate message upon receiving MASTER_FORCE_REFERENCE');
+  assert.equal(subordinateLog[1], 'RDM/2026-8888');
+
+  // Must have emitted SYNC_REFERENCE confirmation back to parent
+  const syncMsg = postedMessages.find(
+    (msg) => msg.data?.type === 'SYNC_REFERENCE' && msg.data?.reference === 'RDM/2026-8888'
+  );
+  assert.ok(syncMsg, 'Must emit SYNC_REFERENCE confirming the forced reference');
+});
+
+test('Micro-frontend iframe mode: ignores MASTER_FORCE_REFERENCE if reference is already identical', () => {
+  const { api, postedMessages, logs, dispatchMessage } = setupEnvironment({
+    isIframe: true,
+    href: 'https://app.test/?ref=RDM%2F2026-1000',
+  });
+
+  assert.equal(api.getActiveContractRef(), 'RDM/2026-1000');
+  postedMessages.length = 0;
+  logs.length = 0;
+
+  // MasterHub sends identical reference
+  dispatchMessage({
+    type: 'MASTER_FORCE_REFERENCE',
+    reference: 'RDM/2026-1000',
+  });
+
+  assert.equal(api.getActiveContractRef(), 'RDM/2026-1000');
+  assert.equal(logs.length, 0, 'Must not log when reference is already identical');
+  assert.equal(postedMessages.length, 0, 'Must not emit SYNC_REFERENCE when reference is identical');
+});
+
+test('Micro-frontend iframe mode: ignores non-force or malformed message events safely', () => {
+  const { api, postedMessages, logs, dispatchMessage } = setupEnvironment({
+    isIframe: true,
+    href: 'https://app.test/?ref=RDM%2F2026-1000',
+  });
+
+  postedMessages.length = 0;
+  logs.length = 0;
+
+  // Various unrelated or malformed payloads
+  dispatchMessage(null);
+  dispatchMessage(undefined);
+  dispatchMessage('raw string');
+  dispatchMessage({ type: 'UNRELATED_TYPE', reference: 'RDM/2026-9999' });
+  dispatchMessage({ type: 'MASTER_FORCE_REFERENCE' }); // missing reference
+
+  assert.equal(api.getActiveContractRef(), 'RDM/2026-1000');
+  assert.equal(logs.length, 0);
+  assert.equal(postedMessages.length, 0);
+});
+
+test('Both contract-reference.js and index.html contain the MASTER_FORCE_REFERENCE listener', () => {
+  assert.match(contractRefSource, /MASTER_FORCE_REFERENCE/);
+  assert.match(contractRefSource, /\[Subordinado\] Acatando referencia maestra de MasterHub:/);
+  assert.match(contractRefSource, /getActiveContractRef/);
+  assert.match(contractRefSource, /setActiveContractRef/);
+
+  assert.match(indexSource, /MASTER_FORCE_REFERENCE/);
+  assert.match(indexSource, /\[Subordinado\] Acatando referencia maestra de MasterHub:/);
+  assert.match(indexSource, /getActiveContractRef/);
+  assert.match(indexSource, /setActiveContractRef/);
+});
+
