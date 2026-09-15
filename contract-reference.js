@@ -306,6 +306,18 @@
         writeUrlReference(normalized);
         writeSharedActiveSession(normalized);
 
+        // Emitir al Parent si estamos dentro de un Iframe (MasterHub)
+        if (window.parent !== window) {
+          try {
+            window.parent.postMessage({ 
+              type: 'SYNC_REFERENCE', 
+              reference: normalized
+            }, '*');
+          } catch (e) {
+            console.warn("No se pudo emitir la referencia al parent", e);
+          }
+        }
+
         if (notify && isChanged && typeof globalObject.dispatchEvent === 'function' && typeof globalObject.CustomEvent === 'function') {
             globalObject.dispatchEvent(new globalObject.CustomEvent('contract-reference:changed', { detail: { reference: normalized } }));
         }
