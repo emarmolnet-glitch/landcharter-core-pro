@@ -529,7 +529,26 @@
                 }
             } catch (_) {}
 
+            const isSubordinateIframe = function() {
+                try {
+                    if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+                        return true;
+                    }
+                    if (globalObject && globalObject.parent && globalObject.parent !== globalObject) {
+                        return true;
+                    }
+                    return false;
+                } catch (_) {
+                    return false;
+                }
+            };
+
+            const hasPriorReference = function() {
+                return Boolean(activeCachedReference || readUrlReference() || readSessionReference());
+            };
+
             const generateVoyageRef = function() {
+                if (isSubordinateIframe() && !hasPriorReference()) return null;
                 if (isRefAnchored && activeCachedReference) return activeCachedReference;
                 const randomValues = new Uint32Array(1);
                 if (globalObject.crypto?.getRandomValues) globalObject.crypto.getRandomValues(randomValues);
@@ -537,6 +556,7 @@
                 return `RDM/${new Date().getFullYear()}-${String(randomValues[0] % 10000).padStart(4, '0')}`;
             };
             const generateNextVoyageRef = function(currentReference) {
+                if (isSubordinateIframe() && !hasPriorReference() && !currentReference) return null;
                 const year = new Date().getFullYear();
                 const match = normalizeReference(currentReference).match(/^RDM\/(\d{4})-(\d{4})$/);
                 if (!match || Number(match[1]) !== year) return generateVoyageRef();
@@ -567,7 +587,14 @@
                 if (activeCachedReference) {
                     return activeCachedReference;
                 }
+
+                // Protocolo de Subordinación (Iframe Pasivo)
+                if (isSubordinateIframe()) {
+                    return null;
+                }
+
                 const newRef = generateVoyageRef();
+                if (!newRef) return null;
                 activeCachedReference = newRef;
                 writeSessionReference(newRef);
                 writeUrlReference(newRef);
@@ -647,10 +674,19 @@
                 generateNextVoyageRef,
                 generateVoyageRef,
                 createNewReference: function(force = false) {
+                    if (isSubordinateIframe() && !hasPriorReference()) {
+                        return null;
+                    }
                     if (isInjectionLocked && !force) {
                         return getActiveContractRef();
                     }
-                    return setActiveContractRef(generateNextVoyageRef(getActiveContractRef()));
+                    const current = getActiveContractRef();
+                    if (!current) {
+                        if (isSubordinateIframe()) return null;
+                    }
+                    const next = generateNextVoyageRef(current);
+                    if (!next) return null;
+                    return setActiveContractRef(next);
                 },
                 persistSessionToDatabase,
                 saveSessionState: persistSessionToDatabase,
@@ -822,6 +858,7 @@
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="./public/components.js"></script>
     <script defer src="/contract-reference.js"></script>
+    <script defer src="/land-dashboard.js"></script>
     <script defer src="./npl-data-analysis-engine.js"></script>
     <script defer src="./npl-secret-module.js"></script>
     <script type="module" src="./public/ConnectionStatusBar.js"></script>
