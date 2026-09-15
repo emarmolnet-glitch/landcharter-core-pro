@@ -6,6 +6,7 @@ const legacyAssets = [
   "_headers",
   "_redirects",
   "contract-reference.js",
+  "land-dashboard.js",
   "network-resilience.js",
   "project-cargo-engine.js",
   "dossiers.js",

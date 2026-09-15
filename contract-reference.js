@@ -266,7 +266,28 @@
         }
     } catch (_) {}
 
+    function isSubordinateIframe() {
+        try {
+            if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+                return true;
+            }
+            if (globalObject && globalObject.parent && globalObject.parent !== globalObject) {
+                return true;
+            }
+            return false;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function hasPriorReference() {
+        return Boolean(activeCachedReference || readUrlReference() || readSessionReference());
+    }
+
     function generateVoyageRef() {
+        if (isSubordinateIframe() && !hasPriorReference()) {
+            return null;
+        }
         if (isRefAnchored && activeCachedReference) {
             return activeCachedReference;
         }
@@ -283,6 +304,9 @@
     const generateReference = generateVoyageRef;
 
     function generateNextVoyageRef(currentReference = '') {
+        if (isSubordinateIframe() && !hasPriorReference() && !currentReference) {
+            return null;
+        }
         const year = new Date().getFullYear();
         const match = normalizeReference(currentReference).match(/^RDM\/(\d{4})-(\d{4})$/);
         if (!match || Number(match[1]) !== year) return generateVoyageRef();
@@ -350,6 +374,12 @@
         if (activeCachedReference) {
             return activeCachedReference;
         }
+
+        // Protocolo de Subordinación (Iframe Pasivo)
+        if (isSubordinateIframe()) {
+            return null;
+        }
+
         const generated = generateVoyageRef();
         activeCachedReference = generated;
         return persistReference(generated, false);
@@ -395,10 +425,19 @@
     }
 
     function createNewReference(force = false) {
+        if (isSubordinateIframe() && !hasPriorReference()) {
+            return null;
+        }
         if (isInjectionLocked && !force) {
             return getActiveContractRef();
         }
-        return persistReference(generateNextVoyageRef(getActiveContractRef()), true);
+        const currentRef = getActiveContractRef();
+        if (!currentRef) {
+            if (isSubordinateIframe()) return null;
+        }
+        const nextRef = generateNextVoyageRef(currentRef);
+        if (!nextRef) return null;
+        return persistReference(nextRef, true);
     }
 
     const contractReferenceManager = Object.freeze({

@@ -131,27 +131,20 @@ test('Micro-frontend iframe mode: emits SYNC_REFERENCE to window.parent when ref
   assert.equal(syncMessages[0].targetOrigin, '*', 'Must target all origins (*) as per contract');
 });
 
-test('Micro-frontend iframe mode: emits SYNC_REFERENCE to window.parent when new reference is generated', () => {
+test('Micro-frontend passive iframe subordination: prohibits auto-generation and is born in complete silence when no URL/cache ref', () => {
   const { api, postedMessages } = setupEnvironment({ isIframe: true, href: 'https://app.test/' });
 
-  // Initially generates a fallback reference
-  const initialGenerated = api.getActiveContractRef();
-  assert.ok(initialGenerated.startsWith('RDM/'), 'Generated reference should follow RDM format');
+  // When in iframe with no prior reference in URL or cache, auto-generation is prohibited
+  const initialRef = api.getActiveContractRef();
+  assert.equal(initialRef, null, 'getActiveContractRef must return null without prior reference in iframe mode');
 
-  const initialMsg = postedMessages.find(
-    (msg) => msg.data?.type === 'SYNC_REFERENCE' && msg.data?.reference === initialGenerated
-  );
-  assert.ok(initialMsg, 'Fallback generation must emit SYNC_REFERENCE to parent');
+  // createNewReference and generateVoyageRef must also return null
+  assert.equal(api.createNewReference(), null, 'createNewReference must return null in subordinate iframe');
+  assert.equal(api.createNewReference(true), null, 'createNewReference(force) must return null without reference in subordinate iframe');
+  assert.equal(api.generateVoyageRef(), null, 'generateVoyageRef must return null in subordinate iframe');
 
-  // Generate new estimation reference
-  postedMessages.length = 0;
-  const createdRef = api.createNewReference(true);
-  assert.ok(createdRef.startsWith('RDM/'));
-
-  const createdMsg = postedMessages.find(
-    (msg) => msg.data?.type === 'SYNC_REFERENCE' && msg.data?.reference === createdRef
-  );
-  assert.ok(createdMsg, 'createNewReference must emit SYNC_REFERENCE to parent');
+  // Must be born in complete silence: no SYNC_REFERENCE postMessage sent to parent
+  assert.equal(postedMessages.length, 0, 'Subordinate iframe must not emit any postMessage to parent on mount');
 });
 
 test('Micro-frontend iframe mode: does not emit extra postMessage when reference is unchanged', () => {
@@ -283,5 +276,15 @@ test('Both contract-reference.js and index.html contain the MASTER_FORCE_REFEREN
   assert.match(indexSource, /\[Subordinado\] Acatando referencia maestra de MasterHub:/);
   assert.match(indexSource, /getActiveContractRef/);
   assert.match(indexSource, /setActiveContractRef/);
+});
+
+test('Both contract-reference.js and index.html enforce the Subordination Protocol (isSubordinateIframe & hasPriorReference)', () => {
+  assert.match(contractRefSource, /isSubordinateIframe/);
+  assert.match(contractRefSource, /hasPriorReference/);
+  assert.match(contractRefSource, /Protocolo de Subordinación/);
+
+  assert.match(indexSource, /isSubordinateIframe/);
+  assert.match(indexSource, /hasPriorReference/);
+  assert.match(indexSource, /Protocolo de Subordinación/);
 });
 
