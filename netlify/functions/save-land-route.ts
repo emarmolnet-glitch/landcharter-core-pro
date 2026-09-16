@@ -31,13 +31,26 @@ async function ensureProjectsTable(clientOrPool: Pool) {
         global_margin_percentage VARCHAR(50) DEFAULT '0',
         documents JSONB DEFAULT '[]'::jsonb,
         items JSONB DEFAULT '[]'::jsonb,
-        data JSONB DEFAULT '{}'::jsonb,
+        land_origin VARCHAR(255),
+        land_destination VARCHAR(255),
+        land_distance NUMERIC,
+        land_freight_cost NUMERIC,
+        total_trucks INTEGER,
+        road_transit_days NUMERIC,
+        road_net_margin NUMERIC,
         pre_carriage JSONB DEFAULT '{}'::jsonb,
         on_carriage JSONB DEFAULT '{}'::jsonb,
         land_route JSONB DEFAULT '{}'::jsonb,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_origin VARCHAR(255);
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_destination VARCHAR(255);
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_distance NUMERIC;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_freight_cost NUMERIC;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS total_trucks INTEGER;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS road_transit_days NUMERIC;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS road_net_margin NUMERIC;
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS pre_carriage JSONB DEFAULT '{}'::jsonb;
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS on_carriage JSONB DEFAULT '{}'::jsonb;
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_route JSONB DEFAULT '{}'::jsonb;
@@ -95,8 +108,18 @@ export default async (req: Request) => {
 
     const origin_name = cleanString(body.origin_name || body.origin || body.pol);
     const destination_name = cleanString(body.destination_name || body.destination || body.pod);
-    const total_distance_km = cleanNumber(body.total_distance_km ?? body.distance_km ?? body.totalKilometers);
+    const total_distance_km = cleanNumber(body.total_distance_km ?? body.distance_km ?? body.totalKilometers ?? body.distance);
     const freight_cost = cleanNumber(body.freight_cost ?? body.total_freight ?? body.cost);
+    const total_trucks = cleanNumber(
+      body.total_trucks ?? body.trucks ?? body.trucks_needed ?? body.totalTrucks ?? 1
+    );
+    const road_transit_days = cleanNumber(
+      body.road_transit_days ?? body.transit_days ?? body.transitDays,
+      total_distance_km > 0 ? Number((total_distance_km / 700).toFixed(2)) : 0
+    );
+    const road_net_margin = cleanNumber(
+      body.road_net_margin ?? body.net_margin ?? body.netMargin ?? 0
+    );
     const cargo_details = body.cargo_details && typeof body.cargo_details === "object"
       ? body.cargo_details
       : { description: cleanString(body.cargo_details) };
@@ -114,6 +137,9 @@ export default async (req: Request) => {
       cargo_details,
       segment_type: segment,
       mode: isImport ? "import" : "export",
+      total_trucks,
+      road_transit_days,
+      road_net_margin,
       driving_hours: cleanNumber(body.driving_hours, total_distance_km > 0 ? Number((total_distance_km / 75).toFixed(2)) : 0),
       updated_at: new Date().toISOString(),
     };
@@ -140,17 +166,31 @@ export default async (req: Request) => {
         pre_carriage = CASE WHEN $2::text = 'pre_carriage' THEN $3::jsonb ELSE COALESCE(pre_carriage, '{}'::jsonb) END,
         on_carriage = CASE WHEN $2::text = 'on_carriage' THEN $3::jsonb ELSE COALESCE(on_carriage, '{}'::jsonb) END,
         land_route = $3::jsonb,
-        data = COALESCE(data, '{}'::jsonb) || jsonb_build_object(
-          'land_route', $3::jsonb,
-          $2::text, $3::jsonb
-        ),
+        land_origin = COALESCE(NULLIF($4::text, ''), land_origin),
+        land_destination = COALESCE(NULLIF($5::text, ''), land_destination),
+        land_distance = CASE WHEN $6::numeric > 0 THEN $6::numeric ELSE land_distance END,
+        land_freight_cost = CASE WHEN $7::numeric > 0 THEN $7::numeric ELSE land_freight_cost END,
+        total_trucks = CASE WHEN $8::integer > 0 THEN $8::integer ELSE total_trucks END,
+        road_transit_days = CASE WHEN $9::numeric > 0 THEN $9::numeric ELSE road_transit_days END,
+        road_net_margin = CASE WHEN $10::numeric <> 0 THEN $10::numeric ELSE road_net_margin END,
         updated_at = CURRENT_TIMESTAMP
       WHERE upper(project_ref) = upper($1::text) OR project_ref = $1::text
       RETURNING id, project_ref;
     `;
 
     const serializedPayload = JSON.stringify(landRoutePayload);
-    let result = await db.query(updateQuery, [contractRef, segment, serializedPayload]);
+    let result = await db.query(updateQuery, [
+      contractRef,
+      segment,
+      serializedPayload,
+      origin_name,
+      destination_name,
+      total_distance_km,
+      freight_cost,
+      total_trucks,
+      road_transit_days,
+      road_net_margin,
+    ]);
 
     if (result.rowCount === 0) {
       const insertQuery = `
@@ -158,7 +198,13 @@ export default async (req: Request) => {
           project_ref,
           client_name,
           status,
-          data,
+          land_origin,
+          land_destination,
+          land_distance,
+          land_freight_cost,
+          total_trucks,
+          road_transit_days,
+          road_net_margin,
           pre_carriage,
           on_carriage,
           land_route,
@@ -168,7 +214,13 @@ export default async (req: Request) => {
           $1::text,
           'Proyecto ' || $1::text,
           'BORRADOR',
-          jsonb_build_object('land_route', $3::jsonb, $2::text, $3::jsonb),
+          $4::text,
+          $5::text,
+          $6::numeric,
+          $7::numeric,
+          $8::integer,
+          $9::numeric,
+          $10::numeric,
           CASE WHEN $2::text = 'pre_carriage' THEN $3::jsonb ELSE '{}'::jsonb END,
           CASE WHEN $2::text = 'on_carriage' THEN $3::jsonb ELSE '{}'::jsonb END,
           $3::jsonb,
@@ -177,7 +229,18 @@ export default async (req: Request) => {
         )
         RETURNING id, project_ref;
       `;
-      result = await db.query(insertQuery, [contractRef, segment, serializedPayload]);
+      result = await db.query(insertQuery, [
+        contractRef,
+        segment,
+        serializedPayload,
+        origin_name,
+        destination_name,
+        total_distance_km,
+        freight_cost,
+        total_trucks,
+        road_transit_days,
+        road_net_margin,
+      ]);
     }
 
     try {
