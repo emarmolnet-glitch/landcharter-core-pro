@@ -4724,7 +4724,7 @@
         }
 
         /* ========================================================================== */
-        /* --- ESTILOS DEL HISTORIAL DE BUQUES AUDITADOS (ESTILO REPORTE) --- */
+        /* --- ESTILOS DEL HISTORIAL DE FLOTA AUDITADA (ESTILO REPORTE) --- */
         /* ========================================================================== */
         
         /* 1. Modal Background: Clean White #FFFFFF with soft box shadows for depth */
@@ -9486,11 +9486,11 @@
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 bg-slate-950 p-3 rounded-lg border border-slate-800">
                             <div class="input-group">
-                                <label id="label-dist-ballast" class="text-indigo-400">Distancia Lastre (km)</label>
+                                <label id="label-dist-ballast" class="text-indigo-400">Distancia en Vacío (km)</label>
                                 <input type="number" id="dist-ballast" class="input-gc font-bold text-indigo-300" value="0" step="any" oninput="runEngine()">
                             </div>
                             <div class="input-group">
-                                <label id="label-dist-laden" class="text-emerald-400">Distancia Carga (km)</label>
+                                <label id="label-dist-laden" class="text-emerald-400">Distancia en Carga (km)</label>
                                 <input type="number" id="dist-laden" class="input-gc font-bold text-emerald-300" value="0" step="any" oninput="runEngine()">
                             </div>
                             <div class="input-group">
@@ -9535,7 +9535,7 @@
                             <div class="collapsible-section-header flex justify-between items-center gap-3">
                                 <span id="weather-header-title" data-collapsible-title class="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
                                     <i class="fa-solid fa-cloud-sun-rain" aria-hidden="true"></i>
-                                    <span>Pronóstico Marítimo Open-Meteo & Retrasos por Clima</span>
+                                    <span>Pronóstico Meteorológico & Retrasos de Ruta</span>
                                 </span>
                                 <div class="collapsible-section-actions">
                                     <button type="button" class="satellite-badge text-[9px] bg-[#1E3A8A] text-white border border-[#1E3A8A] px-2.5 py-1 rounded-[20px] uppercase font-bold tracking-widest animate-pulse shadow-sm shrink-0">SATELLITE DATA</button>
@@ -9548,7 +9548,7 @@
 
                     </div>
 
-                    <!-- 2. Buque, Carga y Tiempos -->
+                    <!-- 2. Vehículo, Carga y Tiempos -->
                     <div class="collapsible-section bg-slate-900 border border-slate-700 rounded-xl p-5 shadow-lg" data-collapsible-section data-default-open="false">
                         <div class="collapsible-section-header flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
                             <h2 id="vessel-header-title" class="text-sm font-bold text-blue-400 uppercase"><i class="fa-solid fa-truck mr-2"></i> 2. Especificaciones de Carga y Vehículo / Transport Requirements</h2>
@@ -9556,7 +9556,7 @@
                                 <button id="btn-vessel-specs-real-1" onclick="autoFillVesselSpecs()" class="badge-ai text-[10px] text-sky-400 hover:text-sky-300 transition" title="Buscar especificaciones reales en internet (IA)">
                                     <i class="fa-solid fa-robot mr-0.5"></i> Specs (IA)
                                 </button>
-                                <button id="btn-save-vessel-db" onclick="saveCurrentVesselToDB()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-2 py-0.5 rounded transition flex items-center gap-1" title="Guardar buque en la base de datos / Save vessel to database">
+                                <button id="btn-save-vessel-db" onclick="saveCurrentVesselToDB()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-2 py-0.5 rounded transition flex items-center gap-1" title="Guardar vehículo en la base de datos / Save vehicle to database">
                                     <i class="fa-solid fa-floppy-disk"></i> Guardar / Save
                                 </button>
                                 <span id="data-bridge-hydration-badge" hidden role="status" aria-live="polite">
@@ -9569,7 +9569,7 @@
                                 </div>
 
                                 <div id="vessel-compatibility-warning" class="hidden bg-red-950/80 border border-red-500 text-red-200 font-bold p-3 rounded-lg mb-4 text-center tracking-wide text-sm">
-                                NOTICE: THIS VESSEL IS NOT COMPATIBLE DUE TO EXCESS WEIGHT.
+                                AVISO: ESTE VEHÍCULO NO ES COMPATIBLE POR EXCESO DE PESO / MMA.
                                 </div>
 
                                 <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
@@ -10479,17 +10479,11 @@
                             <button id="btn-save-export-cotizacion-sec5" onclick="saveLandRouteQuote()" class="w-full min-h-12 bg-sky-700 hover:bg-sky-800 border border-sky-800 text-white text-xs font-bold px-4 py-3 rounded-lg shadow transition col-span-1 sm:col-span-2 flex items-center justify-center gap-2">
                                 <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i> Guardar/Exportar Cotización
                             </button>
-                            <button id="btn-executive-report" data-executive-report-action onclick="generateExecutiveReport()" class="w-full min-h-12 bg-white hover:bg-slate-50 border border-slate-300 text-[#1E3A8A] text-xs font-bold px-4 py-3 rounded-lg shadow-sm transition">
-                                <i class="fa-solid fa-eye mr-1"></i> Reporte Ejecutivo
+                            <button id="btn-executive-report" data-executive-report-action onclick="generateExecutiveReport()" class="w-full min-h-12 bg-white hover:bg-slate-50 border border-slate-300 text-[#1E3A8A] text-xs font-bold px-4 py-3 rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-file-lines mr-1.5"></i> Ver Reporte Ejecutivo del Viaje
                             </button>
-                            <button id="btn-list-vessels" onclick="openListVesselsModal()" class="w-full min-h-12 bg-white hover:bg-slate-50 border border-slate-300 text-[#1E3A8A] text-xs font-bold px-4 py-3 rounded-lg shadow-sm transition">
-                                <i class="fa-solid fa-anchor mr-1"></i> Historial de Buques
-                            </button>
-                            <button id="btn-comparison" onclick="openComparisonModal()" class="w-full min-h-12 bg-white hover:bg-slate-50 border border-slate-300 text-[#1E3A8A] text-xs font-bold px-4 py-3 rounded-lg shadow-sm transition">
-                                <i class="fa-solid fa-scale-balanced mr-1"></i> Comparar Buques
-                            </button>
-                            <button id="btn-viability-ai" onclick="analyzeViabilityAI()" class="w-full min-h-12 bg-[#1E3A8A] hover:bg-[#172554] border border-[#1E3A8A] text-white text-xs font-bold px-4 py-3 rounded-lg shadow transition">
-                                <i class="fa-solid fa-brain mr-1"></i> Analizar Viabilidad (IA)
+                            <button id="btn-viability-ai" onclick="analyzeViabilityAI()" class="w-full min-h-12 bg-[#1E3A8A] hover:bg-[#172554] border border-[#1E3A8A] text-white text-xs font-bold px-4 py-3 rounded-lg shadow transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-brain mr-1.5"></i> Analizar Viabilidad (IA)
                             </button>
                         </div>
                     </div>
@@ -14607,12 +14601,12 @@
         </div>
     </div>
 
-    <!-- MODAL DE COMPARATIVA DE BUQUES (IA) -->
+    <!-- MODAL DE COMPARATIVA DE VEHÍCULOS Y TRANSPORTISTAS (IA) -->
     <div id="comparison-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[100] hidden pointer-events-none flex items-center justify-center p-4 no-print">
         <div class="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-w-4xl w-full flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center p-4 border-b border-slate-800">
                 <h3 class="font-bold text-white flex items-center gap-2" id="comparison-modal-title">
-                    <i class="fa-solid fa-scale-balanced text-indigo-400"></i> Comparador de Buques con IA / Vessel Comparison
+                    <i class="fa-solid fa-scale-balanced text-indigo-400"></i> Comparador de Flota y Transportistas con IA / Fleet Comparison
                 </h3>
                 <button onclick="closeComparisonModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
@@ -14770,14 +14764,14 @@
         <div class="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[85vh]">
             <div class="flex justify-between items-center p-4 border-b border-slate-800">
                 <h3 class="font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-anchor text-indigo-400"></i> Historial de Buques Auditados / Audited Vessels
+                    <i class="fa-solid fa-truck text-indigo-400"></i> Historial de Flota y Vehículos / Vehicle History
                 </h3>
                 <button onclick="closeListVesselsModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="p-4 border-b border-slate-800 bg-slate-950/50">
                 <div class="flex gap-2">
                     <div class="relative flex items-center w-full">
-                        <input type="text" id="vessel-search-input" oninput="filterAuditedVessels()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 pl-9 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500" placeholder="Buscar por nombre, IMO, clase o tipo de buque...">
+                        <input type="text" id="vessel-search-input" oninput="filterAuditedVessels()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 pl-9 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500" placeholder="Buscar por tipo de vehículo o transportista...">
                         <i class="fa-solid fa-magnifying-glass absolute left-3 text-slate-500 text-xs"></i>
                     </div>
                     <button id="btn-search-history" onclick="filterAuditedVessels()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow transition flex items-center gap-1.5 whitespace-nowrap" title="Buscar / Search">
@@ -14790,11 +14784,11 @@
                 <!-- List will be populated dynamically -->
                 <div id="vessels-modal-loader" class="text-center py-8">
                     <div class="inline-block animate-spin rounded-full h-8 w-8 border-3 border-slate-700 border-t-indigo-500 mb-2"></div>
-                    <p class="text-slate-500 text-xs font-mono">Cargando buques desde la base de datos...</p>
+                    <p class="text-slate-500 text-xs font-mono">Cargando flota desde la base de datos...</p>
                 </div>
                 <div id="vessels-modal-empty" class="hidden text-center py-8 text-slate-500 text-xs">
-                    <i class="fa-solid fa-ship text-2xl mb-2 text-slate-700"></i>
-                    <p>No se encontraron buques en el historial.</p>
+                    <i class="fa-solid fa-truck text-2xl mb-2 text-slate-700"></i>
+                    <p>No se encontraron vehículos en el historial.</p>
                 </div>
                 <div id="vessels-modal-list" class="space-y-2">
                     <!-- Cards will go here -->
@@ -15648,8 +15642,8 @@
             "3. Estructura de Costes (OPEX, Bunkers, PDAs)": { en: "3. Cost Structure (OPEX, Bunkers, PDAs)", fr: "3. Structure des coûts (OPEX, soutes, PDAs)" },
             "2. Especificaciones del Buque y Carga / Ship Requirements": { en: "2. Vessel & Cargo Specifications / Ship Requirements", fr: "2. Spécifications du navire et de la cargaison / Exigences" },
             "Reporte Ejecutivo": { en: "Executive Report", fr: "Rapport Exécutif" },
-            "Historial de Buques": { en: "Vessel History", fr: "Historique des Navires" },
-            "Comparar Buques": { en: "Compare Vessels", fr: "Comparer les Navires" },
+            "Historial de Flota": { en: "Fleet History", fr: "Historique de la Flotte" },
+            "Comparar Flota": { en: "Compare Fleet", fr: "Comparer la Flotte" },
             "Analizar Viabilidad (IA)": { en: "Analyze Feasibility (AI)", fr: "Analyser la Faisabilité (IA)" },
             "Buscar Cotización": { en: "Search Quote", fr: "Rechercher un devis" },
             "Impresión de Reportes y Contratos": { en: "Print Reports and Contracts", fr: "Impression de rapports et de contrats" },
@@ -50211,6 +50205,25 @@ Example:
         window.generateMarketReport = generateMarketReport;
 
         function generateExecutiveReport() {
+            // Validación Defensiva: verificar cálculo de ruta terrestre previo
+            const distInputEl = document.getElementById('dist-total');
+            const rawDistVal = distInputEl ? String(distInputEl.value).trim() : '';
+            const totalKmCheck = Number(State.totalKilometers)
+                || (Number(State.distBallast || 0) + Number(State.distLaden || 0))
+                || (parseFloat(rawDistVal) || 0);
+
+            if (!rawDistVal || rawDistVal === '0' || rawDistVal === 'N/D' || totalKmCheck <= 0 || isNaN(totalKmCheck)) {
+                const validationMsg = 'Calcula una ruta terrestre antes de generar el reporte.';
+                if (typeof showToast === 'function') {
+                    showToast(validationMsg, false, 'warning');
+                } else if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
+                    window.showToast(validationMsg, false, 'warning');
+                } else {
+                    alert(validationMsg);
+                }
+                return;
+            }
+
             if (typeof runEngine === 'function') runEngine();
             if (State.coreValidation?.blocked) {
                 alert(`Kill-switch activo:\n- ${State.coreValidation.messages.join('\n- ')}`);
@@ -50446,21 +50459,31 @@ Example:
             const totalRouteDailyCost = tachographDays * fixedDailyCost;
             const totalOperatingExpenses = totalTollsCost + totalPerDiemsCost + totalRouteDailyCost;
 
-            // Coste Total del Viaje (Coste de Compra / Porte)
-            const totalTripCost = totalFuelCost + totalOperatingExpenses;
+            // Coste Unitario del Porte / Vehículo (Coste de Compra Transportista)
+            const unitaryTripCost = totalFuelCost + totalOperatingExpenses;
 
-            // Fletes y Margen de Beneficio sobre el flete terrestre
-            const cargoTon = Number(State.cargo) || 24.0;
+            // Parámetros de Carga Terrestre: Tonelaje, LDM y Camiones Necesarios
+            const cargoTon = Number(State.cargo) || (parseFloat(getVal('cargo-qty')) || 24.0);
+            const ldmValue = Number(State.cargo_sf || State.cargoSf || State.ldm) || (parseFloat(getVal('cargo-sf')) || 13.6);
+            const truckPayloadCap = 24.0;
+            const trucksByWeight = cargoTon > 0 ? Math.ceil(cargoTon / truckPayloadCap) : 1;
+            const trucksByLdm = ldmValue > 0 ? Math.ceil(ldmValue / 13.6) : 1;
+            const trucksNeeded = Math.max(1, Number(State.total_trucks || State.trucks_needed || State.trucksNeeded) || Math.max(trucksByWeight, trucksByLdm));
+
+            // Costes Totales Flota (Lado Transportista)
+            const totalTripCost = unitaryTripCost * trucksNeeded;
             const costPerKm = totalKm > 0 ? (totalTripCost / totalKm) : 0;
             const costPerTon = cargoTon > 0 ? (totalTripCost / cargoTon) : 0;
 
+            // Margen Comercial y Venta Agencia (Lado Agencia / Cliente)
             const marginPct = Number(State.marginCharterer) || 15.0;
             const grossFreightRevenue = totalTripCost * (1 + (marginPct / 100));
             const profitMarginEur = grossFreightRevenue - totalTripCost;
             const profitMarginPct = grossFreightRevenue > 0 ? (profitMarginEur / grossFreightRevenue) * 100 : 0;
             const freightRateTon = cargoTon > 0 ? (grossFreightRevenue / cargoTon) : 0;
+            const salePricePerKm = totalKm > 0 ? (grossFreightRevenue / totalKm) : 0;
 
-            const narrativeText = `Presupuesto Terrestre: Tráiler estándar (${trailerConsumption} L/100km) · Combustible Diésel · Tacógrafo CE 561/2006 · Margen comercial`;
+            const narrativeText = `Presupuesto Terrestre: ${trucksNeeded} ${trucksNeeded === 1 ? 'camión' : 'camiones'} · ${ldmValue.toFixed(1)} LDM · Diésel (${dieselPrice.toFixed(2)} €/L) · Tacógrafo CE 561/2006 · Margen comercial ${marginPct}%`;
 
             const reportHTML = `
                 <div class="border-b border-slate-700 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -50475,8 +50498,11 @@ Example:
                         <button onclick="saveLandRouteQuote()" class="no-print bg-sky-600 hover:bg-sky-500 border border-sky-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 transition whitespace-nowrap">
                             <i class="fa-solid fa-cloud-arrow-up"></i> Guardar/Exportar Cotización
                         </button>
+                        <button onclick="exportExecutiveReportPdf()" class="no-print bg-rose-600 hover:bg-rose-500 border border-rose-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 transition whitespace-nowrap">
+                            <i class="fa-solid fa-file-pdf"></i> 📄 Exportar PDF
+                        </button>
                         <button onclick="printExecutiveScreenReport()" class="no-print bg-emerald-600 hover:bg-emerald-500 border border-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 transition whitespace-nowrap">
-                            <i class="fa-solid fa-print"></i> 🖨️ Imprimir Documento Oficial
+                            <i class="fa-solid fa-print"></i> 🖨️ Imprimir
                         </button>
                     </div>
                 </div>
@@ -50487,7 +50513,7 @@ Example:
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
                             <h5 class="font-bold text-sky-400 uppercase mb-2 border-b border-slate-700/50 pb-1 flex items-center gap-1.5">
-                                <i class="fa-solid fa-truck"></i> Especificaciones del Tráiler y Carga
+                                <i class="fa-solid fa-truck"></i> Especificaciones de Carga y Flota Terrestre
                             </h5>
                             <ul class="space-y-1.5">
                                 <li class="flex justify-between">
@@ -50495,12 +50521,20 @@ Example:
                                     <span class="font-bold text-white">${vehicleType}</span>
                                 </li>
                                 <li class="flex justify-between">
-                                    <span class="text-slate-400">Capacidad Máxima / Carga Útil:</span>
-                                    <span class="font-bold text-white">40.000 kg MMA (24 t carga útil)</span>
+                                    <span class="text-slate-400">Camiones Necesarios:</span>
+                                    <span class="font-bold text-amber-300">${trucksNeeded} ${trucksNeeded === 1 ? 'vehículo' : 'vehículos'} (cap. 24 t / 13.6 LDM c/u)</span>
+                                </li>
+                                <li class="flex justify-between">
+                                    <span class="text-slate-400">Metros Lineales (LDM):</span>
+                                    <span class="font-bold text-indigo-300">${ldmValue.toFixed(1)} LDM</span>
                                 </li>
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">Carga a Transportar:</span>
                                     <span class="font-bold text-emerald-400">${cargoTon.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} t</span>
+                                </li>
+                                <li class="flex justify-between">
+                                    <span class="text-slate-400">Capacidad Máxima / MMA:</span>
+                                    <span class="font-bold text-white">40.000 kg MMA (24 t carga útil por camión)</span>
                                 </li>
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">Consumo Homologado:</span>
@@ -50522,11 +50556,11 @@ Example:
                             </h5>
                             <ul class="space-y-1.5">
                                 <li class="flex justify-between">
-                                    <span class="text-slate-400">Origen (POL):</span>
+                                    <span class="text-slate-400">Origen (Carga):</span>
                                     <span class="font-bold text-white">${State.pol || "Madrid"}</span>
                                 </li>
                                 <li class="flex justify-between">
-                                    <span class="text-slate-400">Destino (POD):</span>
+                                    <span class="text-slate-400">Destino (Descarga):</span>
                                     <span class="font-bold text-white">${State.pod || "París"}</span>
                                 </li>
                                 <li class="flex justify-between">
@@ -50549,53 +50583,54 @@ Example:
                         </div>
                     </div>
 
-                    <!-- Fila 2: Estructura Financiera Terrestre y Métricas Clave -->
+                    <!-- Fila 2: Desglose Transportista (Costes) vs Agencia (Venta/Margen) -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
                             <h5 class="font-bold text-amber-400 uppercase mb-2 border-b border-slate-700/50 pb-1 flex items-center gap-1.5">
-                                <i class="fa-solid fa-coins"></i> Estructura de Costes (Camión)
+                                <i class="fa-solid fa-coins"></i> Lado Transportista: Estructura de Costes ${trucksNeeded > 1 ? `(${trucksNeeded} camiones)` : ''}
                             </h5>
                             <ul class="space-y-1.5">
                                 <li class="flex justify-between font-bold">
-                                    <span class="text-slate-300">Coste de Compra / Porte Base:</span>
-                                    <span class="text-white">${totalTripCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+                                    <span class="text-slate-300">Coste Unitario por Porte:</span>
+                                    <span class="text-white">${unitaryTripCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
                                 </li>
                                 <li class="flex justify-between pl-3 text-[11px] text-slate-400">
-                                    <span>Fórmula carretera: (${totalKm.toLocaleString('es-ES')} km × 1.30 €/km) + peajes (${totalTollsCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}) + dietas (${totalPerDiemsCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })})</span>
+                                    <span>Combustible diésel: (${totalKm.toLocaleString('es-ES')} km / 100) × ${trailerConsumption} L × ${dieselPrice.toFixed(2)} €/L = ${totalFuelCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })} (${totalDieselLiters.toFixed(0)} L)</span>
                                 </li>
                                 <li class="flex justify-between pl-3 text-[11px] text-slate-400">
-                                    <span>Desglose diésel: (${totalKm.toLocaleString('es-ES')} km / 100) × ${trailerConsumption} L × ${dieselPrice.toFixed(2)} €/L = ${totalFuelCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })} (${totalDieselLiters.toFixed(0)} L)</span>
-                                </li>
-                                <li class="flex justify-between">
-                                    <span class="text-slate-400">Peajes de Autopista:</span>
+                                    <span>Peajes de autopista:</span>
                                     <span class="font-bold text-white">${totalTollsCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
                                 </li>
-                                <li class="flex justify-between">
-                                    <span class="text-slate-400">Dietas del Conductor (${pernoctas} pernoctas × ${dailyPerDiem} €/d):</span>
+                                <li class="flex justify-between pl-3 text-[11px] text-slate-400">
+                                    <span>Dietas conductor (${pernoctas} pernoctas × ${dailyPerDiem} €/d):</span>
                                     <span class="font-bold text-white">${totalPerDiemsCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
                                 </li>
-                                <li class="flex justify-between">
-                                    <span class="text-slate-400">Coste de Ruta / Vehículo:</span>
+                                <li class="flex justify-between pl-3 text-[11px] text-slate-400">
+                                    <span>Coste fijo diario / chófer (${tachographDays} d):</span>
                                     <span class="font-bold text-white">${totalRouteDailyCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
                                 </li>
                                 <li class="flex justify-between pt-1 border-t border-slate-700 font-bold">
-                                    <span class="text-amber-400">Total Gastos Operativos:</span>
+                                    <span class="text-amber-400">Gastos Operativos Unitarios:</span>
                                     <span class="text-amber-300">${totalOperatingExpenses.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
                                 </li>
                                 <li class="flex justify-between pt-1 border-t border-slate-700 font-bold text-sm">
-                                    <span class="text-red-400">Coste Total del Viaje:</span>
-                                    <span class="text-red-300">${totalTripCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+                                    <span class="text-red-400">Coste Total Transportista (${trucksNeeded} cam.):</span>
+                                    <span class="text-red-300 font-mono">${totalTripCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+                                </li>
+                                <li class="flex justify-between text-[11px] text-slate-400">
+                                    <span>Coste por Kilómetro Flota:</span>
+                                    <span class="font-mono text-amber-300">${costPerKm.toFixed(2)} € / km</span>
                                 </li>
                             </ul>
                         </div>
                         <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
                             <h5 class="font-bold text-emerald-400 uppercase mb-2 border-b border-slate-700/50 pb-1 flex items-center gap-1.5">
-                                <i class="fa-solid fa-chart-line"></i> Métricas Clave y Rentabilidad
+                                <i class="fa-solid fa-chart-line"></i> Lado Agencia: Cotización y Margen Comercial
                             </h5>
                             <ul class="space-y-2">
-                                <li class="flex justify-between text-slate-300">
-                                    <span class="font-bold">Coste de Compra / Porte (Coste por Km):</span>
-                                    <span class="font-mono font-black text-amber-300 text-sm">${costPerKm.toFixed(2)} € / km</span>
+                                <li class="flex justify-between text-slate-300 font-bold">
+                                    <span>Precio Venta Sugerido al Cliente:</span>
+                                    <span class="font-mono font-bold text-emerald-300 text-sm">${grossFreightRevenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
                                 </li>
                                 <li class="flex justify-between text-slate-300">
                                     <span class="font-bold">Coste por Kilómetro:</span>
@@ -50606,24 +50641,20 @@ Example:
                                     <span class="font-mono font-black text-sky-300 text-sm">${costPerTon.toFixed(2)} € / t</span>
                                 </li>
                                 <li class="flex justify-between text-slate-300">
-                                    <span>Precio Venta Sugerido (Cliente):</span>
-                                    <span class="font-mono font-bold text-white">${grossFreightRevenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+                                    <span>Flete Venta por Kilómetro:</span>
+                                    <span class="font-mono font-bold text-white">${salePricePerKm.toFixed(2)} € / km</span>
+                                </li>
+                                <li class="flex justify-between text-slate-300">
+                                    <span>Flete Venta por Tonelada:</span>
+                                    <span class="font-mono font-bold text-sky-300">${freightRateTon.toFixed(2)} € / t</span>
+                                </li>
+                                <li class="flex justify-between text-slate-300">
+                                    <span>Margen Comercial Pactado:</span>
+                                    <span class="font-mono font-bold text-white">${marginPct.toFixed(1)} %</span>
                                 </li>
                                 <li class="pt-2 mt-2 border-t border-slate-700 flex justify-between font-bold text-emerald-400 text-sm">
                                     <span>Margen de Beneficio (€):</span>
-                                    <span class="${profitMarginEur >= 0 ? 'text-emerald-400' : 'text-red-400'}">${profitMarginEur.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
-                                </li>
-                                <li class="flex justify-between font-bold text-indigo-300 text-xs">
-                                    <span>Margen de Beneficio s/ Flete (%):</span>
-                                    <span class="${profitMarginPct >= 0 ? 'text-emerald-300' : 'text-red-300'} font-mono">${profitMarginPct.toFixed(1)} %</span>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                                </li>
-                                <li class="pt-2 mt-2 border-t border-slate-700 flex justify-between font-bold text-emerald-400 text-sm">
-                                    <span>Margen de Beneficio (€):</span>
-                                    <span class="${profitMarginEur >= 0 ? 'text-emerald-400' : 'text-red-400'}">${profitMarginEur.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+                                    <span class="${profitMarginEur >= 0 ? 'text-emerald-400' : 'text-red-400'} font-mono">${profitMarginEur.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
                                 </li>
                                 <li class="flex justify-between font-bold text-indigo-300 text-xs">
                                     <span>Margen de Beneficio s/ Flete (%):</span>
@@ -50738,16 +50769,19 @@ Example:
                         </div>
                     </div>
 
-                    <!-- Botón para cerrar o imprimir -->
-                    <div class="no-print pt-2 flex justify-end gap-2 border-t border-slate-800">
+                    <!-- Botón para cerrar o imprimir / exportar PDF -->
+                    <div class="no-print pt-2 flex flex-wrap justify-end gap-2 border-t border-slate-800">
                         <button onclick="closeAIModal()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition">
                             ${r.closeBtn}
                         </button>
                         <button onclick="saveLandRouteQuote()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-1.5 transition">
                             <i class="fa-solid fa-cloud-arrow-up"></i> Guardar/Exportar Cotización
                         </button>
-                        <button onclick="printExecutiveScreenReport()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-1.5 transition">
-                            <i class="fa-solid fa-print"></i> 🖨️ Imprimir Documento Oficial
+                        <button onclick="exportExecutiveReportPdf()" class="bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-file-pdf"></i> 📄 Exportar PDF
+                        </button>
+                        <button onclick="printExecutiveScreenReport()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-print"></i> 🖨️ Imprimir
                         </button>
                     </div>
                 </div>
@@ -50756,6 +50790,40 @@ Example:
             document.getElementById('ai-modal-content').innerHTML = reportHTML;
             document.getElementById('ai-modal-content').classList.remove('hidden');
         }
+
+        async function exportExecutiveReportPdf() {
+            const content = document.getElementById('ai-modal-content');
+            if (!content) return;
+
+            const ref = (typeof getSafeActiveContractRef === 'function' ? getSafeActiveContractRef() : '') || 'estimacion';
+            const filename = `Land_Charter_Reporte_Ejecutivo_${ref}_${new Date().toISOString().slice(0, 10)}.pdf`;
+
+            if (typeof html2pdf === 'function') {
+                const opt = {
+                    margin: [10, 10, 10, 10],
+                    filename: filename,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, logging: false },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+                if (typeof showToast === 'function') {
+                    showToast('Generando PDF del Reporte Ejecutivo...', false, 'info');
+                }
+                try {
+                    await html2pdf().set(opt).from(content).save();
+                    if (typeof showToast === 'function') {
+                        showToast('Reporte Ejecutivo exportado a PDF correctamente.', false, 'success');
+                    }
+                    return;
+                } catch (e) {
+                    console.warn('html2pdf fallo, recurriendo a impresion:', e);
+                }
+            }
+
+            // Fallback a impresión nativa si html2pdf no está disponible
+            printExecutiveScreenReport();
+        }
+        window.exportExecutiveReportPdf = exportExecutiveReportPdf;
         function renderExecutiveReportPrintView(datosCotizacion) {
             // Asegurar que las variables en State están actualizadas
             const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
