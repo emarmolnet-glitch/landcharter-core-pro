@@ -10318,7 +10318,7 @@
                             </div>
                             <div class="input-group">
                                 <label class="text-indigo-400 font-bold block mb-1 text-xs">Descansos Tacógrafo (Horas)</label>
-                                <input type="number" step="any" id="delta-historico" class="input-gc text-indigo-300 font-bold w-full" value="0" placeholder="0" oninput="calculateAdjustedEtaAndDays(); runEngine()">
+                                <input type="number" step="any" id="delta-historico" class="input-gc text-indigo-300 font-bold w-full" value="0.00" placeholder="0" oninput="calculateAdjustedEtaAndDays(); runEngine()" onblur="if(this.value && !isNaN(this.value)) { this.value = parseFloat(this.value).toFixed(2); calculateAdjustedEtaAndDays(); runEngine(); }">
                                 <p class="mt-1 text-[10px] text-slate-500">Pausas obligatorias (45 min / 4.5h) y descansos diarios (11h) según CE 561/2006</p>
                             </div>
                         </div>
@@ -10356,11 +10356,11 @@
                                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                             <div>
                                                 <label class="mb-1 block text-[10px] font-black uppercase text-orange-700">FACTOR CLIMA Y TRÁFICO (Horas)</label>
-                                                <input type="number" step="0.25" min="0" id="factor-clima" class="input-gc w-full border-slate-300 bg-white font-bold text-orange-700" value="0" oninput="calculateAdjustedEtaAndDays(); runEngine()">
+                                                <input type="number" step="0.25" min="0" id="factor-clima" class="input-gc w-full border-slate-300 bg-white font-bold text-orange-700" value="0.00" oninput="calculateAdjustedEtaAndDays(); runEngine()" onblur="if(this.value && !isNaN(this.value)) { this.value = parseFloat(this.value).toFixed(2); calculateAdjustedEtaAndDays(); runEngine(); }">
                                             </div>
                                             <div>
                                                 <label class="mb-1 block text-[10px] font-black uppercase text-pink-700">T. ESPERA EN MUELLE (Horas)</label>
-                                                <input type="number" step="0.25" min="0" id="t-fondeo" class="input-gc w-full border-slate-300 bg-white font-bold text-pink-700" value="0" oninput="calculateAdjustedEtaAndDays(); runEngine()">
+                                                <input type="number" step="0.25" min="0" id="t-fondeo" class="input-gc w-full border-slate-300 bg-white font-bold text-pink-700" value="0.00" oninput="calculateAdjustedEtaAndDays(); runEngine()" onblur="if(this.value && !isNaN(this.value)) { this.value = parseFloat(this.value).toFixed(2); calculateAdjustedEtaAndDays(); runEngine(); }">
                                             </div>
                                         </div>
                                     </div>
@@ -10369,11 +10369,11 @@
                                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                             <div>
                                                 <label class="mb-1 block text-[10px] font-black uppercase text-orange-700">FACTOR CLIMA Y TRÁFICO (Horas)</label>
-                                                <input type="number" step="0.25" min="0" id="factor-clima-pod" class="input-gc w-full border-slate-300 bg-white font-bold text-orange-700" value="0" oninput="calculateAdjustedEtaAndDays(); runEngine()">
+                                                <input type="number" step="0.25" min="0" id="factor-clima-pod" class="input-gc w-full border-slate-300 bg-white font-bold text-orange-700" value="0.00" oninput="calculateAdjustedEtaAndDays(); runEngine()" onblur="if(this.value && !isNaN(this.value)) { this.value = parseFloat(this.value).toFixed(2); calculateAdjustedEtaAndDays(); runEngine(); }">
                                             </div>
                                             <div>
                                                 <label class="mb-1 block text-[10px] font-black uppercase text-pink-700">T. ESPERA EN MUELLE (Horas)</label>
-                                                <input type="number" step="0.25" min="0" id="t-fondeo-pod" class="input-gc w-full border-slate-300 bg-white font-bold text-pink-700" value="0" oninput="calculateAdjustedEtaAndDays(); runEngine()">
+                                                <input type="number" step="0.25" min="0" id="t-fondeo-pod" class="input-gc w-full border-slate-300 bg-white font-bold text-pink-700" value="0.00" oninput="calculateAdjustedEtaAndDays(); runEngine()" onblur="if(this.value && !isNaN(this.value)) { this.value = parseFloat(this.value).toFixed(2); calculateAdjustedEtaAndDays(); runEngine(); }">
                                             </div>
                                         </div>
                                     </div>
@@ -16129,7 +16129,7 @@
         function clampSmartPortValue(value, min, max) {
             const numeric = Number(value);
             if (!Number.isFinite(numeric)) return min;
-            return Math.min(max, Math.max(min, numeric));
+            return Number(Math.min(max, Math.max(min, numeric)).toFixed(2));
         }
 
         function resolvePortRecordForSmartCalculations(portName) {
@@ -16234,9 +16234,9 @@
                 coste_remolcador_ud: 0
             });
 
-            setInputValue('factor-clima', suggestion.clima_dias);
-            setInputValue('delta-historico', suggestion.delta_historico_dias);
-            setInputValue('t-fondeo', suggestion.fondeo_dias);
+            setInputValue('factor-clima', Number(suggestion.clima_dias || 0).toFixed(2));
+            setInputValue('delta-historico', Number(suggestion.delta_historico_dias || 0).toFixed(2));
+            setInputValue('t-fondeo', Number(suggestion.fondeo_dias || 0).toFixed(2));
             setInputValue('t-remolcadores', suggestion.coste_remolcador_ud);
 
             State.portIntelligence = {
@@ -17611,9 +17611,16 @@
         const setInputValue = (id, value) => {
             const el = document.getElementById(id);
             if (!el) return;
-            const nextValue = el.type === 'date'
-                ? normalizeDateInputValue(value)
-                : String(value ?? '');
+            let nextValue;
+            if (el.type === 'date') {
+                nextValue = normalizeDateInputValue(value);
+            } else if (typeof value === 'number' && Number.isFinite(value) && (el.type === 'number' || ['t-fondeo', 't-fondeo-pod', 'factor-clima', 'factor-clima-pod', 'delta-historico'].includes(id))) {
+                nextValue = Number(value.toFixed(2)).toFixed(2);
+            } else if (typeof value === 'string' && value.trim() !== '' && !isNaN(Number(value)) && ['t-fondeo', 't-fondeo-pod', 'factor-clima', 'factor-clima-pod', 'delta-historico'].includes(id)) {
+                nextValue = Number(parseFloat(value).toFixed(2)).toFixed(2);
+            } else {
+                nextValue = String(value ?? '');
+            }
             const valueChanged = el.value !== nextValue;
             if (valueChanged) el.value = nextValue;
             if (valueChanged && (id === 'port-pol' || id === 'port-pod')) {
@@ -41957,6 +41964,17 @@ function scheduleReactiveEngine() {
             if (typeof window !== 'undefined' && window.State) {
                 window.State.road_transit_days = tiempo_total_dias;
                 window.State.roadTransitDays = tiempo_total_dias;
+            }
+
+            if (typeof calculateAdjustedEtaAndDays === 'function' && !window.__isCalculatingAdjustedEta) {
+                window.__isCalculatingAdjustedEta = true;
+                try {
+                    calculateAdjustedEtaAndDays();
+                } catch (e) {
+                    console.warn('Error sincronizando ETA con tacógrafo:', e);
+                } finally {
+                    window.__isCalculatingAdjustedEta = false;
+                }
             }
 
             return {
@@ -68388,35 +68406,90 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                     etaRadarInput = departureDate;
                 }
             }
-            const climaPol = Math.max(0, parseFloat(document.getElementById('factor-clima')?.value) || 0);
-            const fondeoPol = Math.max(0, parseFloat(document.getElementById('t-fondeo')?.value) || 0);
-            const climaPod = Math.max(0, parseFloat(document.getElementById('factor-clima-pod')?.value) || 0);
-            const fondeoPod = Math.max(0, parseFloat(document.getElementById('t-fondeo-pod')?.value) || 0);
-            const climaVal = climaPol + climaPod;
+
+            // Fix de Redondeo (UI): sanear números flotantes en pantalla como 0.850000000000001
+            ['t-fondeo', 't-fondeo-pod', 'factor-clima', 'factor-clima-pod', 'delta-historico'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (el && el.value && String(el.value).includes('.') && String(el.value).split('.')[1].length > 2 && document.activeElement !== el) {
+                    const parsed = parseFloat(el.value);
+                    if (Number.isFinite(parsed)) {
+                        el.value = parsed.toFixed(2);
+                    }
+                }
+            });
+
+            // Unificar Horas y Días: los inputs de Muelle y Clima están en HORAS
+            const climaPolHours = Math.max(0, parseFloat(document.getElementById('factor-clima')?.value) || 0);
+            const fondeoPolHours = Math.max(0, parseFloat(document.getElementById('t-fondeo')?.value) || 0);
+            const climaPodHours = Math.max(0, parseFloat(document.getElementById('factor-clima-pod')?.value) || 0);
+            const fondeoPodHours = Math.max(0, parseFloat(document.getElementById('t-fondeo-pod')?.value) || 0);
+
+            // Conversión estricta de Horas a Días (/ 24)
+            const climaPol = climaPolHours / 24;
+            const fondeoPol = fondeoPolHours / 24;
+            const climaPod = climaPodHours / 24;
+            const fondeoPod = fondeoPodHours / 24;
+
+            const totalClimaHours = climaPolHours + climaPodHours;
+            const totalMuelleHours = fondeoPolHours + fondeoPodHours;
+            const totalClimaDays = totalClimaHours / 24;
+            const totalMuelleDays = totalMuelleHours / 24;
+
             const summaryClimateInput = document.getElementById('days-margin');
             if (summaryClimateInput) {
-                summaryClimateInput.value = Math.max(0, climaVal).toFixed(2);
-                summaryClimateInput.classList.toggle('text-slate-400', climaVal <= 0);
-                summaryClimateInput.classList.toggle('text-[#1E3A8A]', climaVal > 0);
+                summaryClimateInput.value = totalClimaHours.toFixed(2);
+                summaryClimateInput.classList.toggle('text-slate-400', totalClimaHours <= 0);
+                summaryClimateInput.classList.toggle('text-[#1E3A8A]', totalClimaHours > 0);
             }
             const summaryClimateValue = document.getElementById('res-days-margin');
             if (summaryClimateValue) {
-                summaryClimateValue.innerText = `${Math.max(0, climaVal).toFixed(2)} d`;
-                summaryClimateValue.classList.toggle('text-slate-400', climaVal <= 0);
-                summaryClimateValue.classList.toggle('text-[#1E3A8A]', climaVal > 0);
+                summaryClimateValue.innerText = `${totalClimaHours.toFixed(2)} h`;
+                summaryClimateValue.classList.toggle('text-slate-400', totalClimaHours <= 0);
+                summaryClimateValue.classList.toggle('text-[#1E3A8A]', totalClimaHours > 0);
             }
 
-            const cargo = Math.max(0, parseFloat(document.getElementById('cargo-qty')?.value) || 0);
-            const loadRate = Math.max(0, parseFloat(document.getElementById('rate-load')?.value) || 0);
-            const laytimePol = typeof State !== 'undefined' && Number.isFinite(Number(State.portDaysLoad))
-                ? Math.max(0, Number(State.portDaysLoad))
-                : (loadRate > 0 ? cargo / loadRate : 0);
-            const baseNavigationDays = typeof State !== 'undefined' && Number.isFinite(Number(State.ladenDays ?? State.dLaden ?? State.seaDaysLaden))
-                ? Math.max(0, Number(State.ladenDays ?? State.dLaden ?? State.seaDaysLaden))
-                : Math.max(0, parseFloat(document.getElementById('res-days-laden')?.innerText) || 0);
+            // Conectar ETA con el Tacógrafo:
+            // Obtener el Tiempo Total de Tránsito del Tacógrafo (días)
+            let tachographTransitDays = 0;
+            if (typeof calculateTachographTimes === 'function') {
+                const tacoResult = calculateTachographTimes();
+                if (tacoResult && Number.isFinite(tacoResult.tiempo_total_dias) && tacoResult.tiempo_total_dias > 0) {
+                    tachographTransitDays = tacoResult.tiempo_total_dias;
+                }
+            }
+            if (!tachographTransitDays) {
+                const tacoDaysEl = document.getElementById('tacografo-total-transit-days');
+                const parsedDays = tacoDaysEl ? parseFloat(tacoDaysEl.textContent || tacoDaysEl.innerText) : NaN;
+                if (Number.isFinite(parsedDays) && parsedDays > 0) {
+                    tachographTransitDays = parsedDays;
+                }
+            }
+            if (!tachographTransitDays && typeof State !== 'undefined' && State) {
+                tachographTransitDays = Number(State.road_transit_days || State.roadTransitDays || 0);
+            }
+            if (!tachographTransitDays) {
+                const distTotal = parseFloat(document.getElementById('dist-total')?.value)
+                    || ((parseFloat(document.getElementById('dist-laden')?.value) || 0) + (parseFloat(document.getElementById('dist-ballast')?.value) || 0))
+                    || (typeof State !== 'undefined' ? (Number(State.totalKilometers) || Number(State.distLaden) || 0) : 0);
+                const spd = parseFloat(document.getElementById('tacografo-speed')?.value) || 80;
+                if (distTotal > 0 && spd > 0) {
+                    const drivingHours = distTotal / spd;
+                    const pauseHours = Math.floor(drivingHours / 4.5) * 0.75;
+                    const workDays = Math.ceil(drivingHours / 9);
+                    const restHours = workDays > 1 ? (workDays - 1) * 11 : 0;
+                    const totalHours = drivingHours + pauseHours + restHours;
+                    tachographTransitDays = totalHours / 24;
+                }
+            }
+
+            // Normativa Tacógrafo CE 561/2006
             const tacografoHours = Math.max(0, parseFloat(document.getElementById('delta-historico')?.value) || 0);
             const tacografoDays = tacografoHours > 0 ? (tacografoHours / 24) : 0;
+            const baseNavigationDays = Math.max(0, tachographTransitDays - tacografoDays);
             const navigationDays = baseNavigationDays + tacografoDays;
+
+            // En Land Charter no hay laytime marítimo heredado (las esperas operativas se computan en muelle)
+            const laytimePol = 0;
             const baseDays = laytimePol + navigationDays;
 
             let baseEtaStr = etaRadarInput || 'N/A';
@@ -68425,6 +68498,8 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             let finalPodEtaStr = 'N/A';
             const polRiskDays = climaPol + fondeoPol;
             const podRiskDays = climaPod + fondeoPod;
+
+            // Duración Final = Tiempo Total de Tránsito del Tacógrafo (días) + Tiempos de Espera en Muelle (días) + Factor Clima (días)
             const adjustedDays = Math.max(0, polRiskDays + laytimePol + navigationDays + podRiskDays);
 
             if (etaRadarInput) {
@@ -68453,6 +68528,17 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             if (radarPodEtaEl) radarPodEtaEl.innerText = radarPodEtaStr;
             if (finalPodEtaEl) finalPodEtaEl.innerText = finalPodEtaStr;
             if (adjustedDaysEl) adjustedDaysEl.innerText = Math.max(0, adjustedDays).toFixed(2) + ' d';
+
+            if (typeof State !== 'undefined' && State) {
+                State.smartAdjustedDays = adjustedDays;
+                State.adjustedDurationDays = adjustedDays;
+                State.finalEtaDate = finalPodEtaStr;
+            }
+            if (typeof window !== 'undefined' && window.State) {
+                window.State.smartAdjustedDays = adjustedDays;
+                window.State.adjustedDurationDays = adjustedDays;
+                window.State.finalEtaDate = finalPodEtaStr;
+            }
         }
 
         function setSmartAdjustmentAlert(message, tone = 'info') {
