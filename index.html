@@ -8807,6 +8807,14 @@
             }
         }
 
+        /* Ocultamiento estratégico no destructivo del Módulo y Pestaña de Auditoría en Land Charter */
+        #tab-btn-auditor,
+        #mobile-tab-btn-auditor,
+        [data-module-id="auditor"].tab-btn,
+        #view-auditor {
+            display: none !important;
+        }
+
     </style>
     <style>
         .leaflet-route-highlight {
@@ -8929,7 +8937,10 @@
                 </button>
                 <ul id="mobile-module-nav-menu" class="mobile-module-nav-menu" aria-label="Seleccionar módulo"></ul>
             </div>
-            <div id="primary-module-tabs" class="module-tabs flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 max-w-full" aria-label="Navegación de módulos principales"></div>
+            <div id="primary-module-tabs" class="module-tabs flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 max-w-full" aria-label="Navegación de módulos principales">
+                <!-- Pestaña de navegación de Auditoría oculta estratégicamente (código latente) -->
+                <button type="button" id="tab-btn-auditor" class="tab-btn hidden" style="display: none;" data-module-id="auditor" aria-hidden="true" tabindex="-1">Auditoría</button>
+            </div>
         </div>
 
         <div class="header-actions-right flex items-center">
@@ -12973,7 +12984,7 @@
         <!-- ========================================== -->
         <!-- MÓDULO 3: CHARTERAI RISK AUDITOR           -->
         <!-- ========================================== -->
-        <div id="view-auditor" class="view-section absolute inset-0 overflow-hidden flex flex-col bg-slate-100">
+        <div id="view-auditor" class="view-section absolute inset-0 overflow-hidden flex flex-col bg-slate-100 hidden" style="display: none;">
             <!-- Content Area (split columns) -->
             <div class="flex-1 flex flex-col md:flex-row md:items-start overflow-hidden ai-work-grid p-4 md:p-6">
                 <!-- Left Panel: Input -->
@@ -12987,7 +12998,7 @@
                     </div>
                     <div class="flex flex-wrap gap-2 mb-4">
                         <input type="file" id="fileUpload" class="hidden" accept=".pdf,.docx,.doc,.xlsx,.xls,.txt,.csv,.png,.jpg,.jpeg,.webp,.gif,image/*" onchange="handleFileUpload(event)">
-                        <button onclick="document.getElementById('fileUpload').click()" id="uploadBtn" class="text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-md transition-colors flex items-center border border-slate-200">
+                        <button onclick="document.getElementById('fileUpload')?.click()" id="uploadBtn" class="text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-md transition-colors flex items-center border border-slate-200">
                             <i class="fa-solid fa-file-arrow-up mr-1.5"></i> Subir Archivo
                         </button>
                         <button onclick="loadFromGencon()" class="text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-md transition-colors border border-indigo-200 shadow-sm flex items-center gap-1">
@@ -30252,6 +30263,12 @@ function createRouteAnchorElement(type) {
             const localizedLabel = getLocalizedModuleLabel(moduleConfig.label);
             button.textContent = localizedLabel;
             button.setAttribute('aria-label', localizedLabel);
+            if (moduleConfig.id === 'auditor') {
+                button.classList.add('hidden');
+                button.style.display = 'none';
+                button.setAttribute('aria-hidden', 'true');
+                button.tabIndex = -1;
+            }
             if (moduleConfig.presentation === 'module-overlay') {
                 button.setAttribute('aria-controls', 'tracking-live-overlay');
             }
@@ -53574,8 +53591,10 @@ REGLA CRÍTICA PARA 'laytime_excel_data' y 'detalles_sof':
 
         async function processUploadedDocument(file, source = 'upload') {
             const textarea = document.getElementById('recapInput');
+            if (!textarea) return;
             const uploadBtn = document.getElementById('uploadBtn');
             const originalBtnHtml = uploadBtn ? uploadBtn.innerHTML : '';
+            const errorBox = document.getElementById('errorBox');
             
             textarea.value = "";
             textarea.placeholder = "Extrayendo texto del archivo, por favor espera...";
@@ -53584,7 +53603,7 @@ REGLA CRÍTICA PARA 'laytime_excel_data' y 'detalles_sof':
                 uploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Leyendo...';
                 uploadBtn.disabled = true;
             }
-            document.getElementById('errorBox').classList.add('hidden');
+            if (errorBox) errorBox.classList.add('hidden');
             
             try {
                 let extractedText = "";
@@ -53651,9 +53670,11 @@ REGLA CRÍTICA PARA 'laytime_excel_data' y 'detalles_sof':
                 }
             } catch (error) {
                 console.error("Error leyendo archivo:", error);
-                document.getElementById('errorBox').innerText = "No se pudo extraer el texto. " + error.message;
-                document.getElementById('errorBox').classList.remove('hidden');
-                textarea.placeholder = "Pega texto, pega una imagen/archivo desde el portapapeles o arrastra aquí PDF, Word, Excel, TXT, CSV o fotografías...";
+                if (errorBox) {
+                    errorBox.innerText = "No se pudo extraer el texto. " + error.message;
+                    errorBox.classList.remove('hidden');
+                }
+                if (textarea) textarea.placeholder = "Pega texto, pega una imagen/archivo desde el portapapeles o arrastra aquí PDF, Word, Excel, TXT, CSV o fotografías...";
                 clearDocPreview();
             } finally {
                 if (uploadBtn) {
@@ -53797,8 +53818,10 @@ ADDITIONAL NOTES:
 - Additional Notes / Remarks: ${getVal('gc-add-notes')}
 --------------------------------------------------${clausesTextStr}`;
 
-            document.getElementById('recapInput').value = addendumText;
-            document.getElementById('errorBox').classList.add('hidden');
+            const recapInputEl = document.getElementById('recapInput');
+            if (recapInputEl) recapInputEl.value = addendumText;
+            const errorBoxEl = document.getElementById('errorBox');
+            if (errorBoxEl) errorBoxEl.classList.add('hidden');
             showToast("✅ Datos del Addendum GENCON importados correctamente.");
             const refVal = getSafeActiveContractRef();
             showDocPreview('addendum', `GENCON (${refVal})`);
@@ -53870,8 +53893,10 @@ ADDITIONAL NOTES:
 - Additional Notes / Remarks: ${getVal('asb-add-notes')}
 --------------------------------------------------${clausesTextStr}`;
 
-            document.getElementById('recapInput').value = addendumText;
-            document.getElementById('errorBox').classList.add('hidden');
+            const asbRecapInputEl = document.getElementById('recapInput');
+            if (asbRecapInputEl) asbRecapInputEl.value = addendumText;
+            const asbErrorBoxEl = document.getElementById('errorBox');
+            if (asbErrorBoxEl) asbErrorBoxEl.classList.add('hidden');
             showToast("✅ Datos del Addendum ASBATANKVOY importados correctamente.");
             const refVal = getSafeActiveContractRef();
             showDocPreview('addendum', `ASBATANKVOY (${refVal})`);
@@ -54234,11 +54259,15 @@ ADDITIONAL NOTES:
         }
 
         function finishAuditSession() {
-            document.getElementById('recapInput').value = '';
+            const recapInputEl = document.getElementById('recapInput');
+            if (recapInputEl) recapInputEl.value = '';
             clearDocPreview();
-            document.getElementById('commercial-nlp-panel')?.classList.add('hidden');
-            document.getElementById('resultsContent').classList.add('hidden');
-            document.getElementById('emptyState').classList.remove('hidden');
+            const commercialNlpPanelEl = document.getElementById('commercial-nlp-panel');
+            if (commercialNlpPanelEl) commercialNlpPanelEl.classList.add('hidden');
+            const resultsContentEl = document.getElementById('resultsContent');
+            if (resultsContentEl) resultsContentEl.classList.add('hidden');
+            const emptyStateEl = document.getElementById('emptyState');
+            if (emptyStateEl) emptyStateEl.classList.remove('hidden');
             const docBadge = document.getElementById('doc-badge');
             if (docBadge) {
                 docBadge.innerText = '';
@@ -54526,23 +54555,33 @@ ADDITIONAL NOTES:
         }
 
         async function runCommercialNlpMotor() {
-            const text = document.getElementById('recapInput').value.trim();
+            const recapInputEl = document.getElementById('recapInput');
+            if (!recapInputEl) return;
+            const text = recapInputEl.value.trim();
             const btn = document.getElementById('commercialNlpBtn');
+            const errorBox = document.getElementById('errorBox');
 
-            document.getElementById('errorBox').classList.add('hidden');
+            if (errorBox) errorBox.classList.add('hidden');
             if (!text) {
-                document.getElementById('errorBox').innerText = "Pega texto extraído para ejecutar el Motor NPL independiente. No se envían capturas ni documentos al servidor.";
-                document.getElementById('errorBox').classList.remove('hidden');
+                if (errorBox) {
+                    errorBox.innerText = "Pega texto extraído para ejecutar el Motor NPL independiente. No se envían capturas ni documentos al servidor.";
+                    errorBox.classList.remove('hidden');
+                }
                 return;
             }
 
-            document.getElementById('emptyState').classList.add('hidden');
-            document.getElementById('resultsContent').classList.remove('hidden');
-            document.getElementById('loadingState').classList.remove('hidden');
+            const emptyState = document.getElementById('emptyState');
+            if (emptyState) emptyState.classList.add('hidden');
+            const resultsContent = document.getElementById('resultsContent');
+            if (resultsContent) resultsContent.classList.remove('hidden');
+            const loadingState = document.getElementById('loadingState');
+            if (loadingState) loadingState.classList.remove('hidden');
 
-            const originalBtnHtml = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Procesando en memoria...';
+            const originalBtnHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Procesando en memoria...';
+            }
 
             try {
                 const payload = buildCommercialNlpLocalPayload(text);
@@ -54550,12 +54589,17 @@ ADDITIONAL NOTES:
                 if (typeof showToast === 'function') showToast('Motor NPL: análisis completado. JSON e impresión disponibles.');
             } catch (error) {
                 console.error(error);
-                document.getElementById('errorBox').innerText = error.message;
-                document.getElementById('errorBox').classList.remove('hidden');
+                if (errorBox) {
+                    errorBox.innerText = error.message;
+                    errorBox.classList.remove('hidden');
+                }
             } finally {
-                document.getElementById('loadingState').classList.add('hidden');
-                btn.disabled = false;
-                btn.innerHTML = originalBtnHtml;
+                const loadingStateEl = document.getElementById('loadingState');
+                if (loadingStateEl) loadingStateEl.classList.add('hidden');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalBtnHtml;
+                }
             }
         }
 
@@ -54769,7 +54813,8 @@ ADDITIONAL NOTES:
 
             isRestoringAuditSession = true;
             try {
-                document.getElementById('recapInput').value = decodedData.recapText || '';
+                const recapEl = document.getElementById('recapInput');
+                if (recapEl) recapEl.value = decodedData.recapText || '';
 
                 restoreSessionFields(decodedData.fields);
 
@@ -54830,11 +54875,14 @@ ADDITIONAL NOTES:
         }
 
         async function analyzeDocument() {
-            const text = toAuditText(document.getElementById('recapInput')?.value).trim();
+            const recapInputEl = document.getElementById('recapInput');
+            if (!recapInputEl) return;
+            const text = toAuditText(recapInputEl.value).trim();
             const btn = document.getElementById('analyzeBtn');
             const activeTaskId = toAuditText(localStorage.getItem('legal_audit_task_id')).trim();
+            const errorBoxEl = document.getElementById('errorBox');
 
-            document.getElementById('errorBox').classList.add('hidden');
+            if (errorBoxEl) errorBoxEl.classList.add('hidden');
 
             const strictAuditData = buildStrictAuditSessionData(text);
             const strictAuditGateError = getStrictAuditGateError(strictAuditData);
@@ -54843,20 +54891,25 @@ ADDITIONAL NOTES:
                 return;
             }
 
-            document.getElementById('emptyState').classList.add('hidden');
-            document.getElementById('resultsContent').classList.add('hidden');
-            document.getElementById('loadingState').classList.remove('hidden');
+            const emptyStateEl = document.getElementById('emptyState');
+            if (emptyStateEl) emptyStateEl.classList.add('hidden');
+            const resultsContentEl = document.getElementById('resultsContent');
+            if (resultsContentEl) resultsContentEl.classList.add('hidden');
+            const loadingStateEl = document.getElementById('loadingState');
+            if (loadingStateEl) loadingStateEl.classList.remove('hidden');
             const docBadge = document.getElementById('doc-badge');
             if (docBadge) {
                 docBadge.innerText = '';
                 docBadge.classList.add('hidden');
             }
             
-            const originalBtnHtml = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = activeTaskId
-                ? '<i class="fa-solid fa-rotate fa-spin mr-2"></i> Reanudando auditoría...'
-                : '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Procesando análisis legal...';
+            const originalBtnHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = activeTaskId
+                    ? '<i class="fa-solid fa-rotate fa-spin mr-2"></i> Reanudando auditoría...'
+                    : '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Procesando análisis legal...';
+            }
 
             try {
                 const cpStandard = toAuditText(State.charterPartyStandard || (State.cargoType === 'Granel Líquido (Liquid Bulk)' ? 'ASBATANKVOY' : 'GENCON'), 'GENCON');
@@ -55051,59 +55104,81 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                     excelDownloadContainer.classList.toggle('hidden', !laytimeExcelData.length);
                 }
 
-                document.getElementById('resProforma').innerHTML = armadorAudit;
+                const resProformaEl = document.getElementById('resProforma');
+                if (resProformaEl) resProformaEl.innerHTML = armadorAudit;
                 const auditRisks = Array.isArray(result.riesgos) ? result.riesgos : [];
                 const auditClauses = Array.isArray(result.clausulas) ? result.clausulas : [];
-                document.getElementById('resRiesgos').innerHTML = fletadorAudit ? `<li>${fletadorAudit}</li>` : auditRisks.map(r => `<li>${formatMarkdownBold(r)}</li>`).join('');
-                document.getElementById('resClausulas').innerHTML = auditClauses.map(c => `
+                const resRiesgosEl = document.getElementById('resRiesgos');
+                if (resRiesgosEl) resRiesgosEl.innerHTML = fletadorAudit ? `<li>${fletadorAudit}</li>` : auditRisks.map(r => `<li>${formatMarkdownBold(r)}</li>`).join('');
+                const resClausulasEl = document.getElementById('resClausulas');
+                if (resClausulasEl) resClausulasEl.innerHTML = auditClauses.map(c => `
                     <div class="bg-slate-50 p-4 rounded border border-slate-200">
                         <p class="text-sm font-mono text-slate-800 whitespace-pre-wrap">${formatMarkdownBold(c)}</p>
                     </div>
                 `).join('');
 
-                document.getElementById('resEstrategia').innerHTML = laytimeExcelData.length
+                const resEstrategiaEl = document.getElementById('resEstrategia');
+                if (resEstrategiaEl) resEstrategiaEl.innerHTML = laytimeExcelData.length
                     ? formatMarkdownBold(`### Laytime Excel Data\n${laytimeExcelData.map(row => `- ${row.Fecha || ''} ${row.Desde || ''}-${row.Hasta || ''}: ${row.Evento || ''} | ${row.Tiempo_Plancha_Contado || ''} | ${row.Argumento_Defensa || ''}`).join('\n')}`)
                     : formatMarkdownBold(result.estrategia || '');
-                document.getElementById('resEmail').value = toAuditText(result.email);
+                const resEmailEl = document.getElementById('resEmail');
+                if (resEmailEl) resEmailEl.value = toAuditText(result.email);
 
                 // Actualizar identificador de referencia y rellenar vista imprimible
                 const ref = getSafeActiveContractRef();
                 const fullRefId = `Land Charter Core PRO - (${ref || '—'})`;
-                document.getElementById('audit-report-ref-id').innerText = fullRefId;
+                const auditReportRefEl = document.getElementById('audit-report-ref-id');
+                if (auditReportRefEl) auditReportRefEl.innerText = fullRefId;
 
                 const currentDate = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                document.getElementById('print-audit-date').innerText = currentDate;
-                document.getElementById('print-audit-est-id').innerText = fullRefId;
+                const printAuditDateEl = document.getElementById('print-audit-date');
+                if (printAuditDateEl) printAuditDateEl.innerText = currentDate;
+                const printAuditEstEl = document.getElementById('print-audit-est-id');
+                if (printAuditEstEl) printAuditEstEl.innerText = fullRefId;
                 
-                document.getElementById('print-audit-proforma').innerHTML = hasMasterContractReport
+                const printAuditProformaEl = document.getElementById('print-audit-proforma');
+                if (printAuditProformaEl) printAuditProformaEl.innerHTML = hasMasterContractReport
                     ? contractAuditHtml
                     : (operationalAuditHtml || armadorAudit);
-                document.getElementById('print-audit-riesgos').innerHTML = hasMasterContractReport || operationalAuditHtml
+                const printAuditRiesgosEl = document.getElementById('print-audit-riesgos');
+                if (printAuditRiesgosEl) printAuditRiesgosEl.innerHTML = hasMasterContractReport || operationalAuditHtml
                     ? ''
                     : (fletadorAudit ? `<li>${fletadorAudit}</li>` : auditRisks.map(r => `<li>${formatMarkdownBold(r)}</li>`).join(''));
-                document.getElementById('print-audit-clausulas').innerHTML = auditClauses.map(c => `
+                const printAuditClausulasEl = document.getElementById('print-audit-clausulas');
+                if (printAuditClausulasEl) printAuditClausulasEl.innerHTML = auditClauses.map(c => `
                     <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; margin-bottom: 8px;">
                         <p style="font-size: 8.5pt; color: #1e293b; font-family: monospace; white-space: pre-wrap; margin: 0;">${formatMarkdownBold(c)}</p>
                     </div>
                 `).join('');
-                document.getElementById('print-audit-estrategia').innerHTML = laytimeExcelData.length
+                const printAuditEstrategiaEl = document.getElementById('print-audit-estrategia');
+                if (printAuditEstrategiaEl) printAuditEstrategiaEl.innerHTML = laytimeExcelData.length
                     ? formatMarkdownBold(`### Laytime Excel Data\n${laytimeExcelData.map(row => `- ${row.Fecha || ''} ${row.Desde || ''}-${row.Hasta || ''}: ${row.Evento || ''} | ${row.Tiempo_Plancha_Contado || ''} | ${row.Argumento_Defensa || ''}`).join('\n')}`)
                     : formatMarkdownBold(result.estrategia || '');
-                document.getElementById('print-audit-email').innerText = toAuditText(result.email);
+                const printAuditEmailEl = document.getElementById('print-audit-email');
+                if (printAuditEmailEl) printAuditEmailEl.innerText = toAuditText(result.email);
 
-                document.getElementById('loadingState').classList.add('hidden');
-                document.getElementById('resultsContent').classList.remove('hidden');
+                const loadingStateEl = document.getElementById('loadingState');
+                if (loadingStateEl) loadingStateEl.classList.add('hidden');
+                const resultsContentEl = document.getElementById('resultsContent');
+                if (resultsContentEl) resultsContentEl.classList.remove('hidden');
                 window.HeaderWorkflowActions?.markAuditReportGenerated?.();
 
             } catch (error) {
                 console.error(error);
-                document.getElementById('errorBox').innerText = error.message;
-                document.getElementById('errorBox').classList.remove('hidden');
-                document.getElementById('loadingState').classList.add('hidden');
-                document.getElementById('emptyState').classList.remove('hidden');
+                const errorBox = document.getElementById('errorBox');
+                if (errorBox) {
+                    errorBox.innerText = error.message;
+                    errorBox.classList.remove('hidden');
+                }
+                const loadingStateEl = document.getElementById('loadingState');
+                if (loadingStateEl) loadingStateEl.classList.add('hidden');
+                const emptyStateEl = document.getElementById('emptyState');
+                if (emptyStateEl) emptyStateEl.classList.remove('hidden');
             } finally {
-                btn.disabled = false;
-                btn.innerHTML = originalBtnHtml;
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalBtnHtml;
+                }
             }
         }
 
@@ -55152,6 +55227,8 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         }
 
         function printAuditReport() {
+            const printView = document.getElementById('audit-report-print-view');
+            if (!printView) return;
             const originalTitle = document.title;
             const cpStandard = State.charterPartyStandard || (State.cargoType === 'Granel Líquido (Liquid Bulk)' ? 'ASBATANKVOY' : 'GENCON');
             const ref = getSafeActiveContractRef();
@@ -55184,7 +55261,9 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         }
 
         function copyEmail() {
-            const emailText = document.getElementById('resEmail').value;
+            const resEmail = document.getElementById('resEmail');
+            if (!resEmail) return;
+            const emailText = resEmail.value;
             const textArea = document.createElement("textarea");
             textArea.value = emailText;
             document.body.appendChild(textArea);
