@@ -387,3 +387,33 @@ export const clientApiUsage = pgTable("client_api_usage", {
   voyageReference: varchar("voyage_reference", { length: 255 }),
   createdAt: createdAt(),
 });
+
+export const forwarderProjects = pgTable(
+  "forwarder_projects",
+  {
+    id: serial("id").primaryKey(),
+    projectRef: varchar("project_ref", { length: 255 }).unique(),
+    clientName: varchar("client_name", { length: 255 }).default("Nuevo Cliente"),
+    status: varchar("status", { length: 50 }).default("BORRADOR"),
+    globalMarginPercentage: numeric("global_margin_percentage", { mode: "number" }),
+    documents: jsonb("documents").default([]),
+    items: jsonb("items").default([]),
+    landOrigin: varchar("land_origin", { length: 255 }),
+    landDestination: varchar("land_destination", { length: 255 }),
+    landDistance: numeric("land_distance", { mode: "number" }),
+    landFreightCost: numeric("land_freight_cost", { mode: "number" }),
+    totalTrucks: integer("total_trucks"),
+    roadTransitDays: numeric("road_transit_days", { mode: "number" }),
+    roadNetMargin: numeric("road_net_margin", { mode: "number" }),
+    preCarriage: jsonb("pre_carriage").default({}),
+    onCarriage: jsonb("on_carriage").default({}),
+    landRoute: jsonb("land_route").default({}),
+    routeAndChartering: jsonb("route_and_chartering"),
+    data: jsonb("data").default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_forwarder_projects_ref").on(table.projectRef),
+  ],
+);

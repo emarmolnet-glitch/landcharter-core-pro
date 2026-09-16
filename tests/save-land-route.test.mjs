@@ -77,3 +77,30 @@ test('12. netlify.toml contains redirect rule for /api/save-land-route', async (
   const netlifyTomlSource = await readFile(new URL('../netlify.toml', import.meta.url), 'utf8');
   assert.match(netlifyTomlSource, /from\s*=\s*"\/api\/save-land-route"[\s\S]*?to\s*=\s*"\/\.netlify\/functions\/save-land-route"/);
 });
+
+test('13. save-land-route flattens payload directly into columns (land_origin, land_destination, land_distance, land_freight_cost, total_trucks)', () => {
+  assert.match(fnSource, /land_origin/i);
+  assert.match(fnSource, /land_destination/i);
+  assert.match(fnSource, /land_distance/i);
+  assert.match(fnSource, /land_freight_cost/i);
+  assert.match(fnSource, /total_trucks/i);
+  assert.match(fnSource, /road_transit_days/i);
+  assert.match(fnSource, /road_net_margin/i);
+});
+
+test('14. save-land-route does not attempt to insert or update non-existent column "data" in SQL queries', () => {
+  // Ensure the INSERT and UPDATE statements do not include `data` column
+  assert.doesNotMatch(fnSource, /INSERT\s+INTO\s+forwarder_projects[^(]*\([^)]*\bdata\b[^)]*\)/i);
+  assert.doesNotMatch(fnSource, /SET[\s\S]*?\bdata\s*=/i);
+});
+
+test('15. db/schema.ts defines forwarderProjects with both flattened columns and data jsonb field', async () => {
+  const schemaSource = await readFile(new URL('../db/schema.ts', import.meta.url), 'utf8');
+  assert.match(schemaSource, /export\s+const\s+forwarderProjects\s*=\s*pgTable\s*\(\s*["']forwarder_projects["']/);
+  assert.match(schemaSource, /landOrigin\s*:\s*varchar\s*\(\s*["']land_origin["']/);
+  assert.match(schemaSource, /landDistance\s*:\s*numeric\s*\(\s*["']land_distance["']/);
+  assert.match(schemaSource, /landFreightCost\s*:\s*numeric\s*\(\s*["']land_freight_cost["']/);
+  assert.match(schemaSource, /totalTrucks\s*:\s*integer\s*\(\s*["']total_trucks["']/);
+  assert.match(schemaSource, /data\s*:\s*jsonb\s*\(\s*["']data["']/);
+});
+
