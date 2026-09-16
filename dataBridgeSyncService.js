@@ -262,6 +262,7 @@ export function buildRoadSyncPayload(options = {}) {
     const road_net_margin = parseLocalizedNumber(rawMargin, 0, 2);
 
     return {
+        project_ref: String(reference),
         reference: String(reference),
         total_trucks,
         road_transit_days,

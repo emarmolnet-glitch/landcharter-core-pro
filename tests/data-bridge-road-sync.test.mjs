@@ -24,6 +24,7 @@ test('1. buildRoadSyncPayload constructs the exact JSON contract with numbers pa
     });
 
     assert.deepEqual(payload, {
+        project_ref: 'RDM/2026-4455',
         reference: 'RDM/2026-4455',
         total_trucks: 334,
         road_transit_days: 1.34,
@@ -45,6 +46,7 @@ test('2. buildRoadSyncPayload handles numeric types directly', () => {
     });
 
     assert.deepEqual(payload, {
+        project_ref: 'RDM/2026-9999',
         reference: 'RDM/2026-9999',
         total_trucks: 334,
         road_transit_days: 1.34,
@@ -109,6 +111,7 @@ test('5. syncRoadMetricsToBridge sends POST request to [URL_BASE_DATABRIDGE]/api
     assert.equal(capturedMethod, 'POST');
     assert.equal(capturedHeaders['Content-Type'], 'application/json');
     assert.deepEqual(capturedBody, {
+        project_ref: 'RDM/2026-0123',
         reference: 'RDM/2026-0123',
         total_trucks: 334,
         road_transit_days: 1.34,

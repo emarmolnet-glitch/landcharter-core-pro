@@ -220,11 +220,34 @@ Contexto actual del proyecto: ${projectContext}`;
           systemInstruction,
           projectContext,
           history: messages,
+          pol: routeData?.pol,
+          pod: routeData?.pod,
+          loadingRate: routeData?.loadingRate,
+          dischargingRate: routeData?.dischargingRate,
         }),
       });
 
       const data = await response.json();
       let rawReply = data.reply || data.respuesta || data.text || (data.error ? `⚠️ ${data.error}` : 'No se pudo obtener respuesta del consultor.');
+
+      if (data?.charteringAssessment && onUpdatePayload) {
+        onUpdatePayload({
+          charteringAssessment: data.charteringAssessment,
+          rotationBreakdown: data.charteringAssessment?.rotationBreakdown,
+        });
+      }
+
+      const isBreakdownReq = /desglose financiero|separando flete|costes fob|flete y costes fob|flete marítimo/i.test(raw);
+      if (isBreakdownReq) {
+        const payloadObj = {};
+        payloadObj.requestFinancialBreakdown = true;
+        payloadObj.showFinancialBreakdown = true;
+        payloadObj.forceOpenModal = true;
+        // Subtotal Flete Marítimo / TCE
+        // Subtotal Costes FOB
+        // Total Cotización (All-In)
+        if (onUpdatePayload) onUpdatePayload(payloadObj);
+      }
 
       // Procesar bloque json-action para actualizar la interfaz automáticamente
       let actionType = data.action || 'none';
