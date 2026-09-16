@@ -72474,6 +72474,26 @@ window.actualizarGrabCapacityVisibility = function() {
                 btnTech.classList.remove('text-slate-500');
                 btnExec.classList.remove('bg-white', 'text-blue-700', 'shadow-sm');
                 btnExec.classList.add('text-slate-500');
+
+                // Sincronizar inputs del Modo Técnico con el estado de la ruta calculada / Ejecutivo
+                const polVal = State.pol || (document.getElementById('exec-pol')?.textContent !== 'N/D' ? document.getElementById('exec-pol')?.textContent : '') || '';
+                const podVal = State.pod || (document.getElementById('exec-pod')?.textContent !== 'N/D' ? document.getElementById('exec-pod')?.textContent : '') || '';
+                const distVal = State.totalKilometers || State.distance || State.distanceKm || 0;
+                const peajesVal = State.tollCost || State.peajes || State.pdaPol || 0;
+                const dietasVal = State.driverDiets || State.dietas || State.pdaPod || 0;
+
+                const portPolInput = document.getElementById('port-pol');
+                if (portPolInput && !portPolInput.value && polVal) portPolInput.value = polVal;
+                const portPodInput = document.getElementById('port-pod');
+                if (portPodInput && !portPodInput.value && podVal) portPodInput.value = podVal;
+                const distTotalInput = document.getElementById('dist-total');
+                if (distTotalInput && (!distTotalInput.value || distTotalInput.value === '0') && distVal) distTotalInput.value = distVal;
+                const distLadenInput = document.getElementById('dist-laden');
+                if (distLadenInput && (!distLadenInput.value || distLadenInput.value === '0') && distVal) distLadenInput.value = distVal;
+                const pdaPolInput = document.getElementById('pda-pol');
+                if (pdaPolInput && (!pdaPolInput.value || pdaPolInput.value === '0') && peajesVal) pdaPolInput.value = peajesVal;
+                const pdaPodInput = document.getElementById('pda-pod');
+                if (pdaPodInput && (!pdaPodInput.value || pdaPodInput.value === '0') && dietasVal) pdaPodInput.value = dietasVal;
             }
         };
     </script>

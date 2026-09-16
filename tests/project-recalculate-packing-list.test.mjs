@@ -48,26 +48,29 @@ test('2. "Recalcular" button strictly respects UI/UX and design system (Tailwind
   assert.match(btnMarkup, /\{isRecalculating\s*\?\s*['"]Recalculando\.\.\.['"]\s*:\s*['"]Recalcular['"]\}/, 'Label must reflect recalculating state');
 });
 
-test('3. handleRecalculate logic reads rows, triggers internal calculation, Universal Stowage Engine, and financialBreakdown with USD/MT ratios', () => {
+test('3. handleRecalculate logic performs local truck calculation, checks 24t / 13.6 LDM overload, and updates road pricing without remote fetch', () => {
   // Verifies handleRecalculate function declaration
   assert.match(forwarderSource, /const\s+handleRecalculate\s*=\s*async\s*\(\)\s*=>/, 'handleRecalculate function must exist');
 
-  // Verifies reading and sanitizing cargoItems (quantity, length, width, height, weight, category, type)
+  // Verifies reading and sanitizing cargoItems (quantity, length, width, height, weight)
   assert.match(forwarderSource, /cargoItems[\s\S]*?item\.quantity[\s\S]*?item\.length[\s\S]*?item\.width[\s\S]*?item\.height[\s\S]*?item\.weight/, 'Must read current row dimensions and weights');
 
-  // Verifies calculation of tonnage and autoCalculateEstimates
-  assert.match(forwarderSource, /autoCalculateEstimates\s*\(\s*currentItems\s*\)/, 'Must trigger autoCalculateEstimates with current items');
+  // Verifies calculation of truck weights (kg), volume (m3), and LDM
+  assert.match(forwarderSource, /totalWeightKg\s*=\s*currentItems\.reduce/, 'Must compute total weight in kg');
+  assert.match(forwarderSource, /totalVolumeM3\s*=\s*currentItems\.reduce/, 'Must compute total volume in m3');
+  assert.match(forwarderSource, /totalLdm\s*=/, 'Must compute total LDM');
 
-  // Verifies Universal Stowage Engine trigger
-  assert.match(forwarderSource, /calculateUniversalStowagePlan\s*\(\s*currentItems,/, 'Must execute Universal Stowage Engine plan');
+  // Verifies trailer overload threshold check for 24,000 kg or 13.6 LDM with red warning
+  assert.match(forwarderSource, /totalWeightKg\s*>\s*24000\s*\|\|\s*totalLdm\s*>\s*13\.6/, 'Must check 24,000 kg or 13.6 LDM trailer threshold');
+  assert.match(forwarderSource, /Exceso de capacidad para un Tráiler Estándar/, 'Must show standard trailer capacity overload warning');
 
-  // Verifies financialBreakdown and USD/MT unit ratios
-  assert.match(forwarderSource, /flete_unitario_usd_mt/, 'Must compute and handle flete_unitario_usd_mt ratio');
-  assert.match(forwarderSource, /fob_mas_mercancia_unitario_usd_mt/, 'Must compute and handle fob_mas_mercancia_unitario_usd_mt ratio');
-  assert.match(forwarderSource, /setFinancialBreakdown/, 'Must update financialBreakdown state');
+  // Verifies local road pricing formula: (Distancia_km * Tarifa_km) + Peajes + Dietas + Penalizaciones_Almacén
+  assert.match(forwarderSource, /runningCost\s*\+\s*peajes\s*\+\s*dietas\s*\+\s*penalizacionesAlmacen/, 'Must compute local road transport pricing formula');
 
-  // Verifies remote recalculation sync to project-parser with defensive try/catch
-  assert.match(forwarderSource, /fetch\(\s*['"](?:https:\/\/neon-seachartercorepro-4ce09d\.netlify\.app)?\/\.netlify\/functions\/project-parser['"][\s\S]*?method:\s*['"]POST['"]/, 'Must call remote project-parser function for recalculation');
+  // Verifies NO remote fetch in handleRecalculate
+  const handleRecalculateMatch = forwarderSource.match(/const\s+handleRecalculate[\s\S]*?finally\s*\{[\s\S]*?\};/);
+  assert.ok(handleRecalculateMatch, 'handleRecalculate function body must exist');
+  assert.doesNotMatch(handleRecalculateMatch[0], /fetch\(/, 'handleRecalculate must not execute remote fetch');
 });
 
 test('4. Subtle and fast visual feedback is displayed upon successful recalculation', () => {
