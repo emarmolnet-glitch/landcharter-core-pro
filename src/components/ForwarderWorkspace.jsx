@@ -345,6 +345,360 @@ export function hydrateCargoItem(it, defaultCategory = '', defaultType = '', ind
   };
 }
 
+export const LAND_VEHICLE_CATALOG = [
+  {
+    id: 'plataforma_grua',
+    name: 'Camión Plataforma con Grúa Autocarga',
+    payloadKg: 21000,
+    payloadTons: 21,
+    mma: 40,
+    description: 'Tara pluma hidráulica incluida (~19t tara · 21t carga útil)',
+    defaultLoadingMethod: 'Autocarga con Grúa del Camión',
+    defaultDischargeMethod: 'Autocarga con Grúa del Camión',
+    compatibleLoadingMethods: [
+      'Autocarga con Grúa del Camión',
+      'Carga Superior (Grúa Portuaria / Puente Grúa)',
+      'Carga Lateral con Carretilla Elevadora',
+    ],
+    compatibleDischargeMethods: [
+      'Autocarga con Grúa del Camión',
+      'Carga Superior (Grúa Portuaria / Puente Grúa)',
+      'Carga Lateral con Carretilla Elevadora',
+    ],
+  },
+  {
+    id: 'plataforma_abierta',
+    name: 'Camión Plataforma Abierta (Sin Grúa)',
+    payloadKg: 24000,
+    payloadTons: 24,
+    mma: 40,
+    description: 'Estándar portuario (100% carga/descarga con grúa de muelle/puente)',
+    defaultLoadingMethod: 'Carga Superior (Grúa Portuaria / Puente Grúa)',
+    defaultDischargeMethod: 'Carga Superior (Grúa Portuaria / Puente Grúa)',
+    compatibleLoadingMethods: [
+      'Carga Superior (Grúa Portuaria / Puente Grúa)',
+      'Carga Lateral con Carretilla Elevadora',
+    ],
+    compatibleDischargeMethods: [
+      'Carga Superior (Grúa Portuaria / Puente Grúa)',
+      'Carga Lateral con Carretilla Elevadora',
+    ],
+  },
+  {
+    id: 'banera',
+    name: 'Bañera Basculante (Granel)',
+    payloadKg: 26000,
+    payloadTons: 26,
+    mma: 40,
+    description: 'Transporte de sólidos y minerales a granel',
+    defaultLoadingMethod: 'Carga por Silo / Tubo (Granel)',
+    defaultDischargeMethod: 'Basculante / Tolva (Granel)',
+    compatibleLoadingMethods: [
+      'Carga por Silo / Tubo (Granel)',
+      'Carga Superior (Grúa Portuaria / Puente Grúa)',
+      'Cinta Transportadora',
+    ],
+    compatibleDischargeMethods: [
+      'Basculante / Tolva (Granel)',
+      'Descarga por Compuerta Trasera',
+    ],
+  },
+  {
+    id: 'silo',
+    name: 'Camión Silo Presurizado',
+    payloadKg: 25000,
+    payloadTons: 25,
+    mma: 40,
+    description: 'Polvos y cemento en polvo a granel presurizado',
+    defaultLoadingMethod: 'Carga por Silo / Tubo (Granel)',
+    defaultDischargeMethod: 'Descarga Neumática (Silo)',
+    compatibleLoadingMethods: ['Carga por Silo / Tubo (Granel)'],
+    compatibleDischargeMethods: ['Descarga Neumática (Silo)'],
+  },
+  {
+    id: 'tauliner',
+    name: 'Tráiler Tauliner (13.6m)',
+    payloadKg: 24000,
+    payloadTons: 24,
+    mma: 40,
+    description: 'Semirremolque con lonas laterales correderas',
+    defaultLoadingMethod: 'Carga Lateral (Lona / Tauliner)',
+    defaultDischargeMethod: 'Carga Trasera por Muelle / Rampa',
+    compatibleLoadingMethods: [
+      'Carga Lateral (Lona / Tauliner)',
+      'Carga Trasera por Muelle / Rampa',
+      'Carga Superior (Puente Grúa / Techo descapotable)',
+      'Carga con Transpaleta / Carretilla Elevadora',
+    ],
+    compatibleDischargeMethods: [
+      'Carga Trasera por Muelle / Rampa',
+      'Carga Lateral (Lona / Tauliner)',
+      'Carga con Transpaleta / Carretilla Elevadora',
+      'Carga Superior (Puente Grúa / Techo descapotable)',
+    ],
+  },
+  {
+    id: 'lona_estandar',
+    name: 'Lona Estándar',
+    payloadKg: 24000,
+    payloadTons: 24,
+    mma: 40,
+    description: 'Tráiler de lona estándar convencional',
+    defaultLoadingMethod: 'Carga Lateral (Lona / Tauliner)',
+    defaultDischargeMethod: 'Carga Trasera por Muelle / Rampa',
+    compatibleLoadingMethods: [
+      'Carga Lateral (Lona / Tauliner)',
+      'Carga Trasera por Muelle / Rampa',
+      'Carga con Transpaleta / Carretilla Elevadora',
+    ],
+    compatibleDischargeMethods: [
+      'Carga Trasera por Muelle / Rampa',
+      'Carga Lateral (Lona / Tauliner)',
+      'Carga con Transpaleta / Carretilla Elevadora',
+    ],
+  },
+  {
+    id: 'frigorifico',
+    name: 'Trailer Frigorífico',
+    payloadKg: 22000,
+    payloadTons: 22,
+    mma: 40,
+    description: 'Temperatura controlada isotermo/frigo',
+    defaultLoadingMethod: 'Carga Trasera por Muelle / Rampa',
+    defaultDischargeMethod: 'Carga Trasera por Muelle / Rampa',
+    compatibleLoadingMethods: ['Carga Trasera por Muelle / Rampa', 'Carga con Transpaleta / Carretilla Elevadora'],
+    compatibleDischargeMethods: ['Carga Trasera por Muelle / Rampa', 'Carga con Transpaleta / Carretilla Elevadora'],
+  },
+  {
+    id: 'portacontenedor',
+    name: 'Portacontenedor Multimodal',
+    payloadKg: 26000,
+    payloadTons: 26,
+    mma: 44,
+    description: 'Chasis portacontenedores multimodal',
+    defaultLoadingMethod: 'Carga Superior (Grúa Portuaria / Puente Grúa)',
+    defaultDischargeMethod: 'Carga Superior (Grúa Portuaria / Puente Grúa)',
+    compatibleLoadingMethods: ['Carga Superior (Grúa Portuaria / Puente Grúa)', 'Grúa Reach Stacker / Portuaria'],
+    compatibleDischargeMethods: ['Carga Superior (Grúa Portuaria / Puente Grúa)', 'Grúa Reach Stacker / Portuaria'],
+  },
+];
+
+export function getVehiclePayloadKg(vehicleTypeName) {
+  if (!vehicleTypeName) return 24000;
+  const str = String(vehicleTypeName).toLowerCase().trim();
+  const isSinGrua = str.includes('sin grúa') || str.includes('sin grua') || str.includes('plataforma abierta');
+  if (
+    !isSinGrua &&
+    (str.includes('grúa autocarga') ||
+      str.includes('grua autocarga') ||
+      str.includes('autocarga') ||
+      (str.includes('plataforma') && (str.includes('grúa') || str.includes('grua'))))
+  ) {
+    return 21000;
+  }
+  if (isSinGrua || str.includes('plataforma')) {
+    return 24000;
+  }
+  if (str.includes('bañera') || str.includes('banera')) {
+    return 26000;
+  }
+  if (str.includes('silo')) {
+    return 25000;
+  }
+  if (str.includes('frigo') || str.includes('frigorifico')) {
+    return 22000;
+  }
+  if (str.includes('portacontenedor')) {
+    return 26000;
+  }
+  if (str.includes('tren') || str.includes('duo')) {
+    return 44000;
+  }
+  return 24000;
+}
+
+export function getCompatibleMethodsForVehicle(vType) {
+  const name = String(vType || '').toLowerCase().trim();
+  const isSinGrua = name.includes('sin grúa') || name.includes('sin grua') || name.includes('plataforma abierta');
+  if (
+    !isSinGrua &&
+    (name.includes('grúa autocarga') ||
+      name.includes('grua autocarga') ||
+      name.includes('autocarga') ||
+      (name.includes('plataforma') && (name.includes('grúa') || name.includes('grua'))))
+  ) {
+    return {
+      isPlatform: true,
+      hasCrane: true,
+      defaultLoading: 'Autocarga con Grúa del Camión',
+      defaultDischarge: 'Autocarga con Grúa del Camión',
+      allowed: [
+        'Autocarga con Grúa del Camión',
+        'Carga Superior (Grúa Portuaria / Puente Grúa)',
+        'Carga Lateral con Carretilla Elevadora',
+      ],
+      incompatible: [
+        'Carga Trasera por Muelle / Rampa',
+        'Carga Lateral (Lona / Tauliner)',
+        'Carga por Silo / Tubo (Granel)',
+        'Basculante / Tolva (Granel)',
+      ],
+    };
+  }
+  if (isSinGrua || name.includes('plataforma')) {
+    return {
+      isPlatform: true,
+      hasCrane: false,
+      defaultLoading: 'Carga Superior (Grúa Portuaria / Puente Grúa)',
+      defaultDischarge: 'Carga Superior (Grúa Portuaria / Puente Grúa)',
+      allowed: [
+        'Carga Superior (Grúa Portuaria / Puente Grúa)',
+        'Carga Lateral con Carretilla Elevadora',
+      ],
+      incompatible: [
+        'Autocarga con Grúa del Camión',
+        'Carga Trasera por Muelle / Rampa',
+        'Carga Lateral (Lona / Tauliner)',
+        'Carga por Silo / Tubo (Granel)',
+        'Basculante / Tolva (Granel)',
+      ],
+    };
+  }
+  if (name.includes('bañera') || name.includes('banera')) {
+    return {
+      isPlatform: false,
+      hasCrane: false,
+      defaultLoading: 'Carga por Silo / Tubo (Granel)',
+      defaultDischarge: 'Basculante / Tolva (Granel)',
+      allowed: [
+        'Carga por Silo / Tubo (Granel)',
+        'Carga Superior (Grúa Portuaria / Puente Grúa)',
+        'Cinta Transportadora',
+      ],
+      incompatible: [
+        'Carga Trasera por Muelle / Rampa',
+        'Carga Lateral (Lona / Tauliner)',
+      ],
+    };
+  }
+  if (name.includes('silo')) {
+    return {
+      isPlatform: false,
+      hasCrane: false,
+      defaultLoading: 'Carga por Silo / Tubo (Granel)',
+      defaultDischarge: 'Descarga Neumática (Silo)',
+      allowed: ['Carga por Silo / Tubo (Granel)'],
+      incompatible: ['Carga Trasera por Muelle / Rampa', 'Carga Lateral (Lona / Tauliner)'],
+    };
+  }
+  return {
+    isPlatform: false,
+    hasCrane: false,
+    defaultLoading: 'Carga Lateral (Lona / Tauliner)',
+    defaultDischarge: 'Carga Trasera por Muelle / Rampa',
+    allowed: [
+      'Carga Lateral (Lona / Tauliner)',
+      'Carga Trasera por Muelle / Rampa',
+      'Carga con Transpaleta / Carretilla Elevadora',
+      'Carga Superior (Puente Grúa / Techo descapotable)',
+      'Autocarga con Grúa del Camión',
+    ],
+    incompatible: [],
+  };
+}
+
+export function detectCargoPackagingType(items = [], project = null) {
+  const parts = [];
+  if (Array.isArray(items)) {
+    items.forEach((it) => {
+      if (it.type) parts.push(it.type);
+      if (it.description) parts.push(it.description);
+      if (it.category) parts.push(it.category);
+      if (it.shipping_mode_supported) parts.push(it.shipping_mode_supported);
+    });
+  }
+  if (project) {
+    if (project.cargoType) parts.push(project.cargoType);
+    if (project.cargo_type) parts.push(project.cargo_type);
+    if (project.product) parts.push(project.product);
+    if (project.cargoCategory) parts.push(project.cargoCategory);
+    if (project.cargo_category) parts.push(project.cargo_category);
+    if (project.description) parts.push(project.description);
+  }
+
+  const rawCombined = parts.join(' ');
+  const norm = normalizeStr(rawCombined);
+  const upper = rawCombined.toUpperCase();
+
+  // Strictly bulk keywords: VRAC, BULK, GRANEL
+  const isStrictBulk =
+    /\bVRAC\b|\bBULK\b|\bGRANEL\b|\bGRANELES\b/.test(upper) ||
+    norm.includes('vrac') ||
+    norm.includes('granel') ||
+    norm.includes('bulk');
+
+  // Packaged keywords: BIGBAG, BIG BAG, SAC, SACO, SLING, PALETIZAD, ENVSAD, ENVASAD, BOG BAG, BOGBAG
+  const isPackaged =
+    upper.includes('BIGBAG') ||
+    upper.includes('BIG BAG') ||
+    upper.includes('BOGBAG') ||
+    upper.includes('BOG BAG') ||
+    upper.includes('SLING') ||
+    upper.includes('PALETIZAD') ||
+    upper.includes('ENVSAD') ||
+    upper.includes('ENVASAD') ||
+    upper.includes('ENVAS') ||
+    upper.includes('ENSACAD') ||
+    /\bSAC\b|\bSACO\b|\bSACOS\b/.test(upper) ||
+    norm.includes('bigbag') ||
+    norm.includes('big bag') ||
+    norm.includes('bogbag') ||
+    norm.includes('bog bag') ||
+    norm.includes('saco') ||
+    norm.includes('sacos') ||
+    norm.includes('sling') ||
+    norm.includes('paletizad') ||
+    norm.includes('envsad') ||
+    norm.includes('envasad') ||
+    norm.includes('envas') ||
+    norm.includes('ensacad') ||
+    /(?:big|bog)[-\s_]*bags?/i.test(rawCombined);
+
+  if (isPackaged && !isStrictBulk) {
+    return {
+      packaging: 'packaged',
+      isPackaged: true,
+      isBulk: false,
+      recommendedVehicle: 'Camión Plataforma con Grúa Autocarga',
+      payloadKg: 21000,
+      loadingMethod: 'Autocarga con Grúa del Camión',
+      dischargeMethod: 'Autocarga con Grúa del Camión',
+    };
+  }
+
+  if (isStrictBulk) {
+    return {
+      packaging: 'bulk',
+      isPackaged: false,
+      isBulk: true,
+      recommendedVehicle: 'Bañera Basculante (Granel)',
+      payloadKg: 26000,
+      loadingMethod: 'Carga por Silo / Tubo (Granel)',
+      dischargeMethod: 'Basculante / Tolva (Granel)',
+    };
+  }
+
+  return {
+    packaging: 'general',
+    isPackaged: false,
+    isBulk: false,
+    recommendedVehicle: 'Tráiler Tauliner (13.6m)',
+    payloadKg: 24000,
+    loadingMethod: 'Carga Lateral (Lona / Tauliner)',
+    dischargeMethod: 'Carga Trasera por Muelle / Rampa',
+  };
+}
+
 const STANDARD_VESSEL_STOWAGE_SPEC = Object.freeze({
   vesselType: 'Multi-Purpose MPP / Handysize Bulker',
   dwt: 32000,
@@ -1119,6 +1473,39 @@ export function ForwarderWorkspace() {
   const [vesselType, setVesselType] = useState('Geared Breakbulk (Lo-Lo)');
   const [cargoCategory, setCargoCategory] = useState(activeProject?.cargoCategory || activeProject?.cargo_category || 'Carga Paletizada');
 
+  const [vehicleType, setVehicleType] = useState(
+    activeProject?.truck_type || activeProject?.vehicle_type || activeProject?.data?.truckType || 'Tráiler Tauliner (13.6m)'
+  );
+  const [loadingMethod, setLoadingMethod] = useState(
+    activeProject?.loading_method || activeProject?.metodo_carga || 'Carga Lateral (Lona / Tauliner)'
+  );
+  const [dischargeMethod, setDischargeMethod] = useState(
+    activeProject?.discharge_method || activeProject?.metodo_descarga || activeProject?.metodo_descarga_pod || 'Carga Trasera por Muelle / Rampa'
+  );
+
+  const handleVehicleTypeChange = (selectedType) => {
+    setVehicleType(selectedType);
+    const compat = getCompatibleMethodsForVehicle(selectedType);
+    if (compat.isPlatform) {
+      if (!compat.allowed.includes(loadingMethod)) {
+        setLoadingMethod(compat.defaultLoading);
+      }
+      if (!compat.allowed.includes(dischargeMethod)) {
+        setDischargeMethod(compat.defaultDischarge);
+      }
+    } else if (selectedType.includes('Bañera') || selectedType.includes('Silo')) {
+      setLoadingMethod(compat.defaultLoading);
+      setDischargeMethod(compat.defaultDischarge);
+    }
+    if (activeProject) {
+      setActiveProject((prev) => (prev ? {
+        ...prev,
+        truck_type: selectedType,
+        vehicle_type: selectedType,
+      } : prev));
+    }
+  };
+
   const [isCommodityTariffActive, setIsCommodityTariffActive] = useState(false);
   const [isUnder40t, setIsUnder40t] = useState(false);
   const [tceActive, setTceActive] = useState(false);
@@ -1322,6 +1709,16 @@ export function ForwarderWorkspace() {
         // Ejecutar de forma reactiva y simultánea el cálculo sobre los items sincronizados
         autoCalculateEstimates(currentEffectiveItems);
 
+        if (updated.truck_type || updated.vehicle_type) {
+          setVehicleType(updated.truck_type || updated.vehicle_type);
+        }
+        if (updated.loading_method || updated.metodo_carga) {
+          setLoadingMethod(updated.loading_method || updated.metodo_carga);
+        }
+        if (updated.discharge_method || updated.metodo_descarga || updated.metodo_descarga_pod) {
+          setDischargeMethod(updated.discharge_method || updated.metodo_descarga || updated.metodo_descarga_pod);
+        }
+
         const pFinancials = updated.line_items?.[0]?.payload_data?.financial_summary ||
           updated.data?.financials || {};
         const costEur = updated.totalTripCost || updated.land_freight_cost || updated.cost || (updated.line_items || []).reduce((acc, it) => acc + Number(it.cost_eur || 0), 0) ||
@@ -1467,6 +1864,16 @@ export function ForwarderWorkspace() {
 
         // Recálculo reactivo inmediato
         autoCalculateEstimates(currentEffectiveItems);
+
+        if (activeProject.truck_type || activeProject.vehicle_type || activeProject.data?.truckType) {
+          setVehicleType(activeProject.truck_type || activeProject.vehicle_type || activeProject.data?.truckType);
+        }
+        if (activeProject.loading_method || activeProject.metodo_carga) {
+          setLoadingMethod(activeProject.loading_method || activeProject.metodo_carga);
+        }
+        if (activeProject.discharge_method || activeProject.metodo_descarga || activeProject.metodo_descarga_pod) {
+          setDischargeMethod(activeProject.discharge_method || activeProject.metodo_descarga || activeProject.metodo_descarga_pod);
+        }
       }
 
       // Conectar Totales Inferiores (Coste y Venta)
@@ -1967,9 +2374,29 @@ export function ForwarderWorkspace() {
       setSubtotalFobOperations(commodityPortFobCost.toFixed(2));
       setInlandCost(commodityInlandFreight);
 
-      // Adaptación terrestre
-      setShippingMode('Tráiler Lona (13.6m)');
-      setVesselType('Semirremolque Tauliner (13.6m)');
+      // Adaptación terrestre y selección automática según Envasado vs Granel
+      const detectedTariff = detectCargoPackagingType(items, activeProject);
+      if (detectedTariff) {
+        if (detectedTariff.isPackaged) {
+          setVehicleType('Camión Plataforma con Grúa Autocarga');
+          setLoadingMethod('Autocarga con Grúa del Camión');
+          setDischargeMethod('Autocarga con Grúa del Camión');
+          setShippingMode('Camión Plataforma con Grúa Autocarga');
+          setVesselType('Plataforma con Grúa Autocarga (21t)');
+        } else if (detectedTariff.isBulk) {
+          setVehicleType('Bañera Basculante (Granel)');
+          setLoadingMethod('Carga por Silo / Tubo (Granel)');
+          setDischargeMethod('Basculante / Tolva (Granel)');
+          setShippingMode('Bañera Basculante (Granel)');
+          setVesselType('Bañera Basculante (26t)');
+        } else {
+          setShippingMode('Tráiler Lona (13.6m)');
+          setVesselType('Semirremolque Tauliner (13.6m)');
+        }
+      } else {
+        setShippingMode('Tráiler Lona (13.6m)');
+        setVesselType('Semirremolque Tauliner (13.6m)');
+      }
 
       if (totalWeightKg > 24000) {
         setCapacityWarning("🚛 Proyecto Masivo: Se requieren " + Math.ceil(totalWeightKg / 24000) + " tráilers estándar para esta partida.");
@@ -1980,6 +2407,20 @@ export function ForwarderWorkspace() {
     }
 
     setIsCommodityTariffActive(false);
+
+    // Detección de Carga Envasada vs Granel para selección de vehículo y métodos en cálculo no tarifario
+    const detectedNonTariff = detectCargoPackagingType(items, activeProject);
+    if (detectedNonTariff) {
+      if (detectedNonTariff.isPackaged) {
+        setVehicleType('Camión Plataforma con Grúa Autocarga');
+        setLoadingMethod('Autocarga con Grúa del Camión');
+        setDischargeMethod('Autocarga con Grúa del Camión');
+      } else if (detectedNonTariff.isBulk) {
+        setVehicleType('Bañera Basculante (Granel)');
+        setLoadingMethod('Carga por Silo / Tubo (Granel)');
+        setDischargeMethod('Basculante / Tolva (Granel)');
+      }
+    }
 
     const autoMode = roRoItems > 0 ? 'Ro-Ro' : 'Lo-Lo';
     const recommendedVessel = roRoItems > 0 ? 'MPP / Pure Ro-Ro Carrier' : 'Geared Breakbulk (Lo-Lo)';
@@ -3063,6 +3504,12 @@ export function ForwarderWorkspace() {
       insuranceMarginNum: insCost * 0.15,
       isCommodityTariffActive: isTariffActive,
       appliedTariff,
+      vehicleType: vehicleType || (isBigBags ? 'Camión Plataforma con Grúa Autocarga' : (activeProject?.truck_type || 'Tráiler Tauliner (13.6m)')),
+      truck_type: vehicleType || (isBigBags ? 'Camión Plataforma con Grúa Autocarga' : (activeProject?.truck_type || 'Tráiler Tauliner (13.6m)')),
+      loadingMethod: loadingMethod || (isBigBags ? 'Autocarga con Grúa del Camión' : 'Carga Lateral (Lona / Tauliner)'),
+      dischargeMethod: dischargeMethod || (isBigBags ? 'Autocarga con Grúa del Camión' : 'Carga Trasera por Muelle / Rampa'),
+      payloadKg: getVehiclePayloadKg(vehicleType || activeProject?.truck_type || (isBigBags ? 'Camión Plataforma con Grúa Autocarga' : 'Tráiler Tauliner (13.6m)')),
+      payloadTons: getVehiclePayloadKg(vehicleType || activeProject?.truck_type || (isBigBags ? 'Camión Plataforma con Grúa Autocarga' : 'Tráiler Tauliner (13.6m)')) / 1000,
       inlandCost: isTariffActive ? officialInlandCost : inlCost,
       tollCost: isTariffActive ? 0 : (Number(activeProject?.tollCost || activeProject?.peajes) || 0),
       driverDiets: isTariffActive ? 0 : (Number(activeProject?.driverDiets || activeProject?.dietas) || 0),
@@ -3104,6 +3551,20 @@ export function ForwarderWorkspace() {
 
       // Actualizar el estado de filas con los valores normalizados
       setCargoItems(currentItems);
+
+      // Detección reactiva de Carga Envasada vs Granel
+      const detectedRecalc = detectCargoPackagingType(currentItems, activeProject);
+      if (detectedRecalc) {
+        if (detectedRecalc.isPackaged) {
+          setVehicleType('Camión Plataforma con Grúa Autocarga');
+          setLoadingMethod('Autocarga con Grúa del Camión');
+          setDischargeMethod('Autocarga con Grúa del Camión');
+        } else if (detectedRecalc.isBulk) {
+          setVehicleType('Bañera Basculante (Granel)');
+          setLoadingMethod('Carga por Silo / Tubo (Granel)');
+          setDischargeMethod('Basculante / Tolva (Granel)');
+        }
+      }
 
       // 2. Lógica Local de Camiones (sin fetch a servidor marítimo):
       // a) Suma el peso total de los items (kg)
@@ -3354,6 +3815,12 @@ export function ForwarderWorkspace() {
         },
         shipping_mode: shippingMode || 'Lo-Lo',
         recommended_vessel: vesselType || 'Geared Breakbulk (Lo-Lo)',
+        truck_type: vehicleType,
+        vehicle_type: vehicleType,
+        loading_method: loadingMethod,
+        discharge_method: dischargeMethod,
+        payload_kg: getVehiclePayloadKg(vehicleType),
+        total_trucks: Math.max(1, Math.ceil((totals?.weight || currentReportSnapshot?.totals?.weight || 0) / getVehiclePayloadKg(vehicleType))),
         route_and_chartering: {
           pol: pol || activeProject?.pol || activeProject?.land_origin || '',
           pod: pod || activeProject?.pod || activeProject?.land_destination || '',
@@ -3420,6 +3887,12 @@ export function ForwarderWorkspace() {
           : [...existingItems, savedLineItem];
         const updatedProject = {
           ...activeProject,
+          truck_type: vehicleType,
+          vehicle_type: vehicleType,
+          loading_method: loadingMethod,
+          discharge_method: dischargeMethod,
+          payload_kg: getVehiclePayloadKg(vehicleType),
+          total_trucks: Math.max(1, Math.ceil((totals?.weight || currentReportSnapshot?.totals?.weight || 0) / getVehiclePayloadKg(vehicleType))),
           route_and_chartering: payload.route_and_chartering,
           charteringAssessment: charteringAssessment,
           line_items: updatedLineItems,
@@ -3594,7 +4067,7 @@ export function ForwarderWorkspace() {
                 const rOrigin = activeProject?.pol || activeProject?.land_origin || pol || routeInfo.pol || routeInfo.origin || activeProject?.origin || '';
                 const rDestination = activeProject?.pod || activeProject?.land_destination || pod || routeInfo.pod || routeInfo.destination || activeProject?.destination || '';
                 const rDistKm = Number(activeProject?.land_distance || activeProject?.totalKilometers || routeInfo.distance_km || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Math.round(Number(distanceNm) * 1.852)) : 0));
-                const rTruckType = activeProject?.truck_type || activeProject?.data?.truckType || 'Tráiler Tauliner (13.6m)';
+                const rTruckType = vehicleType || activeProject?.truck_type || activeProject?.vehicle_type || activeProject?.data?.truckType || 'Tráiler Tauliner (13.6m)';
 
                 const pItems = activeProject?.line_items?.[0]?.payload_data?.cargo_items || activeProject?.items || cargoItems || [];
                 const pVol = pItems.reduce((acc, it) => acc + (Number(it.quantity || 1) * Number(it.length_m || it.length || 0) * Number(it.width_m || it.width || 0) * Number(it.height_m || it.height || 0)), 0) || Number(totals.m3 || 0);
@@ -3652,20 +4125,27 @@ export function ForwarderWorkspace() {
                     </div>
 
                     {/* Tarjeta 3: Tipo de Camión */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Tipo de Camión</span>
-                          <span className="text-base">🚛</span>
+                    {(() => {
+                      const effPayloadKg = getVehiclePayloadKg(rTruckType);
+                      const effPayloadTons = effPayloadKg / 1000;
+                      return (
+                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Tipo de Camión</span>
+                              <span className="text-base">🚛</span>
+                            </div>
+                            <div className="font-bold text-slate-800 text-sm truncate" title={rTruckType}>
+                              {rTruckType}
+                            </div>
+                          </div>
+                          <div className="text-[11px] font-medium text-slate-600 mt-3 pt-2 border-t border-slate-100 flex justify-between items-center">
+                            <span>40t MMA · {effPayloadTons}t Carga Útil</span>
+                            <span className="text-[10px] font-mono font-bold text-blue-600">{effPayloadKg.toLocaleString('es-ES')} kg</span>
+                          </div>
                         </div>
-                        <div className="font-bold text-slate-800 text-sm truncate" title={rTruckType}>
-                          {rTruckType}
-                        </div>
-                      </div>
-                      <div className="text-[11px] font-medium text-slate-600 mt-3 pt-2 border-t border-slate-100">
-                        40t MMA · 24t Carga Útil
-                      </div>
-                    </div>
+                      );
+                    })()}
 
                     {/* Tarjeta 4: Metros Lineales (LDM) / Pallets */}
                     <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
@@ -4036,6 +4516,172 @@ export function ForwarderWorkspace() {
                   </div>
 
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm">
+                    {/* Selectores de Flota Terrestre y Métodos de Carga/Descarga */}
+                    <div className="bg-white border border-slate-200 rounded-lg p-3.5 mb-4 shadow-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-200">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">🚛</span>
+                          <span className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                            Selección de Flota Terrestre y Métodos Operativos (Land Charter)
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          Gemelo Digital · Tara & Pluma de Carga Útil
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label htmlFor="vehicle_type" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
+                            Tipo de Vehículo Terrestre (vehicle_type) *
+                          </label>
+                          <select
+                            id="vehicle_type"
+                            name="vehicle_type"
+                            value={vehicleType}
+                            onChange={(e) => handleVehicleTypeChange(e.target.value)}
+                            className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm cursor-pointer"
+                          >
+                            <option value="Camión Plataforma con Grúa Autocarga">
+                              Camión Plataforma con Grúa Autocarga (21.000 kg Carga Útil · Pluma Hidráulica)
+                            </option>
+                            <option value="Camión Plataforma Abierta (Sin Grúa)">
+                              Camión Plataforma Abierta (Sin Grúa) (24.000 kg Carga Útil · 100% Portuario)
+                            </option>
+                            <option value="Bañera Basculante (Granel)">
+                              Bañera Basculante (Granel) (26.000 kg Carga Útil · Graneles Sólidos)
+                            </option>
+                            <option value="Camión Silo Presurizado">
+                              Camión Silo Presurizado (25.000 kg Carga Útil · Graneles Pulverulentos)
+                            </option>
+                            <option value="Tráiler Tauliner (13.6m)">
+                              Tráiler Tauliner (13.6m) (24.000 kg Carga Útil · Carga General)
+                            </option>
+                            <option value="Lona Estándar">
+                              Lona Estándar (24.000 kg Carga Útil)
+                            </option>
+                            <option value="Trailer Frigorífico">
+                              Trailer Frigorífico (22.000 kg Carga Útil · Temperatura Controlada)
+                            </option>
+                            <option value="Portacontenedor Multimodal">
+                              Portacontenedor Multimodal (26.000 kg Carga Útil)
+                            </option>
+                          </select>
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono mt-1">
+                            <span>Carga Útil Efectiva: <strong className="text-slate-800 font-bold">{getVehiclePayloadKg(vehicleType).toLocaleString('es-ES')} kg</strong></span>
+                            <span className="text-blue-700 font-bold">{vehicleType.includes('Grúa') ? 'Tara Pluma Reducida (-3t)' : 'Tara Estándar'}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label htmlFor="metodo_carga" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
+                            Método de Carga (Origen) *
+                          </label>
+                          <select
+                            id="metodo_carga"
+                            name="metodo_carga"
+                            value={loadingMethod}
+                            onChange={(e) => setLoadingMethod(e.target.value)}
+                            className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm cursor-pointer"
+                          >
+                            {(() => {
+                              const isPlatform = vehicleType.includes('Plataforma');
+                              const isPlatformCrane = vehicleType === 'Camión Plataforma con Grúa Autocarga' || vehicleType.includes('Grúa Autocarga');
+                              const isBulk = vehicleType.includes('Bañera') || vehicleType.includes('Silo');
+
+                              if (isPlatform) {
+                                return (
+                                  <>
+                                    {isPlatformCrane && (
+                                      <option value="Autocarga con Grúa del Camión">Autocarga con Grúa del Camión</option>
+                                    )}
+                                    <option value="Carga Superior (Grúa Portuaria / Puente Grúa)">Carga Superior (Grúa Portuaria / Puente Grúa)</option>
+                                    <option value="Carga Lateral con Carretilla Elevadora">Carga Lateral con Carretilla Elevadora</option>
+                                    <option disabled value="carga_trasera_muelle" className="text-slate-400">🚫 Carga Trasera por Muelle / Rampa (Incompatible con Plataforma)</option>
+                                  </>
+                                );
+                              }
+                              if (isBulk) {
+                                return (
+                                  <>
+                                    <option value="Carga por Silo / Tubo (Granel)">Carga por Silo / Tubo (Granel)</option>
+                                    <option value="Carga Superior (Grúa Portuaria / Puente Grúa)">Carga Superior (Grúa Portuaria / Puente Grúa)</option>
+                                    <option value="Cinta Transportadora">Cinta Transportadora</option>
+                                  </>
+                                );
+                              }
+                              return (
+                                <>
+                                  <option value="Carga Lateral (Lona / Tauliner)">Carga Lateral (Lona / Tauliner)</option>
+                                  <option value="Carga Trasera por Muelle / Rampa">Carga Trasera por Muelle / Rampa</option>
+                                  <option value="Carga Superior (Grúa Portuaria / Puente Grúa)">Carga Superior (Grúa Portuaria / Puente Grúa)</option>
+                                  <option value="Carga con Transpaleta / Carretilla Elevadora">Carga con Transpaleta / Carretilla Elevadora</option>
+                                  <option value="Autocarga con Grúa del Camión">Autocarga con Grúa del Camión</option>
+                                </>
+                              );
+                            })()}
+                          </select>
+                          <div className="text-[10px] text-slate-500 font-mono mt-1">
+                            {vehicleType.includes('Plataforma') ? 'Operativa en abierto (sin muelle cerrado)' : 'Compatible con carrozado'}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label htmlFor="metodo_descarga" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
+                            Método de Descarga (Destino) *
+                          </label>
+                          <select
+                            id="metodo_descarga"
+                            name="metodo_descarga"
+                            value={dischargeMethod}
+                            onChange={(e) => setDischargeMethod(e.target.value)}
+                            className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm cursor-pointer"
+                          >
+                            {(() => {
+                              const isPlatform = vehicleType.includes('Plataforma');
+                              const isPlatformCrane = vehicleType === 'Camión Plataforma con Grúa Autocarga' || vehicleType.includes('Grúa Autocarga');
+                              const isBulk = vehicleType.includes('Bañera') || vehicleType.includes('Silo');
+
+                              if (isPlatform) {
+                                return (
+                                  <>
+                                    {isPlatformCrane && (
+                                      <option value="Autocarga con Grúa del Camión">Autocarga con Grúa del Camión</option>
+                                    )}
+                                    <option value="Carga Superior (Grúa Portuaria / Puente Grúa)">Carga Superior (Grúa Portuaria / Puente Grúa)</option>
+                                    <option value="Carga Lateral con Carretilla Elevadora">Carga Lateral con Carretilla Elevadora</option>
+                                    <option disabled value="carga_trasera_muelle" className="text-slate-400">🚫 Carga Trasera por Muelle / Rampa (Incompatible con Plataforma)</option>
+                                  </>
+                                );
+                              }
+                              if (isBulk) {
+                                return (
+                                  <>
+                                    <option value="Basculante / Tolva (Granel)">Basculante / Tolva (Granel)</option>
+                                    <option value="Descarga Neumática (Silo)">Descarga Neumática (Silo)</option>
+                                    <option value="Carga Superior (Grúa Portuaria / Puente Grúa)">Carga Superior (Grúa Portuaria / Puente Grúa)</option>
+                                  </>
+                                );
+                              }
+                              return (
+                                <>
+                                  <option value="Carga Trasera por Muelle / Rampa">Carga Trasera por Muelle / Rampa</option>
+                                  <option value="Carga Lateral (Lona / Tauliner)">Carga Lateral (Lona / Tauliner)</option>
+                                  <option value="Carga Superior (Grúa Portuaria / Puente Grúa)">Carga Superior (Grúa Portuaria / Puente Grúa)</option>
+                                  <option value="Carga con Transpaleta / Carretilla Elevadora">Carga con Transpaleta / Carretilla Elevadora</option>
+                                  <option value="Autocarga con Grúa del Camión">Autocarga con Grúa del Camión</option>
+                                </>
+                              );
+                            })()}
+                          </select>
+                          <input type="hidden" id="metodo_descarga_pod" value={dischargeMethod} readOnly />
+                          <div className="text-[10px] text-slate-500 font-mono mt-1">
+                            {vehicleType.includes('Plataforma') ? 'Descarga vertical libre / pluma hidráulica' : 'Descarga estándar'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                       <div>
                         <label htmlFor="input-pol" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
@@ -4583,11 +5229,36 @@ export function ForwarderWorkspace() {
                     <span className="text-lg font-black text-slate-900">{(totalWeightTons > 0 ? totalWeightTons : (totals.weight / 1000 || 0)).toFixed(2)} Tons</span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
-                    <span className="block text-[10px] uppercase font-bold text-slate-500">Tráilers Estándar de 24t</span>
-                    <span className="text-sm font-black text-blue-700 mt-1 block font-mono">
-                      {Math.max(1, Number(activeProject?.total_trucks || Math.ceil((totalWeightTons > 0 ? totalWeightTons : (totals.weight / 1000 || 1)) / 24)))} tráilers
+                    <span className="block text-[10px] uppercase font-bold text-slate-500">
+                      {(() => {
+                        const curVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
+                        const curPayloadTons = getVehiclePayloadKg(curVT) / 1000;
+                        return curPayloadTons !== 24 ? `Flota (${curPayloadTons}t Carga Útil)` : 'Tráilers Estándar de 24t';
+                      })()}
                     </span>
-                    <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">Capacidad máx. 24t</span>
+                    <span className="text-sm font-black text-blue-700 mt-1 block font-mono">
+                      {(() => {
+                        const curVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
+                        const curPayloadKg = getVehiclePayloadKg(curVT);
+                        const curPayloadTons = curPayloadKg / 1000;
+                        const tons = (totalWeightTons > 0 ? totalWeightTons : (totals.weight / 1000 || 1));
+                        return Math.max(1, Number(activeProject?.total_trucks || Math.ceil(tons / curPayloadTons)));
+                      })()} {(() => {
+                        const curVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
+                        const curPayloadKg = getVehiclePayloadKg(curVT);
+                        const curPayloadTons = curPayloadKg / 1000;
+                        const tons = (totalWeightTons > 0 ? totalWeightTons : (totals.weight / 1000 || 1));
+                        const count = Math.max(1, Number(activeProject?.total_trucks || Math.ceil(tons / curPayloadTons)));
+                        return count === 1 ? 'camión' : 'camiones';
+                      })()}
+                    </span>
+                    <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">
+                      {(() => {
+                        const curVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
+                        const curPayloadTons = getVehiclePayloadKg(curVT) / 1000;
+                        return `Capacidad máx. ${curPayloadTons}t (${curVT})`;
+                      })()}
+                    </span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Distancia por carretera</span>
@@ -4622,8 +5293,12 @@ export function ForwarderWorkspace() {
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Configuración Vehículo</span>
-                    <span className="text-xs font-black text-emerald-700 mt-1 block font-mono">Tráiler Tauliner (13.6m)</span>
-                    <span className="block text-[9px] text-slate-500">40t MMA · 24t Carga Útil</span>
+                    <span className="text-xs font-black text-emerald-700 mt-1 block font-mono">
+                      {activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)'}
+                    </span>
+                    <span className="block text-[9px] text-slate-500">
+                      40t MMA · {getVehiclePayloadKg(activeReport?.vehicleType || vehicleType || activeProject?.truck_type) / 1000}t Carga Útil · {loadingMethod || 'Estándar'}
+                    </span>
                   </div>
                 </div>
               </section>
@@ -4681,7 +5356,7 @@ export function ForwarderWorkspace() {
                     <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 mb-3 border-b-2 border-slate-200 pb-2 flex items-center justify-between">
                       <span>📋 Desglose de Costes Operativos del Camión y Margen de Agencia</span>
                       <span className="text-[10px] font-bold text-slate-500 font-mono">
-                        Ruta: {distKm} km · Tráiler Tauliner Estándar (40t MMA)
+                        Ruta: {distKm} km · {activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner Estándar'} (40t MMA · {getVehiclePayloadKg(activeReport?.vehicleType || vehicleType || activeProject?.truck_type) / 1000}t Carga Útil)
                       </span>
                     </h3>
                     <table className="border-collapse w-full text-[11px]">
@@ -4769,8 +5444,11 @@ export function ForwarderWorkspace() {
 
               {/* Importe Total de Cotización / Venta (All-In) */}
               {(() => {
+                const currentVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
+                const currentPayloadKg = getVehiclePayloadKg(currentVT);
+                const currentPayloadTons = currentPayloadKg / 1000;
                 const totalTons = Number(totals.weight > 0 ? totals.weight / 1000 : (activeProject?.cargoQuantity || totalWeightTons || 0));
-                const trucksRequired = Math.max(1, Number(activeProject?.total_trucks || Math.ceil(totalTons > 0 ? totalTons / 24 : 1)));
+                const trucksRequired = Math.max(1, Number(activeProject?.total_trucks || Math.ceil(totalTons > 0 ? totalTons / currentPayloadTons : 1)));
                 const distKm = Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || distanceNm || 0));
 
                 const rawType = String(cargoItems[0]?.type || activeReport?.cargo_items?.[0]?.type || activeProject?.cargo_type || '').toUpperCase().trim();
@@ -4816,8 +5494,8 @@ export function ForwarderWorkspace() {
                         </span>
                         <span className="text-[10px] text-slate-500 font-semibold">
                           {isTariffActive
-                            ? `Convenio FSPE plano (${totalTons.toFixed(1)} t @ ${(appliedTariff?.inlandUsdMt || 3.00).toFixed(2)} $/MT)`
-                            : `Cálculo terrestre (${totalTons.toFixed(1)} t a máx 24 t/tráiler)`}
+                            ? `Convenio FSPE plano (${totalTons.toFixed(1)} t @ ${(appliedTariff?.inlandUsdMt || 3.00).toFixed(2)} $/MT · ${trucksRequired} ${currentVT})`
+                            : `Cálculo terrestre (${totalTons.toFixed(1)} t a máx ${currentPayloadTons} t / ${currentVT})`}
                         </span>
                       </div>
                     </div>
@@ -4918,6 +5596,9 @@ export function ForwarderWorkspace() {
               {/* SECCIÓN TERRESTRE B2B: MOTOR DE CUBICACIÓN DE CAMIONES Y METROS LINEALES (LDM) */}
               <section className="mt-8 pt-6 border-t-2 border-slate-200">
                 {(() => {
+                  const currentVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
+                  const currentPayloadKg = getVehiclePayloadKg(currentVT);
+                  const currentPayloadTons = currentPayloadKg / 1000;
                   const totalWtTons = Number(activeReport?.totalWeightTons || totals?.totalWeightTons || 0);
                   const totalWtKg = Math.round(totalWtTons * 1000);
                   const totalVolM3 = Number(activeReport?.totalVolumeCbm || totals?.totalVolumeCbm || 0);
@@ -4927,11 +5608,11 @@ export function ForwarderWorkspace() {
                   );
                   const euroPallets = Math.max(1, Math.ceil(calcLdm / 0.4));
                   const industrialPallets = Math.max(1, Math.ceil(calcLdm / 0.5));
-                  const trucksReq = Math.max(1, Math.ceil(Math.max(calcLdm / 13.6, totalWtTons / 24)));
+                  const trucksReq = Math.max(1, Math.ceil(Math.max(calcLdm / 13.6, totalWtTons / currentPayloadTons)));
                   const ldmPerTruck = (calcLdm / trucksReq).toFixed(2);
-                  const wtPerTruckKg = Math.min(24000, Math.round(totalWtKg / trucksReq));
+                  const wtPerTruckKg = Math.min(currentPayloadKg, Math.round(totalWtKg / trucksReq));
                   const ldmPct = Math.min(100, Math.round((parseFloat(ldmPerTruck) / 13.6) * 100));
-                  const wtPct = Math.min(100, Math.round((wtPerTruckKg / 24000) * 100));
+                  const wtPct = Math.min(100, Math.round((wtPerTruckKg / currentPayloadKg) * 100));
 
                   // Reparto de Pesos por Eje (Conjunto 5 ejes: Tractor 4x2 + Trídem semirremolque)
                   const axle1 = Math.min(7500, Math.round(4800 + wtPerTruckKg * 0.15));
@@ -4949,7 +5630,7 @@ export function ForwarderWorkspace() {
                               Motor de Cubicación de Camiones y Metros Lineales (LDM)
                             </h4>
                             <span className="text-[10px] text-slate-500">
-                              Semirremolque Tauliner Estándar (13.60m x 2.48m x 2.70m · 91 m³ · 24t Carga Útil)
+                              {currentVT} (13.60m x 2.48m x 2.70m · {currentPayloadTons}t Carga Útil · 40t MMA)
                             </span>
                           </div>
                         </div>
@@ -4999,7 +5680,7 @@ export function ForwarderWorkspace() {
                             <span className="text-[10.5px] uppercase font-bold text-amber-700">Ocupación Masa por Camión</span>
                             <span className="text-[10px] font-mono text-amber-700 font-bold">{wtPct}%</span>
                           </div>
-                          <div className="text-base font-mono font-black text-slate-900">{wtPerTruckKg.toLocaleString('es-ES')} / 24.000 <span className="text-xs text-slate-500 font-normal">kg</span></div>
+                          <div className="text-base font-mono font-black text-slate-900">{wtPerTruckKg.toLocaleString('es-ES')} / {currentPayloadKg.toLocaleString('es-ES')} <span className="text-xs text-slate-500 font-normal">kg</span></div>
                           <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden border border-slate-200">
                             <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: `${wtPct}%` }} />
                           </div>

@@ -9755,6 +9755,8 @@
                             <div id="contenedor_metodo_carga" class="input-group">
                                 <label id="label-metodo-carga" class="text-action-required flex items-center min-h-[24px]">Método de Carga</label>
                                 <select id="metodo_carga" class="hidden input-gc action-required-field required-use-highlight text-action-required font-bold" onchange="handlePortMethodChange('pol')">
+                                    <option value="autocarga_grua_camion">Autocarga con Grúa del Camión</option>
+                                    <option value="carga_superior_grua">Carga Superior (Grúa Portuaria / Puente Grúa)</option>
                                     <option value="carga_lateral_tauliner" selected>Carga Lateral (Lona / Tauliner)</option>
                                     <option value="carga_trasera_muelle">Carga Trasera por Muelle / Rampa</option>
                                     <option value="carga_superior_techo">Carga Superior (Puente Grúa / Techo descapotable)</option>
@@ -9796,6 +9798,8 @@
                             <div id="contenedor_metodo_descarga" class="input-group">
                                 <label id="label-metodo-descarga" class="text-action-required flex items-center min-h-[24px]">Método de Descarga</label>
                                 <select id="metodo_descarga_pod" class="hidden input-gc action-required-field required-use-highlight text-action-required font-bold" onchange="handlePortMethodChange('pod')">
+                                    <option value="autocarga_grua_camion">Autocarga con Grúa del Camión</option>
+                                    <option value="carga_superior_grua">Carga Superior (Grúa Portuaria / Puente Grúa)</option>
                                     <option value="carga_lateral_tauliner">Carga Lateral (Lona / Tauliner)</option>
                                     <option value="carga_trasera_muelle" selected>Carga Trasera por Muelle / Rampa</option>
                                     <option value="carga_superior_techo">Carga Superior (Puente Grúa / Techo descapotable)</option>
@@ -37887,6 +37891,8 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
         function handleVehicleTypeSelection(selectedNameOrId, options = {}) {
             if (!selectedNameOrId) return null;
             const vehicleTypes = (State.vehicleTypes && State.vehicleTypes.length) ? State.vehicleTypes : (window.LAND_VEHICLE_TYPES || [
+                { id: 'plataforma_grua', name: 'Camión Plataforma con Grúa Autocarga', payloadKg: 21000, consumptionPer100Km: 34.0 },
+                { id: 'plataforma_abierta', name: 'Camión Plataforma Abierta (Sin Grúa)', payloadKg: 24000, consumptionPer100Km: 31.5 },
                 { id: 'lona_estandar', name: 'Lona Estándar', payloadKg: 24000, consumptionPer100Km: 31.5 },
                 { id: 'frigorifico', name: 'Frigorífico', payloadKg: 22000, consumptionPer100Km: 34.0 },
                 { id: 'mega_lona', name: 'Mega Lona', payloadKg: 24000, consumptionPer100Km: 33.0 },
@@ -37898,6 +37904,7 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                 const vName = v.name.toLowerCase();
                 const vId = (v.id || '').toLowerCase();
                 return vName === query || vId === query ||
+                    ((query.includes('plataforma') || query.includes('grua') || query.includes('grúa')) && vName.includes('plataforma')) ||
                     (query.includes('frigo') && vName.includes('frigo')) ||
                     (query.includes('mega') && vName.includes('mega')) ||
                     (query.includes('tren') && vName.includes('tren')) ||
