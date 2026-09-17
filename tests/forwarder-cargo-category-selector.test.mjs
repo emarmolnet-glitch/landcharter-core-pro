@@ -50,13 +50,13 @@ test('3. Cargo Category selector includes all required options matching Core PRO
 });
 
 test('4. Cargo Category selector strictly adheres to Tailwind design system and labeling', () => {
-  const containerMatch = forwarderSource.match(/<div className="flex items-center gap-1\.5 bg-slate-50 border border-slate-200 rounded-lg px-2\.5 py-1">[\s\S]*?<\/div>/);
-  assert.ok(containerMatch, 'Outer container must use designated flex and border styling');
+  const containerMatch = forwarderSource.match(/<div className="flex items-center gap-1\.5 bg-slate-50 border border-slate-200 rounded-lg px-2\.5 py-1 whitespace-nowrap">[\s\S]*?<\/div>/);
+  assert.ok(containerMatch, 'Outer container must use designated flex, border styling, and whitespace-nowrap');
 
   assert.match(
     forwarderSource,
-    /<label htmlFor="top-cargo-category" className="text-\[11px\] font-bold text-slate-600">Categoría Carga:<\/label>/,
-    'Label must have htmlFor="top-cargo-category" and appropriate styling'
+    /<label htmlFor="top-cargo-category" className="text-\[11px\] font-bold text-slate-600 whitespace-nowrap">Tarifa:<\/label>/,
+    'Label must have htmlFor="top-cargo-category", Tarifa: text, and whitespace-nowrap'
   );
 
   assert.match(

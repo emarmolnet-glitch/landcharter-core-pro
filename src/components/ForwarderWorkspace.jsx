@@ -13,6 +13,20 @@ import {
   PRICE_2026,
 } from '../../cbam-module.js';
 
+export const COMMODITY_TARIFFS = {
+  "CEM I 52,5N BIGBAG": { inlandUsdMt: 3.00, portDuesUsdMt: 2.00, customsUsdMt: 0.25, packagingUsdMt: 3.50 },
+  "CEM I 52,5N SAC 50KG": { inlandUsdMt: 3.00, portDuesUsdMt: 2.00, customsUsdMt: 0.25, packagingUsdMt: 3.50 },
+  "CEM I 42,5N/R BIGBAG": { inlandUsdMt: 3.00, portDuesUsdMt: 2.00, customsUsdMt: 0.25, packagingUsdMt: 3.50 },
+  "CEM I 42,5N/R SAC 50KG": { inlandUsdMt: 3.00, portDuesUsdMt: 2.00, customsUsdMt: 0.25, packagingUsdMt: 3.50 },
+  "CEM II 52.5N/R 50KG": { inlandUsdMt: 4.26, portDuesUsdMt: 2.00, customsUsdMt: 0.25, packagingUsdMt: 2.60 },
+  "CEM II 52.5N BIGBAG": { inlandUsdMt: 4.26, portDuesUsdMt: 2.00, customsUsdMt: 0.25, packagingUsdMt: 3.50 },
+  "CEM II 42,5N/R FARDILISE": { inlandUsdMt: 4.26, portDuesUsdMt: 2.00, customsUsdMt: 0.25, packagingUsdMt: 2.56 },
+  "CEM II 42,5N/R FARDILLISE TAVCIM": { inlandUsdMt: 4.26, portDuesUsdMt: 2.00, customsUsdMt: 0.25, packagingUsdMt: 2.65 },
+  "CEM II 42,5 VRAC": { inlandUsdMt: 4.30, portDuesUsdMt: 2.00, customsUsdMt: 0.30, packagingUsdMt: 3.50 },
+  "CEM II 42,5 R BIGBAG": { inlandUsdMt: 4.30, portDuesUsdMt: 2.00, customsUsdMt: 0.30, packagingUsdMt: 3.50 },
+  "CEM I 52,5 R BIGBAG": { inlandUsdMt: 3.00, portDuesUsdMt: 2.00, customsUsdMt: 0.30, packagingUsdMt: 3.50 }
+};
+
 function NumericCounter({ label, subtitle, value, onChange, min = 0 }) {
   const numValue = Number(value) || 0;
   return (
@@ -823,6 +837,7 @@ export function ForwarderWorkspace() {
   const [vesselType, setVesselType] = useState('Geared Breakbulk (Lo-Lo)');
   const [cargoCategory, setCargoCategory] = useState(activeProject?.cargoCategory || activeProject?.cargo_category || 'Carga Paletizada');
 
+  const [isCommodityTariffActive, setIsCommodityTariffActive] = useState(false);
   const [isUnder40t, setIsUnder40t] = useState(false);
   const [tceActive, setTceActive] = useState(false);
   const [tceValue, setTceValue] = useState(null);
@@ -1537,6 +1552,7 @@ export function ForwarderWorkspace() {
       // setEstimatedCost(''); setSalePrice('');
       setIsUnder40t(false); setTceActive(false); setTceValue(null);
       setOperationalProfileNotice('');
+      setIsCommodityTariffActive(false);
       return;
     }
     let totalPieces = 0; let totalWeightKg = 0; let totalVolumeM3 = 0; let total_m2 = 0;
@@ -1556,11 +1572,50 @@ export function ForwarderWorkspace() {
       if (roRoRegex.test(rawType) || roRoRegex.test(rawType.normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) { roRoItems += qty; } else { staticItems.push({ ...item, qty, quantity: qty, pieceWeight, weight: pieceWeight }); }
     });
 
+    const totalWeightTons = totalWeightKg / 1000;
+    const rawType = String(cargoItems[0]?.type || '').toUpperCase().trim();
+    const appliedTariff = COMMODITY_TARIFFS[rawType] || null;
+
+    if (appliedTariff) {
+      setIsCommodityTariffActive(true);
+
+      // Anula el cálculo de flete terrestre basado en kilómetros. El flete terrestre/inland debe ser: totalWeightTons * appliedTariff.inlandUsdMt.
+      const commodityInlandFreight = totalWeightTons * appliedTariff.inlandUsdMt;
+
+      // Anula el coste dinámico de estiba, maderas y grúas. El coste portuario/FOB debe ser: totalWeightTons * (appliedTariff.portDuesUsdMt + appliedTariff.customsUsdMt + appliedTariff.packagingUsdMt).
+      const commodityPortFobCost = totalWeightTons * (appliedTariff.portDuesUsdMt + appliedTariff.customsUsdMt + appliedTariff.packagingUsdMt);
+
+      // Anulación de materiales dinámicos de estiba, maderas y grúas
+      setDunnage(0);
+      setChains(0);
+      setSlings(0);
+      setShackles(0);
+      setGangs(0);
+      setHeavyLift(0);
+      setMafiPlatforms(0);
+      setLashingTeams(0);
+      setLashingTeam(0);
+      setDunnageWood(0);
+      setChainsBinders(0);
+      setHighCapacitySlings(0);
+      setHeavyLiftCrane(0);
+      setStevedoreGangs(0);
+      setSpreaderMultipunto(0);
+      setCraneLiftCycles(0);
+
+      setOperationalProfileNotice('Tarifa de Convenio Comercial / FSPE Aplicada · Tarifas netas planas de commodity');
+
+      setSubtotalFreight(commodityInlandFreight.toFixed(2));
+      setSubtotalFobOperations(commodityPortFobCost.toFixed(2));
+      return;
+    }
+
+    setIsCommodityTariffActive(false);
+
     const autoMode = roRoItems > 0 ? 'Ro-Ro' : 'Lo-Lo';
     const recommendedVessel = roRoItems > 0 ? 'MPP / Pure Ro-Ro Carrier' : 'Geared Breakbulk (Lo-Lo)';
     setShippingMode(autoMode); setVesselType(recommendedVessel);
 
-    const totalWeightTons = totalWeightKg / 1000;
     const Dunnage = Math.ceil(totalWeightTons / 5);
     const Cadenas = roRoItems * 4;
     const Eslingas = Math.ceil(totalPieces / 2);
@@ -2638,18 +2693,56 @@ export function ForwarderWorkspace() {
         setCapacityWarning(null);
       }
 
-      // d) Restaurar Precios Dinámicos (UI): fórmula terrestre local
-      // (Distancia_km * Tarifa_km) + Peajes + Dietas + Penalizaciones_Almacén
-      const distKm = Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || distanceNm || (typeof window !== 'undefined' ? (window.State?.totalKilometers || window.State?.distance) : 0) || 0));
-      const tarifaKm = 1.57; // 1.35 base + 0.22 combustible
-      const runningCost = Math.round(distKm * tarifaKm);
-      const peajes = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollsCost || (distKm > 0 ? distKm * 0.18 : 0)));
-      const transitDays = distKm > 0 ? Math.max(1, Math.ceil(distKm / 650)) : 1;
-      const dietas = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
-      const penalizacionesAlmacen = Math.max(0, (Number(loadingRate || 2) - 2) * 40) + Math.max(0, (Number(dischargingRate || 2) - 2) * 40);
+      const totalWeightTons = totalWeightKg / 1000;
+      const rawType = String(cargoItems[0]?.type || '').toUpperCase().trim();
+      const appliedTariff = COMMODITY_TARIFFS[rawType] || null;
 
-      const localEstimatedCost = runningCost + peajes + dietas + penalizacionesAlmacen;
-      const localSalePrice = Math.round(localEstimatedCost * 1.18);
+      let localEstimatedCost;
+      let localSalePrice;
+
+      if (appliedTariff) {
+        setIsCommodityTariffActive(true);
+
+        // Anula el cálculo de flete terrestre basado en kilómetros. El flete terrestre/inland debe ser: totalWeightTons * appliedTariff.inlandUsdMt.
+        const inlandFreight = totalWeightTons * appliedTariff.inlandUsdMt;
+
+        // Anula el coste dinámico de estiba, maderas y grúas. El coste portuario/FOB debe ser: totalWeightTons * (appliedTariff.portDuesUsdMt + appliedTariff.customsUsdMt + appliedTariff.packagingUsdMt).
+        const portFobCost = totalWeightTons * (appliedTariff.portDuesUsdMt + appliedTariff.customsUsdMt + appliedTariff.packagingUsdMt);
+
+        // Anulación de materiales dinámicos de estiba, maderas y grúas
+        setDunnageWood(0);
+        setChainsBinders(0);
+        setHighCapacitySlings(0);
+        setShackles(0);
+        setStevedoreGangs(0);
+        setLashingTeams(0);
+        setLashingTeam(0);
+        setHeavyLiftCrane(0);
+        setMafiPlatforms(0);
+        setSpreaderMultipunto(0);
+        setCraneLiftCycles(0);
+
+        setSubtotalFreight(inlandFreight.toFixed(2));
+        setSubtotalFobOperations(portFobCost.toFixed(2));
+
+        localEstimatedCost = Math.round((inlandFreight + portFobCost) * 100) / 100;
+        localSalePrice = Math.round(localEstimatedCost * 1.18 * 100) / 100;
+      } else {
+        setIsCommodityTariffActive(false);
+
+        // d) Restaurar Precios Dinámicos (UI): fórmula terrestre local
+        // (Distancia_km * Tarifa_km) + Peajes + Dietas + Penalizaciones_Almacén
+        const distKm = Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || distanceNm || (typeof window !== 'undefined' ? (window.State?.totalKilometers || window.State?.distance) : 0) || 0));
+        const tarifaKm = 1.57; // 1.35 base + 0.22 combustible
+        const runningCost = Math.round(distKm * tarifaKm);
+        const peajes = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollsCost || (distKm > 0 ? distKm * 0.18 : 0)));
+        const transitDays = distKm > 0 ? Math.max(1, Math.ceil(distKm / 650)) : 1;
+        const dietas = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
+        const penalizacionesAlmacen = Math.max(0, (Number(loadingRate || 2) - 2) * 40) + Math.max(0, (Number(dischargingRate || 2) - 2) * 40);
+
+        localEstimatedCost = runningCost + peajes + dietas + penalizacionesAlmacen;
+        localSalePrice = Math.round(localEstimatedCost * 1.18);
+      }
 
       setEstimatedCost(localEstimatedCost);
       setSalePrice(localSalePrice);
@@ -3335,16 +3428,22 @@ export function ForwarderWorkspace() {
                         id="btn-sync-databridge-packing-list"
                         onClick={handleSyncDataBridge}
                         disabled={isSyncingDataBridge}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-700 border border-blue-300 rounded-lg text-xs font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-50 mr-1"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-700 border border-blue-300 rounded-lg text-xs font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-50 mr-1 whitespace-nowrap"
                         title="Sincronizar expediente con base de datos Neon (DataBridge)"
                       >
-                        <span className={`text-sm ${isSyncingDataBridge ? 'animate-spin text-blue-600' : 'text-blue-600'}`}>⚡</span>
-                        <span>{isSyncingDataBridge ? 'Sincronizando...' : 'Sincronizar (DataBridge)'}</span>
+                        {isSyncingDataBridge ? (
+                          <>
+                            <span className="text-sm animate-spin text-blue-600">⚡</span>
+                            <span>Sincronizando...</span>
+                          </>
+                        ) : (
+                          <span>⚡ Sync DataBridge</span>
+                        )}
                       </button>
                       <input ref={fileInputRef} type="file" multiple accept=".pdf,.xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleFileUpload} />
-                      <button onClick={handleTriggerImport} className="px-4 py-2 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg cursor-pointer shadow-sm">🤖 Importar PDF/Excel</button>
-                      <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
-                        <label htmlFor="top-cargo-category" className="text-[11px] font-bold text-slate-600">Categoría Carga:</label>
+                      <button onClick={handleTriggerImport} className="px-3.5 py-2 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg cursor-pointer shadow-sm whitespace-nowrap">🤖 Importar PDF/Excel</button>
+                      <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 whitespace-nowrap">
+                        <label htmlFor="top-cargo-category" className="text-[11px] font-bold text-slate-600 whitespace-nowrap">Tarifa:</label>
                         <select
                           id="top-cargo-category"
                           value={cargoCategory}
@@ -3363,13 +3462,13 @@ export function ForwarderWorkspace() {
                           <option value="Carga de Proyecto / Heavy Lift">Carga de Proyecto / Heavy Lift</option>
                         </select>
                       </div>
-                      <button onClick={handleAddCargoPiece} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg cursor-pointer shadow-sm">+ Añadir Pieza</button>
+                      <button onClick={handleAddCargoPiece} className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg cursor-pointer shadow-sm whitespace-nowrap">+ Añadir Pieza</button>
                       <button
                         type="button"
                         id="btn-recalculate-cargo"
                         onClick={handleRecalculate}
                         disabled={isRecalculating}
-                        className="px-4 py-2 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 text-xs font-bold rounded-lg cursor-pointer shadow-sm flex items-center gap-1.5 transition-colors"
+                        className="px-3.5 py-2 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 text-xs font-bold rounded-lg cursor-pointer shadow-sm flex items-center gap-1.5 transition-colors whitespace-nowrap"
                         title="Recalcular estiba, flete y ratios en tiempo real"
                       >
                         <svg
@@ -3447,7 +3546,7 @@ export function ForwarderWorkspace() {
                           return (
                             <tr key={item.id} className="hover:bg-slate-50/80">
                               <td className="p-1"><input type="text" value={item.category || ''} onChange={(e) => handleUpdateCargoItem(item.id, 'category', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-slate-800 text-[11px]" placeholder="Ej: Equipos..." /></td>
-                              <td className="p-1"><input type="text" value={item.type || ''} onChange={(e) => handleUpdateCargoItem(item.id, 'type', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-slate-900 font-semibold text-[11px]" placeholder="Descripción de pieza..." /></td>
+                              <td className="p-1"><input type="text" list="commodity-list" value={item.type || ''} onChange={(e) => handleUpdateCargoItem(item.id, 'type', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-slate-900 font-semibold text-[11px]" placeholder="Descripción de pieza..." /></td>
                               <td className="p-1"><input type="number" min={1} value={item.quantity} onChange={(e) => handleUpdateCargoItem(item.id, 'quantity', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-1 py-1.5 text-center text-slate-900 text-[11px]" /></td>
                               <td className="p-1"><input type="number" value={item.length} onChange={(e) => handleUpdateCargoItem(item.id, 'length', e.target.value)} className="w-full bg-white border border-slate-300 px-1 py-1.5 rounded text-center text-[11px]" placeholder="L" /></td>
                               <td className="p-1"><input type="number" value={item.width} onChange={(e) => handleUpdateCargoItem(item.id, 'width', e.target.value)} className="w-full bg-white border border-slate-300 px-1 py-1.5 rounded text-center text-[11px]" placeholder="W" /></td>
@@ -3473,6 +3572,11 @@ export function ForwarderWorkspace() {
                         </tr>
                       </tfoot>
                     </table>
+                    <datalist id="commodity-list">
+                      {Object.keys(COMMODITY_TARIFFS).map((commodityKey) => (
+                        <option key={commodityKey} value={commodityKey} />
+                      ))}
+                    </datalist>
                   </div>
                 </section>
 
@@ -3691,6 +3795,9 @@ export function ForwarderWorkspace() {
                   </div>
 
                   <div id="financial-breakdown-card" className="bg-white border border-slate-200 rounded-xl p-5 text-slate-800 shadow-sm">
+                    {isCommodityTariffActive && (
+                      <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-lg mb-4 text-xs font-bold">💡 Tarifa de Convenio Comercial / FSPE Aplicada. Los cálculos dinámicos de km y estiba han sido sustituidos por tarifas netas de commodity.</div>
+                    )}
                     {/* Desglose Financiero de Transporte por Carretera */}
                     {(() => {
                       const routeInfo = activeProject?.route_and_chartering || activeProject?.data?.route || activeProject?.data || {};
@@ -3705,8 +3812,15 @@ export function ForwarderWorkspace() {
                       const waitPenalty = Math.max(0, (Number(loadingRate || 2) - 2) * 40) + Math.max(0, (Number(dischargingRate || 2) - 2) * 40);
                       const projectCost = activeProject?.land_freight_cost || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.cost_eur || 0), 0);
                       const projectSale = activeProject?.land_freight_sale || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.sale_price_eur || 0), 0);
-                      const totalRoadCost = Number(projectCost) || (runningCost + displayTolls + displayDiets + waitPenalty);
-                      const roadSale = Number(projectSale) || Math.round(totalRoadCost * 1.18);
+                      const rawType = String(cargoItems[0]?.type || '').toUpperCase().trim();
+                      const currentTariff = COMMODITY_TARIFFS[rawType] || null;
+                      const wTons = (totals.weight || 0) / 1000;
+                      const totalRoadCost = (isCommodityTariffActive && currentTariff)
+                        ? Math.round(wTons * currentTariff.inlandUsdMt)
+                        : (Number(projectCost) || (runningCost + displayTolls + displayDiets + waitPenalty));
+                      const roadSale = (isCommodityTariffActive && currentTariff)
+                        ? Math.round(totalRoadCost * 1.18)
+                        : (Number(projectSale) || Math.round(totalRoadCost * 1.18));
                       const roadSalePerKm = distKm > 0 ? (roadSale / distKm).toFixed(2) : '0.00';
                       return (
                         <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-slate-800">
