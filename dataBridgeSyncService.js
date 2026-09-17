@@ -261,13 +261,46 @@ export function buildRoadSyncPayload(options = {}) {
     }
     const road_net_margin = parseLocalizedNumber(rawMargin, 0, 2);
 
-    return {
+    const payload = {
         project_ref: String(reference),
         reference: String(reference),
         total_trucks,
         road_transit_days,
         road_net_margin,
     };
+
+    // 4. Land Freight Cost (land_freight_cost)
+    let rawFreightCost = options.land_freight_cost ?? options.freight_cost ?? options.cost;
+    if (rawFreightCost === undefined || rawFreightCost === null) {
+        if (typeof window !== 'undefined' && window.State) {
+            rawFreightCost = window.State.land_freight_cost ?? window.State.totalTripCost ?? window.State.costTotal ?? window.State.freight_cost;
+        }
+    }
+    if ((rawFreightCost === undefined || rawFreightCost === null || rawFreightCost === '') && typeof document !== 'undefined') {
+        const costEl = document.getElementById('res-cost-total');
+        if (costEl && costEl.textContent) {
+            rawFreightCost = costEl.textContent;
+        }
+    }
+    const land_freight_cost = parseLocalizedNumber(rawFreightCost, 0, 2);
+
+    // 5. Valor Total Mercancía USD (valor_total_mercancia_usd)
+    let rawGoodsValue = options.valor_total_mercancia_usd ?? options.goodsValue ?? options.merchandiseValue;
+    if (rawGoodsValue === undefined || rawGoodsValue === null) {
+        if (typeof window !== 'undefined' && window.State) {
+            rawGoodsValue = window.State.valor_total_mercancia_usd ?? window.State.goodsValue ?? window.State.merchandiseValue ?? window.State.cargoValue;
+        }
+    }
+    const valor_total_mercancia_usd = parseLocalizedNumber(rawGoodsValue, 0, 2);
+
+    if (options.land_freight_cost !== undefined || options.freight_cost !== undefined || land_freight_cost > 0) {
+        payload.land_freight_cost = land_freight_cost;
+    }
+    if (options.valor_total_mercancia_usd !== undefined || options.goodsValue !== undefined || valor_total_mercancia_usd > 0) {
+        payload.valor_total_mercancia_usd = valor_total_mercancia_usd;
+    }
+
+    return payload;
 }
 
 export function showSyncSuccessUI() {

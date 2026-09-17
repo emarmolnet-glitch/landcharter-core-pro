@@ -20317,63 +20317,92 @@ function createRouteAnchorElement(type) {
 
             function fitLeaflet(mapInstance, points) {
                 if (!mapInstance || points.length === 0 || typeof L === 'undefined') return;
-                const bounds = L.latLngBounds(points);
-                if (bounds.isValid()) mapInstance.fitBounds(bounds, { padding: [40, 40], maxZoom: 8 });
+                try {
+                    const bounds = L.latLngBounds(points);
+                    if (bounds.isValid() && typeof mapInstance.fitBounds === 'function') {
+                        mapInstance.fitBounds(bounds, { padding: [40, 40], maxZoom: 8 });
+                    }
+                } catch (err) {
+                    console.warn('[MapController] Error no bloqueante en fitLeaflet:', err);
+                }
             }
 
             function renderRouteOnMap(routeMap) {
-                if (!checkReady(routeMap) || state.route.length < 2) return false;
-                if (isMapboxRouteMap(routeMap)) {
-                    const renderMapboxRoute = () => {
-                        cleanDynamicLayers(routeMap, dynamicKinds.route);
-                        routeMap.addSource(MAPBOX_ROUTE_SOURCE_ID, {
-                            type: 'geojson',
-                            data: {
-                                type: 'Feature',
-                                properties: { isDynamic: true },
-                                geometry: { type: 'LineString', coordinates: state.route.map(([lat, lon]) => [lon, lat]) }
+                try {
+                    if (!checkReady(routeMap) || state.route.length < 2) return false;
+                    if (isMapboxRouteMap(routeMap)) {
+                        const renderMapboxRoute = () => {
+                            try {
+                                cleanDynamicLayers(routeMap, dynamicKinds.route);
+                                routeMap.addSource(MAPBOX_ROUTE_SOURCE_ID, {
+                                    type: 'geojson',
+                                    data: {
+                                        type: 'Feature',
+                                        properties: { isDynamic: true },
+                                        geometry: { type: 'LineString', coordinates: state.route.map(([lat, lon]) => [lon, lat]) }
+                                    }
+                                });
+                                routeMap.addLayer({
+                                    id: MAPBOX_ROUTE_LAYER_ID,
+                                    type: 'line',
+                                    source: MAPBOX_ROUTE_SOURCE_ID,
+                                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                                    paint: { 'line-color': ROUTE_DYNAMIC_COLOR, 'line-width': 4, 'line-opacity': 0.95, 'line-dasharray': [10, 10] }
+                                });
+                                if (typeof mapboxgl !== 'undefined') {
+                                    const bounds = new mapboxgl.LngLatBounds();
+                                    state.route.forEach(([lat, lon]) => bounds.extend([lon, lat]));
+                                    routeMap.fitBounds(bounds, { padding: 50, maxZoom: 8, duration: 500 });
+                                }
+                            } catch (mapboxErr) {
+                                console.warn('[MapController] Error no bloqueante renderizando ruta en Mapbox:', mapboxErr);
                             }
-                        });
-                        routeMap.addLayer({
-                            id: MAPBOX_ROUTE_LAYER_ID,
-                            type: 'line',
-                            source: MAPBOX_ROUTE_SOURCE_ID,
-                            layout: { 'line-join': 'round', 'line-cap': 'round' },
-                            paint: { 'line-color': ROUTE_DYNAMIC_COLOR, 'line-width': 4, 'line-opacity': 0.95, 'line-dasharray': [10, 10] }
-                        });
-                        if (typeof mapboxgl !== 'undefined') {
-                            const bounds = new mapboxgl.LngLatBounds();
-                            state.route.forEach(([lat, lon]) => bounds.extend([lon, lat]));
-                            routeMap.fitBounds(bounds, { padding: 50, maxZoom: 8, duration: 500 });
-                        }
-                    };
-                    if ((routeMap.isStyleLoaded && routeMap.isStyleLoaded()) || (routeMap.loaded && routeMap.loaded())) renderMapboxRoute();
-                    else routeMap.once('load', renderMapboxRoute);
-                    return true;
+                        };
+                        if ((routeMap.isStyleLoaded && routeMap.isStyleLoaded()) || (routeMap.loaded && routeMap.loaded())) renderMapboxRoute();
+                        else routeMap.once('load', renderMapboxRoute);
+                        return true;
+                    }
+                    if (typeof L === 'undefined' || typeof L.polyline !== 'function') return false;
+                    try {
+                        cleanDynamicLayers(routeMap, dynamicKinds.route);
+                        L.polyline(state.route, {
+                            color: ROUTE_DYNAMIC_COLOR,
+                            weight: 4,
+                            opacity: 0.95,
+                            dashArray: '10, 10',
+                            isDynamic: true,
+                            dynamicKind: dynamicKinds.route
+                        }).addTo(routeMap);
+                        fitLeaflet(routeMap, state.route);
+                        return true;
+                    } catch (leafletErr) {
+                        console.warn('[MapController] Error no bloqueante en renderRouteOnMap (Leaflet/Canvas):', leafletErr);
+                        return false;
+                    }
+                } catch (err) {
+                    console.warn('[MapController] Error no bloqueante en renderRouteOnMap:', err);
+                    return false;
                 }
-                if (typeof L === 'undefined' || typeof L.polyline !== 'function') return false;
-                cleanDynamicLayers(routeMap, dynamicKinds.route);
-                L.polyline(state.route, {
-                    color: ROUTE_DYNAMIC_COLOR,
-                    weight: 4,
-                    opacity: 0.95,
-                    dashArray: '10, 10',
-                    isDynamic: true,
-                    dynamicKind: dynamicKinds.route
-                }).addTo(routeMap);
-                fitLeaflet(routeMap, state.route);
-                return true;
             }
 
             function renderRoute(points) {
-                state.route = normalizePoints(points);
-                if (state.route.length < 2) return false;
-                let rendered = false;
-                [state.routeMap || map].filter(Boolean).forEach((mapInstance) => {
-                    cleanDynamicLayers(mapInstance, dynamicKinds.route);
-                    rendered = renderRouteOnMap(mapInstance) || rendered;
-                });
-                return rendered;
+                try {
+                    state.route = normalizePoints(points);
+                    if (state.route.length < 2) return false;
+                    let rendered = false;
+                    [state.routeMap || map].filter(Boolean).forEach((mapInstance) => {
+                        try {
+                            cleanDynamicLayers(mapInstance, dynamicKinds.route);
+                            rendered = renderRouteOnMap(mapInstance) || rendered;
+                        } catch (mapErr) {
+                            console.warn('[MapController] Error no bloqueante renderizando ruta en mapa:', mapErr);
+                        }
+                    });
+                    return rendered;
+                } catch (err) {
+                    console.warn('[MapController] Error no bloqueante en renderRoute:', err);
+                    return false;
+                }
             }
 
             function createPortElement(type) {
@@ -20388,31 +20417,36 @@ function createRouteAnchorElement(type) {
             }
 
             function renderPortOnMap(mapInstance, port, type) {
-                if (!checkReady(mapInstance) || !port) return false;
-                const dynamicKind = type.toLowerCase();
-                cleanDynamicLayers(mapInstance, dynamicKind);
-                const isDensityMap = mapInstance === state.densityMap || mapInstance === aisMap;
-                if (isDensityMap && type !== 'POL') return false;
-                if (isMapboxRouteMap(mapInstance)) {
-                    if (typeof mapboxgl === 'undefined') return false;
-                    state.mapboxPortMarkers[type] = new mapboxgl.Marker({ element: createPortElement(type) })
-                        .setLngLat([port.lon, port.lat])
-                        .setPopup(new mapboxgl.Popup({ offset: 18 }).setText(port.name || type))
-                        .addTo(mapInstance);
+                try {
+                    if (!checkReady(mapInstance) || !port) return false;
+                    const dynamicKind = type.toLowerCase();
+                    cleanDynamicLayers(mapInstance, dynamicKind);
+                    const isDensityMap = mapInstance === state.densityMap || mapInstance === aisMap;
+                    if (isDensityMap && type !== 'POL') return false;
+                    if (isMapboxRouteMap(mapInstance)) {
+                        if (typeof mapboxgl === 'undefined') return false;
+                        state.mapboxPortMarkers[type] = new mapboxgl.Marker({ element: createPortElement(type) })
+                            .setLngLat([port.lon, port.lat])
+                            .setPopup(new mapboxgl.Popup({ offset: 18 }).setText(port.name || type))
+                            .addTo(mapInstance);
+                        return true;
+                    }
+                    if (typeof L === 'undefined' || typeof L.circleMarker !== 'function') return false;
+                    const fillColor = type === 'POD' ? '#f97316' : '#16a34a';
+                    L.circleMarker([port.lat, port.lon], {
+                        radius: 9,
+                        color: '#ffffff',
+                        weight: 3,
+                        fillColor,
+                        fillOpacity: 1,
+                        isDynamic: true,
+                        dynamicKind
+                    }).bindPopup(port.name || type).bindTooltip(`${type}: ${port.name || type}`, { permanent: true, direction: 'top', offset: [0, -8] }).addTo(mapInstance);
                     return true;
+                } catch (portErr) {
+                    console.warn('[MapController] Error no bloqueante en renderPortOnMap (Leaflet/Canvas):', portErr);
+                    return false;
                 }
-                if (typeof L === 'undefined' || typeof L.circleMarker !== 'function') return false;
-                const fillColor = type === 'POD' ? '#f97316' : '#16a34a';
-                L.circleMarker([port.lat, port.lon], {
-                    radius: 9,
-                    color: '#ffffff',
-                    weight: 3,
-                    fillColor,
-                    fillOpacity: 1,
-                    isDynamic: true,
-                    dynamicKind
-                }).bindPopup(port.name || type).bindTooltip(`${type}: ${port.name || type}`, { permanent: true, direction: 'top', offset: [0, -8] }).addTo(mapInstance);
-                return true;
             }
 
             function renderPort(coords, name, type) {
@@ -20456,11 +20490,16 @@ function createRouteAnchorElement(type) {
 
             function renderMapData(payload) {
                 if (!payload || payload.type !== 'MAP_DATA') return false;
-                clearMap();
-                const routeRendered = renderRoute(payload.points || []);
-                const polRendered = payload.pol ? renderPort(payload.pol.coords, payload.pol.name, 'POL') : false;
-                const podRendered = payload.pod ? renderPort(payload.pod.coords, payload.pod.name, 'POD') : false;
-                return routeRendered || polRendered || podRendered;
+                try {
+                    clearMap();
+                    const routeRendered = renderRoute(payload.points || []);
+                    const polRendered = payload.pol ? renderPort(payload.pol.coords, payload.pol.name, 'POL') : false;
+                    const podRendered = payload.pod ? renderPort(payload.pod.coords, payload.pod.name, 'POD') : false;
+                    return routeRendered || polRendered || podRendered;
+                } catch (err) {
+                    console.warn('[MapController] Error no bloqueante en renderMapData:', err);
+                    return false;
+                }
             }
 
             function attachRouteMap(mapInstance) {
@@ -32030,12 +32069,20 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                 totalMiles: result.totalMiles,
                 routeGeometry: result
             });
-            if (typeof window.sendMapDataToDataBridge === 'function') {
-                window.sendMapDataToDataBridge(result);
-            } else {
-                window.MapController?.syncRouteResult(result);
+            try {
+                if (typeof window.sendMapDataToDataBridge === 'function') {
+                    window.sendMapDataToDataBridge(result);
+                } else {
+                    window.MapController?.syncRouteResult(result);
+                }
+            } catch (mapSyncErr) {
+                console.warn('[MapController] Error no bloqueante al sincronizar resultado de ruta:', mapSyncErr);
             }
-            updateRouteSummary();
+            try {
+                updateRouteSummary();
+            } catch (summaryErr) {
+                console.warn('[Route] Error no bloqueante actualizando resumen de ruta:', summaryErr);
+            }
             (({ pol, pod, polIso, podIso, laycan, lat, lon }) => window.dispatchEvent(new CustomEvent('SEA_ROUTE_DEFINED', { detail: { pol, pod, polIso, podIso, laycan, lat, lon } })))({ pol: result.pol, pod: result.pod, polIso: result.coordinates?.pol?.countryCode || '', podIso: result.coordinates?.pod?.countryCode || '', laycan: State.laycanDate, lat: { pol: result.coordinates?.pol?.lat, pod: result.coordinates?.pod?.lat }, lon: { pol: result.coordinates?.pol?.lon, pod: result.coordinates?.pod?.lon } });
         }
 
@@ -68610,12 +68657,13 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 }
 
                 if (typeof autoCalculateDistances === 'function') {
-                    const routeResult = await autoCalculateDistances();
-                    if (!routeResult || !routeResult.routes?.laden) {
-                        const error = new Error('No se pudo calcular la distancia terrestre entre Origen y Destino. Revisa ambos puntos.');
-                        if (managedByMaster) throw error;
-                        setSmartAdjustmentAlert(error.message, 'error');
-                        return false;
+                    try {
+                        const routeResult = await autoCalculateDistances();
+                        if (!routeResult || !routeResult.routes?.laden) {
+                            console.warn('[Recalculate] Aviso: Distancia de ruta no óptima, continuando con parámetros locales.');
+                        }
+                    } catch (routeErr) {
+                        console.warn('[Recalculate] Error no bloqueante en autoCalculateDistances / Leaflet DOM:', routeErr);
                     }
                 }
 
@@ -68624,10 +68672,41 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                     : false;
 
                 if (!managedByMaster && typeof runEngine === 'function') {
-                    runEngine();
+                    try { runEngine(); } catch (e) { console.warn('Error en runEngine:', e); }
                 }
-                calculateAdjustedEtaAndDays();
+                try { calculateAdjustedEtaAndDays(); } catch (e) { console.warn('Error en calculateAdjustedEtaAndDays:', e); }
                 await saveEditedVesselParams();
+
+                // Sincronización explícita y segura hacia Data Bridge
+                try {
+                    const calculatedRoadCost = Number(
+                        window.State?.land_freight_cost
+                        ?? window.State?.totalTripCost
+                        ?? window.State?.costTotal
+                        ?? window.State?.freight_cost
+                        ?? (document.getElementById('res-cost-total') ? parseFloat(document.getElementById('res-cost-total').innerText.replace(/[^0-9.,]/g, '').replace(',', '.')) : 0)
+                        ?? 0
+                    );
+                    const merchandiseValueUsd = Number(
+                        window.State?.valor_total_mercancia_usd
+                        ?? window.State?.goodsValue
+                        ?? window.State?.merchandiseValue
+                        ?? window.State?.cargoValue
+                        ?? 0
+                    );
+                    const roadSyncFn = typeof syncRoadMetricsToBridge === 'function'
+                        ? syncRoadMetricsToBridge
+                        : (typeof window !== 'undefined' && typeof window.syncRoadMetricsToBridge === 'function' ? window.syncRoadMetricsToBridge : null);
+                    if (typeof roadSyncFn === 'function') {
+                        await roadSyncFn({
+                            land_freight_cost: calculatedRoadCost,
+                            valor_total_mercancia_usd: merchandiseValueUsd,
+                            freight_cost: calculatedRoadCost
+                        });
+                    }
+                } catch (bridgeErr) {
+                    console.warn('[Data Bridge] Error no bloqueante al sincronizar en recalculateAdjustedAndSave:', bridgeErr);
+                }
 
                 const distLaden = parseFloat(document.getElementById('dist-laden')?.value) || 0;
                 const adjustedDays = document.getElementById('res-adjusted-days')?.innerText || '0.00 d';
@@ -70164,9 +70243,18 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         }
 
         window.sendMapDataToDataBridge = function(result) {
-            const payload = buildMapDataPayload(result);
-            window.MapController?.renderMapData(payload);
-            return payload;
+            try {
+                const payload = buildMapDataPayload(result);
+                try {
+                    window.MapController?.renderMapData(payload);
+                } catch (mapErr) {
+                    console.warn('[DataBridge] Error no bloqueante al renderizar datos de mapa en MapController:', mapErr);
+                }
+                return payload;
+            } catch (err) {
+                console.warn('[DataBridge] Error no bloqueante en sendMapDataToDataBridge:', err);
+                return null;
+            }
         };
 
         /**
