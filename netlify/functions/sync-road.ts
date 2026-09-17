@@ -72,6 +72,82 @@ function cleanNumber(val: unknown, fallback = 0): number {
   return Number.isFinite(num) ? num : fallback;
 }
 
+function adaptRoadItems(rawItems: any[]): any[] {
+  if (!Array.isArray(rawItems)) return [];
+  return rawItems.map((it, idx) => {
+    if (!it || typeof it !== "object") return it;
+    const rawQty = it.quantity ?? it.qty ?? it.cant ?? it.cantidad ?? it.piezas ?? it.bultos ?? 1;
+    const quantity = Math.max(1, Number(rawQty) || 1);
+    const lengthVal = it.length !== undefined && it.length !== null && it.length !== ""
+      ? it.length
+      : (it.length_m !== undefined && it.length_m !== null && it.length_m !== ""
+        ? it.length_m
+        : (it.largo ?? ""));
+    const widthVal = it.width !== undefined && it.width !== null && it.width !== ""
+      ? it.width
+      : (it.width_m !== undefined && it.width_m !== null && it.width_m !== ""
+        ? it.width_m
+        : (it.ancho ?? ""));
+    const heightVal = it.height !== undefined && it.height !== null && it.height !== ""
+      ? it.height
+      : (it.height_m !== undefined && it.height_m !== null && it.height_m !== ""
+        ? it.height_m
+        : (it.alto ?? (it.heightM ?? "")));
+    const weightVal = it.unit_weight_kg !== undefined && it.unit_weight_kg !== null && it.unit_weight_kg !== ""
+      ? it.unit_weight_kg
+      : (it.weight !== undefined && it.weight !== null && it.weight !== ""
+        ? it.weight
+        : (it.unitWeight ?? (it.weight_kg ?? (it.peso ?? ""))));
+
+    const rawType = String(it.type || it.description || it.descripcion || it.name || it.cargo_type || it.cargoType || it.product || "");
+    const rawCategory = String(it.category || "");
+
+    const typeOrCat = `${rawType} ${rawCategory}`;
+    const isBigBagOrBogBag = /(?:big|bog)[-\s_]*bags?/i.test(typeOrCat) ||
+      typeOrCat.toUpperCase().includes("BIGBAG") ||
+      typeOrCat.toUpperCase().includes("BIG BAG") ||
+      typeOrCat.toUpperCase().includes("BOGBAG") ||
+      typeOrCat.toUpperCase().includes("BOG BAG");
+
+    let category = rawCategory;
+    let type = rawType;
+    let shipping_mode_supported = it.shipping_mode_supported || "Tráiler Lona (13.6m)";
+
+    if (isBigBagOrBogBag) {
+      category = "Carga Unitizada / Envasada";
+      const upper = typeOrCat.toUpperCase();
+      if (upper.includes("CEM II 52.5N/R 50KG")) type = "CEM II 52.5N/R 50KG";
+      else if (upper.includes("CEM II 52.5N")) type = "CEM II 52.5N BIGBAG";
+      else if (upper.includes("CEM II 42,5N/R FARDILLISE") || upper.includes("TAVCIM")) type = "CEM II 42,5N/R FARDILLISE TAVCIM";
+      else if (upper.includes("FARDILISE")) type = "CEM II 42,5N/R FARDILISE";
+      else if (upper.includes("CEM II 42,5 R")) type = "CEM II 42,5 R BIGBAG";
+      else if (upper.includes("CEM I 52,5 R")) type = "CEM I 52,5 R BIGBAG";
+      else if (upper.includes("CEM I 42,5N/R SAC")) type = "CEM I 42,5N/R SAC 50KG";
+      else if (upper.includes("CEM I 42,5N/R")) type = "CEM I 42,5N/R BIGBAG";
+      else if (upper.includes("CEM I 52,5N SAC")) type = "CEM I 52,5N SAC 50KG";
+      else type = "CEM I 52,5N BIGBAG";
+      shipping_mode_supported = "Tráiler Lona (13.6m)";
+    }
+
+    return {
+      ...it,
+      id: it.id || `item-${Date.now()}-${idx}`,
+      category: category || "Carga Unitizada / Envasada",
+      type: type || "CEM I 52,5N BIGBAG",
+      quantity,
+      length: lengthVal,
+      width: widthVal,
+      height: heightVal,
+      length_m: lengthVal,
+      width_m: widthVal,
+      height_m: heightVal,
+      weight: weightVal,
+      unit_weight_kg: weightVal,
+      shipping_mode_supported,
+    };
+  });
+}
+
 export default async (req: Request, _context: Context) => {
   const corsHeaders = createCorsHeaders(req, "POST, PUT, OPTIONS");
   const headers = {
@@ -135,6 +211,9 @@ export default async (req: Request, _context: Context) => {
 
     await ensureProjectsTable(db);
 
+    const rawItems = body.items || body.cargo_items || body.line_items;
+    const itemsJson = Array.isArray(rawItems) && rawItems.length > 0 ? JSON.stringify(adaptRoadItems(rawItems)) : null;
+
     const updateQuery = `
       UPDATE forwarder_projects
       SET
@@ -145,6 +224,7 @@ export default async (req: Request, _context: Context) => {
         land_destination = COALESCE(NULLIF($6::text, ''), land_destination),
         land_distance = CASE WHEN $7::numeric > 0 THEN $7::numeric ELSE land_distance END,
         land_freight_cost = CASE WHEN $8::numeric > 0 THEN $8::numeric ELSE land_freight_cost END,
+        items = CASE WHEN $9::jsonb IS NOT NULL THEN $9::jsonb ELSE items END,
         updated_at = CURRENT_TIMESTAMP
       WHERE upper(project_ref) = upper($1::text) OR project_ref = $1::text
       RETURNING id, project_ref;
@@ -159,6 +239,7 @@ export default async (req: Request, _context: Context) => {
       land_destination,
       land_distance,
       land_freight_cost,
+      itemsJson,
     ]);
 
     if (result.rowCount === 0) {
@@ -174,6 +255,7 @@ export default async (req: Request, _context: Context) => {
           land_destination,
           land_distance,
           land_freight_cost,
+          items,
           created_at,
           updated_at
         ) VALUES (
@@ -187,6 +269,7 @@ export default async (req: Request, _context: Context) => {
           $6::text,
           $7::numeric,
           $8::numeric,
+          COALESCE($9::jsonb, '[]'::jsonb),
           CURRENT_TIMESTAMP,
           CURRENT_TIMESTAMP
         )
@@ -201,6 +284,7 @@ export default async (req: Request, _context: Context) => {
         land_destination,
         land_distance,
         land_freight_cost,
+        itemsJson,
       ]);
     }
 

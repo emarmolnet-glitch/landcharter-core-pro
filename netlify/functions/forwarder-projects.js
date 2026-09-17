@@ -80,6 +80,83 @@ const CORS_HEADERS = {
   'Access-Control-Max-Age': '86400',
 };
 
+function adaptProjectItems(rawItems) {
+  if (!Array.isArray(rawItems)) return [];
+  return rawItems.map((it, idx) => {
+    if (!it || typeof it !== 'object') return it;
+    const rawQty = it.quantity ?? it.qty ?? it.cant ?? it.cantidad ?? it.piezas ?? it.bultos ?? 1;
+    const quantity = Math.max(1, Number(rawQty) || 1);
+    const lengthVal = it.length !== undefined && it.length !== null && it.length !== ''
+      ? it.length
+      : (it.length_m !== undefined && it.length_m !== null && it.length_m !== ''
+        ? it.length_m
+        : (it.largo ?? ''));
+    const widthVal = it.width !== undefined && it.width !== null && it.width !== ''
+      ? it.width
+      : (it.width_m !== undefined && it.width_m !== null && it.width_m !== ''
+        ? it.width_m
+        : (it.ancho ?? ''));
+    const heightVal = it.height !== undefined && it.height !== null && it.height !== ''
+      ? it.height
+      : (it.height_m !== undefined && it.height_m !== null && it.height_m !== ''
+        ? it.height_m
+        : (it.alto ?? (it.heightM ?? '')));
+    const weightVal = it.unit_weight_kg !== undefined && it.unit_weight_kg !== null && it.unit_weight_kg !== ''
+      ? it.unit_weight_kg
+      : (it.weight !== undefined && it.weight !== null && it.weight !== ''
+        ? it.weight
+        : (it.unitWeight ?? (it.weight_kg ?? (it.peso ?? ''))));
+
+    const rawType = it.type || it.description || it.descripcion || it.name || it.cargo_type || it.cargoType || it.product || '';
+    const rawCategory = it.category || '';
+
+    // Big bag adaptation
+    const typeOrCat = `${rawType} ${rawCategory}`;
+    const isBigBagOrBogBag = /(?:big|bog)[-\s_]*bags?/i.test(typeOrCat) ||
+      typeOrCat.toUpperCase().includes('BIGBAG') ||
+      typeOrCat.toUpperCase().includes('BIG BAG') ||
+      typeOrCat.toUpperCase().includes('BOGBAG') ||
+      typeOrCat.toUpperCase().includes('BOG BAG');
+
+    let category = rawCategory;
+    let type = rawType;
+    let shipping_mode_supported = it.shipping_mode_supported || 'Tráiler Lona (13.6m)';
+
+    if (isBigBagOrBogBag) {
+      category = 'Carga Unitizada / Envasada';
+      const upper = typeOrCat.toUpperCase();
+      if (upper.includes('CEM II 52.5N/R 50KG')) type = 'CEM II 52.5N/R 50KG';
+      else if (upper.includes('CEM II 52.5N')) type = 'CEM II 52.5N BIGBAG';
+      else if (upper.includes('FARDILLISE TAVCIM') || upper.includes('TAVCIM')) type = 'CEM II 42,5N/R FARDILLISE TAVCIM';
+      else if (upper.includes('FARDILISE')) type = 'CEM II 42,5N/R FARDILISE';
+      else if (upper.includes('CEM II 42,5 R')) type = 'CEM II 42,5 R BIGBAG';
+      else if (upper.includes('CEM I 52,5 R')) type = 'CEM I 52,5 R BIGBAG';
+      else if (upper.includes('CEM I 42,5N/R SAC')) type = 'CEM I 42,5N/R SAC 50KG';
+      else if (upper.includes('CEM I 42,5N/R')) type = 'CEM I 42,5N/R BIGBAG';
+      else if (upper.includes('CEM I 52,5N SAC')) type = 'CEM I 52,5N SAC 50KG';
+      else type = 'CEM I 52,5N BIGBAG';
+      shipping_mode_supported = 'Tráiler Lona (13.6m)';
+    }
+
+    return {
+      ...it,
+      id: it.id || `item-${Date.now()}-${idx}`,
+      category: category || 'Carga Unitizada / Envasada',
+      type: type || 'CEM I 52,5N BIGBAG',
+      quantity,
+      length: lengthVal,
+      width: widthVal,
+      height: heightVal,
+      length_m: lengthVal,
+      width_m: widthVal,
+      height_m: heightVal,
+      weight: weightVal,
+      unit_weight_kg: weightVal,
+      shipping_mode_supported
+    };
+  });
+}
+
 exports.handler = async (event) => {
   const { httpMethod, body } = event;
 
@@ -132,10 +209,11 @@ exports.handler = async (event) => {
           WHERE id = $4 OR project_ref = $5
           RETURNING *;
         `;
+        const incomingUpdateItems = data.items || data.cargo_items || data.line_items || data.services;
         const updateValues = [
           data.documents !== undefined ? JSON.stringify(data.documents) : null,
-          (data.items || data.line_items || data.services) !== undefined
-            ? JSON.stringify(data.items || data.line_items || data.services)
+          incomingUpdateItems !== undefined
+            ? JSON.stringify(adaptProjectItems(incomingUpdateItems))
             : null,
           data.client_name || null,
           data.id ? parseInt(data.id, 10) : null,
@@ -152,7 +230,7 @@ exports.handler = async (event) => {
       }
 
       // MODO CREACIÓN (Nuevo Proyecto)
-      const { client_name, status, documents, items, line_items, services, global_margin_percentage } = data;
+      const { client_name, status, documents, items, line_items, cargo_items, services, global_margin_percentage } = data;
       const projectRef = `EXP-${Date.now().toString().slice(-6)}`;
       const projectStatus = (status && typeof status === 'string' && status.trim()) ? status.trim() : 'BORRADOR';
       const marginPercentage = (global_margin_percentage !== undefined && global_margin_percentage !== null)
@@ -164,13 +242,14 @@ exports.handler = async (event) => {
         VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb)
         RETURNING *;
       `;
+      const rawCreateItems = items || cargo_items || line_items || services || [];
       const insertValues = [
         projectRef, 
         client_name || 'Nuevo Cliente', 
         projectStatus,
         marginPercentage,
         JSON.stringify(documents || []),
-        JSON.stringify(items || line_items || services || [])
+        JSON.stringify(adaptProjectItems(rawCreateItems))
       ];
       const result = await dbPool.query(insertQuery, insertValues);
 
@@ -205,10 +284,11 @@ exports.handler = async (event) => {
         WHERE id = $4 OR project_ref = $5
         RETURNING *;
       `;
+      const incomingPutItems = data.items || data.cargo_items || data.line_items || data.services;
       const values = [
         data.documents !== undefined ? JSON.stringify(data.documents) : null,
-        (data.items || data.line_items || data.services) !== undefined
-          ? JSON.stringify(data.items || data.line_items || data.services)
+        incomingPutItems !== undefined
+          ? JSON.stringify(adaptProjectItems(incomingPutItems))
           : null,
         data.client_name || null,
         data.id ? parseInt(data.id, 10) : null,

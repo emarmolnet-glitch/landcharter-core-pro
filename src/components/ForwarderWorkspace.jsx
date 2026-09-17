@@ -70,13 +70,22 @@ function normalizeStr(val) {
  * - Si contiene VRAC, GRANEL o BULK -> 'Graneles Sólidos / Minerales' y CEM II 42,5 VRAC
  */
 export function mapCargoCategoryAndType(rawText = '', currentCategory = '', currentType = '') {
-  const norm = normalizeStr(rawText || `${currentCategory} ${currentType}`);
-  const upper = String(rawText || `${currentCategory} ${currentType}`).toUpperCase();
+  const combined = `${rawText || ''} ${currentCategory || ''} ${currentType || ''}`.trim();
+  const norm = normalizeStr(combined);
+  const upper = combined.toUpperCase();
 
-  // Caso 1: Envasado / Unitizado
-  if (
+  // Caso 1: Envasado / Unitizado (incluye BIG BAG, BIGBAG, y erratas comunes como BOG BAG / BOGBAG)
+  const isBigBagOrBogBag =
     norm.includes('bigbag') ||
     norm.includes('big bag') ||
+    norm.includes('bogbag') ||
+    norm.includes('bog bag') ||
+    norm.includes('big-bag') ||
+    norm.includes('bog-bag') ||
+    /(?:big|bog)[-\s_]*bags?/i.test(combined);
+
+  if (
+    isBigBagOrBogBag ||
     norm.includes('sac') ||
     norm.includes('saco') ||
     norm.includes('fardilise') ||
@@ -89,20 +98,20 @@ export function mapCargoCategoryAndType(rawText = '', currentCategory = '', curr
     let resolvedType = 'CEM I 52,5N BIGBAG';
     if (upper.includes('CEM II 52.5N/R 50KG') || (upper.includes('52.5') && upper.includes('50KG'))) {
       resolvedType = 'CEM II 52.5N/R 50KG';
-    } else if (upper.includes('CEM II 52.5N BIGBAG') || (upper.includes('CEM II') && upper.includes('BIGBAG'))) {
-      resolvedType = 'CEM II 52.5N BIGBAG';
     } else if (upper.includes('FARDILLISE TAVCIM') || upper.includes('TAVCIM')) {
       resolvedType = 'CEM II 42,5N/R FARDILLISE TAVCIM';
     } else if (upper.includes('FARDILISE')) {
       resolvedType = 'CEM II 42,5N/R FARDILISE';
-    } else if (upper.includes('CEM II 42,5 R BIGBAG')) {
+    } else if (upper.includes('CEM II 42,5 R BIGBAG') || (upper.includes('CEM II') && (upper.includes('42,5 R') || upper.includes('42.5 R')))) {
       resolvedType = 'CEM II 42,5 R BIGBAG';
-    } else if (upper.includes('CEM I 52,5 R BIGBAG')) {
+    } else if (upper.includes('CEM I 52,5 R BIGBAG') || (upper.includes('CEM I') && (upper.includes('52,5 R') || upper.includes('52.5 R')))) {
       resolvedType = 'CEM I 52,5 R BIGBAG';
     } else if (upper.includes('CEM I 42,5N/R SAC') || (upper.includes('42,5') && upper.includes('SAC'))) {
       resolvedType = 'CEM I 42,5N/R SAC 50KG';
-    } else if (upper.includes('CEM I 42,5N/R BIGBAG') || (upper.includes('42,5') && upper.includes('BIGBAG'))) {
+    } else if (upper.includes('CEM I 42,5N/R BIGBAG') || (upper.includes('42,5') && (upper.includes('BIGBAG') || upper.includes('BIG BAG') || upper.includes('BOG BAG') || upper.includes('BOGBAG')))) {
       resolvedType = 'CEM I 42,5N/R BIGBAG';
+    } else if (upper.includes('CEM II 52.5N BIGBAG') || upper.includes('CEM II 52,5N') || upper.includes('CEM II 52.5N') || (upper.includes('CEM II') && (upper.includes('BIGBAG') || upper.includes('BIG BAG') || upper.includes('BOG BAG') || upper.includes('BOGBAG')))) {
+      resolvedType = 'CEM II 52.5N BIGBAG';
     } else if (upper.includes('CEM I 52,5N SAC') || (upper.includes('52,5') && upper.includes('SAC'))) {
       resolvedType = 'CEM I 52,5N SAC 50KG';
     } else if (COMMODITY_TARIFFS[upper.trim()]) {
@@ -110,7 +119,8 @@ export function mapCargoCategoryAndType(rawText = '', currentCategory = '', curr
     }
     return {
       category: 'Carga Unitizada / Envasada',
-      type: resolvedType
+      type: resolvedType,
+      shipping_mode_supported: 'Tráiler Lona (13.6m)'
     };
   }
 
@@ -122,13 +132,178 @@ export function mapCargoCategoryAndType(rawText = '', currentCategory = '', curr
   ) {
     return {
       category: 'Graneles Sólidos / Minerales',
-      type: 'CEM II 42,5 VRAC'
+      type: 'CEM II 42,5 VRAC',
+      shipping_mode_supported: 'Bañera Basculante / Tolva'
     };
   }
 
   return {
     category: currentCategory || 'Carga Unitizada / Envasada',
-    type: currentType || (COMMODITY_TARIFFS[upper.trim()] ? upper.trim() : rawText)
+    type: currentType || (COMMODITY_TARIFFS[upper.trim()] ? upper.trim() : rawText),
+    shipping_mode_supported: 'Tráiler Lona (13.6m)'
+  };
+}
+
+/**
+ * Extracción unificada y exhaustiva de partidas/ítems de lista de empaque desde cualquier estructura de Core Pro / DataBridge
+ */
+export function extractProjectCargoItems(project) {
+  if (!project) return [];
+
+  // 1. Array directo en project.items
+  if (Array.isArray(project.items) && project.items.length > 0) {
+    return project.items;
+  }
+  // 2. Array directo en project.cargo_items o cargoItems
+  if (Array.isArray(project.cargo_items) && project.cargo_items.length > 0) {
+    return project.cargo_items;
+  }
+  if (Array.isArray(project.cargoItems) && project.cargoItems.length > 0) {
+    return project.cargoItems;
+  }
+
+  // 3. Desglose anidado en line_items (payload_data.cargo_items o items)
+  if (Array.isArray(project.line_items) && project.line_items.length > 0) {
+    const nested = [];
+    let foundNested = false;
+    for (const li of project.line_items) {
+      if (li?.payload_data?.cargo_items && Array.isArray(li.payload_data.cargo_items) && li.payload_data.cargo_items.length > 0) {
+        nested.push(...li.payload_data.cargo_items);
+        foundNested = true;
+      } else if (li?.payload_data?.items && Array.isArray(li.payload_data.items) && li.payload_data.items.length > 0) {
+        nested.push(...li.payload_data.items);
+        foundNested = true;
+      }
+    }
+    if (foundNested && nested.length > 0) return nested;
+
+    // Verificar si los propios line_items son partidas directas con medidas/pesos
+    const hasPieceProps = project.line_items.some(li =>
+      li && (li.quantity !== undefined || li.weight !== undefined || li.unit_weight_kg !== undefined || li.length !== undefined || li.length_m !== undefined || li.type || li.description)
+    );
+    if (hasPieceProps) return project.line_items;
+  }
+
+  // 4. Desglose en services
+  if (Array.isArray(project.services) && project.services.length > 0) {
+    const nested = [];
+    let foundNested = false;
+    for (const s of project.services) {
+      if (s?.payload_data?.cargo_items && Array.isArray(s.payload_data.cargo_items) && s.payload_data.cargo_items.length > 0) {
+        nested.push(...s.payload_data.cargo_items);
+        foundNested = true;
+      }
+    }
+    if (foundNested && nested.length > 0) return nested;
+  }
+
+  // 5. En el objeto data
+  if (project.data && typeof project.data === 'object') {
+    if (Array.isArray(project.data.cargoItems) && project.data.cargoItems.length > 0) return project.data.cargoItems;
+    if (Array.isArray(project.data.cargo_items) && project.data.cargo_items.length > 0) return project.data.cargo_items;
+    if (Array.isArray(project.data.items) && project.data.items.length > 0) return project.data.items;
+    if (Array.isArray(project.data.packing_list) && project.data.packing_list.length > 0) return project.data.packing_list;
+  }
+
+  // 6. En packing_list / packingList
+  if (Array.isArray(project.packing_list) && project.packing_list.length > 0) return project.packing_list;
+  if (Array.isArray(project.packingList) && project.packingList.length > 0) return project.packingList;
+
+  return [];
+}
+
+/**
+ * Hidrata un ítem de lista de empaque preservando íntegramente cantidad, largo, ancho, alto,
+ * peso unitario y adaptando la mercancía al entorno terrestre (Big Bags -> Carga Unitizada, GICA, Tráiler Lona 13.6m).
+ */
+export function hydrateCargoItem(it, defaultCategory = '', defaultType = '', index = 0) {
+  if (!it || typeof it !== 'object') {
+    return {
+      id: `item-${Date.now()}-${index}`,
+      category: 'Carga Unitizada / Envasada',
+      type: 'CEM I 52,5N BIGBAG',
+      quantity: 1,
+      length: 12,
+      width: 2.5,
+      height: 2.5,
+      length_m: 12,
+      width_m: 2.5,
+      height_m: 2.5,
+      weight: 1000,
+      unit_weight_kg: 1000,
+      shipping_mode_supported: 'Tráiler Lona (13.6m)'
+    };
+  }
+
+  // Preservación estricta de cantidad
+  const rawQty = it.quantity ?? it.qty ?? it.cant ?? it.cantidad ?? it.piezas ?? it.bultos;
+  const quantity = rawQty !== undefined && rawQty !== null && rawQty !== '' ? Math.max(1, Number(rawQty) || 1) : 1;
+
+  // Preservación estricta de dimensiones (largo, ancho, alto)
+  const lengthVal = it.length !== undefined && it.length !== null && it.length !== ''
+    ? it.length
+    : (it.length_m !== undefined && it.length_m !== null && it.length_m !== ''
+      ? it.length_m
+      : (it.largo !== undefined && it.largo !== null && it.largo !== ''
+        ? it.largo
+        : (it.lengthM ?? '')));
+
+  const widthVal = it.width !== undefined && it.width !== null && it.width !== ''
+    ? it.width
+    : (it.width_m !== undefined && it.width_m !== null && it.width_m !== ''
+      ? it.width_m
+      : (it.ancho !== undefined && it.ancho !== null && it.ancho !== ''
+        ? it.ancho
+        : (it.widthM ?? '')));
+
+  const heightVal = it.height !== undefined && it.height !== null && it.height !== ''
+    ? it.height
+    : (it.height_m !== undefined && it.height_m !== null && it.height_m !== ''
+      ? it.height_m
+      : (it.alto !== undefined && it.alto !== null && it.alto !== ''
+        ? it.alto
+        : (it.heightM ?? (it.altura ?? ''))));
+
+  // Preservación estricta de peso unitario (weight / unit_weight_kg)
+  const weightVal = it.unit_weight_kg !== undefined && it.unit_weight_kg !== null && it.unit_weight_kg !== ''
+    ? it.unit_weight_kg
+    : (it.weight !== undefined && it.weight !== null && it.weight !== ''
+      ? it.weight
+      : (it.unitWeight !== undefined && it.unitWeight !== null && it.unitWeight !== ''
+        ? it.unitWeight
+        : (it.weight_kg !== undefined && it.weight_kg !== null && it.weight_kg !== ''
+          ? it.weight_kg
+          : (it.peso_unitario !== undefined && it.peso_unitario !== null && it.peso_unitario !== ''
+            ? it.peso_unitario
+            : (it.peso ?? '')))));
+
+  // Tipo y descripción original
+  const rawType = it.type || it.description || it.descripcion || it.name || it.cargo_type || it.cargoType || it.product || defaultType || '';
+  const rawCategory = it.category || defaultCategory || '';
+
+  // Mapeo inteligente con detección de Big Bags y erratas
+  const mapped = mapCargoCategoryAndType(rawType, rawCategory, it.type);
+  const isBigBagOrBogBag = /big\s*bag|bog\s*bag|bigbag|bogbag|envasad|sac|fardilise/i.test(`${rawType} ${rawCategory} ${mapped.type} ${mapped.category}`);
+
+  // Modo de envío adaptado al entorno terrestre
+  const shippingMode = isBigBagOrBogBag
+    ? 'Tráiler Lona (13.6m)'
+    : (it.shipping_mode_supported || mapped.shipping_mode_supported || 'Tráiler Lona (13.6m)');
+
+  return {
+    id: it.id || `item-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 6)}`,
+    category: mapped.category,
+    type: mapped.type,
+    quantity,
+    length: lengthVal,
+    width: widthVal,
+    height: heightVal,
+    length_m: lengthVal,
+    width_m: widthVal,
+    height_m: heightVal,
+    weight: weightVal,
+    unit_weight_kg: weightVal,
+    shipping_mode_supported: shippingMode
   };
 }
 
@@ -1067,17 +1242,9 @@ export function ForwarderWorkspace() {
         if (pRoute.loading_rate_mt_day || pRoute.loadingRate) setLoadingRate(Number(pRoute.loading_rate_mt_day || pRoute.loadingRate));
         if (pRoute.discharging_rate_mt_day || pRoute.dischargeRate) setDischargingRate(Number(pRoute.discharging_rate_mt_day || pRoute.dischargeRate));
 
-        // Hidratar lista de empaque / mercancía aplicando Mapeo Inteligente
-        const rawSyncItems = updated.items || updated.line_items || updated.data?.cargoItems || [];
-        const syncItems = rawSyncItems.map(it => {
-          const mapped = mapCargoCategoryAndType(it.type || it.category || '', it.category, it.type);
-          return {
-            ...it,
-            category: mapped.category,
-            type: mapped.type,
-            shipping_mode_supported: it.shipping_mode_supported || 'Tráiler Lona (13.6m)'
-          };
-        });
+        // Hidratar lista de empaque / mercancía preservando desglose íntegro y aplicando Mapeo Inteligente
+        const rawSyncItems = extractProjectCargoItems(updated);
+        const syncItems = rawSyncItems.map((it, idx) => hydrateCargoItem(it, updated.cargoCategory || updated.cargo_category || '', it.type || it.description || '', idx));
         setCargoItems(syncItems);
 
         const syncQuickTonnage = Number(updated.cargoQuantity || updated.cargo_quantity || updated.toneladas || updated.tonnes || updated.cargo || (typeof window !== 'undefined' ? window.State?.cargo : 0) || 0);
@@ -1095,8 +1262,12 @@ export function ForwarderWorkspace() {
             length: 12,
             width: 2.5,
             height: 2.5,
+            length_m: 12,
+            width_m: 2.5,
+            height_m: 2.5,
             weight: weightKg,
             unitWeight: weightKg,
+            unit_weight_kg: weightKg,
             shipping_mode_supported: 'Tráiler Lona (13.6m)'
           };
           currentEffectiveItems = [quickItem];
@@ -1195,22 +1366,14 @@ export function ForwarderWorkspace() {
       const dbCost = activeProject.land_freight_cost || 0;
       setCost(dbCost);
 
-      // Hidratar la Lista de Empaque (Mercancía) aplicando Mapeo Inteligente (solo al cambiar de proyecto)
-      const currentProjKey = activeProject.id || activeProject.project_ref;
+      // Hidratar la Lista de Empaque (Mercancía) preservando desglose íntegro y aplicando Mapeo Inteligente
+      const currentProjKey = `${activeProject.id || activeProject.project_ref || ''}_${activeProject.updated_at || ''}_${(activeProject.items || activeProject.cargo_items || activeProject.line_items || []).length}`;
       const isSwitchingProject = lastHydratedProjectIdRef.current !== currentProjKey;
 
       if (isSwitchingProject) {
         lastHydratedProjectIdRef.current = currentProjKey;
-        const rawActiveItems = activeProject.items || activeProject.line_items || activeProject.data?.cargoItems || [];
-        const hydratedItems = rawActiveItems.map(it => {
-          const mapped = mapCargoCategoryAndType(it.type || it.category || '', it.category, it.type);
-          return {
-            ...it,
-            category: mapped.category,
-            type: mapped.type,
-            shipping_mode_supported: it.shipping_mode_supported || 'Tráiler Lona (13.6m)'
-          };
-        });
+        const rawActiveItems = extractProjectCargoItems(activeProject);
+        const hydratedItems = rawActiveItems.map((it, idx) => hydrateCargoItem(it, activeProject.cargoCategory || activeProject.cargo_category || '', it.type || it.description || '', idx));
         setCargoItems(hydratedItems);
         if (activeProject.cargoCategory || activeProject.cargo_category) {
           const mappedCat = mapCargoCategoryAndType(activeProject.cargoCategory || activeProject.cargo_category);
@@ -1219,10 +1382,12 @@ export function ForwarderWorkspace() {
           setCargoCategory(hydratedItems[0].category);
         }
 
+        let currentEffectiveItems = hydratedItems;
+
         // Si el proyecto viene de una cotización rápida (ej. 10.000t de Cemento), sincronizar volumen global / input de toneladas
         const quickTonnage = Number(activeProject.cargoQuantity || activeProject.cargo_quantity || activeProject.toneladas || activeProject.tonnes || activeProject.cargo || (typeof window !== 'undefined' ? window.State?.cargo : 0) || 0);
         if (quickTonnage > 0) {
-          if ((!activeProject.items || activeProject.items.length === 0) && (!activeProject.line_items || activeProject.line_items.length === 0)) {
+          if (hydratedItems.length === 0) {
             const quickProduct = activeProject.cargoType || activeProject.cargo_type || activeProject.product || (typeof window !== 'undefined' ? window.State?.cargoProduct : '') || 'CEM I 52,5N BIGBAG';
             const mapped = mapCargoCategoryAndType(quickProduct, activeProject.cargoCategory || activeProject.cargo_category || '', quickProduct);
             // Si el input es 10000, el peso total de la línea debe ser 10.000 kg (10 t), nunca 10.000.000 kg
@@ -1235,11 +1400,16 @@ export function ForwarderWorkspace() {
               length: 12,
               width: 2.5,
               height: 2.5,
+              length_m: 12,
+              width_m: 2.5,
+              height_m: 2.5,
               weight: weightKg,
               unitWeight: weightKg,
+              unit_weight_kg: weightKg,
               shipping_mode_supported: 'Tráiler Lona (13.6m)'
             };
-            setCargoItems([quickItem]);
+            currentEffectiveItems = [quickItem];
+            setCargoItems(currentEffectiveItems);
             setCargoCategory(mapped.category);
           }
           if (typeof document !== 'undefined') {
@@ -1254,6 +1424,9 @@ export function ForwarderWorkspace() {
             window.State.cargoQuantity = quickTonnage;
           }
         }
+
+        // Recálculo reactivo inmediato
+        autoCalculateEstimates(currentEffectiveItems);
       }
 
       // Conectar Totales Inferiores (Coste y Venta)
@@ -2262,15 +2435,23 @@ export function ForwarderWorkspace() {
     if (Array.isArray(incomingItems) && incomingItems.length > 0) {
       const mappedItems = incomingItems.map((ci, idx) => {
         const mapped = mapCargoCategoryAndType(ci.type || ci.category || '', ci.category, ci.type);
+        const l = ci.length_m ?? ci.length ?? '';
+        const w = ci.width_m ?? ci.width ?? '';
+        const h = ci.height_m ?? ci.height ?? '';
+        const wt = ci.unit_weight_kg ?? ci.weight ?? '';
         return {
           id: ci.id || `item-${Date.now()}-${idx}`,
           category: mapped.category,
           quantity: ci.quantity ? Math.max(1, Number(ci.quantity)) : 1,
           type: mapped.type,
-          length: ci.length_m ?? ci.length ?? '',
-          width: ci.width_m ?? ci.width ?? '',
-          height: ci.height_m ?? ci.height ?? '',
-          weight: ci.unit_weight_kg ?? ci.weight ?? '',
+          length: l,
+          width: w,
+          height: h,
+          length_m: l,
+          width_m: w,
+          height_m: h,
+          weight: wt,
+          unit_weight_kg: wt,
           shipping_mode_supported: ci.shipping_mode_supported || 'Tráiler Lona (13.6m)'
         };
       });
@@ -2282,15 +2463,23 @@ export function ForwarderWorkspace() {
     } else if (payload.category !== undefined && Array.isArray(payload.cargo_items) && payload.cargo_items.length > 0) {
       const mappedItems = payload.cargo_items.map((ci, idx) => {
         const mapped = mapCargoCategoryAndType(ci.type || ci.category || '', ci.category, ci.type);
+        const l = ci.length_m ?? ci.length ?? '';
+        const w = ci.width_m ?? ci.width ?? '';
+        const h = ci.height_m ?? ci.height ?? '';
+        const wt = ci.unit_weight_kg ?? ci.weight ?? '';
         return {
           id: ci.id || `item-${Date.now()}-${idx}`,
           category: mapped.category,
           quantity: ci.quantity || 1,
           type: mapped.type,
-          length: ci.length_m ?? ci.length ?? '',
-          width: ci.width_m ?? ci.width ?? '',
-          height: ci.height_m ?? ci.height ?? '',
-          weight: ci.unit_weight_kg ?? ci.weight ?? '',
+          length: l,
+          width: w,
+          height: h,
+          length_m: l,
+          width_m: w,
+          height_m: h,
+          weight: wt,
+          unit_weight_kg: wt,
           shipping_mode_supported: ci.shipping_mode_supported || 'Tráiler Lona (13.6m)'
         };
       });
@@ -3947,7 +4136,7 @@ export function ForwarderWorkspace() {
                   <span>Excluidas (Big Bags)</span>
                   <span id="subtotal-ocean-freight">{subtotalFreight}</span>
                   <span id="subtotal-fob-operations">{subtotalFobOperations}</span>
-                  <div id="logistic-engine-banner" className="bg-slate-900 border-l-4 border-cyan-500 p-4 rounded shadow-lg mb-6">
+                  <div id="logistic-engine-banner" className="bg-slate-900 border-l-4 border-cyan-500 p-4 rounded shadow-lg flex items-center gap-4 mb-6">
                     Motor de Decisión Operativa IA Modalidad detectada: <strong className="text-white">{shippingMode}</strong> Buque recomendado: <strong className="text-white">{vesselType}</strong>
                   </div>
                   <NumericCounter label="Maderas de Estiba (Dunnage)" subtitle="dunnageWood" value={dunnageWood} onChange={setDunnageWood} />
@@ -4182,7 +4371,7 @@ export function ForwarderWorkspace() {
                     <label htmlFor="input-estimated-cost" className="block text-slate-500 font-bold text-[10px] uppercase mb-1">Coste Total Estimado (€)</label>
                     <div className="relative flex items-center">
                       <span className="absolute left-3.5 text-slate-400 font-mono font-bold text-xl select-none">€</span>
-                      <input id="input-estimated-cost" type="number" readOnly value={estimatedCost} className="w-full bg-slate-800 text-white font-bold text-2xl text-right p-3 pl-8 pr-14 rounded border border-slate-600 outline-none focus:border-cyan-500 shadow-inner" />
+                      <input id="input-estimated-cost" type="number" readOnly value={estimatedCost} className="w-full bg-slate-800 text-white font-bold text-2xl text-right p-3 pr-14 rounded border border-slate-600 outline-none focus:border-cyan-500 shadow-inner" />
                       <span className="absolute right-3.5 text-xs text-slate-400 font-mono font-semibold">EUR</span>
                     </div>
                   </div>
@@ -4190,7 +4379,7 @@ export function ForwarderWorkspace() {
                     <label htmlFor="input-sale-price" className="block text-blue-600 font-bold text-[10px] uppercase mb-1">Precio Venta a Cliente (€)</label>
                     <div className="relative flex items-center">
                       <span className="absolute left-3.5 text-blue-400 font-mono font-bold text-xl select-none">€</span>
-                      <input id="input-sale-price" type="number" readOnly value={salePrice} className="w-full bg-slate-800 text-white font-bold text-2xl text-right p-3 pl-8 pr-14 rounded border border-slate-600 outline-none focus:border-cyan-500 shadow-inner" />
+                      <input id="input-sale-price" type="number" readOnly value={salePrice} className="w-full bg-slate-800 text-white font-bold text-2xl text-right p-3 pr-14 rounded border border-slate-600 outline-none focus:border-cyan-500 shadow-inner" />
                       <span className="absolute right-3.5 text-xs text-slate-400 font-mono font-semibold">EUR</span>
                     </div>
                   </div>
