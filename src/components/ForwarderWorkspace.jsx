@@ -1485,6 +1485,30 @@ export function ForwarderWorkspace() {
 
   const handleVehicleTypeChange = (selectedType) => {
     setVehicleType(selectedType);
+    if (typeof window !== 'undefined') {
+      window.State = window.State || {};
+      window.State.vehicleType = selectedType;
+      window.State.truckType = selectedType;
+      const payload = getVehiclePayloadKg(selectedType);
+      if (payload > 0) {
+        window.State.truckPayloadCapacity = payload;
+        window.State.cargaUtil = payload;
+        window.State.dwt = payload;
+      }
+      if (typeof window.handleVehicleTypeSelection === 'function') {
+        window.handleVehicleTypeSelection(selectedType);
+      }
+    }
+    if (typeof document !== 'undefined') {
+      const inputEl = document.getElementById('nombre-buque-calculadora');
+      if (inputEl && inputEl.value !== selectedType) {
+        inputEl.value = selectedType;
+      }
+      const badgeEl = document.getElementById('vessel-badge');
+      if (badgeEl) badgeEl.innerText = selectedType;
+      const execEl = document.getElementById('exec-vessel-type');
+      if (execEl) execEl.textContent = selectedType;
+    }
     const compat = getCompatibleMethodsForVehicle(selectedType);
     if (compat.isPlatform) {
       if (!compat.allowed.includes(loadingMethod)) {
@@ -1505,6 +1529,35 @@ export function ForwarderWorkspace() {
       } : prev));
     }
   };
+
+  // Sincronización reactiva del Tipo de Vehículo Terrestre con el Estado Global, DOM y Modo Técnico
+  useEffect(() => {
+    if (!vehicleType) return;
+    if (typeof window !== 'undefined') {
+      window.State = window.State || {};
+      window.State.vehicleType = vehicleType;
+      window.State.truckType = vehicleType;
+      const payload = getVehiclePayloadKg(vehicleType);
+      if (payload > 0) {
+        window.State.truckPayloadCapacity = payload;
+        window.State.cargaUtil = payload;
+        window.State.dwt = payload;
+      }
+      if (typeof window.handleVehicleTypeSelection === 'function') {
+        window.handleVehicleTypeSelection(vehicleType);
+      }
+    }
+    if (typeof document !== 'undefined') {
+      const inputEl = document.getElementById('nombre-buque-calculadora');
+      if (inputEl && inputEl.value !== vehicleType) {
+        inputEl.value = vehicleType;
+      }
+      const badgeEl = document.getElementById('vessel-badge');
+      if (badgeEl) badgeEl.innerText = vehicleType;
+      const execEl = document.getElementById('exec-vessel-type');
+      if (execEl) execEl.textContent = vehicleType;
+    }
+  }, [vehicleType]);
 
   const [isCommodityTariffActive, setIsCommodityTariffActive] = useState(false);
   const [isUnder40t, setIsUnder40t] = useState(false);
@@ -1706,9 +1759,6 @@ export function ForwarderWorkspace() {
           setCargoCategory(syncItems[0].category);
         }
 
-        // Ejecutar de forma reactiva y simultánea el cálculo sobre los items sincronizados
-        autoCalculateEstimates(currentEffectiveItems);
-
         if (updated.truck_type || updated.vehicle_type) {
           setVehicleType(updated.truck_type || updated.vehicle_type);
         }
@@ -1718,6 +1768,9 @@ export function ForwarderWorkspace() {
         if (updated.discharge_method || updated.metodo_descarga || updated.metodo_descarga_pod) {
           setDischargeMethod(updated.discharge_method || updated.metodo_descarga || updated.metodo_descarga_pod);
         }
+
+        // Ejecutar de forma reactiva y simultánea el cálculo sobre los items sincronizados
+        autoCalculateEstimates(currentEffectiveItems);
 
         const pFinancials = updated.line_items?.[0]?.payload_data?.financial_summary ||
           updated.data?.financials || {};
@@ -1862,9 +1915,6 @@ export function ForwarderWorkspace() {
           }
         }
 
-        // Recálculo reactivo inmediato
-        autoCalculateEstimates(currentEffectiveItems);
-
         if (activeProject.truck_type || activeProject.vehicle_type || activeProject.data?.truckType) {
           setVehicleType(activeProject.truck_type || activeProject.vehicle_type || activeProject.data?.truckType);
         }
@@ -1874,6 +1924,9 @@ export function ForwarderWorkspace() {
         if (activeProject.discharge_method || activeProject.metodo_descarga || activeProject.metodo_descarga_pod) {
           setDischargeMethod(activeProject.discharge_method || activeProject.metodo_descarga || activeProject.metodo_descarga_pod);
         }
+
+        // Recálculo reactivo inmediato
+        autoCalculateEstimates(currentEffectiveItems);
       }
 
       // Conectar Totales Inferiores (Coste y Venta)
@@ -4067,7 +4120,7 @@ export function ForwarderWorkspace() {
                 const rOrigin = activeProject?.pol || activeProject?.land_origin || pol || routeInfo.pol || routeInfo.origin || activeProject?.origin || '';
                 const rDestination = activeProject?.pod || activeProject?.land_destination || pod || routeInfo.pod || routeInfo.destination || activeProject?.destination || '';
                 const rDistKm = Number(activeProject?.land_distance || activeProject?.totalKilometers || routeInfo.distance_km || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Math.round(Number(distanceNm) * 1.852)) : 0));
-                const rTruckType = vehicleType || activeProject?.truck_type || activeProject?.vehicle_type || activeProject?.data?.truckType || 'Tráiler Tauliner (13.6m)';
+                const rTruckType = vehicleType || activeProject?.truck_type || activeProject?.vehicle_type || activeProject?.data?.truckType || 'Camión / Tráiler';
 
                 const pItems = activeProject?.line_items?.[0]?.payload_data?.cargo_items || activeProject?.items || cargoItems || [];
                 const pVol = pItems.reduce((acc, it) => acc + (Number(it.quantity || 1) * Number(it.length_m || it.length || 0) * Number(it.width_m || it.width || 0) * Number(it.height_m || it.height || 0)), 0) || Number(totals.m3 || 0);
@@ -5294,7 +5347,7 @@ export function ForwarderWorkspace() {
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Configuración Vehículo</span>
                     <span className="text-xs font-black text-emerald-700 mt-1 block font-mono">
-                      {activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)'}
+                      {activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Camión / Tráiler'}
                     </span>
                     <span className="block text-[9px] text-slate-500">
                       40t MMA · {getVehiclePayloadKg(activeReport?.vehicleType || vehicleType || activeProject?.truck_type) / 1000}t Carga Útil · {loadingMethod || 'Estándar'}

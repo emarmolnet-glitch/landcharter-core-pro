@@ -453,7 +453,7 @@
         setText('exec-cargo-type', calcResults.cargoType || 'Carga no definida');
         setText('exec-load-rate', formatDailyRate(calcResults.loadRate));
         setText('exec-disch-rate', formatDailyRate(calcResults.dischargeRate));
-        const rawVesselType = toText(calcResults.vesselType);
+        const rawVesselType = toText(calcResults.vehicleType || calcResults.truckType || calcResults.vesselType);
         const isMaritimeCatalogType = /(bulker|buque|coaster|ship|panamax|capesize|handysize|handymax|supramax|ultramax|tanker)/i.test(rawVesselType);
         const resolvedVesselType = (calcResults.modeNarrative === 'terrestre' || calcResults.mode === 'terrestre' || isMaritimeCatalogType || !rawVesselType)
             && (isMaritimeCatalogType || !rawVesselType)
