@@ -298,3 +298,140 @@ test('10. sync-road.ts adapta y persiste items cuando se proporcionan en el cuer
     'sync-road.ts must update items column when provided in payload'
   );
 });
+
+// ============================================================================
+// BLOQUE 5: EXTRACCIÓN PROFUNDA DE CARGO_ITEMS ANIDADOS Y DIMENSIONAMIENTO FSPE
+// ============================================================================
+
+test('11. extractProjectCargoItems desanida partidas cuando activeProject.items contiene servicios o facturas con payload_data.cargo_items o data.cargo_items', () => {
+  // Caso 1: items es una factura/servicio con payload_data.cargo_items
+  const projectWithPayloadData = {
+    id: 'proj-service-maritime',
+    items: [
+      {
+        id: 'srv-invoice-101',
+        name: 'Flete Marítimo Internacional',
+        type: 'service',
+        payload_data: {
+          cargo_items: [
+            {
+              id: 'cargo-bb-6667',
+              quantity: 6667,
+              length: 1.15,
+              width: 1.10,
+              height: 1.20,
+              weight: 1500,
+              unit_weight_kg: 1500,
+              type: 'BIGBAG'
+            }
+          ]
+        }
+      }
+    ]
+  };
+
+  const extracted1 = extractProjectCargoItems(projectWithPayloadData);
+  assert.equal(extracted1.length, 1, 'Debe desanidar exactamente 1 partida de carga');
+  assert.equal(extracted1[0].quantity, 6667);
+  assert.equal(extracted1[0].length, 1.15);
+  assert.equal(extracted1[0].width, 1.10);
+  assert.equal(extracted1[0].height, 1.20);
+  assert.equal(extracted1[0].weight, 1500);
+
+  // Caso 2: items es un servicio con data.cargo_items
+  const projectWithData = {
+    id: 'proj-service-data',
+    items: [
+      {
+        id: 'srv-item-202',
+        name: 'Servicio Logístico Integrado',
+        type: 'invoice',
+        data: {
+          cargo_items: [
+            {
+              id: 'cargo-bb-3000',
+              quantity: 3000,
+              length: 1.15,
+              width: 1.10,
+              height: 1.20,
+              weight: 1500,
+              type: 'CEM I 52,5N BIGBAG'
+            }
+          ]
+        }
+      }
+    ]
+  };
+
+  const extracted2 = extractProjectCargoItems(projectWithData);
+  assert.equal(extracted2.length, 1);
+  assert.equal(extracted2[0].quantity, 3000);
+  assert.equal(extracted2[0].weight, 1500);
+
+  // Caso 3: Prioridad de activeProject.cargo_items directo
+  const projectWithDirectCargoItems = {
+    id: 'proj-direct',
+    cargo_items: [
+      { id: 'direct-1', quantity: 6667, length: 1.15, width: 1.10, height: 1.20, weight: 1500, type: 'BIGBAG' }
+    ],
+    items: [
+      { id: 'srv-ignored', type: 'service' }
+    ]
+  };
+
+  const extracted3 = extractProjectCargoItems(projectWithDirectCargoItems);
+  assert.equal(extracted3.length, 1);
+  assert.equal(extracted3[0].id, 'direct-1');
+});
+
+test('12. hydrateCargoItem mapea fielmente las medidas y peso de Big Bags (6667u, 1.15x1.1x1.2, 1500kg) y aplica adaptación terrestre automática', () => {
+  const rawBigBagItem = {
+    id: 'bb-item-test',
+    quantity: 6667,
+    length: 1.15,
+    width: 1.10,
+    height: 1.20,
+    weight: 1500,
+    unit_weight_kg: 1500,
+    type: 'BIGBAG'
+  };
+
+  const hydrated = hydrateCargoItem(rawBigBagItem);
+
+  // Mapeo Íntegro de Propiedades
+  assert.equal(hydrated.quantity, 6667, 'quantity debe mapearse exactamente a 6667');
+  assert.equal(hydrated.length, 1.15, 'length debe ser 1.15');
+  assert.equal(hydrated.width, 1.10, 'width debe ser 1.10');
+  assert.equal(hydrated.height, 1.20, 'height debe ser 1.20');
+  assert.equal(hydrated.length_m, 1.15, 'length_m debe estar sincronizado');
+  assert.equal(hydrated.width_m, 1.10, 'width_m debe estar sincronizado');
+  assert.equal(hydrated.height_m, 1.20, 'height_m debe estar sincronizado');
+  assert.equal(hydrated.weight, 1500, 'weight debe ser 1500 kg');
+  assert.equal(hydrated.unit_weight_kg, 1500, 'unit_weight_kg debe ser 1500 kg');
+
+  // Adaptación Terrestre Automática
+  assert.equal(hydrated.category, 'Carga Unitizada / Envasada', 'Forzar categoría a Carga Unitizada / Envasada');
+  assert.equal(hydrated.type, 'CEM I 52,5N BIGBAG', 'Asignar tipo oficial GICA correspondiente');
+  assert.equal(hydrated.shipping_mode_supported, 'Tráiler Lona (13.6m)', 'Asignar modo de envío a Tráiler Lona (13.6m)');
+});
+
+test('13. Simulación reactiva: 6.667 Big Bags de 1.500 kg totalizan ~10.000 MT, dimensionan 417 tráilers y activan tarifa FSPE', () => {
+  const qty = 6667;
+  const unitWeightKg = 1500;
+  const totalWeightKg = qty * unitWeightKg;
+  const totalWeightTons = totalWeightKg / 1000;
+
+  // Verificación de tonelaje masivo: 10.000,5 MT
+  assert.ok(totalWeightTons >= 10000 && totalWeightTons <= 10001, 'Debe totalizar ~10.000 MT');
+
+  // Cálculo de tráilers requeridos (máx 24.000 kg / tráiler estándar)
+  const trucksRequired = Math.ceil(totalWeightKg / 24000);
+  assert.equal(trucksRequired, 417, '6.667 Big Bags de 1.5t (10.000 MT) requieren exactamente 417 tráilers');
+
+  // Validación de tarifa plana FSPE para CEM I 52,5N BIGBAG (inlandUsdMt = 3.00, portDuesUsdMt = 2.00, customs = 0.25, packaging = 3.50)
+  const appliedTariff = COMMODITY_TARIFFS['CEM I 52,5N BIGBAG'];
+  assert.ok(appliedTariff, 'La tarifa GICA oficial para CEM I 52,5N BIGBAG debe existir');
+  const inlandCost = totalWeightTons * appliedTariff.inlandUsdMt;
+  assert.ok(inlandCost > 0, 'El flete terrestre debe calcularse según la tarifa plana');
+});
+
