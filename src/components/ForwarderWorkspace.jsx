@@ -47,14 +47,14 @@ function NumericCounter({ label, subtitle, value, onChange, min = 0 }) {
   );
 }
 
-const readFileAsDataURL = (file) => {
+function readFileAsDataURL(file) {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
     reader.onerror = () => resolve(null);
     reader.readAsDataURL(file);
   });
-};
+}
 
 function normalizeStr(val) {
   return String(val || '')
@@ -1491,26 +1491,11 @@ export function ForwarderWorkspace() {
   const [activeReport, setActiveReport] = useState(null);
   const [isAnalyzingFile, setIsAnalyzingFile] = useState(false);
   const fileInputRef = useRef(null);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setShowExecutiveReport(false);
-        setIsCbamOpen(false);
-        setIsDualTradingOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
-    };
-  }, []);
+  const feedbackTimeoutRef = useRef(null);
 
   const [cargoItems, setCargoItems] = useState([]);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [recalculateFeedback, setRecalculateFeedback] = useState(null);
-  const feedbackTimeoutRef = useRef(null);
   const [capacityWarning, setCapacityWarning] = useState(null);
   const [financialBreakdown, setFinancialBreakdown] = useState(null);
   const [fobMasMercanciaUnitario, setFobMasMercanciaUnitario] = useState(0);
@@ -1554,6 +1539,102 @@ export function ForwarderWorkspace() {
   const [dischargeMethod, setDischargeMethod] = useState(
     activeProject?.discharge_method || activeProject?.metodo_descarga || activeProject?.metodo_descarga_pod || 'Carga Trasera por Muelle / Rampa'
   );
+
+  const [isCommodityTariffActive, setIsCommodityTariffActive] = useState(false);
+  const [isUnder40t, setIsUnder40t] = useState(false);
+  const [tceActive, setTceActive] = useState(false);
+  const [tceValue, setTceValue] = useState(null);
+  const [charterMode, setCharterMode] = useState('Fletamento Completo');
+  const [isBigBagsCargo, setIsBigBagsCargo] = useState(false);
+  const [operationalProfileNotice, setOperationalProfileNotice] = useState('');
+
+  const [storageDays, setStorageDays] = useState(0);
+  const [surveyorCost, setSurveyorCost] = useState(0);
+  const [inlandCost, setInlandCost] = useState(0);
+  const [customsCost, setCustomsCost] = useState(0);
+  const [insuranceCost, setInsuranceCost] = useState(0);
+  const userEditedSurveyor = useRef(false);
+
+  // Parámetros dinámicos de ruta, ritmos operativos, rotación y demoras
+  const [pol, setPol] = useState(activeProject?.pol || activeProject?.land_origin || '');
+  const [pod, setPod] = useState(activeProject?.pod || activeProject?.land_destination || '');
+  const [loadingRate, setLoadingRate] = useState(1200);
+  const [dischargingRate, setDischargingRate] = useState(1000);
+  const [distanceNm, setDistanceNm] = useState(activeProject?.land_distance || activeProject?.totalKilometers || 0);
+  const [vesselSpeedKnots, setVesselSpeedKnots] = useState(12.0);
+  const [vesselDailyHireUsd, setVesselDailyHireUsd] = useState(11500);
+  const [exchangeRateUsdEur, setExchangeRateUsdEur] = useState(0.92);
+  const [actualLoadingDays, setActualLoadingDays] = useState('');
+  const [actualDischargingDays, setActualDischargingDays] = useState('');
+  const [demurrageDailyRateUsd, setDemurrageDailyRateUsd] = useState(11500);
+  const [charteringAssessment, setCharteringAssessment] = useState(null);
+
+  const [subtotalFreight, setSubtotalFreight] = useState('0.00');
+  const [subtotalFobOperations, setSubtotalFobOperations] = useState('0.00');
+  const [isBreakdownVisible, setIsBreakdownVisible] = useState(true);
+  const [estimatedCost, setEstimatedCost] = useState(activeProject?.land_freight_cost || '');
+  const [salePrice, setSalePrice] = useState(activeProject?.land_freight_sale || '');
+
+  const [tollCost, setTollCost] = useState(activeProject?.tollCost || activeProject?.peajes || 0);
+  const tollsCost = tollCost;
+  const setTollsCost = setTollCost;
+  const [driverDiets, setDriverDiets] = useState(activeProject?.driverDiets || activeProject?.dietas || 0);
+  const [warehouseWaitPenaltyEur, setWarehouseWaitPenaltyEur] = useState(0);
+
+  // Setters y aliases para sincronización con Modo Técnico y DataBridge
+  const setOrigin = setPol;
+  const setDestination = setPod;
+  const setDistance = setDistanceNm;
+  const setCost = setEstimatedCost;
+  const setOriginState = setPol;
+  const setDestinationState = setPod;
+  const setDistanceState = setDistanceNm;
+  const setFreightCostState = setEstimatedCost;
+  const setFreightSaleState = setSalePrice;
+  const setTollsState = setTollCost;
+  const setDietsState = setDriverDiets;
+
+  const setDunnage = setDunnageWood;
+  const setChains = setChainsBinders;
+  const setSlings = setHighCapacitySlings;
+  const setGangs = setStevedoreGangs;
+  const setHeavyLift = setHeavyLiftCrane;
+  const setLashingTeams = setLashingTeam;
+  const setSpreader = setSpreaderMultipunto;
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSyncingDataBridge, setIsSyncingDataBridge] = useState(false);
+
+  const totals = cargoItems.reduce((acc, item) => {
+    const qty = Math.max(1, Number(item.quantity) || 1);
+    const l = Math.max(0, parseFloat(item.length) || 0);
+    const w = Math.max(0, parseFloat(item.width) || 0);
+    const h = Math.max(0, parseFloat(item.height) || 0);
+    const wt = Math.max(0, parseFloat(item.weight) || 0);
+    acc.quantity += qty;
+    acc.m2 += qty * (l * w);
+    acc.m3 += qty * (l * w * h);
+    acc.weight += qty * wt;
+    acc.ldm += qty * ((l * (w > 0 ? w : 2.4)) / 2.4);
+    return acc;
+  }, { quantity: 0, m2: 0, m3: 0, weight: 0, ldm: 0 });
+
+  const totalWeightKg = totals.weight;
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setShowExecutiveReport(false);
+        setIsCbamOpen(false);
+        setIsDualTradingOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+    };
+  }, []);
 
   const handleVehicleTypeChange = (selectedType) => {
     setVehicleType(selectedType);
@@ -1682,71 +1763,6 @@ export function ForwarderWorkspace() {
       window.removeEventListener('vehicle-type:selected', handleVehicleTypeCustomEvent);
     };
   }, []);
-
-  const [isCommodityTariffActive, setIsCommodityTariffActive] = useState(false);
-  const [isUnder40t, setIsUnder40t] = useState(false);
-  const [tceActive, setTceActive] = useState(false);
-  const [tceValue, setTceValue] = useState(null);
-  const [charterMode, setCharterMode] = useState('Fletamento Completo');
-  const [isBigBagsCargo, setIsBigBagsCargo] = useState(false);
-  const [operationalProfileNotice, setOperationalProfileNotice] = useState('');
-
-  const [storageDays, setStorageDays] = useState(0);
-  const [surveyorCost, setSurveyorCost] = useState(0);
-  const [inlandCost, setInlandCost] = useState(0);
-  const [customsCost, setCustomsCost] = useState(0);
-  const [insuranceCost, setInsuranceCost] = useState(0);
-  const userEditedSurveyor = useRef(false);
-
-  // Parámetros dinámicos de ruta, ritmos operativos, rotación y demoras
-  const [pol, setPol] = useState(activeProject?.pol || activeProject?.land_origin || '');
-  const [pod, setPod] = useState(activeProject?.pod || activeProject?.land_destination || '');
-  const [loadingRate, setLoadingRate] = useState(1200);
-  const [dischargingRate, setDischargingRate] = useState(1000);
-  const [distanceNm, setDistanceNm] = useState(activeProject?.land_distance || activeProject?.totalKilometers || 0);
-  const [vesselSpeedKnots, setVesselSpeedKnots] = useState(12.0);
-  const [vesselDailyHireUsd, setVesselDailyHireUsd] = useState(11500);
-  const [exchangeRateUsdEur, setExchangeRateUsdEur] = useState(0.92);
-  const [actualLoadingDays, setActualLoadingDays] = useState('');
-  const [actualDischargingDays, setActualDischargingDays] = useState('');
-  const [demurrageDailyRateUsd, setDemurrageDailyRateUsd] = useState(11500);
-  const [charteringAssessment, setCharteringAssessment] = useState(null);
-
-  const [subtotalFreight, setSubtotalFreight] = useState('0.00');
-  const [subtotalFobOperations, setSubtotalFobOperations] = useState('0.00');
-  const [isBreakdownVisible, setIsBreakdownVisible] = useState(true);
-  const [estimatedCost, setEstimatedCost] = useState(activeProject?.land_freight_cost || '');
-  const [salePrice, setSalePrice] = useState(activeProject?.land_freight_sale || '');
-
-  const [tollCost, setTollCost] = useState(activeProject?.tollCost || activeProject?.peajes || 0);
-  const tollsCost = tollCost;
-  const setTollsCost = setTollCost;
-  const [driverDiets, setDriverDiets] = useState(activeProject?.driverDiets || activeProject?.dietas || 0);
-  const [warehouseWaitPenaltyEur, setWarehouseWaitPenaltyEur] = useState(0);
-
-  // Setters y aliases para sincronización con Modo Técnico y DataBridge
-  const setOrigin = setPol;
-  const setDestination = setPod;
-  const setDistance = setDistanceNm;
-  const setCost = setEstimatedCost;
-  const setOriginState = setPol;
-  const setDestinationState = setPod;
-  const setDistanceState = setDistanceNm;
-  const setFreightCostState = setEstimatedCost;
-  const setFreightSaleState = setSalePrice;
-  const setTollsState = setTollCost;
-  const setDietsState = setDriverDiets;
-
-  const setDunnage = setDunnageWood;
-  const setChains = setChainsBinders;
-  const setSlings = setHighCapacitySlings;
-  const setGangs = setStevedoreGangs;
-  const setHeavyLift = setHeavyLiftCrane;
-  const setLashingTeams = setLashingTeam;
-  const setSpreader = setSpreaderMultipunto;
-
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isSyncingDataBridge, setIsSyncingDataBridge] = useState(false);
 
   const fetchProjects = async () => {
     setIsLoading(true); setError(null);
@@ -2461,22 +2477,6 @@ export function ForwarderWorkspace() {
 
     await persistProjectToDatabase(updatedProject);
   };
-
-  const totals = cargoItems.reduce((acc, item) => {
-    const qty = Math.max(1, Number(item.quantity) || 1);
-    const l = Math.max(0, parseFloat(item.length) || 0);
-    const w = Math.max(0, parseFloat(item.width) || 0);
-    const h = Math.max(0, parseFloat(item.height) || 0);
-    const wt = Math.max(0, parseFloat(item.weight) || 0);
-    acc.quantity += qty;
-    acc.m2 += qty * (l * w);
-    acc.m3 += qty * (l * w * h);
-    acc.weight += qty * wt;
-    acc.ldm += qty * ((l * (w > 0 ? w : 2.4)) / 2.4);
-    return acc;
-  }, { quantity: 0, m2: 0, m3: 0, weight: 0, ldm: 0 });
-
-  const totalWeightKg = totals.weight;
 
   const autoCalculateEstimates = (items) => {
     if (!items || items.length === 0) {
