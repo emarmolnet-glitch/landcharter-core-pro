@@ -345,6 +345,60 @@ export function hydrateCargoItem(it, defaultCategory = '', defaultType = '', ind
   };
 }
 
+export const TERRESTRIAL_LOADING_METHODS = [
+  'Autocarga con Grúa del Camión',
+  'Carga Lateral (Lona / Tauliner)',
+  'Carga Trasera por Muelle / Rampa',
+  'Carga Superior (Grúa Portuaria / Puente Grúa)',
+  'Carga Superior (Puente Grúa / Techo descapotable)',
+  'Carga con Transpaleta / Carretilla Elevadora',
+  'Carga por Silo / Tubo (Granel)',
+];
+
+export const TERRESTRIAL_DISCHARGE_METHODS = [
+  'Autocarga con Grúa del Camión',
+  'Carga Trasera por Muelle / Rampa',
+  'Carga Lateral (Lona / Tauliner)',
+  'Carga Superior (Grúa Portuaria / Puente Grúa)',
+  'Carga Superior (Puente Grúa / Techo descapotable)',
+  'Carga con Transpaleta / Carretilla Elevadora',
+  'Basculante / Tolva (Granel)',
+  'Descarga Neumática (Silo)',
+];
+
+export const OPERATIONAL_METHOD_RATIOS = Object.freeze({
+  'Autocarga con Grúa del Camión': 20, // 20 TM/h o 20 bultos/h
+  'Carga Lateral (Lona / Tauliner)': 25,
+  'Carga Trasera por Muelle / Rampa': 30,
+  'Carga Superior (Puente Grúa / Techo descapotable)': 20,
+  'Carga con Transpaleta / Carretilla Elevadora': 25,
+  'Carga por Silo / Tubo (Granel)': 40,
+  'Carga Superior (Grúa Portuaria / Puente Grúa)': 20,
+  'Basculante / Tolva (Granel)': 50,
+  'Descarga Neumática (Silo)': 40,
+});
+
+export function getRatioOperativo(method) {
+  if (!method) return 25;
+  return OPERATIONAL_METHOD_RATIOS[method] || 25;
+}
+
+export function validarCompatibilidadMetodo(side = 'pol', options = {}) {
+  const vehicle = options.vehicleType || (typeof window !== 'undefined' ? (window.State?.vehicleType || window.State?.truckType) : '');
+  const method = options.method || (side === 'pod' ? options.dischargeMethod : options.loadingMethod);
+  const category = options.category || '';
+  const product = options.product || '';
+  const isPlataformaGrua = vehicle === 'Camión Plataforma con Grúa Autocarga' || String(vehicle).includes('Grúa Autocarga');
+  const isAutocarga = method === 'Autocarga con Grúa del Camión';
+  if (isPlataformaGrua && isAutocarga) {
+    return false;
+  }
+  if (isAutocarga && (category === 'Minerales y Construcción' || String(product).includes('Big Bags'))) {
+    return false;
+  }
+  return false;
+}
+
 export const LAND_VEHICLE_CATALOG = [
   {
     id: 'plataforma_grua',
@@ -1528,7 +1582,10 @@ export function ForwarderWorkspace() {
       if (execEl) execEl.textContent = selectedType;
     }
     const compat = getCompatibleMethodsForVehicle(selectedType);
-    if (compat.isPlatform) {
+    if (selectedType === 'Camión Plataforma con Grúa Autocarga' || selectedType.includes('Grúa Autocarga')) {
+      setLoadingMethod('Autocarga con Grúa del Camión');
+      setDischargeMethod('Autocarga con Grúa del Camión');
+    } else if (compat.isPlatform) {
       if (!compat.allowed.includes(loadingMethod)) {
         setLoadingMethod(compat.defaultLoading);
       }
@@ -1551,6 +1608,10 @@ export function ForwarderWorkspace() {
   // Sincronización reactiva del Tipo de Vehículo Terrestre con el Estado Global, DOM y Modo Técnico
   useEffect(() => {
     if (!vehicleType) return;
+    if (vehicleType === 'Camión Plataforma con Grúa Autocarga' || vehicleType.includes('Grúa Autocarga')) {
+      setLoadingMethod('Autocarga con Grúa del Camión');
+      setDischargeMethod('Autocarga con Grúa del Camión');
+    }
     if (typeof window !== 'undefined') {
       window.State = window.State || {};
       window.State.vehicleType = vehicleType;
@@ -1576,6 +1637,27 @@ export function ForwarderWorkspace() {
       if (execEl) execEl.textContent = vehicleType;
     }
   }, [vehicleType]);
+
+  // Recálculo automático de horas previstas de carga/descarga según ratio operativo
+  useEffect(() => {
+    if (loadingMethod === 'Autocarga con Grúa del Camión') {
+      const ratio = 20; // 20 TM/h
+      const tons = totalWeightKg > 0 ? (totalWeightKg / 1000) : 24;
+      const singleTruckTons = Math.min(24, tons);
+      const computedHours = Math.round((singleTruckTons / ratio) * 10) / 10;
+      setLoadingRate(computedHours);
+    }
+  }, [loadingMethod, totalWeightKg]);
+
+  useEffect(() => {
+    if (dischargeMethod === 'Autocarga con Grúa del Camión') {
+      const ratio = 20; // 20 TM/h
+      const tons = totalWeightKg > 0 ? (totalWeightKg / 1000) : 24;
+      const singleTruckTons = Math.min(24, tons);
+      const computedHours = Math.round((singleTruckTons / ratio) * 10) / 10;
+      setDischargingRate(computedHours);
+    }
+  }, [dischargeMethod, totalWeightKg]);
 
   // Sincronización reactiva con eventos emitidos por Cerebro.ia y Agente NLP
   useEffect(() => {
@@ -4946,6 +5028,25 @@ export function ForwarderWorkspace() {
                               );
                             })()}
                           </select>
+                          <div className="flex flex-wrap gap-1 mt-1.5" id="pills_metodo_carga_workspace">
+                            {TERRESTRIAL_LOADING_METHODS.map((m) => {
+                              const isSel = loadingMethod === m;
+                              return (
+                                <button
+                                  key={m}
+                                  type="button"
+                                  onClick={() => setLoadingMethod(m)}
+                                  className={`px-2 py-0.5 text-[10px] rounded-full border transition-all cursor-pointer ${
+                                    isSel
+                                      ? 'bg-blue-100 text-blue-800 border-blue-500 font-bold shadow-sm'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                  }`}
+                                >
+                                  {isSel ? '✓ ' : ''}{m}
+                                </button>
+                              );
+                            })}
+                          </div>
                           <div className="text-[10px] text-slate-500 font-mono mt-1">
                             {vehicleType.includes('Plataforma') ? 'Operativa en abierto (sin muelle cerrado)' : 'Compatible con carrozado'}
                           </div>
@@ -5000,6 +5101,25 @@ export function ForwarderWorkspace() {
                             })()}
                           </select>
                           <input type="hidden" id="metodo_descarga_pod" value={dischargeMethod} readOnly />
+                          <div className="flex flex-wrap gap-1 mt-1.5" id="pills_metodo_descarga_workspace">
+                            {TERRESTRIAL_DISCHARGE_METHODS.map((m) => {
+                              const isSel = dischargeMethod === m;
+                              return (
+                                <button
+                                  key={m}
+                                  type="button"
+                                  onClick={() => setDischargeMethod(m)}
+                                  className={`px-2 py-0.5 text-[10px] rounded-full border transition-all cursor-pointer ${
+                                    isSel
+                                      ? 'bg-blue-100 text-blue-800 border-blue-500 font-bold shadow-sm'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                  }`}
+                                >
+                                  {isSel ? '✓ ' : ''}{m}
+                                </button>
+                              );
+                            })}
+                          </div>
                           <div className="text-[10px] text-slate-500 font-mono mt-1">
                             {vehicleType.includes('Plataforma') ? 'Descarga vertical libre / pluma hidráulica' : 'Descarga estándar'}
                           </div>
