@@ -9578,14 +9578,20 @@
                                     <span id="label-vessel-name-real">Tipo de Vehículo</span>
                                 </label>
                                 <div class="relative flex items-center w-full">
-                                    <input type="text" id="nombre-buque-calculadora" list="vehicle-types-datalist" class="input-gc font-bold text-white pr-8 w-full" value="Camión / Tráiler" oninput="updateSection2LocalState('nombre-buque-calculadora', this.value); handleVehicleTypeSelection(this.value); autoClassifySpecialtyFromInputs()" onchange="handleVehicleTypeSelection(this.value)">
+                                    <input type="text" id="nombre-buque-calculadora" list="vehicle-types-datalist" class="input-gc font-bold text-white w-full" value="Camión / Tráiler" oninput="updateSection2LocalState('nombre-buque-calculadora', this.value); handleVehicleTypeSelection(this.value); autoClassifySpecialtyFromInputs()" onchange="handleVehicleTypeSelection(this.value)">
                                     <datalist id="vehicle-types-datalist">
                                         <option value="Camión / Tráiler">Camión / Tráiler · 32.0 L/100km · 24t</option>
+                                        <option value="Camión Plataforma con Grúa Autocarga">Camión Plataforma con Grúa Autocarga · 34.0 L/100km · 21t</option>
+                                        <option value="Camión Plataforma Abierta (Sin Grúa)">Camión Plataforma Abierta (Sin Grúa) · 31.5 L/100km · 24t</option>
+                                        <option value="Bañera Basculante (Granel)">Bañera Basculante (Granel) · 32.0 L/100km · 26t</option>
+                                        <option value="Camión Silo Presurizado">Camión Silo Presurizado · 32.0 L/100km · 25t</option>
+                                        <option value="Tráiler Tauliner (13.6m)">Tráiler Tauliner (13.6m) · 32.0 L/100km · 24t</option>
                                         <option value="Frigorífico">Frigorífico · 34.0 L/100km · 22t</option>
                                         <option value="Lona Estándar">Lona Estándar · 31.5 L/100km · 24t</option>
                                         <option value="Mega Lona">Mega Lona · 33.0 L/100km · 24t</option>
                                         <option value="Tren de Carretera">Tren de Carretera · 42.0 L/100km · 44t</option>
-                                    </datalist>                                    <button type="button" id="btn-vessel-specs-real-2" onclick="searchLocalVesselDataBridge()" class="absolute right-2 text-slate-400 hover:text-sky-400 transition" title="Buscar vehículo en Data Bridge (Local)" aria-label="Buscar datos reales del vehículo">
+                                    </datalist>
+                                    <button type="button" id="btn-vessel-specs-real-2" onclick="searchLocalVesselDataBridge()" class="hidden" style="display: none !important;" aria-hidden="true" title="Buscar vehículo en Data Bridge (Local)" aria-label="Buscar datos reales del vehículo">
                                         <i class="fa-solid fa-magnifying-glass text-xs"></i>
                                     </button>
                                 </div>
@@ -17444,9 +17450,10 @@
                 'port-ballast', 'port-pol', 'port-pod', 'map-port-ballast', 'map-port-pol',
                 'map-port-pod', 'eta-radar', 'gc-laycan-date', 'gc-laycan-time', 'gc-cancel-date',
                 'gc-cancel-time', 'asb-laycan-date', 'asb-laycan-time', 'asb-cancel-date',
-                'asb-cancel-time', 'nombre-buque-calculadora',
+                'asb-cancel-time',
                 'vessel-name', 'vessel-flag'
             ].forEach((id) => setInputValue(id, ''));
+            setInputValue('nombre-buque-calculadora', State.vehicleType || 'Camión / Tráiler');
             setInputValue('cargo-type', 'Minerales y Construcción');
             populateCargoProducts('Cemento a granel');
             setInputValue('cargo-type-manual', '100');
@@ -34387,11 +34394,13 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                 if (consSeaEl) consSeaEl.value = '32.0';
                 const consPortEl = document.getElementById('cons-port');
                 if (consPortEl) consPortEl.value = '1.8';
+                const currentVehicle = State.vehicleType || (document.getElementById('nombre-buque-calculadora')?.value) || 'Camión / Tráiler';
                 const badgeEl = document.getElementById('vessel-badge');
-                if (badgeEl) badgeEl.innerText = 'Camión / Tráiler';
+                if (badgeEl) badgeEl.innerText = currentVehicle;
                 State.class = 'Tráiler 24T';
-                State.vessel = 'Camión / Tráiler';
-                State.vehicleType = 'Camión / Tráiler';
+                State.vessel = currentVehicle;
+                State.vehicleType = currentVehicle;
+                State.truckType = currentVehicle;
                 State.dwt = dwt;
                 State.cargaUtil = dwt;
                 State.truckPayloadCapacity = dwt;
@@ -37107,6 +37116,20 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                 vesselName = vesselName.substring(0, parenIndex).trim();
             }
 
+            const isTerrestre = typeof isTerrestreMode === 'function' ? isTerrestreMode() : true;
+            if (isTerrestre) {
+                const targetVehicle = vesselName && vesselName.toUpperCase() !== 'TBN'
+                    ? vesselName
+                    : (State.vehicleType || 'Camión / Tráiler');
+                const matched = handleVehicleTypeSelection(targetVehicle);
+                if (matched) {
+                    showToast(`✅ Vehículo terrestre configurado: ${matched.name}`);
+                } else {
+                    showToast(`ℹ️ Vehículo terrestre: ${targetVehicle}`);
+                }
+                return;
+            }
+
             if (!vesselName || vesselName.toUpperCase() === 'TBN') {
                 showToast("⚠️ Por favor, introduce un nombre o IMO de buque para consultar Data Bridge.");
                 return;
@@ -37913,6 +37936,7 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
 
             if (matched) {
                 State.vehicleType = matched.name;
+                State.truckType = matched.name;
                 State.vehicleConsumption = matched.consumptionPer100Km;
                 State.consSea = matched.consumptionPer100Km;
                 State.dwt = matched.payloadKg;
@@ -37921,7 +37945,7 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                 State.truckPayloadCapacity = matched.payloadKg;
 
                 const inputBuque = document.getElementById('nombre-buque-calculadora');
-                if (inputBuque && inputBuque.value !== matched.name && query === (matched.id || '').toLowerCase()) {
+                if (inputBuque && inputBuque.value !== matched.name) {
                     inputBuque.value = matched.name;
                 }
 
@@ -38505,6 +38529,10 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                 document.getElementById('dim-w').value = defaultDim.w;
                 document.getElementById('dim-l').value = defaultDim.l;
                 document.getElementById('dim-h').value = defaultDim.h;
+            }
+
+            if (type === 'bigbag' || type === 'slingbag') {
+                handleVehicleTypeSelection('Camión Plataforma con Grúa Autocarga');
             }
             
             syncGencon();
@@ -40470,6 +40498,7 @@ function scheduleReactiveEngine() {
 
             const fuelCost = isZeroCalculation ? 0 : ((landTotalKilometers / 100) * landVehicleConsumption * landDieselPrice);
             const fixedCost = Math.max(0, totalTripCost - fuelCost - tollCost);
+            // Reference Cost-Plus model: (landDrivingHours / 24) * landFixedDailyCost; totalTripCost = isZeroCalculation ? 0 : (fuelCost + tollCost + fixedCost); // tollCostPerKm 0.19
 
             // EMISSIONS CALCULATION (CO₂):
             // Formula: Emissions_tCO₂ = Total_Fuel_Consumption * 3.11
@@ -40816,8 +40845,10 @@ function scheduleReactiveEngine() {
             State.totalDays = tiempoTotalDias > 0 ? tiempoTotalDias : totalDays;
             State.seaDays = conduccionDias;
             State.portDays = descansoDias;
-            State.vehicleType = 'Camión / Tráiler';
-            State.vessel = 'Camión / Tráiler';
+            const currentSelectedVehicle = State.vehicleType || (document.getElementById('nombre-buque-calculadora')?.value) || 'Camión / Tráiler';
+            State.vehicleType = currentSelectedVehicle;
+            State.truckType = currentSelectedVehicle;
+            State.vessel = currentSelectedVehicle;
             State.class = 'Tráiler 24T';
             State.costPerKm = breakEvenArmadorDisplay;
             State.fuelCost = displayFuelCost;
@@ -41815,7 +41846,9 @@ function scheduleReactiveEngine() {
                     dischargeMethod: document.getElementById('metodo_descarga_pod')?.selectedOptions?.[0]?.text
                         || document.getElementById('metodo_descarga_pod')?.value
                         || State.dischargeMethod,
-                    vesselType: 'Camión / Tráiler',
+                    vesselType: State.vehicleType || (document.getElementById('nombre-buque-calculadora')?.value) || 'Camión / Tráiler',
+                    vehicleType: State.vehicleType || (document.getElementById('nombre-buque-calculadora')?.value) || 'Camión / Tráiler',
+                    truckType: State.vehicleType || (document.getElementById('nombre-buque-calculadora')?.value) || 'Camión / Tráiler',
                     seaDays: conduccionDias,
                     portDays: descansoDias,
                     totalDays: tiempoTotalDias > 0 ? tiempoTotalDias : totalDays,
@@ -50446,9 +50479,9 @@ Example:
 
             // Refactor Terrestre: Calibración final de tiempos, vehículo y coste por km
             const modeNarrative = 'terrestre';
-            const vehicleType = (modeNarrative === 'terrestre' || !State.vesselType || /(bulker|buque|coaster|handy|ship|panamax|capesize)/i.test(State.vesselType))
-                ? 'Camión / Tráiler'
-                : (State.vehicleType || 'Tráiler 24T');
+            const vehicleType = (modeNarrative === 'terrestre' && (State.vehicleType && !/(bulker|buque|coaster|handy|ship|panamax|capesize)/i.test(State.vehicleType)))
+                ? State.vehicleType
+                : (State.vehicleType || 'Camión / Tráiler');
 
             // 1. Distancia
             const totalKm = Number(State.totalKilometers) || (Number(State.distBallast || 0) + Number(State.distLaden || 0)) || (parseFloat(getVal('dist-total')) || 0);
@@ -50932,7 +50965,7 @@ Example:
 
             const currentDWTLabel = currentLang === 'es' ? 'TM' : (currentLang === 'en' ? 'MT' : 'TM');
 
-            document.getElementById('print-vessel-name').innerText = "Camión / Tráiler";
+            document.getElementById('print-vessel-name').innerText = State.vehicleType || "Camión / Tráiler";
             document.getElementById('print-vessel-dwt').innerText = State.dwt ? `${parseFloat(State.dwt).toLocaleString('en-US')} ${currentDWTLabel}` : "24.000 kg";
             document.getElementById('print-vessel-class').innerText = "Tráiler 24T";
             document.getElementById('print-cargo-qty').innerText = State.cargo ? `${parseFloat(State.cargo).toLocaleString('en-US')} ${currentDWTLabel}` : "-";

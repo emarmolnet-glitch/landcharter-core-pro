@@ -439,8 +439,9 @@ export function calculateCoreFreight(
     const landTollCost = totalKm * tollCostPerKm;
     const driverPerDiemCost = tachographDays * dailyPerDiem;
     const routeDailyCost = tachographDays * dailyOpex;
+    const landFixedCost = driverPerDiemCost + routeDailyCost;
     const landOperatingCost = landTollCost + driverPerDiemCost + routeDailyCost;
-    const landTotalTripCost = landFuelCost + landOperatingCost;
+    const landTotalTripCost = landFuelCost + landTollCost + landFixedCost;
 
     const bunkerCost = totalKm > 0 ? landFuelCost : safeNumber(values.bunkerCost);
     const portCosts = totalKm > 0 ? landOperatingCost : safeNumber(values.portCosts);
