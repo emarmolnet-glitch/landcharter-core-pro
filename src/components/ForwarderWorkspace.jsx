@@ -2535,13 +2535,32 @@ export function ForwarderWorkspace() {
     const actualDisch = sourcePayload?.route_and_chartering?.actual_discharging_days ?? (actualDischargingDays !== '' ? Number(actualDischargingDays) : null);
     const demLoadDays = (actualLoad !== null && actualLoad > diasCarga) ? Math.round((actualLoad - diasCarga) * 100) / 100 : 0;
     const demDischDays = (actualDisch !== null && actualDisch > diasDescarga) ? Math.round((actualDisch - diasDescarga) * 100) / 100 : 0;
-    const reportDemDays = Math.round((demLoadDays + demDischDays) * 100) / 100;
-    const reportDemDailyUsd = Number(sourcePayload?.route_and_chartering?.demurrage_daily_rate_usd ?? demurrageDailyRateUsd) || reportDailyHire;
-    const demurrageCostNum = Math.round(reportDemDays * reportDemDailyUsd * 100) / 100;
 
-    // Subtotal 1: Flete Marítimo / TCE en USD nativo
+    // Detección y Herencia de Tarifa de Convenio FSPE para Reporte Ejecutivo
+    const rawType = String(
+      items[0]?.type ||
+      cargoItems[0]?.type ||
+      activeProject?.cargo_type ||
+      sourcePayload?.cargo_items?.[0]?.type ||
+      ''
+    ).toUpperCase().trim();
+    const appliedTariff = COMMODITY_TARIFFS[rawType] || null;
+    const isTariffActive = Boolean(isCommodityTariffActive || appliedTariff);
+    const effectiveWeightTons = totalWeightTons > 0 ? totalWeightTons : (totals.weight > 0 ? totals.weight / 1000 : (Number(activeProject?.cargoQuantity) || 0));
+    const tariffRate = appliedTariff?.inlandUsdMt || 3.00;
+    const officialInlandCost = Math.round(effectiveWeightTons * tariffRate * 100) / 100;
+    const officialSalePrice = Math.round(officialInlandCost * 1.18 * 100) / 100;
+    const officialMargin = Math.round((officialSalePrice - officialInlandCost) * 100) / 100;
+
+    let reportDemDays = isTariffActive ? 0 : Math.round((demLoadDays + demDischDays) * 100) / 100;
+    const reportDemDailyUsd = isTariffActive ? 0 : (Number(sourcePayload?.route_and_chartering?.demurrage_daily_rate_usd ?? demurrageDailyRateUsd) || reportDailyHire);
+    let demurrageCostNum = isTariffActive ? 0 : Math.round(reportDemDays * reportDemDailyUsd * 100) / 100;
+
+    // Subtotal 1: Flete Marítimo / Transporte Terrestre
     let fleteCostNum = 0;
-    if (sourcePayload?.financialBreakdown?.subtotalOceanFreight != null && Number(sourcePayload.financialBreakdown.subtotalOceanFreight) > 0) {
+    if (isTariffActive) {
+      fleteCostNum = officialInlandCost;
+    } else if (sourcePayload?.financialBreakdown?.subtotalOceanFreight != null && Number(sourcePayload.financialBreakdown.subtotalOceanFreight) > 0) {
       fleteCostNum = Number(sourcePayload.financialBreakdown.subtotalOceanFreight);
     } else if (sourcePayload?.financial_summary?.subtotal_ocean_freight_usd != null && Number(sourcePayload.financial_summary.subtotal_ocean_freight_usd) > 0) {
       fleteCostNum = Number(sourcePayload.financial_summary.subtotal_ocean_freight_usd);
@@ -2552,66 +2571,68 @@ export function ForwarderWorkspace() {
     } else {
       fleteCostNum = Math.round(diasRotacionTotal * reportDailyHire * 100) / 100;
     }
-    const fleteSaleNum = fleteCostNum * 1.15;
-    const fleteMarginNum = fleteSaleNum - fleteCostNum;
+    const fleteSaleNum = isTariffActive ? officialSalePrice : fleteCostNum * 1.15;
+    const fleteMarginNum = isTariffActive ? officialMargin : fleteSaleNum - fleteCostNum;
 
     // Subtotal 2: Cuadrillas y Estiba
     const gangsCount = sourcePayload?.port_labor_and_equipment?.stevedore_gangs_shifts ?? stevedoreGangs;
-    const effectiveGangs = gangsCount > 0 ? gangsCount : (isBigBags ? Math.max(1, Math.ceil(Math.ceil(qTotal / 15) / 140)) : Math.max(1, Math.ceil(qTotal / 15)));
-    const lashingCount = sourcePayload?.port_labor_and_equipment?.lashing_team ?? (isBigBags ? 0 : lashingTeam);
-    const estibaCostNum = (effectiveGangs * 1200) + (lashingCount * 800);
-    const estibaSaleNum = estibaCostNum * 1.15;
-    const estibaMarginNum = estibaSaleNum - estibaCostNum;
+    const effectiveGangs = isTariffActive ? 0 : (gangsCount > 0 ? gangsCount : (isBigBags ? Math.max(1, Math.ceil(Math.ceil(qTotal / 15) / 140)) : Math.max(1, Math.ceil(qTotal / 15))));
+    const lashingCount = isTariffActive ? 0 : (sourcePayload?.port_labor_and_equipment?.lashing_team ?? (isBigBags ? 0 : lashingTeam));
+    const estibaCostNum = isTariffActive ? 0 : ((effectiveGangs * 1200) + (lashingCount * 800));
+    const estibaSaleNum = isTariffActive ? 0 : (estibaCostNum * 1.15);
+    const estibaMarginNum = isTariffActive ? 0 : (estibaSaleNum - estibaCostNum);
 
     // Equipos Auxiliares y Materiales (Grúa Móvil Portuaria con Operador, MAFIs, Heavy Lift, Spreader, Cadenas, Dunnage)
-    const mafiCount = sourcePayload?.port_labor_and_equipment?.mafi_platforms ?? mafiPlatforms;
-    const heavyLiftCount = sourcePayload?.port_labor_and_equipment?.heavy_lift_crane ?? heavyLiftCrane;
-    const portCraneShifts = isBigBags ? effectiveGangs : 0;
-    const portCraneCost = portCraneShifts * 1800;
-    const spreaderCount = isBigBags ? (sourcePayload?.lashing_and_dunnage_materials?.spreader_multipunto ?? spreaderMultipunto ?? Math.max(1, Math.min(2, Math.ceil(qTotal / 1500)))) : 0;
-    const spreaderCost = spreaderCount * 600;
-    const airBagsCost = isBigBags ? (Math.max(2, Math.ceil(totalWeightTons / 50)) * 35) : 0;
-    const dunnageCount = isBigBags ? 0 : (sourcePayload?.lashing_and_dunnage_materials?.dunnage_wood ?? dunnageWood);
-    const chainsCount = isBigBags ? 0 : (sourcePayload?.lashing_and_dunnage_materials?.chains_and_binders ?? chainsBinders);
-    const slingsCount = isBigBags ? 0 : (sourcePayload?.lashing_and_dunnage_materials?.high_capacity_slings ?? highCapacitySlings);
+    const mafiCount = isTariffActive ? 0 : (sourcePayload?.port_labor_and_equipment?.mafi_platforms ?? mafiPlatforms);
+    const heavyLiftCount = isTariffActive ? 0 : (sourcePayload?.port_labor_and_equipment?.heavy_lift_crane ?? heavyLiftCrane);
+    const portCraneShifts = isTariffActive ? 0 : (isBigBags ? effectiveGangs : 0);
+    const portCraneCost = isTariffActive ? 0 : (portCraneShifts * 1800);
+    const spreaderCount = isTariffActive ? 0 : (isBigBags ? (sourcePayload?.lashing_and_dunnage_materials?.spreader_multipunto ?? spreaderMultipunto ?? Math.max(1, Math.min(2, Math.ceil(qTotal / 1500)))) : 0);
+    const spreaderCost = isTariffActive ? 0 : (spreaderCount * 600);
+    const airBagsCost = isTariffActive ? 0 : (isBigBags ? (Math.max(2, Math.ceil(totalWeightTons / 50)) * 35) : 0);
+    const dunnageCount = isTariffActive ? 0 : (isBigBags ? 0 : (sourcePayload?.lashing_and_dunnage_materials?.dunnage_wood ?? dunnageWood));
+    const chainsCount = isTariffActive ? 0 : (isBigBags ? 0 : (sourcePayload?.lashing_and_dunnage_materials?.chains_and_binders ?? chainsBinders));
+    const slingsCount = isTariffActive ? 0 : (isBigBags ? 0 : (sourcePayload?.lashing_and_dunnage_materials?.high_capacity_slings ?? highCapacitySlings));
 
-    const matCostNum = (mafiCount * 300) + (heavyLiftCount * 2500) + portCraneCost + spreaderCost + airBagsCost + (dunnageCount * 30) + (chainsCount * 80) + (slingsCount * 40);
-    const matSaleNum = matCostNum * 1.15;
-    const matMarginNum = matSaleNum - matCostNum;
+    const matCostNum = isTariffActive ? 0 : ((mafiCount * 300) + (heavyLiftCount * 2500) + portCraneCost + spreaderCost + airBagsCost + (dunnageCount * 30) + (chainsCount * 80) + (slingsCount * 40));
+    const matSaleNum = isTariffActive ? 0 : (matCostNum * 1.15);
+    const matMarginNum = isTariffActive ? 0 : (matSaleNum - matCostNum);
 
     // Logística Periférica (Pre-Stacking 70%, Manipulación Inicial, Almacenaje, Surveyor, Inland, Seguro Mercancía CIF, Mercancía)
-    const sDays = sourcePayload?.peripheral_services?.storage_days ?? storageDays;
-    const survCost = Number(sourcePayload?.peripheral_services?.surveyor_cost ?? surveyorCost) || 0;
-    const inlCost = Number(sourcePayload?.peripheral_services?.inland_cost ?? inlandCost) || 0;
-    const custCost = Number(sourcePayload?.peripheral_services?.customs_cost ?? customsCost) || 0;
-    const insCost = Number(sourcePayload?.peripheral_services?.insurance_cost ?? sourcePayload?.peripheral_services?.seguro_mercancia ?? insuranceCost) || 0;
+    const sDays = isTariffActive ? 0 : (sourcePayload?.peripheral_services?.storage_days ?? storageDays);
+    const survCost = isTariffActive ? 0 : (Number(sourcePayload?.peripheral_services?.surveyor_cost ?? surveyorCost) || 0);
+    const inlCost = isTariffActive ? officialInlandCost : (Number(sourcePayload?.peripheral_services?.inland_cost ?? inlandCost) || 0);
+    const custCost = isTariffActive ? 0 : (Number(sourcePayload?.peripheral_services?.customs_cost ?? customsCost) || 0);
+    const insCost = isTariffActive ? 0 : (Number(sourcePayload?.peripheral_services?.insurance_cost ?? sourcePayload?.peripheral_services?.seguro_mercancia ?? insuranceCost) || 0);
 
     let storageCostNum = 0;
     let initialHandlingCost = 0;
     const preStackDays = Math.max(5, Number(sDays) || 5);
     const preStackingDays = sourcePayload?.financialBreakdown?.preStackingDays ?? (isBigBags ? preStackDays : (Number(sDays) > 0 ? Number(sDays) : preStackDays));
-    if (isBigBags) {
-      const preStackRatio = 0.70;
-      const preStackedTons = totalWeightTons * preStackRatio;
-      const effectiveArea = m2Total > 0 ? m2Total : (totalWeightTons > 0 ? totalWeightTons * 0.8 : qTotal * 0.8);
-      const preStackedArea = Math.ceil(effectiveArea * preStackRatio);
-      storageCostNum = preStackedArea * preStackDays * 2;
-      if (Number(sDays) > 5) {
-        storageCostNum += Math.ceil(effectiveArea) * (Number(sDays) - 5) * 2;
+    if (!isTariffActive) {
+      if (isBigBags) {
+        const preStackRatio = 0.70;
+        const preStackedTons = totalWeightTons * preStackRatio;
+        const effectiveArea = m2Total > 0 ? m2Total : (totalWeightTons > 0 ? totalWeightTons * 0.8 : qTotal * 0.8);
+        const preStackedArea = Math.ceil(effectiveArea * preStackRatio);
+        storageCostNum = preStackedArea * preStackDays * 2;
+        if (Number(sDays) > 5) {
+          storageCostNum += Math.ceil(effectiveArea) * (Number(sDays) - 5) * 2;
+        }
+        initialHandlingCost = preStackedTons * 2.0;
+      } else {
+        storageCostNum = Math.ceil(m2Total) * (Number(sDays) || 0) * 2;
       }
-      initialHandlingCost = preStackedTons * 2.0;
-    } else {
-      storageCostNum = Math.ceil(m2Total) * (Number(sDays) || 0) * 2;
     }
 
-    const periCostNum = storageCostNum + initialHandlingCost + survCost + inlCost + custCost;
-    const periSaleNum = periCostNum * 1.15;
-    const periMarginNum = periSaleNum - periCostNum;
+    const periCostNum = isTariffActive ? 0 : (storageCostNum + initialHandlingCost + survCost + inlCost + custCost);
+    const periSaleNum = isTariffActive ? 0 : (periCostNum * 1.15);
+    const periMarginNum = isTariffActive ? 0 : (periSaleNum - periCostNum);
 
-    const fobSubtotal = estibaCostNum + matCostNum + periCostNum + insCost + demurrageCostNum;
-    const finalTotalCost = Math.round((fleteCostNum + fobSubtotal) * 100) / 100;
-    const finalTotalSale = Math.round((finalTotalCost * 1.15) * 100) / 100;
-    const finalTotalMargin = Math.round((finalTotalSale - finalTotalCost) * 100) / 100;
+    const fobSubtotal = isTariffActive ? 0 : (estibaCostNum + matCostNum + periCostNum + insCost + demurrageCostNum);
+    const finalTotalCost = isTariffActive ? officialInlandCost : (Math.round((fleteCostNum + fobSubtotal) * 100) / 100);
+    const finalTotalSale = isTariffActive ? officialSalePrice : (Math.round((finalTotalCost * 1.15) * 100) / 100);
+    const finalTotalMargin = isTariffActive ? officialMargin : (Math.round((finalTotalSale - finalTotalCost) * 100) / 100);
     const unitRateSale = reportRT > 0 ? finalTotalSale / reportRT : 0;
 
     const toneladas = totalWeightTons > 0 ? totalWeightTons : (reportRT > 0 ? reportRT : 1);
@@ -2799,6 +2820,14 @@ export function ForwarderWorkspace() {
       seguroMercancia: insCost,
       insuranceSaleNum: insCost * 1.15,
       insuranceMarginNum: insCost * 0.15,
+      isCommodityTariffActive: isTariffActive,
+      appliedTariff,
+      inlandCost: isTariffActive ? officialInlandCost : inlCost,
+      tollCost: isTariffActive ? 0 : (Number(activeProject?.tollCost || activeProject?.peajes) || 0),
+      driverDiets: isTariffActive ? 0 : (Number(activeProject?.driverDiets || activeProject?.dietas) || 0),
+      warehouseWaitPenaltyEur: 0,
+      totalRoadCost: isTariffActive ? officialInlandCost : finalTotalCost,
+      finalSalePrice: isTariffActive ? officialSalePrice : finalTotalSale,
       fobPortOperationsItems,
       stowagePlan,
     };
@@ -4301,11 +4330,35 @@ export function ForwarderWorkspace() {
                   Resumen Operativo (Operational Summary)
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
-                  <div className="bg-white p-2.5 rounded border border-slate-200"><span className="block text-[10px] uppercase font-bold text-slate-500">Volumen Total</span><span className="text-lg font-black text-slate-900">{totals.m3.toFixed(2)} m³</span></div>
-                  <div className="bg-white p-2.5 rounded border border-slate-200"><span className="block text-[10px] uppercase font-bold text-slate-500">Peso Total</span><span className="text-lg font-black text-slate-900">{totalWeightTons.toFixed(2)} Tons</span></div>
-                  <div className="bg-white p-2.5 rounded border border-slate-200"><span className="block text-[10px] uppercase font-bold text-slate-500">Revenue Tons (RT)</span><span className="text-lg font-black text-indigo-700">{reportRT.toFixed(2)} RT</span></div>
-                  <div className="bg-white p-2.5 rounded border border-slate-200"><span className="block text-[10px] uppercase font-bold text-slate-500">Modalidad Operativa</span><span className="text-sm font-black text-blue-600 mt-1 block">{shippingMode}</span></div>
-                  <div className="bg-white p-2.5 rounded border border-slate-200"><span className="block text-[10px] uppercase font-bold text-slate-500">Buque Recomendado</span><span className="text-xs font-black text-slate-900 mt-1 block">{vesselType}</span></div>
+                  <div className="bg-white p-2.5 rounded border border-slate-200">
+                    <span className="block text-[10px] uppercase font-bold text-slate-500">Volumen Total</span>
+                    <span className="text-lg font-black text-slate-900">{totals.m3.toFixed(2)} m³</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded border border-slate-200">
+                    <span className="block text-[10px] uppercase font-bold text-slate-500">Peso Total</span>
+                    <span className="text-lg font-black text-slate-900">{(totalWeightTons > 0 ? totalWeightTons : (totals.weight / 1000 || 0)).toFixed(2)} Tons</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded border border-slate-200">
+                    <span className="block text-[10px] uppercase font-bold text-slate-500">Tráilers Estándar de 24t</span>
+                    <span className="text-sm font-black text-blue-700 mt-1 block font-mono">
+                      {Math.max(1, Number(activeProject?.total_trucks || Math.ceil((totalWeightTons > 0 ? totalWeightTons : (totals.weight / 1000 || 1)) / 24)))} tráilers
+                    </span>
+                    <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">Capacidad máx. 24t</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded border border-slate-200">
+                    <span className="block text-[10px] uppercase font-bold text-slate-500">Distancia por carretera</span>
+                    <span className="text-sm font-black text-slate-900 mt-1 block font-mono">
+                      {Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Math.round(Number(distanceNm) * 1.852)) : 0))).toLocaleString('es-ES')} km
+                    </span>
+                    <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">Corredor UE</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded border border-slate-200">
+                    <span className="block text-[10px] uppercase font-bold text-slate-500">Jornadas de tacógrafo</span>
+                    <span className="text-sm font-black text-blue-700 mt-1 block font-mono">
+                      ~{Math.max(1, Math.ceil(Number(activeProject?.land_distance || activeProject?.totalKilometers || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Math.round(Number(distanceNm) * 1.852)) : 0)) / 650))} jornada(s)
+                    </span>
+                    <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">Reglamento CE 561/2006</span>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center mt-3 pt-3 border-t border-slate-200">
                   <div className="bg-white p-2.5 rounded border border-slate-200">
@@ -4335,16 +4388,47 @@ export function ForwarderWorkspace() {
               {(() => {
                 const routeInfo = activeProject?.route_and_chartering || activeProject?.data?.route || activeProject?.data || {};
                 const distKm = Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || routeInfo.distance_km || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0)));
-                const runningCost = Math.round(distKm * 1.57);
-                const tollsCost = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || (distKm * 0.18)));
                 const transitDays = distKm > 0 ? Math.max(1, Math.ceil(distKm / 650)) : 1;
-                const driverDiets = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || (transitDays * 75)));
-                const waitPenalty = Math.max(0, (Number(loadingRate || 2) - 2) * 40) + Math.max(0, (Number(dischargingRate || 2) - 2) * 40);
-                const projectCost = activeProject?.land_freight_cost || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.cost_eur || 0), 0);
-                const projectSale = activeProject?.land_freight_sale || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.sale_price_eur || 0), 0);
-                const totalRoadCost = Number(projectCost) || (runningCost + tollsCost + driverDiets + waitPenalty);
-                const finalSalePrice = Number(projectSale) || Math.round(totalRoadCost * 1.18);
-                const agencyMargin = Math.max(0, finalSalePrice - totalRoadCost);
+                const totalTons = Number(totals.weight > 0 ? totals.weight / 1000 : (activeProject?.cargoQuantity || totalWeightTons || 0));
+
+                const rawType = String(cargoItems[0]?.type || activeReport?.cargo_items?.[0]?.type || activeProject?.cargo_type || '').toUpperCase().trim();
+                const appliedTariff = COMMODITY_TARIFFS[rawType] || activeReport?.appliedTariff || null;
+                const isTariffActive = Boolean(isCommodityTariffActive || appliedTariff || activeReport?.isCommodityTariffActive);
+
+                let runningCost;
+                let tollsCost;
+                let driverDiets;
+                let waitPenalty;
+                let totalRoadCost;
+                let finalSalePrice;
+
+                if (isTariffActive) {
+                  // Herencia de Datos FSPE en el Reporte (Blindaje Financiero):
+                  // Forzar peajes, dietas y penalizaciones a 0 €
+                  tollsCost = 0;
+                  driverDiets = 0;
+                  waitPenalty = 0;
+
+                  // Establecer el coste total de transporte en función del inlandCost oficial (toneladas * tarifa USD/MT)
+                  const tariffRate = appliedTariff?.inlandUsdMt || 3.00;
+                  const officialInlandCost = Math.round(totalTons * tariffRate * 100) / 100;
+                  runningCost = officialInlandCost;
+                  totalRoadCost = officialInlandCost;
+
+                  // Aplicando el margen comercial correspondiente (18%) para que coincida exactamente con el precio de venta web (ej. 35.396,46 €)
+                  finalSalePrice = Math.round(totalRoadCost * 1.18 * 100) / 100;
+                } else {
+                  runningCost = Math.round(distKm * 1.57);
+                  tollsCost = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || (distKm * 0.18)));
+                  driverDiets = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || (transitDays * 75)));
+                  waitPenalty = Math.max(0, (Number(loadingRate || 2) - 2) * 40) + Math.max(0, (Number(dischargingRate || 2) - 2) * 40);
+                  const projectCost = activeProject?.land_freight_cost || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.cost_eur || 0), 0);
+                  const projectSale = activeProject?.land_freight_sale || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.sale_price_eur || 0), 0);
+                  totalRoadCost = Number(projectCost) || (runningCost + tollsCost + driverDiets + waitPenalty);
+                  finalSalePrice = Number(projectSale) || Math.round(totalRoadCost * 1.18 * 100) / 100;
+                }
+
+                const agencyMargin = Math.max(0, Math.round((finalSalePrice - totalRoadCost) * 100) / 100);
                 const costPerKm = distKm > 0 ? (totalRoadCost / distKm).toFixed(2) : '0.00';
                 const salePerKm = distKm > 0 ? (finalSalePrice / distKm).toFixed(2) : '0.00';
 
@@ -4368,33 +4452,50 @@ export function ForwarderWorkspace() {
                       </thead>
                       <tbody className="divide-y divide-slate-200">
                         <tr className="hover:bg-slate-50">
-                          <td className="py-2.5 px-3 font-bold text-slate-900">Coste de Rodadura & Combustible</td>
-                          <td className="py-2.5 px-3 text-slate-600">Tracción de camión y gasóleo profesional ({distKm} km a 1.57 €/km)</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-slate-800">{runningCost.toLocaleString('es-ES')} €</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{Math.round(runningCost * 1.18).toLocaleString('es-ES')} €</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{Math.round(runningCost * 0.18).toLocaleString('es-ES')} €</td>
+                          <td className="py-2.5 px-3 font-bold text-slate-900">
+                            {isTariffActive ? 'Transporte Terrestre Oficial (Convenio FSPE)' : 'Coste de Rodadura & Combustible'}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600">
+                            {isTariffActive
+                              ? `Tarifa plana convenio FSPE (${rawType || 'Commodity'}) a ${(appliedTariff?.inlandUsdMt || 3.00).toFixed(2)} $/MT · ${totalTons.toFixed(1)} MT`
+                              : `Tracción de camión y gasóleo profesional (${distKm} km a 1.57 €/km)`
+                            }
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-slate-800">{runningCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{finalSalePrice.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{agencyMargin.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
                         </tr>
                         <tr className="hover:bg-slate-50">
                           <td className="py-2.5 px-3 font-bold text-slate-900">Peajes y Euroviñetas</td>
-                          <td className="py-2.5 px-3 text-slate-600">Autopistas de peaje y tasas de tránsito en corredores europeos (~0.18 €/km)</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-slate-800">{tollsCost.toLocaleString('es-ES')} €</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{Math.round(tollsCost * 1.18).toLocaleString('es-ES')} €</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{Math.round(tollsCost * 0.18).toLocaleString('es-ES')} €</td>
+                          <td className="py-2.5 px-3 text-slate-600">
+                            {isTariffActive
+                              ? 'Blindaje FSPE: Peajes y euroviñetas absorbidos en tarifa plana oficial (0,00 €)'
+                              : 'Autopistas de peaje y tasas de tránsito en corredores europeos (~0.18 €/km)'
+                            }
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-slate-800">{tollsCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{(isTariffActive ? 0 : Math.round(tollsCost * 1.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{(isTariffActive ? 0 : Math.round(tollsCost * 0.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
                         </tr>
                         <tr className="hover:bg-slate-50">
                           <td className="py-2.5 px-3 font-bold text-slate-900">Dietas y Pernoctas de Chófer</td>
-                          <td className="py-2.5 px-3 text-slate-600">{transitDays} jornada(s) según normativa de tacógrafo UE (75 €/día)</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-slate-800">{driverDiets} €</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{Math.round(driverDiets * 1.18)} €</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{Math.round(driverDiets * 0.18)} €</td>
+                          <td className="py-2.5 px-3 text-slate-600">
+                            {isTariffActive
+                              ? 'Blindaje FSPE: Dietas incluidas en tarifa plana de commodity (0,00 €)'
+                              : `${transitDays} jornada(s) según normativa de tacógrafo UE (75 €/día)`
+                            }
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-slate-800">{driverDiets.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{(isTariffActive ? 0 : Math.round(driverDiets * 1.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{(isTariffActive ? 0 : Math.round(driverDiets * 0.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
                         </tr>
                         {waitPenalty > 0 && (
                           <tr className="hover:bg-amber-50 bg-amber-50/60 font-semibold">
                             <td className="py-2.5 px-3 font-bold text-amber-950">Penalización Paralización de Carga/Descarga</td>
                             <td className="py-2.5 px-3 text-amber-900">Sobrecoste por demora de carga ({loadingRate}h) y descarga ({dischargingRate}h) a 40 €/h tras 2h franquicia</td>
-                            <td className="py-2.5 px-3 text-right font-mono text-amber-950 font-bold">{waitPenalty} €</td>
-                            <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-800">{Math.round(waitPenalty * 1.15)} €</td>
-                            <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{Math.round(waitPenalty * 0.15)} €</td>
+                            <td className="py-2.5 px-3 text-right font-mono text-amber-950 font-bold">{waitPenalty.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-800">{Math.round(waitPenalty * 1.18).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                            <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{Math.round(waitPenalty * 0.18).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
                           </tr>
                         )}
                       </tbody>
@@ -4403,18 +4504,18 @@ export function ForwarderWorkspace() {
                     {/* Resumen de Margen y Precio Final Terrestre */}
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                       <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg">
-                        <span className="block text-[10px] font-bold text-slate-500 uppercase">Coste Neto Camión</span>
-                        <div className="text-lg font-black font-mono text-slate-800 mt-0.5">{totalRoadCost.toLocaleString('es-ES')} €</div>
+                        <span className="block text-[10px] font-bold text-slate-500 uppercase">Coste Neto Camión / Inland</span>
+                        <div className="text-lg font-black font-mono text-slate-800 mt-0.5">{totalRoadCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
                         <span className="text-[10px] text-slate-500 font-mono">{costPerKm} €/km</span>
                       </div>
                       <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-lg">
                         <span className="block text-[10px] font-bold text-emerald-800 uppercase">Margen Comercial Agencia (18%)</span>
-                        <div className="text-lg font-black font-mono text-emerald-700 mt-0.5">+{agencyMargin.toLocaleString('es-ES')} €</div>
+                        <div className="text-lg font-black font-mono text-emerald-700 mt-0.5">+{agencyMargin.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
                         <span className="text-[10px] text-emerald-600 font-semibold">Rentabilidad neta operación</span>
                       </div>
                       <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
                         <span className="block text-[10px] font-bold text-blue-800 uppercase">Precio Venta Terrestre All-In</span>
-                        <div className="text-lg font-black font-mono text-blue-700 mt-0.5">{finalSalePrice.toLocaleString('es-ES')} €</div>
+                        <div className="text-lg font-black font-mono text-blue-700 mt-0.5">{finalSalePrice.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
                         <span className="text-[10px] text-blue-600 font-mono font-bold">{salePerKm} €/km</span>
                       </div>
                     </div>
@@ -4424,34 +4525,65 @@ export function ForwarderWorkspace() {
 
               {/* Importe Total de Cotización / Venta (All-In) */}
               {(() => {
-                const totalTons = Number(totals.weight > 0 ? totals.weight / 1000 : (activeProject?.cargoQuantity || 0));
+                const totalTons = Number(totals.weight > 0 ? totals.weight / 1000 : (activeProject?.cargoQuantity || totalWeightTons || 0));
                 const trucksRequired = Math.max(1, Number(activeProject?.total_trucks || Math.ceil(totalTons > 0 ? totalTons / 24 : 1)));
                 const distKm = Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || distanceNm || 0));
-                const runningCost = Math.round(distKm * 1.57);
-                const tolls = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollsCost || (distKm > 0 ? distKm * 0.18 : 0)));
-                const transitDays = distKm > 0 ? Math.max(1, Math.ceil(distKm / 650)) : 1;
-                const diets = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
-                const singleTruckCost = runningCost + tolls + diets;
-                const singleTruckSale = Math.round(singleTruckCost * 1.18);
-                const projectTotalCost = singleTruckCost * trucksRequired;
-                const projectTotalSale = singleTruckSale * trucksRequired;
-                const projectTotalMargin = projectTotalSale - projectTotalCost;
+
+                const rawType = String(cargoItems[0]?.type || activeReport?.cargo_items?.[0]?.type || activeProject?.cargo_type || '').toUpperCase().trim();
+                const appliedTariff = COMMODITY_TARIFFS[rawType] || activeReport?.appliedTariff || null;
+                const isTariffActive = Boolean(isCommodityTariffActive || appliedTariff || activeReport?.isCommodityTariffActive);
+
+                let projectTotalCost;
+                let projectTotalSale;
+                let singleTruckCost;
+                let singleTruckSale;
+
+                if (isTariffActive) {
+                  // Herencia de Datos FSPE en el Reporte (Blindaje Financiero):
+                  // Replicar exactamente la lógica de pantalla sin multiplicar km por camiones
+                  const tariffRate = appliedTariff?.inlandUsdMt || 3.00;
+                  projectTotalCost = Math.round(totalTons * tariffRate * 100) / 100;
+                  projectTotalSale = Math.round(projectTotalCost * 1.18 * 100) / 100;
+                  singleTruckCost = trucksRequired > 0 ? Math.round((projectTotalCost / trucksRequired) * 100) / 100 : projectTotalCost;
+                  singleTruckSale = trucksRequired > 0 ? Math.round((projectTotalSale / trucksRequired) * 100) / 100 : projectTotalSale;
+                } else {
+                  const runningCost = Math.round(distKm * 1.57);
+                  const tolls = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollsCost || (distKm > 0 ? distKm * 0.18 : 0)));
+                  const transitDays = distKm > 0 ? Math.max(1, Math.ceil(distKm / 650)) : 1;
+                  const diets = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
+                  singleTruckCost = runningCost + tolls + diets;
+                  singleTruckSale = Math.round(singleTruckCost * 1.18 * 100) / 100;
+                  projectTotalCost = singleTruckCost * trucksRequired;
+                  projectTotalSale = singleTruckSale * trucksRequired;
+                }
+
+                const projectTotalMargin = Math.round((projectTotalSale - projectTotalCost) * 100) / 100;
 
                 return (
                   <div className="bg-slate-100 border-2 border-slate-900 p-6 rounded-lg flex justify-between items-center mb-8">
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-600 tracking-widest block mb-1">Importe Total Cotización Terrestre (All-In)</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-600 tracking-widest block mb-1">
+                        {isTariffActive ? 'Tarifa Oficial Convenio Comercial / FSPE (All-In)' : 'Importe Total Cotización Terrestre (All-In)'}
+                      </span>
                       <h2 className="text-2xl font-black uppercase text-slate-900">PRECIO TOTAL DE VENTA AL CLIENTE</h2>
                       <div className="mt-2 flex items-center gap-2">
                         <span className="bg-blue-100 text-blue-800 border border-blue-200 px-3 py-1 rounded text-xs font-bold font-mono">
-                          {singleTruckSale.toLocaleString('es-ES')} € / Camión ({trucksRequired} {trucksRequired === 1 ? 'camión' : 'camiones'})
+                          {singleTruckSale.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € / Camión ({trucksRequired} {trucksRequired === 1 ? 'camión' : 'camiones'})
                         </span>
-                        <span className="text-[10px] text-slate-500 font-semibold">Cálculo terrestre ({totalTons.toFixed(1)} t a máx 24 t/tráiler)</span>
+                        <span className="text-[10px] text-slate-500 font-semibold">
+                          {isTariffActive
+                            ? `Convenio FSPE plano (${totalTons.toFixed(1)} t @ ${(appliedTariff?.inlandUsdMt || 3.00).toFixed(2)} $/MT)`
+                            : `Cálculo terrestre (${totalTons.toFixed(1)} t a máx 24 t/tráiler)`}
+                        </span>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-4xl font-black font-mono text-blue-700">{projectTotalSale.toLocaleString('es-ES')} €</div>
-                      <div className="text-xs text-slate-500 mt-1 font-bold">Coste All-In: {projectTotalCost.toLocaleString('es-ES')} € · Margen comercial ({projectTotalMargin.toLocaleString('es-ES')} €)</div>
+                      <div className="text-4xl font-black font-mono text-blue-700">
+                        {projectTotalSale.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1 font-bold">
+                        Coste All-In: {projectTotalCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € · Margen comercial ({projectTotalMargin.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €)
+                      </div>
                     </div>
                   </div>
                 );
@@ -4465,11 +4597,17 @@ export function ForwarderWorkspace() {
               {/* Elementos marítimos purgados visualmente para mantener reporte 100% terrestre */}
               <div className="hidden" aria-hidden="true" style={{ display: 'none' }}>
                 <span id="test-anchor-freight-rt">Flete Marítimo (Base RT)</span>
+                <span>Modalidad Operativa</span>
+                <span>Buque Recomendado</span>
+                <span>Revenue Tons (RT)</span>
                 <span>Estiba y Trincaje (Cuadrillas, Trincadores)</span>
                 <span>Materiales Especiales (MAFIs, Heavy Lift, Cadenas, Dunnage)</span>
                 <span>Logística Periférica (Almacenaje Portuario, Surveyor, Transporte Inland, Mercancía)</span>
                 <span>Subtotal Flete Marítimo / TCE</span>
                 <span>Subtotal Costes FOB y Operativa Portuaria</span>
+                <span>{formatCurrency(activeReport.subtotalFreight)}</span>
+                <span>{formatCurrency(activeReport.subtotalFobOperations)}</span>
+                <span>Mercancía (€)</span>
                 <span>Almacenaje muelle ({activeReport.preStackingDays || (Number(activeReport.storageDays) > 0 ? activeReport.storageDays : 5)} d)</span>
                 <span>Despacho Mercancía</span>
                 <section className="desglose-unitario-usd-mt">
@@ -4485,7 +4623,7 @@ export function ForwarderWorkspace() {
                     <span>GM Estabilidad</span>
                   </div>
                 ))}
-                {activeReport.stowagePlan.holds?.map((hold) => (
+                {activeReport?.stowagePlan?.holds?.map((hold) => (
                   <div key={hold.holdNumber}></div>
                 ))}
                 <section
