@@ -19056,7 +19056,7 @@ async function runOnDemandMapRouteWorkflow(button) {
 
         console.log('[CurvedRoute] Puntos generados para Leaflet [lat, lon]:', curvePoints);
 
-        if (mapInstance && typeof L !== 'undefined') {
+        if (mapInstance && mapInstance._loaded && typeof L !== 'undefined') {
             if (window._currentOsrmRouteLayer) {
                 try { mapInstance.removeLayer(window._currentOsrmRouteLayer); } catch (_) {}
             }
@@ -19082,34 +19082,46 @@ async function runOnDemandMapRouteWorkflow(button) {
                 }).addTo(mapInstance);
 
                 window._currentOsrmRouteLayer = polyline;
-                mapInstance.fitBounds([
-                    [polCoords.lat, polCoords.lon],
-                    [podCoords.lat, podCoords.lon]
-                ], { padding: [50, 50] });
 
-                if (typeof map !== 'undefined' && map && map !== mapInstance && typeof map.fitBounds === 'function') {
-                    map.fitBounds([
-                        [polCoords.lat, polCoords.lon],
-                        [podCoords.lat, podCoords.lon]
+                const polLat = Number(polCoords?.lat);
+                const polLon = Number(polCoords?.lon);
+                const podLat = Number(podCoords?.lat);
+                const podLon = Number(podCoords?.lon);
+
+                if (polLat && polLon && podLat && podLon && !isNaN(polLat) && !isNaN(polLon) && !isNaN(podLat) && !isNaN(podLon) && Number.isFinite(polLat) && Number.isFinite(polLon) && Number.isFinite(podLat) && Number.isFinite(podLon)) {
+                    mapInstance.fitBounds([
+                        [polLat, polLon],
+                        [podLat, podLon]
                     ], { padding: [50, 50] });
+
+                    if (typeof map !== 'undefined' && map && map !== mapInstance && typeof map.fitBounds === 'function') {
+                        map.fitBounds([
+                            [polLat, polLon],
+                            [podLat, podLon]
+                        ], { padding: [50, 50] });
+                    }
+
+                    const iconOrigin = L.divIcon({
+                        className: 'minimal-route-dot-origin',
+                        html: '<div style="width: 14px; height: 14px; background-color: #0f172a; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
+                        iconSize: [14, 14],
+                        iconAnchor: [7, 7]
+                    });
+                    const iconDest = L.divIcon({
+                        className: 'minimal-route-dot-dest',
+                        html: '<div style="width: 14px; height: 14px; background-color: #0f766e; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
+                        iconSize: [14, 14],
+                        iconAnchor: [7, 7]
+                    });
+
+                    try {
+                        const m1 = L.marker([polLat, polLon], { icon: iconOrigin }).addTo(mapInstance).bindPopup(`<b>Origen:</b> ${polCoords.name || pol}`);
+                        const m2 = L.marker([podLat, podLon], { icon: iconDest }).addTo(mapInstance).bindPopup(`<b>Destino:</b> ${podCoords.name || pod}<br><b>Distancia:</b> ${distanceKm} km`);
+                        window._currentOsrmMarkers.push(m1, m2);
+                    } catch (e) {
+                        console.warn('Leaflet render skipped due to missing bounds/renderer:', e);
+                    }
                 }
-
-                const iconOrigin = L.divIcon({
-                    className: 'minimal-route-dot-origin',
-                    html: '<div style="width: 14px; height: 14px; background-color: #0f172a; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
-                    iconSize: [14, 14],
-                    iconAnchor: [7, 7]
-                });
-                const iconDest = L.divIcon({
-                    className: 'minimal-route-dot-dest',
-                    html: '<div style="width: 14px; height: 14px; background-color: #0f766e; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
-                    iconSize: [14, 14],
-                    iconAnchor: [7, 7]
-                });
-
-                const m1 = L.marker([polCoords.lat, polCoords.lon], { icon: iconOrigin }).addTo(mapInstance).bindPopup(`<b>Origen:</b> ${polCoords.name || pol}`);
-                const m2 = L.marker([podCoords.lat, podCoords.lon], { icon: iconDest }).addTo(mapInstance).bindPopup(`<b>Destino:</b> ${podCoords.name || pod}<br><b>Distancia:</b> ${distanceKm} km`);
-                window._currentOsrmMarkers.push(m1, m2);
 
                 if (typeof polyline.bringToFront === 'function') {
                     polyline.bringToFront();
@@ -20419,6 +20431,10 @@ function createRouteAnchorElement(type) {
             function renderPortOnMap(mapInstance, port, type) {
                 try {
                     if (!checkReady(mapInstance) || !port) return false;
+                    const lat = Number(port.lat ?? port.latitude);
+                    const lng = Number(port.lon ?? port.lng ?? port.longitude);
+                    if (!lat || !lng || isNaN(lat) || isNaN(lng) || !Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+
                     const dynamicKind = type.toLowerCase();
                     cleanDynamicLayers(mapInstance, dynamicKind);
                     const isDensityMap = mapInstance === state.densityMap || mapInstance === aisMap;
@@ -20426,22 +20442,57 @@ function createRouteAnchorElement(type) {
                     if (isMapboxRouteMap(mapInstance)) {
                         if (typeof mapboxgl === 'undefined') return false;
                         state.mapboxPortMarkers[type] = new mapboxgl.Marker({ element: createPortElement(type) })
-                            .setLngLat([port.lon, port.lat])
+                            .setLngLat([lng, lat])
                             .setPopup(new mapboxgl.Popup({ offset: 18 }).setText(port.name || type))
                             .addTo(mapInstance);
                         return true;
                     }
+
+                    // Check de Inicialización del Mapa para Leaflet
+                    if (!mapInstance || !mapInstance._loaded) return false;
                     if (typeof L === 'undefined' || typeof L.circleMarker !== 'function') return false;
+
+                    const targetMap = (typeof map !== 'undefined' && map) || (typeof window !== 'undefined' && (window.map || window.GlobalLeafletMap)) || mapInstance;
+                    if (!targetMap || !targetMap._loaded) return false;
+
                     const fillColor = type === 'POD' ? '#f97316' : '#16a34a';
-                    L.circleMarker([port.lat, port.lon], {
-                        radius: 9,
-                        color: '#ffffff',
-                        weight: 3,
-                        fillColor,
-                        fillOpacity: 1,
-                        isDynamic: true,
-                        dynamicKind
-                    }).bindPopup(port.name || type).bindTooltip(`${type}: ${port.name || type}`, { permanent: true, direction: 'top', offset: [0, -8] }).addTo(mapInstance);
+
+                    // Try/Catch Defensivo en el Renderizado del marcador
+                    let marker;
+                    try {
+                        marker = L.circleMarker([lat, lng], {
+                            radius: 9,
+                            color: '#ffffff',
+                            weight: 3,
+                            fillColor,
+                            fillOpacity: 1,
+                            isDynamic: true,
+                            dynamicKind
+                        });
+                        marker.addTo(mapInstance);
+                    } catch (e) {
+                        console.warn('Leaflet render skipped due to missing bounds/renderer:', e);
+                        return false;
+                    }
+
+                    if (typeof marker.bindPopup === 'function') {
+                        try {
+                            marker.bindPopup(port.name || type);
+                        } catch (_) {}
+                    }
+
+                    // Proteger Tooltips: Asegurarse de que el mapa (map o window.map) está inicializado y que el marcador
+                    // se ha añadido correctamente a su capa (LayerGroup) antes de invocar .bindTooltip() o .openTooltip()
+                    const isMapInitialized = Boolean(targetMap && targetMap._loaded && (targetMap._panes || (typeof targetMap.getPanes === 'function' && targetMap.getPanes())));
+                    const isMarkerAdded = Boolean(marker._map || (mapInstance && typeof mapInstance.hasLayer === 'function' && mapInstance.hasLayer(marker)));
+
+                    if (isMapInitialized && isMarkerAdded && typeof marker.bindTooltip === 'function') {
+                        try {
+                            marker.bindTooltip(`${type}: ${port.name || type}`, { permanent: true, direction: 'top', offset: [0, -8] });
+                        } catch (tooltipErr) {
+                            console.warn('[MapController] Error no bloqueante en bindTooltip (Leaflet/Tooltip):', tooltipErr);
+                        }
+                    }
                     return true;
                 } catch (portErr) {
                     console.warn('[MapController] Error no bloqueante en renderPortOnMap (Leaflet/Canvas):', portErr);
@@ -20454,6 +20505,9 @@ function createRouteAnchorElement(type) {
                 if (!['POL', 'POD'].includes(normalizedType)) return false;
                 const port = normalizePoint(Array.isArray(coords) ? { lat: coords[0], lon: coords[1], name } : { ...coords, name: name || coords?.name });
                 if (!port) return false;
+                const lat = Number(port.lat ?? port.latitude);
+                const lng = Number(port.lon ?? port.lng ?? port.longitude);
+                if (!lat || !lng || isNaN(lat) || isNaN(lng) || !Number.isFinite(lat) || !Number.isFinite(lng)) return false;
                 state[normalizedType.toLowerCase()] = port;
                 let rendered = false;
                 getMaps().forEach((mapInstance) => {
@@ -32553,31 +32607,45 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                     const bounds = new mapboxgl.LngLatBounds();
                     let hasBounds = false;
 
-                    if (cPol) {
+                    const isCoordValid = (c) => {
+                        if (!c) return false;
+                        const lat = Number(c.lat ?? c.latitude);
+                        const lng = Number(c.lon ?? c.lng ?? c.longitude);
+                        if (!lat || !lng || isNaN(lat) || isNaN(lng) || !Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+                        return true;
+                    };
+
+                    if (isCoordValid(cPol)) {
+                        const lat = Number(cPol.lat ?? cPol.latitude);
+                        const lng = Number(cPol.lon ?? cPol.lng ?? cPol.longitude);
                         const marker = new mapboxgl.Marker({ element: createRouteMarkerElement('pol', cPol), anchor: 'bottom' })
-                            .setLngLat([cPol.lon, cPol.lat])
+                            .setLngLat([lng, lat])
                             .setPopup(new mapboxgl.Popup({ offset: 22, className: 'seacharter-clean-popup' }).setHTML(createRoutePopupHtml(cPol, 'LOAD')))
                             .addTo(routeMap);
                         routeMapboxMarkers.push(marker);
-                        bounds.extend([cPol.lon, cPol.lat]);
+                        bounds.extend([lng, lat]);
                         hasBounds = true;
                     }
-                    if (cPod) {
+                    if (isCoordValid(cPod)) {
+                        const lat = Number(cPod.lat ?? cPod.latitude);
+                        const lng = Number(cPod.lon ?? cPod.lng ?? cPod.longitude);
                         const marker = new mapboxgl.Marker({ element: createRouteMarkerElement('pod', cPod), anchor: 'bottom' })
-                            .setLngLat([cPod.lon, cPod.lat])
+                            .setLngLat([lng, lat])
                             .setPopup(new mapboxgl.Popup({ offset: 22, className: 'seacharter-clean-popup' }).setHTML(createRoutePopupHtml(cPod, 'DISCHARGE')))
                             .addTo(routeMap);
                         routeMapboxMarkers.push(marker);
-                        bounds.extend([cPod.lon, cPod.lat]);
+                        bounds.extend([lng, lat]);
                         hasBounds = true;
                     }
-                    if (cBal) {
+                    if (isCoordValid(cBal)) {
+                        const lat = Number(cBal.lat ?? cBal.latitude);
+                        const lng = Number(cBal.lon ?? cBal.lng ?? cBal.longitude);
                         const marker = new mapboxgl.Marker({ element: createRouteMarkerElement('ballast', cBal), anchor: 'bottom' })
-                            .setLngLat([cBal.lon, cBal.lat])
+                            .setLngLat([lng, lat])
                             .setPopup(new mapboxgl.Popup({ offset: 16 }).setHTML(createRoutePopupHtml(cBal, 'BALLAST')))
                             .addTo(routeMap);
                         routeMapboxMarkers.push(marker);
-                        bounds.extend([cBal.lon, cBal.lat]);
+                        bounds.extend([lng, lat]);
                         hasBounds = true;
                     }
 
@@ -32640,6 +32708,9 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                 return true;
             }
 
+            // Check de Inicialización del Mapa para Leaflet
+            if (!routeMap || !routeMap._loaded) return false;
+
             ensureRouteOverlayLayers(routeMap);
             if (routeMarkerLayer) routeMarkerLayer.clearLayers();
             ensureRouteBaseLayer();
@@ -32648,23 +32719,76 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
             const { ballast: cBal, pol: cPol, pod: cPod } = result.coordinates || {};
             let bounds = [];
 
-            if(cPol) {
-                const marker = L.marker([cPol.lat, cPol.lon], { icon: createRouteDivIcon('pol', cPol) }).bindPopup(createRoutePopupHtml(cPol, 'LOAD'));
-                marker.addTo(routeMarkerLayer);
-                markers.push(marker);
-                bounds.push([cPol.lat, cPol.lon]);
+            const isRouteCoordValid = (c) => {
+                if (!c) return false;
+                const lat = Number(c.lat ?? c.latitude);
+                const lng = Number(c.lon ?? c.lng ?? c.longitude);
+                if (!lat || !lng || isNaN(lat) || isNaN(lng) || !Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+                return true;
+            };
+
+            if (isRouteCoordValid(cPol)) {
+                const lat = Number(cPol.lat ?? cPol.latitude);
+                const lng = Number(cPol.lon ?? cPol.lng ?? cPol.longitude);
+                if (typeof L !== 'undefined' && typeof L.marker === 'function') {
+                    try {
+                        const marker = L.marker([lat, lng], { icon: createRouteDivIcon('pol', cPol) });
+                        if (routeMarkerLayer && typeof routeMarkerLayer.addLayer === 'function') {
+                            marker.addTo(routeMarkerLayer);
+                        } else {
+                            marker.addTo(routeMap);
+                        }
+                        if (typeof marker.bindPopup === 'function') {
+                            try { marker.bindPopup(createRoutePopupHtml(cPol, 'LOAD')); } catch (_) {}
+                        }
+                        markers.push(marker);
+                        bounds.push([lat, lng]);
+                    } catch (e) {
+                        console.warn('Leaflet render skipped due to missing bounds/renderer:', e);
+                    }
+                }
             }
-            if(cPod) {
-                const marker = L.marker([cPod.lat, cPod.lon], { icon: createRouteDivIcon('pod', cPod) }).bindPopup(createRoutePopupHtml(cPod, 'DISCHARGE'));
-                marker.addTo(routeMarkerLayer);
-                markers.push(marker);
-                bounds.push([cPod.lat, cPod.lon]);
+            if (isRouteCoordValid(cPod)) {
+                const lat = Number(cPod.lat ?? cPod.latitude);
+                const lng = Number(cPod.lon ?? cPod.lng ?? cPod.longitude);
+                if (typeof L !== 'undefined' && typeof L.marker === 'function') {
+                    try {
+                        const marker = L.marker([lat, lng], { icon: createRouteDivIcon('pod', cPod) });
+                        if (routeMarkerLayer && typeof routeMarkerLayer.addLayer === 'function') {
+                            marker.addTo(routeMarkerLayer);
+                        } else {
+                            marker.addTo(routeMap);
+                        }
+                        if (typeof marker.bindPopup === 'function') {
+                            try { marker.bindPopup(createRoutePopupHtml(cPod, 'DISCHARGE')); } catch (_) {}
+                        }
+                        markers.push(marker);
+                        bounds.push([lat, lng]);
+                    } catch (e) {
+                        console.warn('Leaflet render skipped due to missing bounds/renderer:', e);
+                    }
+                }
             }
-            if(cBal) {
-                const marker = L.marker([cBal.lat, cBal.lon], { icon: createRouteDivIcon('ballast', cBal) }).bindPopup(createRoutePopupHtml(cBal, 'BALLAST'));
-                marker.addTo(routeMarkerLayer);
-                markers.push(marker);
-                bounds.push([cBal.lat, cBal.lon]);
+            if (isRouteCoordValid(cBal)) {
+                const lat = Number(cBal.lat ?? cBal.latitude);
+                const lng = Number(cBal.lon ?? cBal.lng ?? cBal.longitude);
+                if (typeof L !== 'undefined' && typeof L.marker === 'function') {
+                    try {
+                        const marker = L.marker([lat, lng], { icon: createRouteDivIcon('ballast', cBal) });
+                        if (routeMarkerLayer && typeof routeMarkerLayer.addLayer === 'function') {
+                            marker.addTo(routeMarkerLayer);
+                        } else {
+                            marker.addTo(routeMap);
+                        }
+                        if (typeof marker.bindPopup === 'function') {
+                            try { marker.bindPopup(createRoutePopupHtml(cBal, 'BALLAST')); } catch (_) {}
+                        }
+                        markers.push(marker);
+                        bounds.push([lat, lng]);
+                    } catch (e) {
+                        console.warn('Leaflet render skipped due to missing bounds/renderer:', e);
+                    }
+                }
             }
 
             const fallbackBallastBounds = cBal && cPol ? [[cBal.lat, cBal.lon], [cPol.lat, cPol.lon]] : [];
@@ -58918,7 +59042,12 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
 
                 for (let index = startIndex; index < endIndex; index += 1) {
                     const v = uniqueRenderableVessels[index];
-                    if (Number.isFinite(Number(v.latitude)) && Number.isFinite(Number(v.longitude))) {
+                    const vLat = Number(v?.latitude);
+                    const vLon = Number(v?.longitude);
+                    if (!vLat || !vLon || isNaN(vLat) || isNaN(vLon) || !Number.isFinite(vLat) || !Number.isFinite(vLon)) {
+                        continue;
+                    }
+                    if (Number.isFinite(vLat) && Number.isFinite(vLon)) {
                         const isCompatible = compatibleImos.has(String(v.imo || ''))
                             || compatibleNames.has(String(v.vesselName || '').trim().toLowerCase());
 
@@ -58955,7 +59084,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                         let marker = idStr ? currentMarkersMap.get(idStr) : null;
 
                         if (marker) {
-                            marker.setLatLng([v.latitude, v.longitude]);
+                            marker.setLatLng([vLat, vLon]);
                             marker.bindPopup(popupContent);
                         
                             marker.setIcon(markerIcon);
@@ -58964,15 +59093,19 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                             newMarkers.push(marker);
                             if (idStr) survivingIds.add(idStr);
                         } else {
-                            marker = L.marker([v.latitude, v.longitude], {
-                                icon: markerIcon
-                            });
-                            marker.bindPopup(popupContent);
-                            marker.vesselData = v;
-                        
-                            markersToAdd.push(marker);
-                            newMarkers.push(marker);
-                            if (idStr) survivingIds.add(idStr);
+                            try {
+                                marker = L.marker([vLat, vLon], {
+                                    icon: markerIcon
+                                });
+                                marker.bindPopup(popupContent);
+                                marker.vesselData = v;
+                            
+                                markersToAdd.push(marker);
+                                newMarkers.push(marker);
+                                if (idStr) survivingIds.add(idStr);
+                            } catch (e) {
+                                console.warn('Leaflet render skipped due to missing bounds/renderer:', e);
+                            }
                         }
                     }
                 }
@@ -59138,24 +59271,32 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                     remove: () => {}
                 };
             }
-            if (!aisMap || typeof L === 'undefined') return null;
-            const icon = L.divIcon({
-                className: 'global-opportunity-map-marker',
-                html: '<div style="width:34px;height:34px;display:grid;place-items:center;border:2px solid #fff;border-radius:50%;color:#fff;background:#1e3a8a;box-shadow:0 8px 20px rgba(15,23,42,.28)"><i class="fa-solid fa-ship" style="font-size:14px"></i></div>',
-                iconSize: [34, 34],
-                iconAnchor: [17, 17],
-                popupAnchor: [0, -18]
-            });
-            const marker = L.marker([candidate.latitude, candidate.longitude], { icon, zIndexOffset: 1400 });
-            marker.bindPopup(`
-                <div class="p-1 text-xs text-slate-900">
-                    <strong>${escapeGlobalOpportunityHtml(candidate.vesselName)}</strong>
-                    <div class="mt-1 text-slate-600">${escapeGlobalOpportunityHtml(candidate.location)}</div>
-                    <div class="mt-1 text-[10px] font-bold uppercase tracking-wide text-blue-800">Oportunidad Data Bridge</div>
-                </div>
-            `);
-            marker.addTo(aisMap);
-            return marker;
+            if (!aisMap || !aisMap._loaded || typeof L === 'undefined') return null;
+            const candLat = Number(candidate?.latitude);
+            const candLon = Number(candidate?.longitude);
+            if (!candLat || !candLon || isNaN(candLat) || isNaN(candLon) || !Number.isFinite(candLat) || !Number.isFinite(candLon)) return null;
+            try {
+                const icon = L.divIcon({
+                    className: 'global-opportunity-map-marker',
+                    html: '<div style="width:34px;height:34px;display:grid;place-items:center;border:2px solid #fff;border-radius:50%;color:#fff;background:#1e3a8a;box-shadow:0 8px 20px rgba(15,23,42,.28)"><i class="fa-solid fa-ship" style="font-size:14px"></i></div>',
+                    iconSize: [34, 34],
+                    iconAnchor: [17, 17],
+                    popupAnchor: [0, -18]
+                });
+                const marker = L.marker([candLat, candLon], { icon, zIndexOffset: 1400 });
+                marker.bindPopup(`
+                    <div class="p-1 text-xs text-slate-900">
+                        <strong>${escapeGlobalOpportunityHtml(candidate.vesselName)}</strong>
+                        <div class="mt-1 text-slate-600">${escapeGlobalOpportunityHtml(candidate.location)}</div>
+                        <div class="mt-1 text-[10px] font-bold uppercase tracking-wide text-blue-800">Oportunidad Data Bridge</div>
+                    </div>
+                `);
+                marker.addTo(aisMap);
+                return marker;
+            } catch (e) {
+                console.warn('Leaflet render skipped due to missing bounds/renderer:', e);
+                return null;
+            }
         }
 
         function focusGlobalOpportunity(opportunityId) {

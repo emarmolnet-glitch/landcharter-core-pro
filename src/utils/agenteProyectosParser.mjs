@@ -8,7 +8,11 @@ export const PACKAGED_REGEX = /(big\s*bag|saco|sling|palet|envasad)/i;
  * evitando el comportamiento de "loro" y devolviendo un payload estructurado.
  */
 export function parseProjectInstruction(rawText) {
-  if (!rawText || typeof rawText !== 'string') {
+  const rawInput = (typeof rawText === 'object' && rawText !== null)
+    ? (rawText.text || rawText.instruction || rawText.prompt || rawText.message || rawText.cargo || rawText.cargoName || rawText.input || '')
+    : rawText;
+
+  if (!rawInput || typeof rawInput !== 'string') {
     return {
       payload: {},
       detectedActions: [],
@@ -16,12 +20,15 @@ export function parseProjectInstruction(rawText) {
     };
   }
 
-  const text = rawText.trim();
+  const text = rawInput.trim();
   const lower = text.toLowerCase();
   const payload = {
     instruction: text
   };
   const detectedActions = [];
+
+  // Refuerzo de la condición (Aggressive Matching): evaluación temprana en bruto
+  const isPackagedMatch = PACKAGED_REGEX.test(rawInput) || PACKAGED_REGEX.test(text) || PACKAGED_REGEX.test(lower);
 
   // 1. Días de almacenaje: "almacenaje 5 días", "5 días de almacenaje", "almacenaje 10", "almacén 3 días"
   const storageRegex1 = /(?:almacenaje|almac[eé]n|estancia)\s*(?:de|:)?\s*(\d+)\s*(?:d[ií]as)?/i;
@@ -229,50 +236,6 @@ export function parseProjectInstruction(rawText) {
     }
   }
 
-  // Regla de Prioridad Absoluta de Envase: Envasados / Big Bags anula cualquier asignación a granel
-  const PACKAGED_REGEX = /(big\s*bag|saco|sling|palet|envasad)/i;
-  if (PACKAGED_REGEX.test(lower) || PACKAGED_REGEX.test(text)) {
-    // Categoría: "Minerales y Construcción"
-    payload.categoriaCarga = 'Minerales y Construcción';
-    payload.cargo_category = 'Minerales y Construcción';
-    payload.cargoCategory = 'Minerales y Construcción';
-    payload.category = 'Minerales y Construcción';
-
-    // Producto: "Big Bags (Minerales/Cemento)"
-    payload.productoEspecifico = 'Big Bags (Minerales/Cemento)';
-    payload.cargo_product = 'Big Bags (Minerales/Cemento)';
-    payload.cargoProduct = 'Big Bags (Minerales/Cemento)';
-    payload.product = 'Big Bags (Minerales/Cemento)';
-
-    // Vehículo (vehicleType / truck_type): "Camión Plataforma con Grúa Autocarga"
-    payload.vehicleType = 'Camión Plataforma con Grúa Autocarga';
-    payload.vehicle_type = 'Camión Plataforma con Grúa Autocarga';
-    payload.truck_type = 'Camión Plataforma con Grúa Autocarga';
-    payload.truckType = 'Camión Plataforma con Grúa Autocarga';
-    payload.vessel_class = 'Camión Plataforma con Grúa Autocarga';
-
-    // Métodos de Carga y Descarga: "Autocarga con Grúa del Camión"
-    payload.loadingMethod = 'Autocarga con Grúa del Camión';
-    payload.dischargeMethod = 'Autocarga con Grúa del Camión';
-    payload.loading_method = 'Autocarga con Grúa del Camión';
-    payload.discharge_method = 'Autocarga con Grúa del Camión';
-    payload.methodPOL = 'Autocarga con Grúa del Camión';
-    payload.methodPOD = 'Autocarga con Grúa del Camión';
-
-    payload.cargoName = text;
-    payload.cargoDescription = text;
-    payload.truckPayloadCapacity = 21000;
-    payload.dwt = 21000;
-    payload.cargaUtil = 21000;
-
-    // Anulación de asignaciones a granel
-    delete payload.bulk;
-    payload.isBulk = false;
-    payload.isPackaged = true;
-
-    detectedActions.push('Flota terrestre asignada a "Camión Plataforma con Grúa Autocarga" (regla de envasados/big bags)');
-  }
-
   // 9. Añadir pieza / carga de proyecto
   const isAddPiece = /(?:a[ñn]adir|agregar|nueva|meter|sumar|incluir|insertar|crear)\s*(?:una\s*)?(?:pieza|carga|bulto|equipo|transformador|skid|generador|maquinaria|item)/i.test(lower)
     || (lower.includes('pieza') && (lower.includes('añad') || lower.includes('agreg') || lower.includes('nueva') || lower.includes('meter') || lower.includes('crear')));
@@ -335,6 +298,71 @@ export function parseProjectInstruction(rawText) {
     payload.showFinancialBreakdown = true;
     payload.forceOpenModal = true;
     detectedActions.push('Desglose financiero activado: separación rigurosa de Flete Marítimo (Ocean Freight / TCE) y Costes FOB / Operativa Portuaria');
+  }
+
+  // Refuerzo de la condición (Aggressive Matching) y Relleno de seguridad (Fallback Override):
+  // Si PACKAGED_REGEX.test(text) es true, el payload DEBE forzarse sí o sí independientemente
+  // de si el analizador sintáctico principal encontró o no una "mercancía válida".
+  if (isPackagedMatch || PACKAGED_REGEX.test(text) || PACKAGED_REGEX.test(lower) || PACKAGED_REGEX.test(rawInput)) {
+    // Categoria: "Minerales y Construcción"
+    payload.categoriaCarga = 'Minerales y Construcción';
+    payload.cargo_category = 'Minerales y Construcción';
+    payload.cargoCategory = 'Minerales y Construcción';
+    payload.category = 'Minerales y Construcción';
+
+    // Producto: "Big Bags (Minerales/Cemento)"
+    payload.productoEspecifico = 'Big Bags (Minerales/Cemento)';
+    payload.cargo_product = 'Big Bags (Minerales/Cemento)';
+    payload.cargoProduct = 'Big Bags (Minerales/Cemento)';
+    payload.product = 'Big Bags (Minerales/Cemento)';
+
+    // Vehículo (vehicleType / truck_type): "Camión Plataforma con Grúa Autocarga"
+    payload.vehicleType = 'Camión Plataforma con Grúa Autocarga';
+    payload.vehicle_type = 'Camión Plataforma con Grúa Autocarga';
+    payload.truck_type = 'Camión Plataforma con Grúa Autocarga';
+    payload.truckType = 'Camión Plataforma con Grúa Autocarga';
+    payload.vessel_class = 'Camión Plataforma con Grúa Autocarga';
+
+    // Métodos de Carga y Descarga: "Autocarga con Grúa del Camión"
+    payload.loadingMethod = 'Autocarga con Grúa del Camión';
+    payload.dischargeMethod = 'Autocarga con Grúa del Camión';
+    payload.loading_method = 'Autocarga con Grúa del Camión';
+    payload.discharge_method = 'Autocarga con Grúa del Camión';
+    payload.metodo_carga = 'Autocarga con Grúa del Camión';
+    payload.metodo_descarga = 'Autocarga con Grúa del Camión';
+    payload.metodoCarga = 'Autocarga con Grúa del Camión';
+    payload.metodoDescarga = 'Autocarga con Grúa del Camión';
+    payload.methodPOL = 'Autocarga con Grúa del Camión';
+    payload.methodPOD = 'Autocarga con Grúa del Camión';
+
+    // Crucial: Si la propiedad cargoName o cargoDescription está vacía porque la frase era muy corta,
+    // asígnale el valor del propio texto original (ej. "big bags").
+    if (!payload.cargoName || String(payload.cargoName).trim() === '') {
+      payload.cargoName = text;
+    }
+    if (!payload.cargoDescription || String(payload.cargoDescription).trim() === '') {
+      payload.cargoDescription = text;
+    }
+    if (!payload.cargo_type || String(payload.cargo_type).trim() === '') {
+      payload.cargo_type = text;
+    }
+    if (!payload.cargoType || String(payload.cargoType).trim() === '') {
+      payload.cargoType = text;
+    }
+
+    payload.truckPayloadCapacity = 21000;
+    payload.dwt = 21000;
+    payload.cargaUtil = 21000;
+
+    // Anulación de asignaciones a granel
+    delete payload.bulk;
+    payload.isBulk = false;
+    payload.isPackaged = true;
+
+    const actionMsg = 'Flota terrestre asignada a "Camión Plataforma con Grúa Autocarga" (regla de envasados/big bags)';
+    if (!detectedActions.includes(actionMsg)) {
+      detectedActions.push(actionMsg);
+    }
   }
 
   // Generación de respuesta explicativa sin comportamiento de "loro"
