@@ -821,6 +821,7 @@ export function ForwarderWorkspace() {
 
   const [shippingMode, setShippingMode] = useState('Lo-Lo');
   const [vesselType, setVesselType] = useState('Geared Breakbulk (Lo-Lo)');
+  const [cargoCategory, setCargoCategory] = useState(activeProject?.cargoCategory || activeProject?.cargo_category || 'Carga Paletizada');
 
   const [isUnder40t, setIsUnder40t] = useState(false);
   const [tceActive, setTceActive] = useState(false);
@@ -982,6 +983,7 @@ export function ForwarderWorkspace() {
         // Hidratar lista de empaque / mercancía
         const syncItems = updated.items || updated.line_items || updated.data?.cargoItems || [];
         setCargoItems(syncItems);
+        if (updated.cargoCategory || updated.cargo_category) setCargoCategory(updated.cargoCategory || updated.cargo_category);
         const syncQuickTonnage = Number(updated.cargoQuantity || updated.cargo_quantity || updated.toneladas || updated.tonnes || updated.cargo || (typeof window !== 'undefined' ? window.State?.cargo : 0) || 0);
         if (syncQuickTonnage > 0 && syncItems.length === 0) {
           const quickProduct = updated.cargoType || updated.cargo_type || updated.product || (typeof window !== 'undefined' ? window.State?.cargoProduct : '') || 'Cemento a granel';
@@ -1084,6 +1086,9 @@ export function ForwarderWorkspace() {
 
       // Hidratar la Lista de Empaque (Mercancía)
       setCargoItems(activeProject.items || activeProject.line_items || activeProject.data?.cargoItems || []);
+      if (activeProject.cargoCategory || activeProject.cargo_category) {
+        setCargoCategory(activeProject.cargoCategory || activeProject.cargo_category);
+      }
 
       // Si el proyecto viene de una cotización rápida (ej. 10.000t de Cemento), sincronizar volumen global / input de toneladas
       const quickTonnage = Number(activeProject.cargoQuantity || activeProject.cargo_quantity || activeProject.toneladas || activeProject.tonnes || activeProject.cargo || (typeof window !== 'undefined' ? window.State?.cargo : 0) || 0);
@@ -2007,6 +2012,10 @@ export function ForwarderWorkspace() {
     }
     if (payload.demurrageDays !== undefined) {
       setActualLoadingDays(payload.demurrageDays);
+      hasChanges = true;
+    }
+    if (payload.cargoCategory || payload.cargo_category) {
+      setCargoCategory(payload.cargoCategory || payload.cargo_category);
       hasChanges = true;
     }
 
@@ -3334,6 +3343,26 @@ export function ForwarderWorkspace() {
                       </button>
                       <input ref={fileInputRef} type="file" multiple accept=".pdf,.xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleFileUpload} />
                       <button onClick={handleTriggerImport} className="px-4 py-2 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg cursor-pointer shadow-sm">🤖 Importar PDF/Excel</button>
+                      <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
+                        <label htmlFor="top-cargo-category" className="text-[11px] font-bold text-slate-600">Categoría Carga:</label>
+                        <select
+                          id="top-cargo-category"
+                          value={cargoCategory}
+                          onChange={(e) => {
+                            setCargoCategory(e.target.value);
+                            // Si existe una función handleCargoCategoryChange, úsala en su lugar
+                          }}
+                          className="text-xs font-bold bg-white border border-slate-300 rounded px-2 py-0.5 text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none cursor-pointer"
+                        >
+                          <option value="Carga Paletizada">Carga Paletizada</option>
+                          <option value="Sling Bags">Sling Bags</option>
+                          <option value="Sacos">Sacos</option>
+                          <option value="Carga General">Carga General</option>
+                          <option value="Graneles Sólidos / Minerales">Graneles Sólidos / Minerales</option>
+                          <option value="Mercancía Ensacada / Dry Bulk">Mercancía Ensacada / Dry Bulk</option>
+                          <option value="Carga de Proyecto / Heavy Lift">Carga de Proyecto / Heavy Lift</option>
+                        </select>
+                      </div>
                       <button onClick={handleAddCargoPiece} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg cursor-pointer shadow-sm">+ Añadir Pieza</button>
                       <button
                         type="button"
