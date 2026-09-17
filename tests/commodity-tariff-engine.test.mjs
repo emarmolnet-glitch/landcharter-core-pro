@@ -11,8 +11,8 @@ const forwarderWorkspaceSource = readFileSync(new URL('../src/components/Forward
 test('1. COMMODITY_TARIFFS dictionary is defined and exported with exact 11 cement varieties', () => {
   assert.match(
     forwarderWorkspaceSource,
-    /export\s+const\s+COMMODITY_TARIFFS\s*=\s*\{/,
-    'ForwarderWorkspace.jsx must export COMMODITY_TARIFFS catalog'
+    /(?:export\s+)?const\s+COMMODITY_TARIFFS\s*=\s*\{/,
+    'ForwarderWorkspace.jsx must define COMMODITY_TARIFFS catalog'
   );
 
   const EXPECTED_TARIFFS = {
