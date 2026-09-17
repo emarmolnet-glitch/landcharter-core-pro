@@ -339,9 +339,35 @@ export function normalizeNlpVoyagePayload(payload = {}, sourceText = "") {
     },
   } : undefined;
 
+  const combinedCargoCandidate = [
+    source.cargoName,
+    source.cargo_name,
+    source.cargo_type,
+    source.cargoType,
+    cargoDescription,
+    source.product,
+    source.category,
+    source.prompt,
+    sourceText,
+  ].filter(Boolean).join(" ");
+  const isPackagedCargo = /(big\s*bag|saco|sling|paletizad|envasad)/i.test(combinedCargoCandidate) && !/(granel|bulk)/i.test(combinedCargoCandidate);
+  let resolvedVehicle = source.vehicleType || source.vehicle_type || source.truck_type || source.truckType || source.vessel_class || source.vesselClass || '';
+  if (isPackagedCargo) {
+    if (!resolvedVehicle || resolvedVehicle === 'Buque recomendado' || resolvedVehicle === 'Camión / Tráiler' || resolvedVehicle.toLowerCase().includes('tauliner')) {
+      resolvedVehicle = 'Camión Plataforma con Grúa Autocarga';
+    }
+  }
+
   return {
     ...source,
     ...(cargoDescription ? { cargo_type: cargoDescription } : {}),
+    ...(resolvedVehicle ? {
+      vehicleType: resolvedVehicle,
+      vehicle_type: resolvedVehicle,
+      truck_type: resolvedVehicle,
+      vessel_class: resolvedVehicle,
+      ...(isPackagedCargo ? { truckPayloadCapacity: 21000, dwt: 21000 } : {}),
+    } : {}),
     ...(normalizedProjectCargo ? {
       projectCargo: normalizedProjectCargo,
       pesoUnitario: unitWeightMT,

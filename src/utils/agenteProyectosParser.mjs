@@ -227,6 +227,18 @@ export function parseProjectInstruction(rawText) {
     }
   }
 
+  // Regla de Flota Terrestre: Carga envasada / Big Bags en texto libre fuerza "Camión Plataforma con Grúa Autocarga"
+  const PACKAGED_REGEX = /(big\s*bag|saco|sling|paletizad|envasad)/i;
+  const BULK_REGEX = /(granel|bulk)/i;
+  if (PACKAGED_REGEX.test(lower) && !BULK_REGEX.test(lower)) {
+    payload.vehicleType = 'Camión Plataforma con Grúa Autocarga';
+    payload.truck_type = 'Camión Plataforma con Grúa Autocarga';
+    payload.cargoName = text;
+    payload.loadingMethod = 'Autocarga con Grúa del Camión';
+    payload.dischargeMethod = 'Autocarga con Grúa del Camión';
+    detectedActions.push('Flota terrestre asignada a "Camión Plataforma con Grúa Autocarga" (regla de envasados/big bags)');
+  }
+
   // 9. Añadir pieza / carga de proyecto
   const isAddPiece = /(?:a[ñn]adir|agregar|nueva|meter|sumar|incluir|insertar|crear)\s*(?:una\s*)?(?:pieza|carga|bulto|equipo|transformador|skid|generador|maquinaria|item)/i.test(lower)
     || (lower.includes('pieza') && (lower.includes('añad') || lower.includes('agreg') || lower.includes('nueva') || lower.includes('meter') || lower.includes('crear')));

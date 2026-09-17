@@ -624,6 +624,10 @@ export function detectCargoPackagingType(items = [], project = null) {
     if (project.cargoCategory) parts.push(project.cargoCategory);
     if (project.cargo_category) parts.push(project.cargo_category);
     if (project.description) parts.push(project.description);
+    if (project.cargoName) parts.push(project.cargoName);
+    if (project.cargo_name) parts.push(project.cargo_name);
+    if (project.prompt) parts.push(project.prompt);
+    if (project.instruction) parts.push(project.instruction);
   }
 
   const rawCombined = parts.join(' ');
@@ -662,7 +666,8 @@ export function detectCargoPackagingType(items = [], project = null) {
     norm.includes('envasad') ||
     norm.includes('envas') ||
     norm.includes('ensacad') ||
-    /(?:big|bog)[-\s_]*bags?/i.test(rawCombined);
+    /(?:big|bog)[-\s_]*bags?/i.test(rawCombined) ||
+    /(big\s*bag|saco|sling|paletizad|envasad)/i.test(rawCombined);
 
   if (isPackaged && !isStrictBulk) {
     return {
@@ -1474,9 +1479,21 @@ export function ForwarderWorkspace() {
   const [vesselType, setVesselType] = useState('Geared Breakbulk (Lo-Lo)');
   const [cargoCategory, setCargoCategory] = useState(activeProject?.cargoCategory || activeProject?.cargo_category || 'Carga Paletizada');
 
-  const [vehicleType, setVehicleType] = useState(
-    activeProject?.truck_type || activeProject?.vehicle_type || activeProject?.data?.truckType || 'Tráiler Tauliner (13.6m)'
-  );
+  const [vehicleType, setVehicleType] = useState(() => {
+    const rawCargo = [
+      activeProject?.cargoName,
+      activeProject?.cargo_name,
+      activeProject?.cargoType,
+      activeProject?.cargo_type,
+      activeProject?.commodity,
+      activeProject?.description,
+      typeof window !== 'undefined' ? (window.State?.cargoName || window.State?.cargo_type) : ''
+    ].filter(Boolean).join(' ');
+    if (/(big\s*bag|saco|sling|paletizad|envasad)/i.test(rawCargo) && !/(granel|bulk)/i.test(rawCargo)) {
+      return 'Camión Plataforma con Grúa Autocarga';
+    }
+    return activeProject?.truck_type || activeProject?.vehicle_type || activeProject?.data?.truckType || 'Tráiler Tauliner (13.6m)';
+  });
   const [loadingMethod, setLoadingMethod] = useState(
     activeProject?.loading_method || activeProject?.metodo_carga || 'Carga Lateral (Lona / Tauliner)'
   );
@@ -1559,6 +1576,30 @@ export function ForwarderWorkspace() {
       if (execEl) execEl.textContent = vehicleType;
     }
   }, [vehicleType]);
+
+  // Sincronización reactiva con eventos emitidos por Cerebro.ia y Agente NLP
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleAssistantFieldUpdate = (e) => {
+      const field = e?.detail?.field;
+      const val = e?.detail?.value || e?.detail?.vehicleType;
+      if ((field === 'vehicleType' || field === 'vehicle_type' || field === 'truckType' || field === 'truck_type') && val) {
+        handleVehicleTypeChange(val);
+      }
+    };
+    const handleVehicleTypeCustomEvent = (e) => {
+      const val = e?.detail?.vehicleType || e?.detail?.selectedType;
+      if (val) {
+        handleVehicleTypeChange(val);
+      }
+    };
+    window.addEventListener('sea-assistant:field-updated', handleAssistantFieldUpdate);
+    window.addEventListener('vehicle-type:selected', handleVehicleTypeCustomEvent);
+    return () => {
+      window.removeEventListener('sea-assistant:field-updated', handleAssistantFieldUpdate);
+      window.removeEventListener('vehicle-type:selected', handleVehicleTypeCustomEvent);
+    };
+  }, []);
 
   const [isCommodityTariffActive, setIsCommodityTariffActive] = useState(false);
   const [isUnder40t, setIsUnder40t] = useState(false);
@@ -2437,6 +2478,25 @@ export function ForwarderWorkspace() {
           setDischargeMethod('Autocarga con Grúa del Camión');
           setShippingMode('Camión Plataforma con Grúa Autocarga');
           setVesselType('Plataforma con Grúa Autocarga (21t)');
+          if (typeof window !== 'undefined') {
+            window.State = window.State || {};
+            window.State.vehicleType = 'Camión Plataforma con Grúa Autocarga';
+            window.State.truckType = 'Camión Plataforma con Grúa Autocarga';
+            window.State.truckPayloadCapacity = 21000;
+            window.State.cargaUtil = 21000;
+            window.State.dwt = 21000;
+            if (typeof window.handleVehicleTypeSelection === 'function') {
+              window.handleVehicleTypeSelection('Camión Plataforma con Grúa Autocarga');
+            }
+          }
+          if (typeof document !== 'undefined') {
+            const inputEl = document.getElementById('nombre-buque-calculadora');
+            if (inputEl) inputEl.value = 'Camión Plataforma con Grúa Autocarga';
+            const badgeEl = document.getElementById('vessel-badge');
+            if (badgeEl) badgeEl.innerText = 'Camión Plataforma con Grúa Autocarga';
+            const execEl = document.getElementById('exec-vessel-type');
+            if (execEl) execEl.textContent = 'Camión Plataforma con Grúa Autocarga';
+          }
         } else if (detectedTariff.isBulk) {
           setVehicleType('Bañera Basculante (Granel)');
           setLoadingMethod('Carga por Silo / Tubo (Granel)');
@@ -2469,6 +2529,25 @@ export function ForwarderWorkspace() {
         setVehicleType('Camión Plataforma con Grúa Autocarga');
         setLoadingMethod('Autocarga con Grúa del Camión');
         setDischargeMethod('Autocarga con Grúa del Camión');
+        if (typeof window !== 'undefined') {
+          window.State = window.State || {};
+          window.State.vehicleType = 'Camión Plataforma con Grúa Autocarga';
+          window.State.truckType = 'Camión Plataforma con Grúa Autocarga';
+          window.State.truckPayloadCapacity = 21000;
+          window.State.cargaUtil = 21000;
+          window.State.dwt = 21000;
+          if (typeof window.handleVehicleTypeSelection === 'function') {
+            window.handleVehicleTypeSelection('Camión Plataforma con Grúa Autocarga');
+          }
+        }
+        if (typeof document !== 'undefined') {
+          const inputEl = document.getElementById('nombre-buque-calculadora');
+          if (inputEl) inputEl.value = 'Camión Plataforma con Grúa Autocarga';
+          const badgeEl = document.getElementById('vessel-badge');
+          if (badgeEl) badgeEl.innerText = 'Camión Plataforma con Grúa Autocarga';
+          const execEl = document.getElementById('exec-vessel-type');
+          if (execEl) execEl.textContent = 'Camión Plataforma con Grúa Autocarga';
+        }
       } else if (detectedNonTariff.isBulk) {
         setVehicleType('Bañera Basculante (Granel)');
         setLoadingMethod('Carga por Silo / Tubo (Granel)');
@@ -2847,6 +2926,65 @@ export function ForwarderWorkspace() {
     let updatedProject = { ...currentProject };
     let hasChanges = false;
 
+    // Regla de Flota para Mercancía Envasada / Big Bags en NLP y Chat Libre (Cerebro.ia)
+    const detectedCargoCandidate = [
+      payload.cargoName,
+      payload.cargo_name,
+      payload.cargoDescription,
+      payload.cargo_type,
+      payload.cargoType,
+      payload.mercancia,
+      payload.mercancía,
+      payload.cargo,
+      payload.product,
+      payload.type,
+      payload.commodity,
+      payload.prompt,
+      payload.instruction,
+      payload.message,
+      payload.text,
+      payload.item?.type,
+      payload.item?.category,
+      payload.newItem?.type,
+      payload.newItem?.category,
+      payload.payload?.type,
+      payload.payload?.category,
+    ].filter(Boolean).join(' ');
+
+    const PACKAGED_REGEX = /(big\s*bag|saco|sling|paletizad|envasad)/i;
+    const BULK_REGEX = /(granel|bulk)/i;
+    const isPackagedFromNlp = PACKAGED_REGEX.test(detectedCargoCandidate) && !BULK_REGEX.test(detectedCargoCandidate);
+
+    if (isPackagedFromNlp) {
+      const targetVehicle = 'Camión Plataforma con Grúa Autocarga';
+      handleVehicleTypeChange('Camión Plataforma con Grúa Autocarga');
+      setVehicleType('Camión Plataforma con Grúa Autocarga');
+      setLoadingMethod('Autocarga con Grúa del Camión');
+      setDischargeMethod('Autocarga con Grúa del Camión');
+      updatedProject.truck_type = targetVehicle;
+      updatedProject.vehicle_type = targetVehicle;
+      if (typeof window !== 'undefined') {
+        window.State = window.State || {};
+        window.State.vehicleType = targetVehicle;
+        window.State.truckType = targetVehicle;
+        window.State.truckPayloadCapacity = 21000;
+        window.State.cargaUtil = 21000;
+        window.State.dwt = 21000;
+        if (typeof window.handleVehicleTypeSelection === 'function') {
+          window.handleVehicleTypeSelection(targetVehicle);
+        }
+      }
+      if (typeof document !== 'undefined') {
+        const inputEl = document.getElementById('nombre-buque-calculadora');
+        if (inputEl) inputEl.value = targetVehicle;
+        const badgeEl = document.getElementById('vessel-badge');
+        if (badgeEl) badgeEl.innerText = targetVehicle;
+        const execEl = document.getElementById('exec-vessel-type');
+        if (execEl) execEl.textContent = targetVehicle;
+      }
+      hasChanges = true;
+    }
+
     if (payload.instruction) {
       const text = payload.instruction.toLowerCase();
       const matchNumber = (str) => {
@@ -2943,11 +3081,11 @@ export function ForwarderWorkspace() {
       setDischargingRate(Number(payload.dischargingRate || payload.dischargeRate || payload.dischargingRateMtDay));
       hasChanges = true;
     }
-    if (payload.cargoDescription || payload.quantityMT) {
-      const description = String(payload.cargoDescription || 'Carga de Proyecto').trim();
-      const qtyTons = Number(payload.quantityMT) || 0;
+    if (payload.cargoDescription || payload.quantityMT || payload.cargoName || payload.cargo_name || payload.cargo_type || payload.cargoType) {
+      const description = String(payload.cargoName || payload.cargo_name || payload.cargoDescription || payload.cargo_type || payload.cargoType || 'Carga de Proyecto').trim();
+      const qtyTons = Number(payload.quantityMT || payload.cargo_qty || payload.cargoQty || payload.tonnage) || 0;
       const weightKg = qtyTons > 0 ? qtyTons * 1000 : 25000;
-      const isBigBags = /bag|big[- ]?bag|saco|cemento|clinker|grano/i.test(description);
+      const isBigBags = isPackagedFromNlp || /bag|big[- ]?bag|saco|cemento|clinker|grano/i.test(description);
 
       const newItem = {
         id: `item-${Date.now()}-ai`,

@@ -391,6 +391,8 @@ Contexto actual del proyecto: ${projectContext}`;
                 newItem: newPackingItem,
                 items: [...currentProjectItems, newPackingItem],
                 forceOpenModal: true,
+                prompt: raw,
+                cargoName: itemPayload.type || raw,
                 ...itemPayload
               });
             }
@@ -405,6 +407,8 @@ Contexto actual del proyecto: ${projectContext}`;
                 cargoDescription: actPayload.cargoDescription,
                 quantityMT: actPayload.quantityMT,
                 forceOpenModal: true,
+                prompt: raw,
+                cargoName: actPayload.cargoName || actPayload.cargoDescription || raw,
                 ...actPayload
               });
             }
@@ -420,6 +424,8 @@ Contexto actual del proyecto: ${projectContext}`;
           cargoDescription: actionData.cargoDescription,
           quantityMT: actionData.quantityMT,
           forceOpenModal: true,
+          prompt: raw,
+          cargoName: actionData.cargoName || actionData.cargoDescription || raw,
           ...actionData
         });
       } else if (data.functionCall && onUpdatePayload) {
@@ -432,8 +438,23 @@ Contexto actual del proyecto: ${projectContext}`;
           cargoDescription: args.cargoDescription,
           quantityMT: args.quantityMT,
           forceOpenModal: true,
+          prompt: raw,
+          cargoName: args.cargoName || args.cargoDescription || raw,
           ...args
         });
+      } else if (onUpdatePayload) {
+        const isPackagedText = /(big\s*bag|saco|sling|paletizad|envasad)/i.test(raw) && !/(granel|bulk)/i.test(raw);
+        if (isPackagedText) {
+          onUpdatePayload({
+            action: 'update_form',
+            cargoName: raw,
+            cargoDescription: raw,
+            prompt: raw,
+            vehicleType: 'Camión Plataforma con Grúa Autocarga',
+            truck_type: 'Camión Plataforma con Grúa Autocarga',
+            forceOpenModal: true,
+          });
+        }
       }
     } catch (err) {
       console.error('Error al enviar mensaje a asistente conversacional:', err);
