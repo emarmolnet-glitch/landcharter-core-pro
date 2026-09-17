@@ -8,6 +8,8 @@ const responseHeaders = {
 };
 
 export const VEHICLE_TYPES = [
+  { id: 'plataforma_grua', name: 'Camión Plataforma con Grúa Autocarga', payloadKg: 21000, consumptionPer100Km: 34.0, dailyOpex: 380 },
+  { id: 'plataforma_abierta', name: 'Camión Plataforma Abierta (Sin Grúa)', payloadKg: 24000, consumptionPer100Km: 31.5, dailyOpex: 340 },
   { id: 'lona_estandar', name: 'Lona Estándar', payloadKg: 24000, consumptionPer100Km: 31.5, dailyOpex: 340 },
   { id: 'frigorifico', name: 'Frigorífico', payloadKg: 22000, consumptionPer100Km: 34.0, dailyOpex: 390 },
   { id: 'mega_lona', name: 'Mega Lona', payloadKg: 24000, consumptionPer100Km: 33.0, dailyOpex: 350 },

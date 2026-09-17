@@ -613,6 +613,8 @@ export const voyageStore = createStore(subscribeWithSelector((set, get) => ({
     selectVehicleType: (vehicleOrName) => set((current) => {
         let matched = null;
         const list = current.draft.vehicleTypes?.length ? current.draft.vehicleTypes : [
+            { id: 'plataforma_grua', name: 'Camión Plataforma con Grúa Autocarga', payloadKg: 21000, consumptionPer100Km: 34.0 },
+            { id: 'plataforma_abierta', name: 'Camión Plataforma Abierta (Sin Grúa)', payloadKg: 24000, consumptionPer100Km: 31.5 },
             { id: 'lona_estandar', name: 'Lona Estándar', payloadKg: 24000, consumptionPer100Km: 31.5 },
             { id: 'frigorifico', name: 'Frigorífico', payloadKg: 22000, consumptionPer100Km: 34.0 },
             { id: 'mega_lona', name: 'Mega Lona', payloadKg: 24000, consumptionPer100Km: 33.0 },
@@ -626,6 +628,7 @@ export const voyageStore = createStore(subscribeWithSelector((set, get) => ({
                 const name = v.name.toLowerCase();
                 const id = (v.id || '').toLowerCase();
                 return name === query || id === query ||
+                    ((query.includes('plataforma') || query.includes('grua') || query.includes('grúa')) && name.includes('plataforma')) ||
                     (query.includes('frigo') && name.includes('frigo')) ||
                     (query.includes('mega') && name.includes('mega')) ||
                     (query.includes('tren') && name.includes('tren')) ||
