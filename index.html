@@ -38048,6 +38048,22 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                     }
                 }
 
+                if (matched.name === 'Camión Plataforma con Grúa Autocarga' || String(matched.name).includes('Grúa Autocarga')) {
+                    if (typeof selectMethodPill === 'function') {
+                        selectMethodPill('pol', 'Autocarga con Grúa del Camión');
+                        selectMethodPill('pod', 'Autocarga con Grúa del Camión');
+                    } else {
+                        const polEl = document.getElementById('metodo_carga');
+                        const podEl = document.getElementById('metodo_descarga_pod');
+                        if (polEl) polEl.value = 'autocarga_grua_camion';
+                        if (podEl) podEl.value = 'autocarga_grua_camion';
+                    }
+                    if (typeof renderMethodPills === 'function') {
+                        renderMethodPills('pol');
+                        renderMethodPills('pod');
+                    }
+                }
+
                 if (!options.deferEngine && typeof runEngine === 'function') {
                     runEngine();
                 }
@@ -63669,6 +63685,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         initializeSharedGenconSelectors();
 
         const methodBaseRates = Object.freeze({
+            'Autocarga con Grúa del Camión': 20,
             'Carga Lateral (Lona / Tauliner)': 25,
             'Carga Trasera por Muelle / Rampa': 30,
             'Carga Superior (Puente Grúa / Techo descapotable)': 20,
@@ -63691,6 +63708,8 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             'Camión Tolva': 'custom'
         });
         const METHOD_LABEL_BY_VALUE = Object.freeze({
+            autocarga_grua_camion: 'Autocarga con Grúa del Camión',
+            carga_superior_grua: 'Carga Superior (Grúa Portuaria / Puente Grúa)',
             carga_lateral_tauliner: 'Carga Lateral (Lona / Tauliner)',
             carga_trasera_muelle: 'Carga Trasera por Muelle / Rampa',
             carga_superior_techo: 'Carga Superior (Puente Grúa / Techo descapotable)',
@@ -64230,6 +64249,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
 
             const allowedLabels = [...new Set(equipmentMatrix[category] || Object.values(METHOD_LABEL_BY_VALUE))];
             const terrestrialLabels = [
+                'Autocarga con Grúa del Camión',
                 'Carga Lateral (Lona / Tauliner)',
                 'Carga Trasera por Muelle / Rampa',
                 'Carga Superior (Puente Grúa / Techo descapotable)',
@@ -64237,6 +64257,9 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 'Carga por Silo / Tubo (Granel)'
             ];
             const filteredLabels = allowedLabels.filter((label) => terrestrialLabels.includes(label));
+            if (!filteredLabels.includes('Autocarga con Grúa del Camión')) {
+                filteredLabels.unshift('Autocarga con Grúa del Camión');
+            }
             const displayLabels = filteredLabels.length > 0 ? filteredLabels : terrestrialLabels;
             const currentLabel = getSelectedMethodLabel(side) || displayLabels[0];
 
@@ -64300,6 +64323,21 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             handlePortMethodChange(side);
             if (isCraneMethod(label)) {
                 calcularRitmoGrua(side);
+            }
+            if (label === 'Autocarga con Grúa del Camión' || methodValue === 'autocarga_grua_camion') {
+                const horasInputId = side === 'pod' ? 'horas-previstas-descarga' : 'horas-previstas-carga';
+                const horasInput = document.getElementById(horasInputId);
+                const cargoEl = document.getElementById('cargo-qty');
+                const rawCargo = parseFloat(cargoEl?.value) || parseFloat(window.State?.cargoQty) || 24;
+                const pesoEnToneladas = rawCargo > 500 ? (rawCargo / 1000) : (rawCargo > 0 ? rawCargo : 24);
+                const ratioOperativo = 20;
+                const horasCalculadas = Math.round((pesoEnToneladas / ratioOperativo) * 10) / 10;
+                if (horasInput) {
+                    horasInput.value = String(horasCalculadas);
+                }
+                if (typeof updateSection2LocalState === 'function') {
+                    updateSection2LocalState(horasInputId, String(horasCalculadas));
+                }
             }
             if (methodValue === 'camion_tolva' && side === 'pol' && typeof actualizarModuloCamionTolva === 'function') {
                 actualizarModuloCamionTolva();
@@ -64656,14 +64694,14 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         // FASE 1: ALERTA DE COMPATIBILIDAD (CARGA VS. MÉTODO)
         // ==========================================
         const cargoCompatibilityMap = Object.freeze({
-            "Minerales y Construcción": ['Cuchara (Grab) - Grúa Barco', 'Cuchara (Grab) - Grúa Portuaria', 'Cinta Transportadora', 'Bombas Neumáticas', 'Camión Tolva'],
-            "Biomasa y Combustibles Sólidos": ['Cuchara (Grab) - Grúa Barco', 'Cuchara (Grab) - Grúa Portuaria', 'Cinta Transportadora', 'Bombas Neumáticas', 'Camión Tolva'],
-            "Carga Unificada / Sacos": ['Big Bags - Grúa Barco', 'Big Bags - Grúa Portuaria', 'Paletizado - Grúa Barco', 'Paletizado - Grúa Portuaria'],
-            "Carga Unitarizada / Envasada": ['Big Bags - Grúa Barco', 'Big Bags - Grúa Portuaria', 'Paletizado - Grúa Barco', 'Paletizado - Grúa Portuaria'],
-            "Carga Unitizada / Envasada": ['Big Bags - Grúa Barco', 'Big Bags - Grúa Portuaria', 'Paletizado - Grúa Barco', 'Paletizado - Grúa Portuaria'],
-            "Carga General / Proyectos": ['Hierro/Acero - Grúa Barco', 'Hierro/Acero - Grúa Portuaria'],
-            "Carga Siderúrgica y Metales": ['Hierro/Acero - Grúa Barco', 'Hierro/Acero - Grúa Portuaria'],
-            "Carga de Proyecto (Breakbulk)": ['Hierro/Acero - Grúa Barco', 'Hierro/Acero - Grúa Portuaria']
+            "Minerales y Construcción": ['Cuchara (Grab) - Grúa Barco', 'Cuchara (Grab) - Grúa Portuaria', 'Cinta Transportadora', 'Bombas Neumáticas', 'Camión Tolva', 'Autocarga con Grúa del Camión'],
+            "Biomasa y Combustibles Sólidos": ['Cuchara (Grab) - Grúa Barco', 'Cuchara (Grab) - Grúa Portuaria', 'Cinta Transportadora', 'Bombas Neumáticas', 'Camión Tolva', 'Autocarga con Grúa del Camión'],
+            "Carga Unificada / Sacos": ['Big Bags - Grúa Barco', 'Big Bags - Grúa Portuaria', 'Paletizado - Grúa Barco', 'Paletizado - Grúa Portuaria', 'Autocarga con Grúa del Camión'],
+            "Carga Unitarizada / Envasada": ['Big Bags - Grúa Barco', 'Big Bags - Grúa Portuaria', 'Paletizado - Grúa Barco', 'Paletizado - Grúa Portuaria', 'Autocarga con Grúa del Camión'],
+            "Carga Unitizada / Envasada": ['Big Bags - Grúa Barco', 'Big Bags - Grúa Portuaria', 'Paletizado - Grúa Barco', 'Paletizado - Grúa Portuaria', 'Autocarga con Grúa del Camión'],
+            "Carga General / Proyectos": ['Hierro/Acero - Grúa Barco', 'Hierro/Acero - Grúa Portuaria', 'Autocarga con Grúa del Camión'],
+            "Carga Siderúrgica y Metales": ['Hierro/Acero - Grúa Barco', 'Hierro/Acero - Grúa Portuaria', 'Autocarga con Grúa del Camión'],
+            "Carga de Proyecto (Breakbulk)": ['Hierro/Acero - Grúa Barco', 'Hierro/Acero - Grúa Portuaria', 'Autocarga con Grúa del Camión']
         });
 
         let metodoPolInvalido = false;
@@ -64684,6 +64722,22 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             // NUEVO: El "Indulto" para los Big Bags. 
             // Si el usuario elige "Big Bags" en el producto, Y el método incluye "Big Bags", perdonamos la alerta.
             if (specificProduct.includes('Big Bags') && selectedLabel && selectedLabel.includes('Big Bags')) {
+                isInvalid = false;
+            }
+
+            // REGLA CAMIONES PLUMA / AUTOCARGA:
+            // Si el vehículo es "Camión Plataforma con Grúa Autocarga", el método "Autocarga con Grúa del Camión"
+            // es 100% compatible y omite la alerta, especialmente para la categoría "Minerales y Construcción" o "Big Bags".
+            const currentVehicle = (
+                (typeof State !== 'undefined' && (State.vehicleType || State.truckType)) ||
+                document.getElementById('nombre-buque-calculadora')?.value ||
+                document.getElementById('vehicle_type')?.value ||
+                ''
+            ).trim();
+            const isPlataformaGrua = currentVehicle === 'Camión Plataforma con Grúa Autocarga' || currentVehicle.toLowerCase().includes('grúa autocarga');
+            const isAutocargaMethod = selectedLabel === 'Autocarga con Grúa del Camión';
+
+            if (isAutocargaMethod && (isPlataformaGrua || category === 'Minerales y Construcción' || specificProduct.includes('Big Bags'))) {
                 isInvalid = false;
             }
 
@@ -70458,6 +70512,10 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                             turnTimeEl.value = '12';
                             if (window.State) window.State.turnTimeHours = 12;
                         }
+                    } else if (methodVal === 'autocarga_grua_camion' || methodLabel === 'Autocarga con Grúa del Camión') {
+                        // REGLA AUTOCARGA CON GRÚA DEL CAMIÓN:
+                        // Ratio base de 20 (20 TM/h o 20 bultos/h). En ritmo diario (TM/D) equivale a 20 * 24 = 480 TM/D o ratio 20 t/h.
+                        estimatedTpd = 20 * 24; // 480 TM/D
                     } else if (typeof window.isCraneMethod === 'function' && window.isCraneMethod(methodLabel)) {
                         if (typeof window.calcularRitmoEfectivo === 'function') {
                             estimatedTpd = window.calcularRitmoEfectivo(s);
@@ -70470,6 +70528,22 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                         rateInput.value = String(Math.round(estimatedTpd));
                         if (s === 'pol') window.State.loadRate = estimatedTpd;
                         else window.State.dischRate = estimatedTpd;
+                    }
+                }
+
+                // Autocompletar Horas previstas de Carga / Descarga si el método es Autocarga con Grúa del Camión
+                if (methodVal === 'autocarga_grua_camion' || methodLabel === 'Autocarga con Grúa del Camión') {
+                    const horasInputId = s === 'pod' ? 'horas-previstas-descarga' : 'horas-previstas-carga';
+                    const horasInput = document.getElementById(horasInputId);
+                    if (horasInput) {
+                        // Peso total de la carga (ej. 24,000 kg o 24 TM) entre el ratio (20 TM/h)
+                        const pesoEnToneladas = cargoQty > 500 ? (cargoQty / 1000) : (cargoQty > 0 ? cargoQty : 24);
+                        const ratioOperativo = 20;
+                        const horasCalculadas = Math.round((pesoEnToneladas / ratioOperativo) * 10) / 10;
+                        horasInput.value = String(horasCalculadas);
+                        if (typeof window.updateSection2LocalState === 'function') {
+                            window.updateSection2LocalState(horasInputId, String(horasCalculadas));
+                        }
                     }
                 }
 
