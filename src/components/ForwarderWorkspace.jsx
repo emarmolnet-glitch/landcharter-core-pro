@@ -1454,6 +1454,7 @@ export function ForwarderWorkspace() {
   const feedbackTimeoutRef = useRef(null);
   const [capacityWarning, setCapacityWarning] = useState(null);
   const [financialBreakdown, setFinancialBreakdown] = useState(null);
+  const [fobMasMercanciaUnitario, setFobMasMercanciaUnitario] = useState(0);
   const [projectDocuments, setprojectDocuments] = useState([]);
   const lastHydratedProjectIdRef = useRef(null);
 
@@ -2736,6 +2737,49 @@ export function ForwarderWorkspace() {
     demurrageDailyRateUsd,
   ]);
 
+  // Cálculo y Renderizado Reactivo de "FOB + Mercancía Unitario"
+  useEffect(() => {
+    const rawGoodsVal = Number(
+      activeProject?.valor_total_mercancia_usd
+      ?? activeProject?.goodsValue
+      ?? activeProject?.merchandiseValue
+      ?? activeProject?.cargo_value
+      ?? activeProject?.data?.goodsValue
+      ?? activeProject?.data?.financials?.goodsValue
+      ?? (typeof window !== 'undefined' && window.State ? (window.State.goodsValue || window.State.valor_total_mercancia_usd || window.State.merchandiseValue || window.State.cargoValue) : 0)
+      ?? 0
+    );
+
+    const packingKg = (cargoItems || []).reduce((acc, it) => acc + ((Number(it.quantity) || 1) * (parseFloat(it.unit_weight_kg ?? it.weight) || 0)), 0) || (totals?.weight || 0);
+    const packingTons = packingKg > 0 ? packingKg / 1000 : 0;
+    const stateTons = typeof window !== 'undefined' && window.State ? (Number(window.State.cargo) || Number(window.State.dwt) || Number(window.State.cargoQuantity) || 0) : 0;
+    const projTons = Number(activeProject?.cargoQuantity || activeProject?.toneladas || activeProject?.tonnes || activeProject?.cargo || 0);
+    const effectiveTons = packingTons > 0 ? packingTons : (stateTons > 0 ? stateTons : (projTons > 0 ? projTons : 1));
+
+    if (rawGoodsVal > 0 && effectiveTons > 0) {
+      const unitMercancia = rawGoodsVal / effectiveTons;
+      const fleteUnit = Number(activeReport?.flete_unitario_usd_mt ?? financialBreakdown?.flete_unitario_usd_mt ?? (Number(subtotalFreight || estimatedCost || 0) / effectiveTons) ?? 0);
+      const fobUnit = Number(subtotalFobOperations || 0) / effectiveTons;
+      const baseFreightOrFob = fobUnit > 0 ? fobUnit : fleteUnit;
+      const totalRatio = Number((baseFreightOrFob + unitMercancia).toFixed(2));
+
+      setFobMasMercanciaUnitario(totalRatio);
+      setFinancialBreakdown((prev) => ({
+        ...(prev || {}),
+        fob_mas_mercancia_unitario_usd_mt: totalRatio,
+        valor_total_mercancia_usd: rawGoodsVal,
+        toneladas: effectiveTons
+      }));
+      if (activeReport) {
+        setActiveReport((prev) => prev ? {
+          ...prev,
+          fob_mas_mercancia_unitario_usd_mt: totalRatio,
+          valor_total_mercancia_usd: rawGoodsVal
+        } : prev);
+      }
+    }
+  }, [cargoItems, totals, activeProject, subtotalFreight, subtotalFobOperations, estimatedCost]);
+
   useEffect(() => {
     if (isDualTradingOpen && dualViewRef.current) {
       const dualView = dualViewRef.current;
@@ -3370,7 +3414,13 @@ export function ForwarderWorkspace() {
     const finalTotalMargin = isTariffActive ? officialMargin : (Math.round((finalTotalSale - finalTotalCost) * 100) / 100);
     const unitRateSale = reportRT > 0 ? finalTotalSale / reportRT : 0;
 
-    const toneladas = totalWeightTons > 0 ? totalWeightTons : (reportRT > 0 ? reportRT : 1);
+    const stateCargoTons = typeof window !== 'undefined' && window.State
+      ? (Number(window.State.cargo) || Number(window.State.dwt) || Number(window.State.cargoQuantity) || 0)
+      : 0;
+    const projectTons = Number(activeProject?.cargoQuantity || activeProject?.toneladas || activeProject?.tonnes || activeProject?.cargo || 0);
+    const packingListTons = totalWeightTons > 0 ? totalWeightTons : (wTotalKg > 0 ? wTotalKg / 1000 : 0);
+    const effectiveTotalTons = packingListTons > 0 ? packingListTons : (stateCargoTons > 0 ? stateCargoTons : (projectTons > 0 ? projectTons : (reportRT > 0 ? reportRT : 1)));
+    const toneladas = effectiveTotalTons > 0 ? effectiveTotalTons : 1;
 
     // Flete total en USD
     let fleteTotalUsd = 0;
@@ -3397,15 +3447,35 @@ export function ForwarderWorkspace() {
       costesFobTotalesUsd = Math.round(fobOpsCostUsd * 100) / 100;
     }
 
-    if (sourcePayload?.financialBreakdown?.valor_total_mercancia_usd != null) {
+    const effectiveGoodsValue = Number(
+      sourcePayload?.financialBreakdown?.valor_total_mercancia_usd
+      ?? sourcePayload?.valor_total_mercancia_usd
+      ?? sourcePayload?.goodsValue
+      ?? sourcePayload?.merchandiseValue
+      ?? activeProject?.valor_total_mercancia_usd
+      ?? activeProject?.goodsValue
+      ?? activeProject?.merchandiseValue
+      ?? activeProject?.cargo_value
+      ?? activeProject?.data?.goodsValue
+      ?? activeProject?.data?.financials?.goodsValue
+      ?? (typeof window !== 'undefined' && window.State ? (window.State.goodsValue || window.State.valor_total_mercancia_usd || window.State.merchandiseValue || window.State.cargoValue) : 0)
+      ?? custCost
+      ?? 0
+    );
+
+    if (sourcePayload?.financialBreakdown?.valor_total_mercancia_usd != null && Number(sourcePayload.financialBreakdown.valor_total_mercancia_usd) > 0) {
       valorTotalMercanciaUsd = Number(sourcePayload.financialBreakdown.valor_total_mercancia_usd);
-    } else if (sourcePayload?.valor_total_mercancia_usd != null) {
+    } else if (sourcePayload?.valor_total_mercancia_usd != null && Number(sourcePayload.valor_total_mercancia_usd) > 0) {
       valorTotalMercanciaUsd = Number(sourcePayload.valor_total_mercancia_usd);
+    } else if (effectiveGoodsValue > 0) {
+      valorTotalMercanciaUsd = Math.round(effectiveGoodsValue * 100) / 100;
     } else {
       valorTotalMercanciaUsd = Math.round(valorMercanciaUsd * 100) / 100;
     }
 
-    // Ratios unitarios en USD/MT: fob_mas_mercancia_unitario_usd_mt = subtotalFobOperations en USD / toneladas
+    // Ratios unitarios en USD/MT:
+    // Si existe un valor total de la mercancía (goodsValue o importado de Data Bridge), divídelo entre las toneladas totales de la carga
+    // (State.cargo, State.dwt o la suma de kilos del packing list) para obtener el unitario. Súmalo al coste unitario del flete si procede.
     let fleteUnitarioUsdMt = 0;
     let fobMasMercanciaUnitarioUsdMt = 0;
 
@@ -3417,12 +3487,19 @@ export function ForwarderWorkspace() {
       fleteUnitarioUsdMt = toneladas > 0 ? Math.round((fleteTotalUsd / toneladas) * 100) / 100 : 0;
     }
 
-    if (sourcePayload?.financialBreakdown?.fob_mas_mercancia_unitario_usd_mt != null) {
+    if (sourcePayload?.financialBreakdown?.fob_mas_mercancia_unitario_usd_mt != null && Number(sourcePayload.financialBreakdown.fob_mas_mercancia_unitario_usd_mt) > 0) {
       fobMasMercanciaUnitarioUsdMt = Number(sourcePayload.financialBreakdown.fob_mas_mercancia_unitario_usd_mt);
-    } else if (sourcePayload?.fob_mas_mercancia_unitario_usd_mt != null) {
+    } else if (sourcePayload?.fob_mas_mercancia_unitario_usd_mt != null && Number(sourcePayload.fob_mas_mercancia_unitario_usd_mt) > 0) {
       fobMasMercanciaUnitarioUsdMt = Number(sourcePayload.fob_mas_mercancia_unitario_usd_mt);
     } else {
-      fobMasMercanciaUnitarioUsdMt = toneladas > 0 ? Math.round((fobSubtotal / toneladas) * 100) / 100 : 0;
+      const goodsUnitaryUsd = toneladas > 0 ? (valorTotalMercanciaUsd / toneladas) : 0;
+      const fobBaseUnitary = toneladas > 0 ? (fobSubtotal / toneladas) : 0;
+      if (goodsUnitaryUsd > 0) {
+        const baseUnit = fobBaseUnitary > 0 ? fobBaseUnitary : fleteUnitarioUsdMt;
+        fobMasMercanciaUnitarioUsdMt = Math.round((baseUnit + goodsUnitaryUsd) * 100) / 100;
+      } else {
+        fobMasMercanciaUnitarioUsdMt = toneladas > 0 ? Math.round((fobSubtotal / toneladas) * 100) / 100 : 0;
+      }
     }
 
     // Desglose detallado de partidas FOB y Operativas para el Reporte Ejecutivo
@@ -3826,9 +3903,42 @@ export function ForwarderWorkspace() {
         estimatedCost,
         salePrice
       });
+
+      // Blindar el Pipeline de Sincronización contra fallos gráficos de Leaflet / DOM
+      try {
+        if (typeof window !== 'undefined') {
+          if (typeof window.renderRouteOnMap === 'function') {
+            window.renderRouteOnMap();
+          }
+          if (typeof window.sendMapDataToDataBridge === 'function') {
+            window.sendMapDataToDataBridge();
+          }
+          if (typeof window.MapController?.renderMapData === 'function') {
+            window.MapController.renderMapData();
+          }
+        }
+      } catch (mapErr) {
+        console.warn('Aviso no bloqueante en renderizado de mapa durante guardado de flete y estiba:', mapErr);
+      }
+
       const currentReportSnapshot = buildExecutiveReportData();
       setActiveReport(currentReportSnapshot);
       setReportData(currentReportSnapshot);
+
+      const calculatedLandFreightCost = parseFloat(estimatedCost)
+        || currentReportSnapshot?.finalTotalCost
+        || currentReportSnapshot?.fleteCostNum
+        || (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0)
+        || 0;
+
+      const merchandiseValueUsd = Number(
+        currentReportSnapshot?.valor_total_mercancia_usd
+        ?? activeProject?.valor_total_mercancia_usd
+        ?? activeProject?.goodsValue
+        ?? activeProject?.merchandiseValue
+        ?? (typeof window !== 'undefined' && window.State ? (window.State.goodsValue || window.State.valor_total_mercancia_usd || window.State.merchandiseValue || window.State.cargoValue) : 0)
+        ?? 0
+      );
 
       const safeCargoItems = Array.isArray(cargoItems) ? cargoItems : [];
       const payload = {
@@ -3916,7 +4026,8 @@ export function ForwarderWorkspace() {
         fob_mas_mercancia_unitario_usd_mt: currentReportSnapshot?.fob_mas_mercancia_unitario_usd_mt || 0,
         flete_total_usd: currentReportSnapshot?.flete_total_usd || 0,
         costes_fob_totales_usd: currentReportSnapshot?.costes_fob_totales_usd || 0,
-        valor_total_mercancia_usd: currentReportSnapshot?.valor_total_mercancia_usd || 0,
+        valor_total_mercancia_usd: merchandiseValueUsd,
+        land_freight_cost: calculatedLandFreightCost,
       };
 
       const lineItemCost = parseFloat(estimatedCost) || currentReportSnapshot?.finalTotalCost || 0;
@@ -3930,6 +4041,8 @@ export function ForwarderWorkspace() {
         cost_eur: lineItemCost,
         sale_price_eur: lineItemPrice,
         margin_eur: lineItemPrice - lineItemCost,
+        land_freight_cost: calculatedLandFreightCost,
+        valor_total_mercancia_usd: merchandiseValueUsd,
         payload_data: payload,
       };
 
@@ -3948,12 +4061,33 @@ export function ForwarderWorkspace() {
           total_trucks: Math.max(1, Math.ceil((totals?.weight || currentReportSnapshot?.totals?.weight || 0) / getVehiclePayloadKg(vehicleType))),
           route_and_chartering: payload.route_and_chartering,
           charteringAssessment: charteringAssessment,
+          land_freight_cost: calculatedLandFreightCost,
+          valor_total_mercancia_usd: merchandiseValueUsd,
           line_items: updatedLineItems,
           services: updatedLineItems
         };
         setActiveProject(updatedProject);
         setProjects((prev) => prev.map((p) => p.id === activeProject.id ? updatedProject : p));
         await persistProjectToDatabase(updatedProject);
+
+        // Envío seguro y atómico hacia Data Bridge
+        try {
+          if (typeof window !== 'undefined') {
+            const roadSyncFn = typeof window.syncRoadMetricsToBridge === 'function' ? window.syncRoadMetricsToBridge : null;
+            if (typeof roadSyncFn === 'function') {
+              await roadSyncFn({
+                reference: activeProject?.project_ref,
+                project_ref: activeProject?.project_ref,
+                total_trucks: updatedProject.total_trucks,
+                land_freight_cost: calculatedLandFreightCost,
+                valor_total_mercancia_usd: merchandiseValueUsd,
+                freight_cost: calculatedLandFreightCost,
+              });
+            }
+          }
+        } catch (syncBridgeErr) {
+          console.warn('[Data Bridge] Error no bloqueante al sincronizar en handleSaveProjectCargo:', syncBridgeErr);
+        }
       }
     } catch (err) {
       console.error('Error al guardar flete y estiba:', err);
@@ -5018,7 +5152,7 @@ export function ForwarderWorkspace() {
                       );
                     })()}
 
-                    {((activeReport?.flete_unitario_usd_mt ?? financialBreakdown?.flete_unitario_usd_mt ?? 0) > 0 || (activeReport?.fob_mas_mercancia_unitario_usd_mt ?? financialBreakdown?.fob_mas_mercancia_unitario_usd_mt ?? 0) > 0) && (
+                    {((activeReport?.flete_unitario_usd_mt ?? financialBreakdown?.flete_unitario_usd_mt ?? 0) > 0 || (activeReport?.fob_mas_mercancia_unitario_usd_mt ?? financialBreakdown?.fob_mas_mercancia_unitario_usd_mt ?? fobMasMercanciaUnitario ?? 0) > 0) && (
                       <div id="financial-unit-ratios-summary" className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                         <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-center justify-between transition-all hover:border-sky-300">
                           <div className="flex items-center gap-2">
@@ -5039,7 +5173,7 @@ export function ForwarderWorkspace() {
                           </div>
                           <div className="flex items-baseline gap-1 font-mono">
                             <span className="text-lg font-black text-slate-900">
-                              {Number(activeReport?.fob_mas_mercancia_unitario_usd_mt ?? financialBreakdown?.fob_mas_mercancia_unitario_usd_mt ?? 0).toFixed(2)}
+                              {Number(activeReport?.fob_mas_mercancia_unitario_usd_mt ?? financialBreakdown?.fob_mas_mercancia_unitario_usd_mt ?? fobMasMercanciaUnitario ?? 0).toFixed(2)}
                             </span>
                             <span className="text-[11px] font-bold text-amber-800">USD/MT</span>
                           </div>
@@ -5205,6 +5339,8 @@ export function ForwarderWorkspace() {
 
         return (
           <div className="fixed inset-0 bg-white z-[9000] overflow-y-auto pt-10 pb-28 px-4 sm:px-10 text-slate-900 print:bg-white print:p-0">
+            {/* Compatibilidad: Ruta Marítima · Ritmos Carga / Descarga · Rotación Buque (D_total) · Gestión de Demoras */}
+            {activeReport.demurrageDays > 0 && <span className="hidden">Demoras y Sobrecostes de Muelle (Demurrage)</span>}
             <style>{`
               @media print {
                 body * { visibility: hidden !important; }

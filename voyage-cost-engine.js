@@ -2117,6 +2117,16 @@
         return true;
     }
 
+    function calculateFobMasMercanciaUnitario(params = {}) {
+        const totalMercanciaUsd = Number(params.valor_total_mercancia_usd ?? params.goodsValue ?? params.merchandiseValue ?? 0);
+        const cargoTons = Math.max(0.001, Number(params.toneladas ?? params.cargoTons ?? params.cargo ?? params.dwt ?? 1));
+        const unitMercancia = totalMercanciaUsd / cargoTons;
+        const fleteUnitario = Number(params.flete_unitario_usd_mt ?? params.freightRateUSD ?? params.fleteUnitario ?? 0);
+        const fobUnitario = Number(params.fob_unitario_usd_mt ?? params.fobUnitario ?? 0);
+        const baseUnit = fobUnitario > 0 ? fobUnitario : fleteUnitario;
+        return Number((baseUnit + unitMercancia).toFixed(2));
+    }
+
     const api = {
         toNumber,
         calculateBunkers,
@@ -2124,6 +2134,7 @@
         defaultDSSState,
         calculateMarketFreightWithRisk,
         handleCommitConditions,
+        calculateFobMasMercanciaUnitario,
         detectEffectiveCanal,
         estimateNetTonnage,
         estimateMaxSummerDraft,
@@ -2184,6 +2195,7 @@
     root.calculateOperationalRisk = calculateOperationalRisk;
     root.updateExecutiveDashboard = updateExecutiveDashboard;
     root.evaluateRoadOperationalRisks = evaluateRoadOperationalRisks;
+    root.calculateFobMasMercanciaUnitario = calculateFobMasMercanciaUnitario;
 
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = api;
