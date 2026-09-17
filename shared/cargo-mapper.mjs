@@ -6,6 +6,8 @@ export const CARGO_CATEGORIES = Object.freeze([
   "Carga de Proyecto (Breakbulk)",
 ]);
 
+export const PACKAGED_REGEX = /(big\s*bag|saco|sling|palet|envasad)/i;
+
 export const CARGO_PRODUCT_TREE = Object.freeze({
   "Minerales y Construcción": Object.freeze(["Cemento a granel", "Clínker", "Yeso", "Big Bags (Minerales/Cemento)"]),
   "Biomasa y Combustibles Sólidos": Object.freeze(["Biomasa (Grignon, Astillas, Pellets)", "Carbón mineral"]),
@@ -123,15 +125,19 @@ const CARGO_FAMILIES = Object.freeze([
   }),
 ]);
 
-export const normalizeText = (str) => String(str ?? "")
-  .toLowerCase()
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .trim();
+export function normalizeText(str) {
+  return String(str ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
 
-const normalizeLookupText = (str) => normalizeText(str)
-  .replace(/[^a-z0-9]+/g, " ")
-  .trim();
+function normalizeLookupText(str) {
+  return normalizeText(str)
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
 
 function readCargoSelectionValue(value) {
   if (value && typeof value === "object") return String(value.value ?? value.label ?? value.name ?? "").trim();
@@ -198,7 +204,7 @@ export function mapCargoDescription(value) {
   const rawCargo = String(value ?? "").trim();
   const normalizedCargo = normalizeLookupText(rawCargo);
   const family = CARGO_FAMILIES.find((candidate) => candidate.aliases.some((alias) => includesAlias(normalizedCargo, alias)));
-  const hasBigBags = /\bbig\s*bags?\b/.test(normalizedCargo);
+  const hasBigBags = PACKAGED_REGEX.test(rawCargo) || PACKAGED_REGEX.test(normalizedCargo);
   const specificationId = family?.especificacionCargaId || (hasBigBags ? "10" : "100");
   const categoriaCarga = family?.categoriaCarga || (hasBigBags ? "Carga Unitizada / Envasada" : "");
   return {
@@ -350,11 +356,37 @@ export function normalizeNlpVoyagePayload(payload = {}, sourceText = "") {
     source.prompt,
     sourceText,
   ].filter(Boolean).join(" ");
-  const isPackagedCargo = /(big\s*bag|saco|sling|paletizad|envasad)/i.test(combinedCargoCandidate) && !/(granel|bulk)/i.test(combinedCargoCandidate);
+  const isPackagedCargo = PACKAGED_REGEX.test(combinedCargoCandidate) || PACKAGED_REGEX.test(cargoSource);
   let resolvedVehicle = source.vehicleType || source.vehicle_type || source.truck_type || source.truckType || source.vessel_class || source.vesselClass || '';
   if (isPackagedCargo) {
-    if (!resolvedVehicle || resolvedVehicle === 'Buque recomendado' || resolvedVehicle === 'Camión / Tráiler' || resolvedVehicle.toLowerCase().includes('tauliner')) {
-      resolvedVehicle = 'Camión Plataforma con Grúa Autocarga';
+    resolvedVehicle = 'Camión Plataforma con Grúa Autocarga';
+  }
+
+  let finalCategory = validatedCargo.categoriaCarga;
+  let finalProduct = validatedCargo.productoEspecifico;
+  let finalSpecId = specificationId;
+
+  if (isPackagedCargo) {
+    if (
+      finalProduct === "Cemento a granel" ||
+      !finalCategory ||
+      finalCategory === "Minerales y Construcción" ||
+      ["cemento", "clinker", "clinquer", "yeso", "cal", "mineral"].some((k) => normalizeLookupText(combinedCargoCandidate).includes(k))
+    ) {
+      finalCategory = "Minerales y Construcción";
+      finalProduct = "Big Bags (Minerales/Cemento)";
+      finalSpecId = "10";
+    }
+  }
+
+  let resolvedMethodPOL = methodPOL;
+  let resolvedMethodPOD = methodPOD;
+  if (isPackagedCargo) {
+    if (!resolvedMethodPOL || resolvedMethodPOL === "camion_tolva" || resolvedMethodPOL === "bombas_neumaticas" || resolvedMethodPOL === "cuchara_grab") {
+      resolvedMethodPOL = "big_bags_barco";
+    }
+    if (!resolvedMethodPOD || resolvedMethodPOD === "camion_tolva" || resolvedMethodPOD === "bombas_neumaticas" || resolvedMethodPOD === "cuchara_grab") {
+      resolvedMethodPOD = "big_bags_barco";
     }
   }
 
@@ -365,8 +397,19 @@ export function normalizeNlpVoyagePayload(payload = {}, sourceText = "") {
       vehicleType: resolvedVehicle,
       vehicle_type: resolvedVehicle,
       truck_type: resolvedVehicle,
+      truckType: resolvedVehicle,
       vessel_class: resolvedVehicle,
-      ...(isPackagedCargo ? { truckPayloadCapacity: 21000, dwt: 21000 } : {}),
+      ...(isPackagedCargo ? { truckPayloadCapacity: 21000, dwt: 21000, cargaUtil: 21000 } : {}),
+    } : {}),
+    ...(isPackagedCargo ? {
+      loadingMethod: 'Autocarga con Grúa del Camión',
+      dischargeMethod: 'Autocarga con Grúa del Camión',
+      loading_method: 'Autocarga con Grúa del Camión',
+      discharge_method: 'Autocarga con Grúa del Camión',
+      metodo_carga: 'Autocarga con Grúa del Camión',
+      metodo_descarga: 'Autocarga con Grúa del Camión',
+      metodoCarga: 'Autocarga con Grúa del Camión',
+      metodoDescarga: 'Autocarga con Grúa del Camión',
     } : {}),
     ...(normalizedProjectCargo ? {
       projectCargo: normalizedProjectCargo,
@@ -381,15 +424,15 @@ export function normalizeNlpVoyagePayload(payload = {}, sourceText = "") {
       handlingMode,
       projectHandlingMode: handlingMode,
     } : {}),
-    cargo_category: validatedCargo.categoriaCarga,
-    cargo_product: validatedCargo.productoEspecifico,
-    cargo_specification: specificationId,
-    categoriaCarga: validatedCargo.categoriaCarga,
-    productoEspecifico: validatedCargo.productoEspecifico,
-    especificacionCarga: CARGO_SPECIFICATIONS[specificationId] || CARGO_SPECIFICATIONS["100"],
-    especificacionCargaId: specificationId,
-    methodPOL,
-    methodPOD,
+    cargo_category: finalCategory,
+    cargo_product: finalProduct,
+    cargo_specification: finalSpecId,
+    categoriaCarga: finalCategory,
+    productoEspecifico: finalProduct,
+    especificacionCarga: CARGO_SPECIFICATIONS[finalSpecId] || CARGO_SPECIFICATIONS["100"],
+    especificacionCargaId: finalSpecId,
+    methodPOL: resolvedMethodPOL,
+    methodPOD: resolvedMethodPOD,
     laytimePOL,
     laytimePOD,
     loading_terms: laytimePOL,

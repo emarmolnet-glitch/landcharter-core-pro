@@ -1,5 +1,7 @@
 // src/utils/agenteProyectosParser.mjs
 
+export const PACKAGED_REGEX = /(big\s*bag|saco|sling|palet|envasad)/i;
+
 /**
  * Analizador de lenguaje natural para órdenes del Agente de Proyectos.
  * Extrae números e intenciones clave (almacenaje, surveyor, piezas, etc.)
@@ -227,15 +229,47 @@ export function parseProjectInstruction(rawText) {
     }
   }
 
-  // Regla de Flota Terrestre: Carga envasada / Big Bags en texto libre fuerza "Camión Plataforma con Grúa Autocarga"
-  const PACKAGED_REGEX = /(big\s*bag|saco|sling|paletizad|envasad)/i;
-  const BULK_REGEX = /(granel|bulk)/i;
-  if (PACKAGED_REGEX.test(lower) && !BULK_REGEX.test(lower)) {
+  // Regla de Prioridad Absoluta de Envase: Envasados / Big Bags anula cualquier asignación a granel
+  const PACKAGED_REGEX = /(big\s*bag|saco|sling|palet|envasad)/i;
+  if (PACKAGED_REGEX.test(lower) || PACKAGED_REGEX.test(text)) {
+    // Categoría: "Minerales y Construcción"
+    payload.categoriaCarga = 'Minerales y Construcción';
+    payload.cargo_category = 'Minerales y Construcción';
+    payload.cargoCategory = 'Minerales y Construcción';
+    payload.category = 'Minerales y Construcción';
+
+    // Producto: "Big Bags (Minerales/Cemento)"
+    payload.productoEspecifico = 'Big Bags (Minerales/Cemento)';
+    payload.cargo_product = 'Big Bags (Minerales/Cemento)';
+    payload.cargoProduct = 'Big Bags (Minerales/Cemento)';
+    payload.product = 'Big Bags (Minerales/Cemento)';
+
+    // Vehículo (vehicleType / truck_type): "Camión Plataforma con Grúa Autocarga"
     payload.vehicleType = 'Camión Plataforma con Grúa Autocarga';
+    payload.vehicle_type = 'Camión Plataforma con Grúa Autocarga';
     payload.truck_type = 'Camión Plataforma con Grúa Autocarga';
-    payload.cargoName = text;
+    payload.truckType = 'Camión Plataforma con Grúa Autocarga';
+    payload.vessel_class = 'Camión Plataforma con Grúa Autocarga';
+
+    // Métodos de Carga y Descarga: "Autocarga con Grúa del Camión"
     payload.loadingMethod = 'Autocarga con Grúa del Camión';
     payload.dischargeMethod = 'Autocarga con Grúa del Camión';
+    payload.loading_method = 'Autocarga con Grúa del Camión';
+    payload.discharge_method = 'Autocarga con Grúa del Camión';
+    payload.methodPOL = 'Autocarga con Grúa del Camión';
+    payload.methodPOD = 'Autocarga con Grúa del Camión';
+
+    payload.cargoName = text;
+    payload.cargoDescription = text;
+    payload.truckPayloadCapacity = 21000;
+    payload.dwt = 21000;
+    payload.cargaUtil = 21000;
+
+    // Anulación de asignaciones a granel
+    delete payload.bulk;
+    payload.isBulk = false;
+    payload.isPackaged = true;
+
     detectedActions.push('Flota terrestre asignada a "Camión Plataforma con Grúa Autocarga" (regla de envasados/big bags)');
   }
 

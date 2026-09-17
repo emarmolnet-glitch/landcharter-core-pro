@@ -8,12 +8,14 @@ export type NormalizedCargoMapping = {
 };
 
 export const CARGO_CATEGORIES: readonly string[];
+export const PACKAGED_REGEX: RegExp;
 export const CARGO_PRODUCTS: readonly string[];
 export const CARGO_SPECIFICATION_IDS: readonly string[];
 export const CARGO_SPECIFICATIONS: Readonly<Record<string, string>>;
 export const CARGO_METHODS: readonly string[];
 export const LAYTIME_TERMS: readonly string[];
 
+export function normalizeText(str: unknown): string;
 export function mapCargoDescription(value: unknown): NormalizedCargoMapping;
 export function normalizeCargoMethod(value: unknown): string;
 export function normalizeLaytimeTerm(value: unknown): string;
