@@ -392,9 +392,42 @@ function injectVoyageScenario(incomingScenario = {}, options = {}) {
         ['laytime-disch-condition', 'gc-laytime-disch-cond'].forEach((id) => setSelectValue(id, scenario.laytimePOD || scenario.discharge_terms));
     }
 
+    const candidateInjectCargo = `${cargoType} ${cargoProduct} ${scenario.cargoName || ''} ${scenario.cargo_name || ''} ${scenario.prompt || ''} ${scenario.instruction || ''}`;
+    const PACKAGED_REGEX = /(big\s*bag|saco|sling|paletizad|envasad)/i;
+    const BULK_REGEX = /(granel|bulk)/i;
+    const isPackagedInject = PACKAGED_REGEX.test(candidateInjectCargo) && !BULK_REGEX.test(candidateInjectCargo);
+    if (isPackagedInject) {
+        if (typeof window.handleVehicleTypeSelection === 'function') {
+            window.handleVehicleTypeSelection('Camión Plataforma con Grúa Autocarga');
+        } else if (typeof window.State !== 'undefined') {
+            window.State = window.State || {};
+            window.State.vehicleType = 'Camión Plataforma con Grúa Autocarga';
+            window.State.truckType = 'Camión Plataforma con Grúa Autocarga';
+            window.State.truckPayloadCapacity = 21000;
+            window.State.cargaUtil = 21000;
+            window.State.dwt = 21000;
+        }
+        if (typeof document !== 'undefined') {
+            const inputBuque = document.getElementById('nombre-buque-calculadora');
+            if (inputBuque) inputBuque.value = 'Camión Plataforma con Grúa Autocarga';
+            const badgeEl = document.getElementById('vessel-badge');
+            if (badgeEl) badgeEl.innerText = 'Camión Plataforma con Grúa Autocarga';
+            const execEl = document.getElementById('exec-vessel-type');
+            if (execEl) execEl.textContent = 'Camión Plataforma con Grúa Autocarga';
+        }
+    }
+
     const previousCalculatorState = window.SeaCharterStore?.getState?.() || {};
     const calculatorState = {
         ...previousCalculatorState,
+        ...(isPackagedInject ? {
+            vehicleType: 'Camión Plataforma con Grúa Autocarga',
+            truckType: 'Camión Plataforma con Grúa Autocarga',
+            vessel: 'Camión Plataforma con Grúa Autocarga',
+            vessel_class: 'Camión Plataforma con Grúa Autocarga',
+            truckPayloadCapacity: 21000,
+            cargaUtil: 21000,
+        } : {}),
         ...(incomingPol || scenario.pol_port ? { pol } : {}),
         ...(incomingPod || scenario.pod_port ? { pod } : {}),
         ...(shouldApplyLaydays ? { laydays, laycanDate: laydays } : {}),
@@ -512,15 +545,23 @@ function applyAssistantCalculatorAutofill(payload = {}) {
     const loadingRate = readPositiveNumber(payload, ['ratePOL', 'loading_rate', 'loadingRate']);
     const dischargeRate = readPositiveNumber(payload, ['ratePOD', 'discharge_rate', 'dischargeRate']);
     const requiredDwt = readPositiveNumber(payload, ['dwt', 'required_dwt', 'requiredDwt']);
-    const vesselClass = String(payload.vessel_class || payload.vesselClass || 'Buque recomendado').trim();
+    const cargoType = String(payload.cargo_type || payload.cargoType || '').trim();
+    const cargoCategory = String(payload.cargo_category || payload.categoriaCarga || '').trim();
+    const cargoProduct = String(payload.cargo_product || payload.productoEspecifico || cargoType).trim();
+    const candidateAutofillCargo = `${cargoType} ${cargoProduct} ${payload.cargoName || ''} ${payload.cargo_name || ''} ${payload.prompt || ''} ${payload.instruction || ''}`;
+    const PACKAGED_REGEX = /(big\s*bag|saco|sling|paletizad|envasad)/i;
+    const BULK_REGEX = /(granel|bulk)/i;
+    const isPackagedAutofill = PACKAGED_REGEX.test(candidateAutofillCargo) && !BULK_REGEX.test(candidateAutofillCargo);
+
+    let vesselClass = String(payload.vessel_class || payload.vesselClass || 'Buque recomendado').trim();
+    if (isPackagedAutofill && (vesselClass === 'Buque recomendado' || vesselClass === 'Camión / Tráiler' || vesselClass.toLowerCase().includes('tauliner') || !vesselClass)) {
+        vesselClass = 'Camión Plataforma con Grúa Autocarga';
+    }
     const requestedCargoQuantity = Number(payload.cargo_qty ?? payload.cargoQty) || 0;
     const cargoInput = document.getElementById('cargo-qty');
     const currentCargoQuantity = Number(cargoInput?.value) || 0;
     const cargoQuantity = currentCargoQuantity > 0 ? currentCargoQuantity : requestedCargoQuantity;
     const cargoPreserved = currentCargoQuantity > 0;
-    const cargoType = String(payload.cargo_type || payload.cargoType || '').trim();
-    const cargoCategory = String(payload.cargo_category || payload.categoriaCarga || '').trim();
-    const cargoProduct = String(payload.cargo_product || payload.productoEspecifico || cargoType).trim();
     const cargoSpecification = String(payload.cargo_specification || payload.especificacionCargaId || '100').trim();
     const loadingMethod = resolveBigBagsMethod(`${cargoType} ${cargoProduct}`, readMethodValue(payload.methodPOL ?? payload.loading_method ?? payload.loadingMethod));
     const dischargeMethod = readMethodValue(payload.methodPOD ?? payload.discharge_method ?? payload.dischargeMethod) || loadingMethod;
@@ -564,6 +605,16 @@ function applyAssistantCalculatorAutofill(payload = {}) {
         if (vesselBadge) vesselBadge.textContent = vesselClass;
         const cargoClassDisplay = document.getElementById('cargo-vessel-class-display');
         if (cargoClassDisplay) cargoClassDisplay.textContent = `Clasificado como: ${vesselClass}`;
+
+        if (isPackagedAutofill) {
+            setValue('vessel-dwt', 21000);
+            setValue('truckPayloadCapacity', 21000);
+            if (typeof window.handleVehicleTypeSelection === 'function') {
+                window.handleVehicleTypeSelection('Camión Plataforma con Grúa Autocarga');
+            }
+            const execEl = document.getElementById('exec-vessel-type');
+            if (execEl) execEl.textContent = 'Camión Plataforma con Grúa Autocarga';
+        }
 
         window.SeaCharterStore?.set?.({
             cargoQuantity,

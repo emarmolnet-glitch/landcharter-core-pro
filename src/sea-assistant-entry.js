@@ -79,6 +79,7 @@ const icons = {
 };
 
 let iaActiva = 'cerebro';
+let lastSubmittedAssistantPrompt = '';
 
 function updateAiUI(type) {
   iaActiva = type;
@@ -837,11 +838,98 @@ async function executeActionableAiUpdateFields(actionObj) {
             }
         });
 
+        // 🚀 2b. REGLA DE FLOTA PARA MERCANCÍA ENVASADA (BIG BAGS / SACOS / SLINGS / PALETIZADO) EN TEXTO LIBRE
+        const rawCargoPrompt = [
+            p.cargoName,
+            p.cargo_name,
+            p.cargoDescription,
+            p.cargo_type,
+            p.cargoType,
+            p.underlyingCommodity,
+            p.mercancia,
+            p.mercancía,
+            p.cargo,
+            p.product,
+            p.category,
+            p.description,
+            p.commodity,
+            p.prompt,
+            p.text,
+            actionObj?.originalPrompt,
+            actionObj?.prompt,
+            actionObj?.text,
+            actionObj?.message,
+            typeof lastSubmittedAssistantPrompt === 'string' ? lastSubmittedAssistantPrompt : '',
+        ].filter(Boolean).join(" ");
+
+        const PACKAGED_CARGO_REGEX = /(big\s*bag|saco|sling|paletizad|envasad)/i;
+        const BULK_CARGO_REGEX = /(granel|bulk)/i;
+        const isPackagedGoods = PACKAGED_CARGO_REGEX.test(rawCargoPrompt) && !BULK_CARGO_REGEX.test(rawCargoPrompt);
+        let assignedVehicle = null;
+
+        if (isPackagedGoods) {
+            assignedVehicle = "Camión Plataforma con Grúa Autocarga";
+            console.log("🚛 [Cerebro.ia/FleetRule] Mercancía envasada detectada en NLP. Forzando vehículo a:", assignedVehicle);
+
+            // Anulación absoluta del fallback genérico ("Tráiler Tauliner (13.6m)" o "Camión / Tráiler")
+            if (typeof window.handleVehicleTypeSelection === "function") {
+                window.handleVehicleTypeSelection(assignedVehicle);
+            }
+            if (typeof window.handleVehicleTypeChange === "function") {
+                window.handleVehicleTypeChange(assignedVehicle);
+            }
+            if (typeof window.setVehicleType === "function") {
+                window.setVehicleType(assignedVehicle);
+            }
+
+            if (!window.State) window.State = {};
+            window.State.vehicleType = assignedVehicle;
+            window.State.truckType = assignedVehicle;
+            window.State.vessel = assignedVehicle;
+            window.State.truckPayloadCapacity = 21000;
+            window.State.cargaUtil = 21000;
+            window.State.dwt = 21000;
+
+            const inputBuque = document.getElementById("nombre-buque-calculadora");
+            if (inputBuque && inputBuque.value !== assignedVehicle) {
+                inputBuque.value = assignedVehicle;
+                inputBuque.dispatchEvent(new Event("input", { bubbles: true }));
+                inputBuque.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            const badgeEl = document.getElementById("vessel-badge");
+            if (badgeEl) badgeEl.innerText = assignedVehicle;
+            const execEl = document.getElementById("exec-vessel-type");
+            if (execEl) execEl.textContent = assignedVehicle;
+            const vehicleSelect = document.getElementById("vehicle_type");
+            if (vehicleSelect && vehicleSelect.value !== assignedVehicle) {
+                vehicleSelect.value = assignedVehicle;
+                vehicleSelect.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+
+            window.dispatchEvent(new CustomEvent("sea-assistant:field-updated", {
+                detail: { field: "vehicleType", value: assignedVehicle, vehicleType: assignedVehicle },
+            }));
+            window.dispatchEvent(new CustomEvent("vehicle-type:selected", {
+                detail: { vehicleType: assignedVehicle, selectedType: assignedVehicle },
+            }));
+        }
+
         // 3. SINCRONIZACIÓN DE ESTADO GLOBAL
         const routeState = {
             ...(p.pol ? { pol: p.pol } : {}),
             ...(p.pod ? { pod: p.pod } : {}),
         };
+        if (assignedVehicle) {
+            Object.assign(routeState, {
+                vehicleType: assignedVehicle,
+                truckType: assignedVehicle,
+                vessel: assignedVehicle,
+                vessel_class: assignedVehicle,
+                dwt: 21000,
+                cargaUtil: 21000,
+                truckPayloadCapacity: 21000,
+            });
+        }
         const tonnage = Number(p.tonnage);
         const loadingRate = Number(p.loadingRate);
         const dischargeRate = Number(p.dischargeRate);
@@ -970,6 +1058,34 @@ async function executeActionableAiCompleteForm(action) {
     pol_port: selectedPorts.pol,
     pod_port: selectedPorts.pod,
   };
+
+  const combinedCargoCandidate = [
+    payload.cargoName,
+    payload.cargo_name,
+    payload.cargoDescription,
+    payload.cargo_type,
+    payload.cargoType,
+    payload.product,
+    payload.category,
+    payload.commodity,
+    payload.mercancia,
+    payload.prompt,
+    action?.prompt,
+    action?.originalPrompt,
+    typeof lastSubmittedAssistantPrompt === 'string' ? lastSubmittedAssistantPrompt : '',
+  ].filter(Boolean).join(' ');
+  const isPackagedCompleteForm = /(big\s*bag|saco|sling|paletizad|envasad)/i.test(combinedCargoCandidate) && !/(granel|bulk)/i.test(combinedCargoCandidate);
+  if (isPackagedCompleteForm) {
+    const targetVehicle = "Camión Plataforma con Grúa Autocarga";
+    validatedAction.vessel_class = targetVehicle;
+    validatedAction.vehicleType = targetVehicle;
+    validatedAction.truck_type = targetVehicle;
+    validatedAction.truckPayloadCapacity = 21000;
+    validatedAction.dwt = 21000;
+    if (typeof window.handleVehicleTypeSelection === 'function') {
+      window.handleVehicleTypeSelection(targetVehicle);
+    }
+  }
 
   if (typeof window.applyAssistantCompleteForm === 'function') {
     return await window.applyAssistantCompleteForm(validatedAction);
@@ -2095,6 +2211,7 @@ const fileInput = root.querySelector("#sca-file-input");
     if (pending) return;
 
     cancelSpeech();
+    lastSubmittedAssistantPrompt = userText;
     
     const filesLabel = pendingFiles.length > 0 ? ` [${pendingFiles.length} archivo(s) adjunto(s)]` : "";
     appendMessage(createMessage("user", `${userText}${filesLabel}`, { meta: formatTime() }));
@@ -2127,6 +2244,13 @@ const fileInput = root.querySelector("#sca-file-input");
           };
         } else if (typeof response.action === "object") {
           action = response.action;
+        }
+      }
+
+      if (action) {
+        action.originalPrompt = userText;
+        if (action.payload && typeof action.payload === 'object') {
+          action.payload.originalPrompt = userText;
         }
       }
 
@@ -2430,3 +2554,4 @@ async function executeActionableAiAction(actionObj) {
 }
 
 window.executeActionableAiAction = executeActionableAiAction;
+window.executeActionableAiUpdateFields = executeActionableAiUpdateFields;

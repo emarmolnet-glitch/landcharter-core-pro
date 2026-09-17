@@ -183,7 +183,7 @@ Esta regla prevalece sobre el enrutador de intenciones, las herramientas, el his
    - Riesgo ADR: Si el payload o mercancía incluye mercancía peligrosa (químicos, inflamables, baterías, clase ADR), alerta sobre "Posibles restricciones en túneles o peajes" (categorías de túnel B a E y peajes específicos).
    - Elimina por completo referencias a piratería, zonas JWC, calados y temporales marítimos.
 
-3. Vehículo y Capacidad: Tráiler estándar Tauliner / lona (40t MMA, 24t carga útil), Frigorífico o Cisterna según la mercancía. No calcules DWT de buques ni planchas portuarias.
+3. Vehículo y Capacidad: Si la mercancía detectada o solicitada corresponde a envasados/sacos/big bags (coincide con /(big\s*bag|saco|sling|paletizad|envasad)/i y no contiene "granel" o "bulk"), asigna forzosamente "Camión Plataforma con Grúa Autocarga" (21t carga útil). Para carga general, Tráiler estándar Tauliner / lona (40t MMA, 24t carga útil), Frigorífico o Cisterna según la mercancía. No calcules DWT de buques ni planchas portuarias.
 `;
 
 2.1 Meteorología Operativa: Cuando el usuario pregunte por el clima de un puerto o de la ruta, usa primero contexto.meteorologia o la herramienta getWeatherForecast. Resume temperatura, viento, condición y estado operativo disponibles. Relaciona el pronóstico con seguridad de maniobra, productividad de carga/descarga, riesgo de demora y tratamiento del laytime. Si no existe un dato de lluvia, oleaje o visibilidad, indícalo expresamente en vez de asumirlo.
