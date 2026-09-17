@@ -411,6 +411,8 @@ export function normalizeNlpVoyagePayload(payload = {}, sourceText = "") {
       metodoCarga: 'Autocarga con Grúa del Camión',
       metodoDescarga: 'Autocarga con Grúa del Camión',
     } : {}),
+    ...(isPackagedCargo && (!source.cargoName || String(source.cargoName).trim() === '') ? { cargoName: sourceText || cargoDescription || combinedCargoCandidate || 'big bags' } : {}),
+    ...(isPackagedCargo && (!source.cargoDescription || String(source.cargoDescription).trim() === '') ? { cargoDescription: sourceText || cargoDescription || combinedCargoCandidate || 'big bags' } : {}),
     ...(normalizedProjectCargo ? {
       projectCargo: normalizedProjectCargo,
       pesoUnitario: unitWeightMT,
@@ -425,7 +427,9 @@ export function normalizeNlpVoyagePayload(payload = {}, sourceText = "") {
       projectHandlingMode: handlingMode,
     } : {}),
     cargo_category: finalCategory,
+    cargoCategory: finalCategory,
     cargo_product: finalProduct,
+    cargoProduct: finalProduct,
     cargo_specification: finalSpecId,
     categoriaCarga: finalCategory,
     productoEspecifico: finalProduct,
