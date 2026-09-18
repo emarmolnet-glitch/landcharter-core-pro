@@ -122,3 +122,25 @@ test('5. handleSaveProjectCargo prioritizes mercanciaCost and persists valor_tot
   assert.match(saveFn, /updatedProject\s*=\s*\{[\s\S]*?valor_total_mercancia_usd:\s*merchandiseValueUsd/);
   assert.match(saveFn, /roadSyncFn\s*\(\s*\{[\s\S]*?valor_total_mercancia_usd:\s*merchandiseValueUsd/);
 });
+
+test('6. autoCalculateEstimates includes safe fuzzy matching fallback for CEM I and CEM II derivatives and assigns to window.State.goodsValue', () => {
+  // Verifies safe fuzzy match logic for CEM I and CEM II
+  assert.match(
+    forwarderWorkspaceSource,
+    /matchCandidate\.includes\('CEM I'\)/,
+    'autoCalculateEstimates must include fuzzy match check for CEM I'
+  );
+
+  assert.match(
+    forwarderWorkspaceSource,
+    /matchCandidate\.includes\('CEM II'\)/,
+    'autoCalculateEstimates must include fuzzy match check for CEM II'
+  );
+
+  // Verifies window.State.goodsValue silent assignment
+  assert.match(
+    forwarderWorkspaceSource,
+    /window\.State\.goodsValue\s*=\s*autoMercanciaUsd/,
+    'autoCalculateEstimates must assign autoMercanciaUsd to window.State.goodsValue'
+  );
+});
