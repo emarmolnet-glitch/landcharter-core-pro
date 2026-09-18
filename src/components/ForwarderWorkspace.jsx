@@ -343,8 +343,9 @@ export function hydrateCargoItem(it, defaultCategory = '', defaultType = '', ind
   // Forzar category a 'Carga Unitizada / Envasada'
   // Asignar el tipo oficial GICA correspondiente (ej. 'CEM I 52,5N BIGBAG')
   // Asignar dinámicamente el modo de envío coherente con el vehículo y tipo de carga
-  let finalCategory = mapped.category;
-  let finalType = mapped.type;
+  // RESPETO ABSOLUTO A DATA BRIDGE: Usamos el texto exacto que viene de Core PRO
+  let finalCategory = rawCategory || mapped.category;
+  let finalType = rawType || mapped.type;
   const isPlatformCraneVehicle = (typeof vehicleType !== 'undefined' && (vehicleType === 'Camión Plataforma con Grúa Autocarga' || String(vehicleType).includes('Grúa Autocarga'))) ||
     (typeof window !== 'undefined' && (window.State?.vehicleType === 'Camión Plataforma con Grúa Autocarga' || String(window.State?.vehicleType || '').includes('Grúa Autocarga')));
 
@@ -352,12 +353,8 @@ export function hydrateCargoItem(it, defaultCategory = '', defaultType = '', ind
     ? 'Camión Plataforma con Grúa Autocarga'
     : 'Tráiler Lona (13.6m)';
 
+  // ELIMINAMOS EL SECUESTRO DE TEXTO. Solo asignamos el modo de envío terrestre.
   if (isBigBagOrBogBag || !finalCategory || finalCategory === 'Carga Unitizada / Envasada') {
-    finalCategory = 'Carga Unitizada / Envasada';
-    const isKnownTariff = typeof COMMODITY_TARIFFS !== 'undefined' && Boolean(COMMODITY_TARIFFS[finalType]);
-    if (!finalType || finalType === 'BIGBAG' || finalType === 'BIG BAG' || finalType === 'BOG BAG' || finalType === 'BOGBAG' || !isKnownTariff) {
-      finalType = isKnownTariff ? finalType : 'CEM I 52,5N BIGBAG';
-    }
     finalShippingMode = isBigBagOrBogBag || isPlatformCraneVehicle
       ? 'Camión Plataforma con Grúa Autocarga'
       : (it.shipping_mode_supported || 'Camión Plataforma con Grúa Autocarga');
@@ -2179,8 +2176,10 @@ export function ForwarderWorkspace() {
           pFinancials.estimated_total_cost_eur || pFinancials.cost_eur || 0;
         const saleEur = withSrvs.land_freight_sale || withSrvs.targetSalePrice || withSrvs.sale || (withSrvs.line_items || []).reduce((acc, it) => acc + Number(it.sale_price_eur || 0), 0) ||
           pFinancials.customer_sale_price_eur || pFinancials.sale_price_eur || 0;
-        setEstimatedCost(costEur);
-        setSalePrice(saleEur);
+        
+        // BLINDAJE DEL FOOTER EN SYNC: Evitamos que los ceros de la BD borren el cálculo local.
+        setEstimatedCost(prev => (costEur === 0 && Number(prev) > 0) ? prev : costEur);
+        setSalePrice(prev => (saleEur === 0 && Number(prev) > 0) ? prev : saleEur);
         setCost(costEur);
         setFreightSaleState(saleEur);
 
@@ -2391,8 +2390,10 @@ export function ForwarderWorkspace() {
 
       const effectiveCost = activeProject.land_freight_cost || activeProject.totalTripCost || activeProject.cost || totalServicesCost || 0;
       const effectiveSale = activeProject.land_freight_sale || activeProject.targetSalePrice || activeProject.sale || totalServicesSale || 0;
-      setEstimatedCost(effectiveCost);
-      setSalePrice(effectiveSale);
+      
+      // BLINDAJE DEL FOOTER: Evita sobrescrituras con 0 si ya hay cálculo.
+      setEstimatedCost(prev => (effectiveCost === 0 && Number(prev) > 0) ? prev : effectiveCost);
+      setSalePrice(prev => (effectiveSale === 0 && Number(prev) > 0) ? prev : effectiveSale);
 
       // Sobrescribe los estados visuales con los datos reales de Neon / DataBridge
       const newOrigin = activeProject.pol || activeProject.land_origin || projectRoute.pol || projectRoute.origin || activeProject.origin || activeProject.origin_name || (typeof window !== 'undefined' ? window.State?.pol : '') || '';
