@@ -382,6 +382,12 @@ export function parseProjectInstruction(rawText) {
     agentResponse = `He analizado tu mensaje: "${text}". Puedes pedirme órdenes concretas como "almacenaje 5 días", "surveyor 1500", "transporte 800", "mercancía 450", "desglose financiero" o "añadir pieza" para sincronizar automáticamente el workspace del proyecto.`;
   }
 
+  if (/big\s*bag/i.test(text)) {
+    payload.cargoType = 'CEM I 42,5N/R BIGBAG';
+    payload.product = 'CEM I 42,5N/R BIGBAG';
+    payload.bulk = false; // Aniquilar cualquier rastro de granel
+  }
+
   return {
     payload,
     detectedActions,

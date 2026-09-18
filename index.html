@@ -31607,13 +31607,17 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                 const mapContainer = document.getElementById('map-container');
                 if (!mapContainer) return;
                 if (map) {
-                    try { if (typeof map.invalidateSize === 'function') map.invalidateSize(); } catch (_) {}
-                    return;
+                    try { if (typeof map.remove === 'function') map.remove(); } catch (_) {}
+                    map = null;
+                    window.map = null;
                 }
                 const skeleton = document.getElementById('map-skeleton');
                 if (skeleton) skeleton.style.display = 'none';
 
                 if (typeof L !== 'undefined' && typeof L.map === 'function') {
+                    if (mapContainer._leaflet_id) {
+                        mapContainer._leaflet_id = null;
+                    }
                     map = L.map('map-container', {
                         center: [50.5, 10.5],
                         zoom: 4,

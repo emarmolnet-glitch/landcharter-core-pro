@@ -813,7 +813,8 @@ async function executeActionableAiUpdateFields(actionObj) {
                 if (cargoTypeLower.includes('fertilizante') || cargoTypeLower.includes('abono')) return optText.includes('fertilizante') || optText.includes('abono');
                 if (cargoTypeLower.includes('cemento') || cargoTypeLower.includes('clinker')) {
                     if (isGranel && optText.includes('cemento') && optText.includes('granel')) return true;
-                    if (!isGranel && optText.includes('cemento') && optText.includes('big bag')) return true;
+                    if (!isGranel && (optText.includes('big bag') || optText.includes('envasad') || optText.includes('saco'))) return true;
+                    if (!isGranel && optText.includes('cemento') && !optText.includes('granel') && !optText.includes('vrac')) return true;
                     return optText.includes('cemento');
                 }
                 
@@ -940,6 +941,11 @@ async function executeActionableAiUpdateFields(actionObj) {
                 dwt: 21,
                 cargaUtil: 21,
                 truckPayloadCapacity: 21,
+                cargoProduct: 'Big Bags (Minerales/Cemento)',
+                cargoType: 'CEM I 42,5N/R BIGBAG',
+                product: 'CEM I 42,5N/R BIGBAG',
+                category: 'Carga Unitizada / Envasada',
+                cargoCategory: 'Carga Unitizada / Envasada',
             });
         }
         const tonnage = Number(p.tonnage);
