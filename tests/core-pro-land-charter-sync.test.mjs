@@ -57,6 +57,14 @@ const hydrateCargoItem = new Function(
   `return ${hydrateItemFnMatch[0].replace('export function hydrateCargoItem', 'function')}`
 )(mapCargoCategoryAndType);
 
+const buildQuickItemFnMatch = forwarderWorkspaceSource.match(/export\s+function\s+buildQuickTonnageCargoItem[\s\S]*?\n\}/);
+const buildQuickTonnageCargoItem = buildQuickItemFnMatch
+  ? new Function(
+      'mapCargoCategoryAndType',
+      `return ${buildQuickItemFnMatch[0].replace('export function buildQuickTonnageCargoItem', 'function')}`
+    )(mapCargoCategoryAndType)
+  : null;
+
 // ============================================================================
 // BLOQUE 1: MAPEO Y ADAPTACIÓN INTELIGENTE TERRESTRE PARA BIG BAGS Y SIMILARES
 // ============================================================================
@@ -194,7 +202,11 @@ test('5. hydrateCargoItem preserva exactamente cantidad, largo, ancho, alto y pe
   // Adaptación terrestre
   assert.equal(hydrated.category, 'Carga Unitizada / Envasada', 'Debe adaptarse a Carga Unitizada');
   assert.equal(hydrated.type, 'CEM I 52,5N BIGBAG', 'Debe normalizarse a producto oficial GICA');
-  assert.equal(hydrated.shipping_mode_supported, 'Tráiler Lona (13.6m)', 'Debe asignarse Tráiler Lona (13.6m)');
+  assert.equal(
+    hydrated.shipping_mode_supported,
+    'Camión Plataforma con Grúa Autocarga',
+    'Debe asignarse dinámicamente Camión Plataforma con Grúa Autocarga para Big Bags'
+  );
 });
 
 test('6. hydrateCargoItem maneja variantes de claves de dimensiones y pesos (length_m, peso, weight_kg, etc.)', () => {
@@ -215,7 +227,11 @@ test('6. hydrateCargoItem maneja variantes de claves de dimensiones y pesos (len
   assert.equal(hydrated.weight, 950);
   assert.equal(hydrated.unit_weight_kg, 950);
   assert.equal(hydrated.category, 'Carga Unitizada / Envasada');
-  assert.equal(hydrated.shipping_mode_supported, 'Tráiler Lona (13.6m)');
+  assert.equal(
+    hydrated.shipping_mode_supported,
+    'Camión Plataforma con Grúa Autocarga',
+    'Debe asignarse dinámicamente Camión Plataforma con Grúa Autocarga para envasados'
+  );
 });
 
 // ============================================================================
@@ -412,7 +428,11 @@ test('12. hydrateCargoItem mapea fielmente las medidas y peso de Big Bags (6667u
   // Adaptación Terrestre Automática
   assert.equal(hydrated.category, 'Carga Unitizada / Envasada', 'Forzar categoría a Carga Unitizada / Envasada');
   assert.equal(hydrated.type, 'CEM I 52,5N BIGBAG', 'Asignar tipo oficial GICA correspondiente');
-  assert.equal(hydrated.shipping_mode_supported, 'Tráiler Lona (13.6m)', 'Asignar modo de envío a Tráiler Lona (13.6m)');
+  assert.equal(
+    hydrated.shipping_mode_supported,
+    'Camión Plataforma con Grúa Autocarga',
+    'Asignar dinámicamente modo de envío a Camión Plataforma con Grúa Autocarga'
+  );
 });
 
 test('13. Simulación reactiva: 6.667 Big Bags de 1.500 kg totalizan ~10.000 MT, dimensionan 417 tráilers y activan tarifa FSPE', () => {
@@ -434,4 +454,102 @@ test('13. Simulación reactiva: 6.667 Big Bags de 1.500 kg totalizan ~10.000 MT,
   const inlandCost = totalWeightTons * appliedTariff.inlandUsdMt;
   assert.ok(inlandCost > 0, 'El flete terrestre debe calcularse según la tarifa plana');
 });
+
+test('14. buildQuickTonnageCargoItem dimensiona coherentemente 10.000 MT de Big Bags a 6.667 unidades de 1.500 kg (1.15x1.10x1.20m)', () => {
+  assert.ok(buildQuickTonnageCargoItem, 'buildQuickTonnageCargoItem must be exported');
+  const quickItem = buildQuickTonnageCargoItem(10000, 'Big Bags Cemento', 'Minerales y Construcción');
+
+  assert.equal(quickItem.category, 'Carga Unitizada / Envasada');
+  assert.equal(quickItem.type, 'CEM I 52,5N BIGBAG');
+  assert.equal(quickItem.quantity, 6667, 'Debe calcular 6.667 unidades para 10.000 MT');
+  assert.equal(quickItem.weight, 1500, 'Peso unitario debe ser 1.500 kg');
+  assert.equal(quickItem.unit_weight_kg, 1500, 'unit_weight_kg debe ser 1.500 kg');
+  assert.equal(quickItem.length, 1.15, 'Largo unitario de Big Bag debe ser 1.15 m');
+  assert.equal(quickItem.width, 1.10, 'Ancho unitario de Big Bag debe ser 1.10 m');
+  assert.equal(quickItem.height, 1.20, 'Alto unitario de Big Bag debe ser 1.20 m');
+  assert.equal(
+    quickItem.shipping_mode_supported,
+    'Camión Plataforma con Grúa Autocarga',
+    'El modo de envío de Big Bags debe ser Camión Plataforma con Grúa Autocarga'
+  );
+
+  const totalCalculatedTons = (quickItem.quantity * quickItem.weight) / 1000;
+  assert.ok(totalCalculatedTons >= 10000 && totalCalculatedTons <= 10001, 'Tonelaje total calculado debe ser ~10.000 MT');
+});
+
+test('15. ForwarderWorkspace prohíbe explícitamente dimensiones ficticias de semirremolque (12 x 2.5 m) en el fallback de Data Bridge y useEffect', () => {
+  const handleSyncMatch = forwarderWorkspaceSource.match(/const\s+handleSyncDataBridge\s*=\s*async\s*\(\)\s*=>\s*\{[\s\S]*?setIsSyncingDataBridge\(false\);[\s\S]*?\};/);
+  assert.ok(handleSyncMatch, 'handleSyncDataBridge function must exist');
+  assert.doesNotMatch(
+    handleSyncMatch[0],
+    /length:\s*12/,
+    'handleSyncDataBridge must NOT create fake 12x2.5 trailer items'
+  );
+  assert.doesNotMatch(
+    handleSyncMatch[0],
+    /width:\s*2\.5/,
+    'handleSyncDataBridge must NOT create fake 12x2.5 trailer items'
+  );
+
+  const isSwitchingMatch = forwarderWorkspaceSource.match(/if\s*\(\s*isSwitchingProject\s*\)\s*\{[\s\S]*?lastCalculatedItemsRef\.current/);
+  assert.ok(isSwitchingMatch, 'isSwitchingProject block must exist');
+  assert.doesNotMatch(
+    isSwitchingMatch[0],
+    /length:\s*12/,
+    'useEffect project hydration must NOT create fake 12x2.5 trailer items'
+  );
+  assert.doesNotMatch(
+    isSwitchingMatch[0],
+    /width:\s*2\.5/,
+    'useEffect project hydration must NOT create fake 12x2.5 trailer items'
+  );
+
+  // Confirma invocación de buildQuickTonnageCargoItem en ambos bloques
+  assert.match(
+    handleSyncMatch[0],
+    /buildQuickTonnageCargoItem\s*\(/,
+    'handleSyncDataBridge must invoke buildQuickTonnageCargoItem'
+  );
+  assert.match(
+    isSwitchingMatch[0],
+    /buildQuickTonnageCargoItem\s*\(/,
+    'useEffect project hydration must invoke buildQuickTonnageCargoItem'
+  );
+});
+
+test('16. ForwarderWorkspace sincroniza dinámicamente el modo de envío a Camión Plataforma con Grúa Autocarga y gatilla autoCalculateEstimates', () => {
+  const handleSyncMatch = forwarderWorkspaceSource.match(/const\s+handleSyncDataBridge\s*=\s*async\s*\(\)\s*=>\s*\{[\s\S]*?setIsSyncingDataBridge\(false\);[\s\S]*?\};/);
+  assert.ok(handleSyncMatch, 'handleSyncDataBridge must exist');
+
+  // Verifica que en handleSyncDataBridge se actualice shipping_mode_supported a Camión Plataforma con Grúa Autocarga
+  assert.match(
+    handleSyncMatch[0],
+    /shipping_mode_supported:\s*['"]Camión Plataforma con Grúa Autocarga['"]/,
+    'handleSyncDataBridge must assign Camión Plataforma con Grúa Autocarga to cargoItems'
+  );
+
+  // Verifica que invoque autoCalculateEstimates
+  assert.match(
+    handleSyncMatch[0],
+    /autoCalculateEstimates\s*\(\s*currentEffectiveItems\s*\)/,
+    'handleSyncDataBridge must invoke autoCalculateEstimates(currentEffectiveItems)'
+  );
+
+  const isSwitchingMatch = forwarderWorkspaceSource.match(/if\s*\(\s*isSwitchingProject\s*\)\s*\{[\s\S]*?autoCalculateEstimates\(currentEffectiveItems\);[\s\S]*?\}/);
+  assert.ok(isSwitchingMatch, 'isSwitchingProject must exist');
+
+  // Verifica que en el useEffect de hidratación también se asigne y se recalcule
+  assert.match(
+    isSwitchingMatch[0],
+    /shipping_mode_supported:\s*['"]Camión Plataforma con Grúa Autocarga['"]/,
+    'useEffect project hydration must assign Camión Plataforma con Grúa Autocarga to cargoItems'
+  );
+  assert.match(
+    isSwitchingMatch[0],
+    /autoCalculateEstimates\s*\(\s*currentEffectiveItems\s*\)/,
+    'useEffect project hydration must invoke autoCalculateEstimates(currentEffectiveItems)'
+  );
+});
+
+
 
