@@ -78,7 +78,9 @@ test('3. normalizeNlpVoyagePayload asigna forzosamente Camión Plataforma con Gr
     'Camión Plataforma con Grúa Autocarga',
     'Debe anular el fallback genérico de buque/tauliner'
   );
-  assert.equal(payload.truckPayloadCapacity, 21000, 'Debe asignar 21.000 kg de carga útil');
+  assert.equal(payload.truckPayloadCapacity, 21, 'Debe asignar 21 TM de carga útil');
+  assert.equal(payload.dwt, 21, 'Debe asignar 21 TM de dwt');
+  assert.equal(payload.cargaUtil, 21, 'Debe asignar 21 TM de cargaUtil');
 });
 
 test('4. parseProjectInstruction en agenteProyectosParser asigna vehículo plataforma para envasados', () => {
@@ -87,6 +89,9 @@ test('4. parseProjectInstruction en agenteProyectosParser asigna vehículo plata
   assert.equal(res.payload.truck_type, 'Camión Plataforma con Grúa Autocarga');
   assert.equal(res.payload.loadingMethod, 'Autocarga con Grúa del Camión');
   assert.equal(res.payload.dischargeMethod, 'Autocarga con Grúa del Camión');
+  assert.equal(res.payload.truckPayloadCapacity, 21, 'Debe asignar 21 TM de carga útil en parser');
+  assert.equal(res.payload.dwt, 21, 'Debe asignar 21 TM de dwt en parser');
+  assert.equal(res.payload.cargaUtil, 21, 'Debe asignar 21 TM de cargaUtil en parser');
 });
 
 test('5. sea-assistant-entry.js intercepta envasados en executeActionableAiUpdateFields y sincroniza State/DOM', () => {
@@ -122,8 +127,8 @@ test('5. sea-assistant-entry.js intercepta envasados en executeActionableAiUpdat
   );
   assert.match(
     seaAssistantSource,
-    /window\.State\.truckPayloadCapacity\s*=\s*21000/,
-    'Debe actualizar la capacidad de carga útil a 21.000 kg'
+    /window\.State\.truckPayloadCapacity\s*=\s*21\b/,
+    'Debe actualizar la capacidad de carga útil a 21 TM'
   );
   assert.match(
     seaAssistantSource,

@@ -350,9 +350,9 @@ export function parseProjectInstruction(rawText) {
       payload.cargoType = text;
     }
 
-    payload.truckPayloadCapacity = 21000;
-    payload.dwt = 21000;
-    payload.cargaUtil = 21000;
+    payload.truckPayloadCapacity = 21;
+    payload.dwt = 21;
+    payload.cargaUtil = 21;
 
     // Anulación de asignaciones a granel
     delete payload.bulk;

@@ -405,6 +405,10 @@ export const LAND_VEHICLE_CATALOG = [
     name: 'Camión Plataforma con Grúa Autocarga',
     payloadKg: 21000,
     payloadTons: 21,
+    payload: 21,
+    truckPayloadCapacity: 21,
+    cargaUtil: 21,
+    dwt: 21,
     mma: 40,
     description: 'Tara pluma hidráulica incluida (~19t tara · 21t carga útil)',
     defaultLoadingMethod: 'Autocarga con Grúa del Camión',
@@ -730,6 +734,11 @@ export function detectCargoPackagingType(items = [], project = null) {
       isBulk: false,
       recommendedVehicle: 'Camión Plataforma con Grúa Autocarga',
       payloadKg: 21000,
+      payloadTons: 21,
+      payload: 21,
+      truckPayloadCapacity: 21,
+      cargaUtil: 21,
+      dwt: 21,
       loadingMethod: 'Autocarga con Grúa del Camión',
       dischargeMethod: 'Autocarga con Grúa del Camión',
     };
@@ -1638,15 +1647,16 @@ export function ForwarderWorkspace() {
 
   const handleVehicleTypeChange = (selectedType) => {
     setVehicleType(selectedType);
+    const rawPayload = getVehiclePayloadKg(selectedType);
+    const payloadTons = rawPayload > 100 ? Math.round(rawPayload / 1000) : (rawPayload || 24);
     if (typeof window !== 'undefined') {
       window.State = window.State || {};
       window.State.vehicleType = selectedType;
       window.State.truckType = selectedType;
-      const payload = getVehiclePayloadKg(selectedType);
-      if (payload > 0) {
-        window.State.truckPayloadCapacity = payload;
-        window.State.cargaUtil = payload;
-        window.State.dwt = payload;
+      if (payloadTons > 0) {
+        window.State.truckPayloadCapacity = payloadTons;
+        window.State.cargaUtil = payloadTons;
+        window.State.dwt = payloadTons;
       }
       if (typeof window.handleVehicleTypeSelection === 'function') {
         window.handleVehicleTypeSelection(selectedType);
@@ -1661,6 +1671,14 @@ export function ForwarderWorkspace() {
       if (badgeEl) badgeEl.innerText = selectedType;
       const execEl = document.getElementById('exec-vessel-type');
       if (execEl) execEl.textContent = selectedType;
+      const truckCapEl = document.getElementById('truckPayloadCapacity');
+      if (truckCapEl && payloadTons > 0) {
+        truckCapEl.value = payloadTons;
+      }
+      const dwtEl = document.getElementById('vessel-dwt');
+      if (dwtEl && payloadTons > 0) {
+        dwtEl.value = payloadTons;
+      }
     }
     const compat = getCompatibleMethodsForVehicle(selectedType);
     if (selectedType === 'Camión Plataforma con Grúa Autocarga' || selectedType.includes('Grúa Autocarga')) {
@@ -1693,15 +1711,16 @@ export function ForwarderWorkspace() {
       setLoadingMethod('Autocarga con Grúa del Camión');
       setDischargeMethod('Autocarga con Grúa del Camión');
     }
+    const rawPayload = getVehiclePayloadKg(vehicleType);
+    const payloadTons = rawPayload > 100 ? Math.round(rawPayload / 1000) : (rawPayload || 24);
     if (typeof window !== 'undefined') {
       window.State = window.State || {};
       window.State.vehicleType = vehicleType;
       window.State.truckType = vehicleType;
-      const payload = getVehiclePayloadKg(vehicleType);
-      if (payload > 0) {
-        window.State.truckPayloadCapacity = payload;
-        window.State.cargaUtil = payload;
-        window.State.dwt = payload;
+      if (payloadTons > 0) {
+        window.State.truckPayloadCapacity = payloadTons;
+        window.State.cargaUtil = payloadTons;
+        window.State.dwt = payloadTons;
       }
       if (typeof window.handleVehicleTypeSelection === 'function') {
         window.handleVehicleTypeSelection(vehicleType);
@@ -1716,6 +1735,14 @@ export function ForwarderWorkspace() {
       if (badgeEl) badgeEl.innerText = vehicleType;
       const execEl = document.getElementById('exec-vessel-type');
       if (execEl) execEl.textContent = vehicleType;
+      const truckCapEl = document.getElementById('truckPayloadCapacity');
+      if (truckCapEl && payloadTons > 0) {
+        truckCapEl.value = payloadTons;
+      }
+      const dwtEl = document.getElementById('vessel-dwt');
+      if (dwtEl && payloadTons > 0) {
+        dwtEl.value = payloadTons;
+      }
     }
   }, [vehicleType]);
 
@@ -2564,9 +2591,9 @@ export function ForwarderWorkspace() {
             window.State = window.State || {};
             window.State.vehicleType = 'Camión Plataforma con Grúa Autocarga';
             window.State.truckType = 'Camión Plataforma con Grúa Autocarga';
-            window.State.truckPayloadCapacity = 21000;
-            window.State.cargaUtil = 21000;
-            window.State.dwt = 21000;
+            window.State.truckPayloadCapacity = 21;
+            window.State.cargaUtil = 21;
+            window.State.dwt = 21;
             if (typeof window.handleVehicleTypeSelection === 'function') {
               window.handleVehicleTypeSelection('Camión Plataforma con Grúa Autocarga');
             }
@@ -2578,6 +2605,10 @@ export function ForwarderWorkspace() {
             if (badgeEl) badgeEl.innerText = 'Camión Plataforma con Grúa Autocarga';
             const execEl = document.getElementById('exec-vessel-type');
             if (execEl) execEl.textContent = 'Camión Plataforma con Grúa Autocarga';
+            const truckCapEl = document.getElementById('truckPayloadCapacity');
+            if (truckCapEl) truckCapEl.value = 21;
+            const dwtEl = document.getElementById('vessel-dwt');
+            if (dwtEl) dwtEl.value = 21;
           }
         } else if (detectedTariff.isBulk) {
           setVehicleType('Bañera Basculante (Granel)');
@@ -2615,9 +2646,9 @@ export function ForwarderWorkspace() {
           window.State = window.State || {};
           window.State.vehicleType = 'Camión Plataforma con Grúa Autocarga';
           window.State.truckType = 'Camión Plataforma con Grúa Autocarga';
-          window.State.truckPayloadCapacity = 21000;
-          window.State.cargaUtil = 21000;
-          window.State.dwt = 21000;
+          window.State.truckPayloadCapacity = 21;
+          window.State.cargaUtil = 21;
+          window.State.dwt = 21;
           if (typeof window.handleVehicleTypeSelection === 'function') {
             window.handleVehicleTypeSelection('Camión Plataforma con Grúa Autocarga');
           }
@@ -2629,6 +2660,10 @@ export function ForwarderWorkspace() {
           if (badgeEl) badgeEl.innerText = 'Camión Plataforma con Grúa Autocarga';
           const execEl = document.getElementById('exec-vessel-type');
           if (execEl) execEl.textContent = 'Camión Plataforma con Grúa Autocarga';
+          const truckCapEl = document.getElementById('truckPayloadCapacity');
+          if (truckCapEl) truckCapEl.value = 21;
+          const dwtEl = document.getElementById('vessel-dwt');
+          if (dwtEl) dwtEl.value = 21;
         }
       } else if (detectedNonTariff.isBulk) {
         setVehicleType('Bañera Basculante (Granel)');
@@ -3049,9 +3084,9 @@ export function ForwarderWorkspace() {
         window.State = window.State || {};
         window.State.vehicleType = targetVehicle;
         window.State.truckType = targetVehicle;
-        window.State.truckPayloadCapacity = 21000;
-        window.State.cargaUtil = 21000;
-        window.State.dwt = 21000;
+        window.State.truckPayloadCapacity = 21;
+        window.State.cargaUtil = 21;
+        window.State.dwt = 21;
         if (typeof window.handleVehicleTypeSelection === 'function') {
           window.handleVehicleTypeSelection(targetVehicle);
         }
@@ -3063,6 +3098,10 @@ export function ForwarderWorkspace() {
         if (badgeEl) badgeEl.innerText = targetVehicle;
         const execEl = document.getElementById('exec-vessel-type');
         if (execEl) execEl.textContent = targetVehicle;
+        const truckCapEl = document.getElementById('truckPayloadCapacity');
+        if (truckCapEl) truckCapEl.value = 21;
+        const dwtEl = document.getElementById('vessel-dwt');
+        if (dwtEl) dwtEl.value = 21;
       }
       hasChanges = true;
     }
