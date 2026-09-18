@@ -71,7 +71,24 @@ function cleanString(val: unknown): string {
 }
 
 function cleanNumber(val: unknown, fallback = 0): number {
-  const num = Number(val);
+  if (val === null || val === undefined || val === "") return fallback;
+  if (typeof val === "number") return Number.isFinite(val) ? val : fallback;
+  let str = String(val).replace(/[^0-9.,-]/g, "").trim();
+  if (!str) return fallback;
+  if (/^-?\d{1,3}(\.\d{3})+$/.test(str)) {
+    str = str.replace(/\./g, "");
+  } else if (/^-?\d{1,3}(,\d{3})+$/.test(str)) {
+    str = str.replace(/,/g, "");
+  } else if (str.includes(",") && str.includes(".")) {
+    if (str.lastIndexOf(",") > str.lastIndexOf(".")) {
+      str = str.replace(/\./g, "").replace(",", ".");
+    } else {
+      str = str.replace(/,/g, "");
+    }
+  } else if (str.includes(",")) {
+    str = str.replace(",", ".");
+  }
+  const num = Number(str);
   return Number.isFinite(num) ? num : fallback;
 }
 
@@ -331,10 +348,11 @@ export default async (req: Request, _context: Context) => {
     );
   } catch (error: any) {
     console.error("[sync-road] Error processing request:", error);
+    const errorMessage = error?.message || (typeof error === "string" ? error : (error?.code ? `Database error code: ${error.code}` : (String(error) !== "[object Object]" ? String(error) : "Internal server error syncing road metrics.")));
     return Response.json(
       {
         success: false,
-        error: error?.message || "Internal server error syncing road metrics.",
+        error: errorMessage,
       },
       { status: 500, headers }
     );

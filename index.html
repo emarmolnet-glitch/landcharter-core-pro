@@ -20272,10 +20272,13 @@ function createRouteAnchorElement(type) {
 
             function cleanDynamicLayers(mapInstance, kind) {
                 if (!mapInstance) return;
+                if (mapInstance._renderer && !mapInstance._renderer._ctx) return;
                 if (typeof mapInstance.eachLayer === 'function') {
                     mapInstance.eachLayer((layer) => {
                         if (layer?.options?.isDynamic === true && (!kind || layer.options.dynamicKind === kind)) {
-                            mapInstance.removeLayer(layer);
+                            try {
+                                mapInstance.removeLayer(layer);
+                            } catch (_) {}
                         }
                     });
                 }
@@ -20306,7 +20309,10 @@ function createRouteAnchorElement(type) {
 
             function clearMap(mapInstance) {
                 const maps = mapInstance ? [mapInstance] : getMaps();
-                maps.forEach((targetMap) => cleanDynamicLayers(targetMap));
+                maps.forEach((targetMap) => {
+                    if (targetMap && targetMap._renderer && !targetMap._renderer._ctx) return;
+                    cleanDynamicLayers(targetMap);
+                });
                 return maps.length > 0;
             }
 
