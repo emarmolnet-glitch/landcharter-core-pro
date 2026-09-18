@@ -48,10 +48,38 @@ async function ensureForwarderProjectsTable(clientOrPool) {
         global_margin_percentage VARCHAR(50) DEFAULT '0',
         documents JSONB DEFAULT '[]'::jsonb,
         items JSONB DEFAULT '[]'::jsonb,
+        services JSONB DEFAULT '[]'::jsonb,
+        land_origin VARCHAR(255),
+        land_destination VARCHAR(255),
+        land_distance NUMERIC,
+        land_freight_cost NUMERIC,
+        land_freight_sale NUMERIC,
+        valor_total_mercancia_usd NUMERIC,
+        total_trucks INTEGER,
+        road_transit_days NUMERIC,
+        road_net_margin NUMERIC,
+        pre_carriage JSONB DEFAULT '{}'::jsonb,
+        on_carriage JSONB DEFAULT '{}'::jsonb,
+        land_route JSONB DEFAULT '{}'::jsonb,
+        route_and_chartering JSONB,
         data JSONB DEFAULT '{}'::jsonb,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS services JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_origin VARCHAR(255);
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_destination VARCHAR(255);
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_distance NUMERIC;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_freight_cost NUMERIC;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_freight_sale NUMERIC;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS valor_total_mercancia_usd NUMERIC;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS total_trucks INTEGER;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS road_transit_days NUMERIC;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS road_net_margin NUMERIC;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS pre_carriage JSONB DEFAULT '{}'::jsonb;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS on_carriage JSONB DEFAULT '{}'::jsonb;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_route JSONB DEFAULT '{}'::jsonb;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS route_and_chartering JSONB;
       CREATE INDEX IF NOT EXISTS idx_forwarder_projects_ref ON forwarder_projects (project_ref);
     `);
     tableEnsured = true;
@@ -199,17 +227,44 @@ exports.handler = async (event) => {
           ? String(data.global_margin_percentage)
           : null;
 
+        const incomingUpdateItems = data.items || data.cargo_items;
+        const incomingServices = (Array.isArray(data.services) && data.services.length > 0)
+          ? data.services
+          : (Array.isArray(data.line_items) && data.line_items.length > 0 ? data.line_items : null);
+        const servicesJson = incomingServices && incomingServices.length > 0
+          ? JSON.stringify(incomingServices)
+          : null;
+        const landFreightCost = Number(data.land_freight_cost ?? data.freight_cost ?? data.totalTripCost ?? data.cost) || null;
+        const landFreightSale = Number(data.land_freight_sale ?? data.salePrice ?? data.sale ?? data.targetSalePrice) || null;
+        const goodsValueUsd = Number(data.valor_total_mercancia_usd ?? data.goodsValue ?? data.merchandiseValue) || null;
+        const totalTrucks = Number(data.total_trucks ?? data.trucks ?? data.totalTrucks) || null;
+        const landOrigin = (data.land_origin || data.pol || '').trim() || null;
+        const landDestination = (data.land_destination || data.pod || '').trim() || null;
+        const landDistance = Number(data.land_distance ?? data.totalKilometers ?? data.distance) || null;
+        const dataJson = data.data !== undefined ? JSON.stringify(data.data) : null;
+        const routeCharteringJson = data.route_and_chartering !== undefined ? JSON.stringify(data.route_and_chartering) : null;
+
         const updateQuery = `
           UPDATE forwarder_projects 
           SET documents = COALESCE($1::jsonb, documents),
-              items = COALESCE($2::jsonb, items),
+              items = CASE WHEN $2::jsonb IS NOT NULL AND jsonb_array_length($2::jsonb) > 0 THEN $2::jsonb ELSE items END,
               client_name = COALESCE($3, client_name),
               status = COALESCE($6, status),
-              global_margin_percentage = COALESCE($7, global_margin_percentage)
+              global_margin_percentage = COALESCE($7, global_margin_percentage),
+              services = CASE WHEN $8::jsonb IS NOT NULL AND jsonb_array_length($8::jsonb) > 0 THEN $8::jsonb ELSE services END,
+              land_freight_cost = CASE WHEN $9::numeric > 0 THEN $9::numeric ELSE land_freight_cost END,
+              land_freight_sale = CASE WHEN $10::numeric > 0 THEN $10::numeric ELSE land_freight_sale END,
+              valor_total_mercancia_usd = CASE WHEN $11::numeric > 0 THEN $11::numeric ELSE valor_total_mercancia_usd END,
+              total_trucks = CASE WHEN $12::integer > 0 THEN $12::integer ELSE total_trucks END,
+              land_origin = COALESCE($13, land_origin),
+              land_destination = COALESCE($14, land_destination),
+              land_distance = CASE WHEN $15::numeric > 0 THEN $15::numeric ELSE land_distance END,
+              route_and_chartering = COALESCE($16::jsonb, route_and_chartering),
+              data = COALESCE($17::jsonb, data),
+              updated_at = CURRENT_TIMESTAMP
           WHERE id = $4 OR project_ref = $5
           RETURNING *;
         `;
-        const incomingUpdateItems = data.items || data.cargo_items || data.line_items || data.services;
         const updateValues = [
           data.documents !== undefined ? JSON.stringify(data.documents) : null,
           incomingUpdateItems !== undefined
@@ -219,13 +274,36 @@ exports.handler = async (event) => {
           data.id ? parseInt(data.id, 10) : null,
           data.project_ref || null,
           statusValue,
-          marginValue
+          marginValue,
+          servicesJson,
+          landFreightCost,
+          landFreightSale,
+          goodsValueUsd,
+          totalTrucks,
+          landOrigin,
+          landDestination,
+          landDistance,
+          routeCharteringJson,
+          dataJson
         ];
         const updateResult = await dbPool.query(updateQuery, updateValues);
+        const row = updateResult.rows[0];
+        const srvs = Array.isArray(row?.services) && row.services.length > 0
+          ? row.services
+          : (Array.isArray(row?.line_items) ? row.line_items : []);
+        const formattedProject = row ? {
+          ...row,
+          services: srvs,
+          line_items: srvs,
+          land_freight_cost: Number(row.land_freight_cost) || 0,
+          land_freight_sale: Number(row.land_freight_sale) || 0,
+          valor_total_mercancia_usd: Number(row.valor_total_mercancia_usd) || 0,
+        } : null;
+
         return {
           statusCode: 200,
           headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: 'Expediente actualizado con éxito', project: updateResult.rows[0] })
+          body: JSON.stringify({ message: 'Expediente actualizado con éxito', project: formattedProject })
         };
       }
 
@@ -253,12 +331,22 @@ exports.handler = async (event) => {
       ];
       const result = await dbPool.query(insertQuery, insertValues);
 
+      const createdRow = result.rows[0];
+      const createdProject = createdRow ? {
+        ...createdRow,
+        services: Array.isArray(createdRow.services) ? createdRow.services : [],
+        line_items: Array.isArray(createdRow.services) ? createdRow.services : [],
+        land_freight_cost: Number(createdRow.land_freight_cost) || 0,
+        land_freight_sale: Number(createdRow.land_freight_sale) || 0,
+        valor_total_mercancia_usd: Number(createdRow.valor_total_mercancia_usd) || 0,
+      } : null;
+
       return {
         statusCode: 201,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: 'Expediente creado con éxito',
-          project: result.rows[0]
+          project: createdProject
         }),
       };
     }
@@ -274,27 +362,64 @@ exports.handler = async (event) => {
         ? String(data.global_margin_percentage)
         : null;
 
+      const incomingCargoItems = (Array.isArray(data.items) && data.items.length > 0)
+        ? data.items
+        : (Array.isArray(data.cargo_items) && data.cargo_items.length > 0 ? data.cargo_items : null);
+      const incomingServices = (Array.isArray(data.services) && data.services.length > 0)
+        ? data.services
+        : (Array.isArray(data.line_items) && data.line_items.length > 0 ? data.line_items : null);
+      const servicesJson = incomingServices && incomingServices.length > 0
+        ? JSON.stringify(incomingServices)
+        : null;
+      const landFreightCost = Number(data.land_freight_cost ?? data.freight_cost ?? data.totalTripCost ?? data.cost) || null;
+      const landFreightSale = Number(data.land_freight_sale ?? data.salePrice ?? data.sale ?? data.targetSalePrice) || null;
+      const goodsValueUsd = Number(data.valor_total_mercancia_usd ?? data.goodsValue ?? data.merchandiseValue) || null;
+      const totalTrucks = Number(data.total_trucks ?? data.trucks ?? data.totalTrucks) || null;
+      const landOrigin = (data.land_origin || data.pol || '').trim() || null;
+      const landDestination = (data.land_destination || data.pod || '').trim() || null;
+      const landDistance = Number(data.land_distance ?? data.totalKilometers ?? data.distance) || null;
+      const dataJson = data.data !== undefined ? JSON.stringify(data.data) : null;
+      const routeCharteringJson = data.route_and_chartering !== undefined ? JSON.stringify(data.route_and_chartering) : null;
+
       const query = `
         UPDATE forwarder_projects 
         SET documents = COALESCE($1::jsonb, documents),
-            items = COALESCE($2::jsonb, items),
+            items = CASE WHEN $2::jsonb IS NOT NULL AND jsonb_array_length($2::jsonb) > 0 THEN $2::jsonb ELSE items END,
             client_name = COALESCE($3, client_name),
             status = COALESCE($6, status),
-            global_margin_percentage = COALESCE($7, global_margin_percentage)
+            global_margin_percentage = COALESCE($7, global_margin_percentage),
+            services = CASE WHEN $8::jsonb IS NOT NULL AND jsonb_array_length($8::jsonb) > 0 THEN $8::jsonb ELSE services END,
+            land_freight_cost = CASE WHEN $9::numeric > 0 THEN $9::numeric ELSE land_freight_cost END,
+            land_freight_sale = CASE WHEN $10::numeric > 0 THEN $10::numeric ELSE land_freight_sale END,
+            valor_total_mercancia_usd = CASE WHEN $11::numeric > 0 THEN $11::numeric ELSE valor_total_mercancia_usd END,
+            total_trucks = CASE WHEN $12::integer > 0 THEN $12::integer ELSE total_trucks END,
+            land_origin = COALESCE($13, land_origin),
+            land_destination = COALESCE($14, land_destination),
+            land_distance = CASE WHEN $15::numeric > 0 THEN $15::numeric ELSE land_distance END,
+            route_and_chartering = COALESCE($16::jsonb, route_and_chartering),
+            data = COALESCE($17::jsonb, data),
+            updated_at = CURRENT_TIMESTAMP
         WHERE id = $4 OR project_ref = $5
         RETURNING *;
       `;
-      const incomingPutItems = data.items || data.cargo_items || data.line_items || data.services;
       const values = [
         data.documents !== undefined ? JSON.stringify(data.documents) : null,
-        incomingPutItems !== undefined
-          ? JSON.stringify(adaptProjectItems(incomingPutItems))
-          : null,
+        incomingCargoItems !== null ? JSON.stringify(adaptProjectItems(incomingCargoItems)) : null,
         data.client_name || null,
         data.id ? parseInt(data.id, 10) : null,
         data.project_ref || null,
         statusValue,
-        marginValue
+        marginValue,
+        servicesJson,
+        landFreightCost,
+        landFreightSale,
+        goodsValueUsd,
+        totalTrucks,
+        landOrigin,
+        landDestination,
+        landDistance,
+        routeCharteringJson,
+        dataJson
       ];
       
       const result = await dbPool.query(query, values);
@@ -307,12 +432,25 @@ exports.handler = async (event) => {
         };
       }
 
+      const row = result.rows[0];
+      const srvs = Array.isArray(row.services) && row.services.length > 0
+        ? row.services
+        : (Array.isArray(row.line_items) ? row.line_items : []);
+      const formattedProject = {
+        ...row,
+        services: srvs,
+        line_items: srvs,
+        land_freight_cost: Number(row.land_freight_cost) || 0,
+        land_freight_sale: Number(row.land_freight_sale) || 0,
+        valor_total_mercancia_usd: Number(row.valor_total_mercancia_usd) || 0,
+      };
+
       return {
         statusCode: 200,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: 'Expediente actualizado con éxito',
-          project: result.rows[0]
+          project: formattedProject
         }),
       };
     }
@@ -325,8 +463,7 @@ exports.handler = async (event) => {
       let values = [];
       if (refFilter) {
         query = `
-          SELECT id, project_ref, client_name, status, global_margin_percentage, documents, items, data,
-                 TO_CHAR(created_at, 'DD/MM/YYYY') as date 
+          SELECT *, TO_CHAR(created_at, 'DD/MM/YYYY') as date 
           FROM forwarder_projects 
           WHERE UPPER(project_ref) = UPPER($1)
           ORDER BY created_at DESC;
@@ -334,18 +471,30 @@ exports.handler = async (event) => {
         values = [refFilter];
       } else {
         query = `
-          SELECT id, project_ref, client_name, status, global_margin_percentage, documents, items, data,
-                 TO_CHAR(created_at, 'DD/MM/YYYY') as date 
+          SELECT *, TO_CHAR(created_at, 'DD/MM/YYYY') as date 
           FROM forwarder_projects 
           ORDER BY created_at DESC;
         `;
       }
       const result = await dbPool.query(query, values);
+      const mappedRows = result.rows.map((row) => {
+        const srvs = Array.isArray(row.services) && row.services.length > 0
+          ? row.services
+          : (Array.isArray(row.line_items) ? row.line_items : []);
+        return {
+          ...row,
+          services: srvs,
+          line_items: srvs,
+          land_freight_cost: Number(row.land_freight_cost) || 0,
+          land_freight_sale: Number(row.land_freight_sale) || 0,
+          valor_total_mercancia_usd: Number(row.valor_total_mercancia_usd) || 0,
+        };
+      });
 
       return {
         statusCode: 200,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        body: JSON.stringify(result.rows),
+        body: JSON.stringify(mappedRows),
       };
     }
 

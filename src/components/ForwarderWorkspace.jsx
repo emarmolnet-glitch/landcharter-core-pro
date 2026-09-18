@@ -1810,14 +1810,33 @@ export function ForwarderWorkspace() {
       if (activeProject) {
         const updated = list.find((p) => p.id === activeProject.id || p.project_ref === activeProject.project_ref);
         if (updated) {
-          setActiveProject(updated);
-          setprojectDocuments(updated.documents || updated.files || []);
+          const srvs = (Array.isArray(updated.services) && updated.services.length > 0)
+            ? updated.services
+            : ((Array.isArray(updated.line_items) && updated.line_items.length > 0) ? updated.line_items : (activeProject.line_items || activeProject.services || []));
+          const withSrvs = {
+            ...updated,
+            services: srvs,
+            line_items: srvs,
+            land_freight_cost: Number(updated.land_freight_cost) > 0 ? Number(updated.land_freight_cost) : (activeProject.land_freight_cost || 0),
+            land_freight_sale: Number(updated.land_freight_sale) > 0 ? Number(updated.land_freight_sale) : (activeProject.land_freight_sale || 0),
+            valor_total_mercancia_usd: Number(updated.valor_total_mercancia_usd) > 0 ? Number(updated.valor_total_mercancia_usd) : (activeProject.valor_total_mercancia_usd || 0),
+          };
+          setActiveProject(withSrvs);
+          setprojectDocuments(withSrvs.documents || withSrvs.files || []);
         }
       } else if (urlRef) {
         const matching = list.find((p) => String(p.project_ref || '').toUpperCase() === urlRef.toUpperCase());
         if (matching) {
-          setActiveProject(matching);
-          setprojectDocuments(matching.documents || matching.files || []);
+          const srvs = (Array.isArray(matching.services) && matching.services.length > 0)
+            ? matching.services
+            : (Array.isArray(matching.line_items) ? matching.line_items : []);
+          const withSrvs = {
+            ...matching,
+            services: srvs,
+            line_items: srvs,
+          };
+          setActiveProject(withSrvs);
+          setprojectDocuments(withSrvs.documents || withSrvs.files || []);
         }
       }
     } catch (err) {
@@ -1864,21 +1883,32 @@ export function ForwarderWorkspace() {
       }
 
       if (updated) {
-        setActiveProject(updated);
-        setProjects((prev) => prev.map((p) => (p.id === updated.id || p.project_ref === updated.project_ref ? updated : p)));
+        const srvs = (Array.isArray(updated.services) && updated.services.length > 0)
+          ? updated.services
+          : ((Array.isArray(updated.line_items) && updated.line_items.length > 0) ? updated.line_items : (activeProject?.line_items || activeProject?.services || []));
+        const withSrvs = {
+          ...updated,
+          services: srvs,
+          line_items: srvs,
+          land_freight_cost: Number(updated.land_freight_cost) > 0 ? Number(updated.land_freight_cost) : (activeProject?.land_freight_cost || 0),
+          land_freight_sale: Number(updated.land_freight_sale) > 0 ? Number(updated.land_freight_sale) : (activeProject?.land_freight_sale || 0),
+          valor_total_mercancia_usd: Number(updated.valor_total_mercancia_usd) > 0 ? Number(updated.valor_total_mercancia_usd) : (activeProject?.valor_total_mercancia_usd || 0),
+        };
+        setActiveProject(withSrvs);
+        setProjects((prev) => prev.map((p) => (p.id === withSrvs.id || p.project_ref === withSrvs.project_ref ? withSrvs : p)));
         if (updated.documents || updated.files) {
           setprojectDocuments(updated.documents || updated.files);
         }
 
         // Hidratar campos de ruta, distancia, LDM, costes y márgenes en el estado local del Modo Técnico
-        const pRoute = updated.route_and_chartering ||
-          updated.line_items?.[0]?.payload_data?.route_and_chartering ||
-          updated.services?.[0]?.payload_data?.route_and_chartering ||
-          updated.data?.route || {};
+        const pRoute = withSrvs.route_and_chartering ||
+          withSrvs.line_items?.[0]?.payload_data?.route_and_chartering ||
+          withSrvs.services?.[0]?.payload_data?.route_and_chartering ||
+          withSrvs.data?.route || {};
 
-        const sOrigin = updated.pol || updated.land_origin || updated.origin || updated.origin_name || pRoute.pol || pRoute.origin || '';
-        const sDestination = updated.pod || updated.land_destination || updated.destination || updated.destination_name || pRoute.pod || pRoute.destination || '';
-        const sDistRaw = Number(updated.totalKilometers || updated.land_distance || updated.total_distance_km || updated.distance_km || pRoute.distance_km || (Number(pRoute.distance_nm) > 0 ? Math.round(Number(pRoute.distance_nm) * 1.852) : null) || 0);
+        const sOrigin = withSrvs.pol || withSrvs.land_origin || withSrvs.origin || withSrvs.origin_name || pRoute.pol || pRoute.origin || '';
+        const sDestination = withSrvs.pod || withSrvs.land_destination || withSrvs.destination || withSrvs.destination_name || pRoute.pod || pRoute.destination || '';
+        const sDistRaw = Number(withSrvs.totalKilometers || withSrvs.land_distance || withSrvs.total_distance_km || withSrvs.distance_km || pRoute.distance_km || (Number(pRoute.distance_nm) > 0 ? Math.round(Number(pRoute.distance_nm) * 1.852) : null) || 0);
         const sDist = Math.round(sDistRaw);
 
         if (sOrigin) { setOrigin(sOrigin); setPol(sOrigin); }
@@ -1889,15 +1919,15 @@ export function ForwarderWorkspace() {
 
         // Hidratar lista de empaque / mercancía preservando desglose íntegro y aplicando Mapeo Inteligente
         const rawSyncItems = extractProjectCargoItems(updated);
-        const mappedSyncItems = rawSyncItems.map((it, idx) => hydrateCargoItem(it, updated.cargoCategory || updated.cargo_category || '', it.type || it.description || '', idx));
+        const mappedSyncItems = rawSyncItems.map((it, idx) => hydrateCargoItem(it, withSrvs.cargoCategory || withSrvs.cargo_category || '', it.type || it.description || '', idx));
         const syncItems = mappedSyncItems;
         setCargoItems(mappedSyncItems);
 
-        const syncQuickTonnage = Number(updated.cargoQuantity || updated.cargo_quantity || updated.toneladas || updated.tonnes || updated.cargo || (typeof window !== 'undefined' ? window.State?.cargo : 0) || 0);
+        const syncQuickTonnage = Number(withSrvs.cargoQuantity || withSrvs.cargo_quantity || withSrvs.toneladas || withSrvs.tonnes || withSrvs.cargo || (typeof window !== 'undefined' ? window.State?.cargo : 0) || 0);
         let currentEffectiveItems = mappedSyncItems;
         if (syncQuickTonnage > 0 && syncItems.length === 0) {
-          const quickProduct = updated.cargoType || updated.cargo_type || updated.product || (typeof window !== 'undefined' ? window.State?.cargoProduct : '') || 'CEM I 52,5N BIGBAG';
-          const mapped = mapCargoCategoryAndType(quickProduct, updated.cargoCategory || updated.cargo_category || '', quickProduct);
+          const quickProduct = withSrvs.cargoType || withSrvs.cargo_type || withSrvs.product || (typeof window !== 'undefined' ? window.State?.cargoProduct : '') || 'CEM I 52,5N BIGBAG';
+          const mapped = mapCargoCategoryAndType(quickProduct, withSrvs.cargoCategory || withSrvs.cargo_category || '', quickProduct);
           // Si el input es 10000, el peso total de la línea debe ser 10.000 kg (10 t), nunca 10.000.000 kg
           const weightKg = syncQuickTonnage;
           const quickItem = {
@@ -1919,31 +1949,32 @@ export function ForwarderWorkspace() {
           currentEffectiveItems = [quickItem];
           setCargoItems(currentEffectiveItems);
           setCargoCategory(mapped.category);
-        } else if (updated.cargoCategory || updated.cargo_category) {
-          const mappedCat = mapCargoCategoryAndType(updated.cargoCategory || updated.cargo_category);
+        } else if (withSrvs.cargoCategory || withSrvs.cargo_category) {
+          const mappedCat = mapCargoCategoryAndType(withSrvs.cargoCategory || withSrvs.cargo_category);
           setCargoCategory(mappedCat.category);
         } else if (syncItems.length > 0 && syncItems[0]?.category) {
           setCargoCategory(syncItems[0].category);
         }
 
-        if (updated.truck_type || updated.vehicle_type) {
-          setVehicleType(updated.truck_type || updated.vehicle_type);
+        if (withSrvs.truck_type || withSrvs.vehicle_type) {
+          setVehicleType(withSrvs.truck_type || withSrvs.vehicle_type);
         }
-        if (updated.loading_method || updated.metodo_carga) {
-          setLoadingMethod(updated.loading_method || updated.metodo_carga);
+        if (withSrvs.loading_method || withSrvs.metodo_carga) {
+          setLoadingMethod(withSrvs.loading_method || withSrvs.metodo_carga);
         }
-        if (updated.discharge_method || updated.metodo_descarga || updated.metodo_descarga_pod) {
-          setDischargeMethod(updated.discharge_method || updated.metodo_descarga || updated.metodo_descarga_pod);
+        if (withSrvs.discharge_method || withSrvs.metodo_descarga || withSrvs.metodo_descarga_pod) {
+          setDischargeMethod(withSrvs.discharge_method || withSrvs.metodo_descarga || withSrvs.metodo_descarga_pod);
         }
 
         // Ejecutar de forma reactiva y simultánea el cálculo sobre los items sincronizados
         autoCalculateEstimates(currentEffectiveItems);
 
-        const pFinancials = updated.line_items?.[0]?.payload_data?.financial_summary ||
-          updated.data?.financials || {};
-        const costEur = updated.totalTripCost || updated.land_freight_cost || updated.cost || (updated.line_items || []).reduce((acc, it) => acc + Number(it.cost_eur || 0), 0) ||
+        const pFinancials = withSrvs.line_items?.[0]?.payload_data?.financial_summary ||
+          withSrvs.services?.[0]?.payload_data?.financial_summary ||
+          withSrvs.data?.financials || {};
+        const costEur = withSrvs.land_freight_cost || withSrvs.totalTripCost || withSrvs.cost || (withSrvs.line_items || []).reduce((acc, it) => acc + Number(it.cost_eur || 0), 0) ||
           pFinancials.estimated_total_cost_eur || pFinancials.cost_eur || 0;
-        const saleEur = updated.targetSalePrice || updated.land_freight_sale || updated.sale || (updated.line_items || []).reduce((acc, it) => acc + Number(it.sale_price_eur || 0), 0) ||
+        const saleEur = withSrvs.land_freight_sale || withSrvs.targetSalePrice || withSrvs.sale || (withSrvs.line_items || []).reduce((acc, it) => acc + Number(it.sale_price_eur || 0), 0) ||
           pFinancials.customer_sale_price_eur || pFinancials.sale_price_eur || 0;
         setEstimatedCost(costEur);
         setSalePrice(saleEur);
@@ -2097,8 +2128,16 @@ export function ForwarderWorkspace() {
       }
 
       // Conectar Totales Inferiores (Coste y Venta)
-      setEstimatedCost(activeProject.totalTripCost || activeProject.land_freight_cost || activeProject.cost || 0);
-      setSalePrice(activeProject.targetSalePrice || activeProject.land_freight_sale || activeProject.sale || 0);
+      const projectServicesList = (Array.isArray(activeProject.services) && activeProject.services.length > 0)
+        ? activeProject.services
+        : (Array.isArray(activeProject.line_items) ? activeProject.line_items : []);
+      const totalServicesCost = projectServicesList.reduce((acc, it) => acc + (Number(it.cost_eur) || 0), 0);
+      const totalServicesSale = projectServicesList.reduce((acc, it) => acc + (Number(it.sale_price_eur) || 0), 0);
+
+      const effectiveCost = activeProject.land_freight_cost || activeProject.totalTripCost || activeProject.cost || totalServicesCost || 0;
+      const effectiveSale = activeProject.land_freight_sale || activeProject.targetSalePrice || activeProject.sale || totalServicesSale || 0;
+      setEstimatedCost(effectiveCost);
+      setSalePrice(effectiveSale);
 
       // Sobrescribe los estados visuales con los datos reales de Neon / DataBridge
       const newOrigin = activeProject.pol || activeProject.land_origin || projectRoute.pol || projectRoute.origin || activeProject.origin || activeProject.origin_name || (typeof window !== 'undefined' ? window.State?.pol : '') || '';
@@ -2247,16 +2286,48 @@ export function ForwarderWorkspace() {
 
   const persistProjectToDatabase = async (projectToSave) => {
     try {
+      const servicesList = (Array.isArray(projectToSave.services) && projectToSave.services.length > 0)
+        ? projectToSave.services
+        : (Array.isArray(projectToSave.line_items) ? projectToSave.line_items : []);
+
+      const payload = {
+        id: projectToSave.id,
+        project_ref: projectToSave.project_ref,
+        client_name: projectToSave.client_name,
+        status: projectToSave.status,
+        global_margin_percentage: projectToSave.global_margin_percentage,
+        documents: projectToSave.documents || [],
+        items: projectToSave.items || [],
+        services: servicesList,
+        line_items: servicesList,
+        land_freight_cost: Number(projectToSave.land_freight_cost) || 0,
+        land_freight_sale: Number(projectToSave.land_freight_sale || projectToSave.targetSalePrice || projectToSave.sale) || 0,
+        valor_total_mercancia_usd: Number(projectToSave.valor_total_mercancia_usd) || 0,
+        total_trucks: projectToSave.total_trucks,
+        truck_type: projectToSave.truck_type || projectToSave.vehicle_type,
+        vehicle_type: projectToSave.vehicle_type || projectToSave.truck_type,
+        loading_method: projectToSave.loading_method,
+        discharge_method: projectToSave.discharge_method,
+        route_and_chartering: projectToSave.route_and_chartering,
+        charteringAssessment: projectToSave.charteringAssessment,
+        land_origin: projectToSave.land_origin || projectToSave.pol,
+        land_destination: projectToSave.land_destination || projectToSave.pod,
+        land_distance: projectToSave.land_distance,
+        road_transit_days: projectToSave.road_transit_days,
+        road_net_margin: projectToSave.road_net_margin,
+        data: projectToSave.data || {},
+      };
+
       const res = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(projectToSave)
+        body: JSON.stringify(payload)
       });
       if (!res.ok) {
         await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify(projectToSave)
+          body: JSON.stringify(payload)
         });
       }
     } catch (err) {
@@ -4145,11 +4216,25 @@ export function ForwarderWorkspace() {
 
   const handleDeleteService = (itemId) => {
     if (!activeProject || !window.confirm('¿Seguro que deseas eliminar este servicio?')) return;
-    const existingItems = activeProject.line_items || [];
+    const existingItems = (Array.isArray(activeProject.line_items) && activeProject.line_items.length > 0)
+      ? activeProject.line_items
+      : (Array.isArray(activeProject.services) ? activeProject.services : []);
     const updatedLineItems = existingItems.filter((line) => line.id !== itemId);
-    const updatedProject = { ...activeProject, line_items: updatedLineItems, services: updatedLineItems };
+    const updatedCost = updatedLineItems.reduce((acc, it) => acc + (Number(it.cost_eur) || 0), 0);
+    const updatedSale = updatedLineItems.reduce((acc, it) => acc + (Number(it.sale_price_eur) || 0), 0);
+    const updatedProject = {
+      ...activeProject,
+      line_items: updatedLineItems,
+      services: updatedLineItems,
+      land_freight_cost: updatedCost,
+      land_freight_sale: updatedSale,
+      targetSalePrice: updatedSale,
+      totalTripCost: updatedCost,
+      cost: updatedCost,
+      sale: updatedSale,
+    };
     setActiveProject(updatedProject);
-    setProjects((prev) => prev.map((p) => p.id === activeProject.id ? updatedProject : p));
+    setProjects((prev) => prev.map((p) => (p.id === activeProject.id || p.project_ref === activeProject.project_ref) ? updatedProject : p));
     persistProjectToDatabase(updatedProject);
   };
 
@@ -4189,6 +4274,12 @@ export function ForwarderWorkspace() {
         || currentReportSnapshot?.fleteCostNum
         || (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0)
         || 0;
+
+      const calculatedLandFreightSale = parseFloat(salePrice)
+        || currentReportSnapshot?.finalTotalSale
+        || currentReportSnapshot?.fleteSaleNum
+        || (Number(activeProject?.land_freight_sale) > 0 ? Number(activeProject.land_freight_sale) : 0)
+        || (calculatedLandFreightCost > 0 ? Math.round(calculatedLandFreightCost * 1.18) : 0);
 
       const merchandiseValueUsd = Number(
         currentReportSnapshot?.valor_total_mercancia_usd
@@ -4287,6 +4378,7 @@ export function ForwarderWorkspace() {
         costes_fob_totales_usd: currentReportSnapshot?.costes_fob_totales_usd || 0,
         valor_total_mercancia_usd: merchandiseValueUsd,
         land_freight_cost: calculatedLandFreightCost,
+        land_freight_sale: calculatedLandFreightSale,
       };
 
       const lineItemCost = parseFloat(estimatedCost) || currentReportSnapshot?.finalTotalCost || 0;
@@ -4301,15 +4393,22 @@ export function ForwarderWorkspace() {
         sale_price_eur: lineItemPrice,
         margin_eur: lineItemPrice - lineItemCost,
         land_freight_cost: calculatedLandFreightCost,
+        land_freight_sale: lineItemPrice,
         valor_total_mercancia_usd: merchandiseValueUsd,
         payload_data: payload,
       };
 
       if (activeProject) {
-        const existingItems = Array.isArray(activeProject.line_items) ? activeProject.line_items : [];
+        const existingItems = (Array.isArray(activeProject.line_items) && activeProject.line_items.length > 0)
+          ? activeProject.line_items
+          : (Array.isArray(activeProject.services) ? activeProject.services : []);
         const updatedLineItems = editingLineItemId
           ? existingItems.map((li) => (li.id === editingLineItemId ? savedLineItem : li))
           : [...existingItems, savedLineItem];
+
+        const totalServicesCost = updatedLineItems.reduce((acc, it) => acc + (Number(it.cost_eur) || 0), 0) || calculatedLandFreightCost;
+        const totalServicesSale = updatedLineItems.reduce((acc, it) => acc + (Number(it.sale_price_eur) || 0), 0) || lineItemPrice || calculatedLandFreightSale;
+
         const updatedProject = {
           ...activeProject,
           truck_type: vehicleType,
@@ -4320,13 +4419,18 @@ export function ForwarderWorkspace() {
           total_trucks: Math.max(1, Math.ceil((totals?.weight || currentReportSnapshot?.totals?.weight || 0) / getVehiclePayloadKg(vehicleType))),
           route_and_chartering: payload.route_and_chartering,
           charteringAssessment: charteringAssessment,
-          land_freight_cost: calculatedLandFreightCost,
+          land_freight_cost: totalServicesCost,
+          land_freight_sale: totalServicesSale,
+          targetSalePrice: totalServicesSale,
+          totalTripCost: totalServicesCost,
+          cost: totalServicesCost,
+          sale: totalServicesSale,
           valor_total_mercancia_usd: merchandiseValueUsd,
           line_items: updatedLineItems,
           services: updatedLineItems
         };
         setActiveProject(updatedProject);
-        setProjects((prev) => prev.map((p) => p.id === activeProject.id ? updatedProject : p));
+        setProjects((prev) => prev.map((p) => (p.id === activeProject.id || p.project_ref === activeProject.project_ref) ? updatedProject : p));
         await persistProjectToDatabase(updatedProject);
 
         // Envío seguro y atómico hacia Data Bridge
@@ -4338,9 +4442,12 @@ export function ForwarderWorkspace() {
                 reference: activeProject?.project_ref,
                 project_ref: activeProject?.project_ref,
                 total_trucks: updatedProject.total_trucks,
-                land_freight_cost: calculatedLandFreightCost,
+                land_freight_cost: totalServicesCost,
+                land_freight_sale: totalServicesSale,
                 valor_total_mercancia_usd: merchandiseValueUsd,
-                freight_cost: calculatedLandFreightCost,
+                freight_cost: totalServicesCost,
+                services: updatedLineItems,
+                line_items: updatedLineItems,
               });
             }
           }
@@ -4708,14 +4815,14 @@ export function ForwarderWorkspace() {
               </div>
 
               {/* SERVICIOS DE TRANSPORTE TERRESTRE */}
-              {activeProject.line_items?.length > 0 ? (
+              {(activeProject.line_items?.length > 0 || activeProject.services?.length > 0) ? (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <h3 className="text-base font-bold text-slate-900">Servicios</h3>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => handleOpenExecutiveReport(activeProject.line_items[0])}
+                        onClick={() => handleOpenExecutiveReport((activeProject.line_items?.length > 0 ? activeProject.line_items : activeProject.services)[0])}
                         className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-xs rounded-lg shadow-xs cursor-pointer flex items-center gap-1.5 transition"
                       >
                         📄 Reporte Ejecutivo
@@ -4736,7 +4843,7 @@ export function ForwarderWorkspace() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-slate-800">
-                        {activeProject.line_items.map((item) => (
+                        {(activeProject.line_items?.length > 0 ? activeProject.line_items : activeProject.services).map((item) => (
                           <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
                             <td className="px-4 py-3 font-semibold">{item.description}</td>
                             <td className="px-4 py-3 text-right text-rose-600 font-bold font-mono">{Number(item.cost_eur).toLocaleString('es-ES')} €</td>
