@@ -2890,6 +2890,62 @@ export function ForwarderWorkspace() {
       }
     }
 
+    // Auto-Cálculo de Valor de Mercancía por Catálogo de Commodities (Land Charter)
+    const targetCargoType = (cargoItems && cargoItems.length > 0 && cargoItems[0]?.type)
+      ? cargoItems[0].type
+      : ((items && items.length > 0 && items[0]?.type) ? items[0].type : (activeProject?.cargoType || activeProject?.cargo_type || ''));
+    const cleanCargoType = String(targetCargoType || '').trim();
+    const upperCargoType = cleanCargoType.toUpperCase();
+    let cargoType = COMMODITY_VALUES[cleanCargoType] !== undefined
+      ? cleanCargoType
+      : (COMMODITY_VALUES[upperCargoType] !== undefined
+        ? upperCargoType
+        : (COMMODITY_VALUES[rawType] !== undefined
+          ? rawType
+          : (COMMODITY_VALUES[upperCargoType.replace(/\./g, ',')] !== undefined
+            ? upperCargoType.replace(/\./g, ',')
+            : (COMMODITY_VALUES[upperCargoType.replace(/,/g, '.')] !== undefined
+              ? upperCargoType.replace(/,/g, '.')
+              : cleanCargoType))));
+
+    // Fallback de fuzzy match seguro para derivados de 'CEM I' y 'CEM II' si no hay coincidencia exacta
+    if (COMMODITY_VALUES[cargoType] === undefined) {
+      const matchCandidate = rawType || upperCargoType;
+      if (matchCandidate.includes('CEM I') || matchCandidate.includes('CEM 1') || (matchCandidate.includes('CEM') && (matchCandidate.includes('BIG') || matchCandidate.includes('SAC') || matchCandidate.includes('BAG') || matchCandidate.includes('ENVAS')))) {
+        if (matchCandidate.includes('42,5') || matchCandidate.includes('42.5')) {
+          cargoType = matchCandidate.includes('SAC') ? 'CEM I 42,5N/R SAC 50KG' : 'CEM I 42,5N/R BIGBAG';
+        } else {
+          cargoType = matchCandidate.includes('SAC') ? 'CEM I 52,5N SAC 50KG' : 'CEM I 52,5N BIGBAG';
+        }
+      } else if (matchCandidate.includes('CEM II') || matchCandidate.includes('CEM 2') || (matchCandidate.includes('CEM') && (matchCandidate.includes('GRANEL') || matchCandidate.includes('BULK') || matchCandidate.includes('VRAC')))) {
+        if (matchCandidate.includes('VRAC') || matchCandidate.includes('GRANEL') || matchCandidate.includes('BULK')) {
+          cargoType = 'CEM II 42,5 VRAC';
+        } else if (matchCandidate.includes('FARDILISE') || matchCandidate.includes('TAVCIM')) {
+          cargoType = 'CEM II 42,5N/R FARDILISE';
+        } else {
+          cargoType = 'CEM II 52.5N BIGBAG';
+        }
+      }
+    }
+
+    if (COMMODITY_VALUES[cargoType] !== undefined) {
+      const autoMercanciaUsd = totalWeightTons * COMMODITY_VALUES[cargoType];
+      if (!userEditedMercanciaCost.current || lastDetectedCargoTypeRef.current !== cargoType) {
+        lastDetectedCargoTypeRef.current = cargoType;
+        userEditedMercanciaCost.current = false;
+        setMercanciaCost(autoMercanciaUsd);
+        if (activeProject) {
+          activeProject.valor_total_mercancia_usd = autoMercanciaUsd;
+          setActiveProject((prev) => (prev ? { ...prev, valor_total_mercancia_usd: autoMercanciaUsd } : prev));
+        }
+        if (typeof window !== 'undefined') {
+          window.State = window.State || {};
+          window.State.valor_total_mercancia_usd = autoMercanciaUsd;
+          window.State.goodsValue = autoMercanciaUsd;
+        }
+      }
+    }
+
     if (appliedTariff) {
       setIsCommodityTariffActive(true);
 
