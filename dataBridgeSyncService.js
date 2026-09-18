@@ -300,6 +300,25 @@ export function buildRoadSyncPayload(options = {}) {
         payload.valor_total_mercancia_usd = valor_total_mercancia_usd;
     }
 
+    // 6. Services / Line items
+    const rawServices = options.services ?? options.line_items;
+    if (Array.isArray(rawServices) && rawServices.length > 0) {
+        payload.services = rawServices;
+        payload.line_items = rawServices;
+    }
+
+    // 7. Land Freight Sale (land_freight_sale)
+    let rawFreightSale = options.land_freight_sale ?? options.targetSalePrice ?? options.sale;
+    if (rawFreightSale === undefined || rawFreightSale === null) {
+        if (typeof window !== 'undefined' && window.State) {
+            rawFreightSale = window.State.land_freight_sale ?? window.State.salePrice ?? window.State.targetSalePrice;
+        }
+    }
+    const land_freight_sale = parseLocalizedNumber(rawFreightSale, 0, 2);
+    if (options.land_freight_sale !== undefined || land_freight_sale > 0) {
+        payload.land_freight_sale = land_freight_sale;
+    }
+
     return payload;
 }
 

@@ -90,6 +90,12 @@
   force = true
 
 [[redirects]]
+  from = "/api/projects/update"
+  to = "/.netlify/functions/forwarder-projects"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/forwarder-projects"
   to = "/.netlify/functions/forwarder-projects"
   status = 200

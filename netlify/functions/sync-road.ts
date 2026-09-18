@@ -49,6 +49,9 @@ async function ensureProjectsTable(clientOrPool: Pool) {
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_destination VARCHAR(255);
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_distance NUMERIC;
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_freight_cost NUMERIC;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_freight_sale NUMERIC;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS valor_total_mercancia_usd NUMERIC;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS services JSONB DEFAULT '[]'::jsonb;
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS total_trucks INTEGER;
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS road_transit_days NUMERIC;
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS road_net_margin NUMERIC;
@@ -192,6 +195,11 @@ export default async (req: Request, _context: Context) => {
     const land_destination = cleanString(body.land_destination || body.destination_name || body.destination || body.pod);
     const land_distance = cleanNumber(body.land_distance ?? body.total_distance_km ?? body.distance_km ?? body.totalKilometers ?? body.distance);
     const land_freight_cost = cleanNumber(body.land_freight_cost ?? body.freight_cost ?? body.total_freight ?? body.cost);
+    const land_freight_sale = cleanNumber(body.land_freight_sale ?? body.salePrice ?? body.sale ?? body.targetSalePrice);
+    const valor_total_mercancia_usd = cleanNumber(body.valor_total_mercancia_usd ?? body.goodsValue ?? body.merchandiseValue);
+
+    const rawServices = body.services || body.line_items;
+    const servicesJson = Array.isArray(rawServices) && rawServices.length > 0 ? JSON.stringify(rawServices) : null;
 
     const db = getDbPool();
     if (!db) {
@@ -204,6 +212,10 @@ export default async (req: Request, _context: Context) => {
           total_trucks,
           road_transit_days,
           road_net_margin,
+          land_freight_cost,
+          land_freight_sale,
+          valor_total_mercancia_usd,
+          services: rawServices || [],
         },
         { status: 200, headers }
       );
@@ -211,7 +223,7 @@ export default async (req: Request, _context: Context) => {
 
     await ensureProjectsTable(db);
 
-    const rawItems = body.items || body.cargo_items || body.line_items;
+    const rawItems = body.items || body.cargo_items;
     const itemsJson = Array.isArray(rawItems) && rawItems.length > 0 ? JSON.stringify(adaptRoadItems(rawItems)) : null;
 
     const updateQuery = `
@@ -225,6 +237,9 @@ export default async (req: Request, _context: Context) => {
         land_distance = CASE WHEN $7::numeric > 0 THEN $7::numeric ELSE land_distance END,
         land_freight_cost = CASE WHEN $8::numeric > 0 THEN $8::numeric ELSE land_freight_cost END,
         items = CASE WHEN $9::jsonb IS NOT NULL THEN $9::jsonb ELSE items END,
+        services = CASE WHEN $10::jsonb IS NOT NULL AND jsonb_array_length($10::jsonb) > 0 THEN $10::jsonb ELSE services END,
+        land_freight_sale = CASE WHEN $11::numeric > 0 THEN $11::numeric ELSE land_freight_sale END,
+        valor_total_mercancia_usd = CASE WHEN $12::numeric > 0 THEN $12::numeric ELSE valor_total_mercancia_usd END,
         updated_at = CURRENT_TIMESTAMP
       WHERE upper(project_ref) = upper($1::text) OR project_ref = $1::text
       RETURNING id, project_ref;
@@ -240,6 +255,9 @@ export default async (req: Request, _context: Context) => {
       land_distance,
       land_freight_cost,
       itemsJson,
+      servicesJson,
+      land_freight_sale,
+      valor_total_mercancia_usd,
     ]);
 
     if (result.rowCount === 0) {
@@ -256,6 +274,9 @@ export default async (req: Request, _context: Context) => {
           land_distance,
           land_freight_cost,
           items,
+          services,
+          land_freight_sale,
+          valor_total_mercancia_usd,
           created_at,
           updated_at
         ) VALUES (
@@ -270,6 +291,9 @@ export default async (req: Request, _context: Context) => {
           $7::numeric,
           $8::numeric,
           COALESCE($9::jsonb, '[]'::jsonb),
+          COALESCE($10::jsonb, '[]'::jsonb),
+          $11::numeric,
+          $12::numeric,
           CURRENT_TIMESTAMP,
           CURRENT_TIMESTAMP
         )
@@ -285,6 +309,9 @@ export default async (req: Request, _context: Context) => {
         land_distance,
         land_freight_cost,
         itemsJson,
+        servicesJson,
+        land_freight_sale,
+        valor_total_mercancia_usd,
       ]);
     }
 
@@ -295,6 +322,10 @@ export default async (req: Request, _context: Context) => {
         total_trucks,
         road_transit_days,
         road_net_margin,
+        land_freight_cost,
+        land_freight_sale,
+        valor_total_mercancia_usd,
+        services: rawServices || [],
       },
       { status: 200, headers }
     );
