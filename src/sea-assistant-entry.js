@@ -886,9 +886,9 @@ async function executeActionableAiUpdateFields(actionObj) {
             window.State.vehicleType = assignedVehicle;
             window.State.truckType = assignedVehicle;
             window.State.vessel = assignedVehicle;
-            window.State.truckPayloadCapacity = 21000;
-            window.State.cargaUtil = 21000;
-            window.State.dwt = 21000;
+            window.State.truckPayloadCapacity = 21;
+            window.State.cargaUtil = 21;
+            window.State.dwt = 21;
 
             const inputBuque = document.getElementById("nombre-buque-calculadora");
             if (inputBuque && inputBuque.value !== assignedVehicle) {
@@ -900,6 +900,18 @@ async function executeActionableAiUpdateFields(actionObj) {
             if (badgeEl) badgeEl.innerText = assignedVehicle;
             const execEl = document.getElementById("exec-vessel-type");
             if (execEl) execEl.textContent = assignedVehicle;
+            const truckCapEl = document.getElementById("truckPayloadCapacity");
+            if (truckCapEl) {
+                truckCapEl.value = 21;
+                truckCapEl.dispatchEvent(new Event("input", { bubbles: true }));
+                truckCapEl.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            const dwtEl = document.getElementById("vessel-dwt");
+            if (dwtEl) {
+                dwtEl.value = 21;
+                dwtEl.dispatchEvent(new Event("input", { bubbles: true }));
+                dwtEl.dispatchEvent(new Event("change", { bubbles: true }));
+            }
             const vehicleSelect = document.getElementById("vehicle_type");
             if (vehicleSelect && vehicleSelect.value !== assignedVehicle) {
                 vehicleSelect.value = assignedVehicle;
@@ -925,9 +937,9 @@ async function executeActionableAiUpdateFields(actionObj) {
                 truckType: assignedVehicle,
                 vessel: assignedVehicle,
                 vessel_class: assignedVehicle,
-                dwt: 21000,
-                cargaUtil: 21000,
-                truckPayloadCapacity: 21000,
+                dwt: 21,
+                cargaUtil: 21,
+                truckPayloadCapacity: 21,
             });
         }
         const tonnage = Number(p.tonnage);
@@ -1080,8 +1092,8 @@ async function executeActionableAiCompleteForm(action) {
     validatedAction.vessel_class = targetVehicle;
     validatedAction.vehicleType = targetVehicle;
     validatedAction.truck_type = targetVehicle;
-    validatedAction.truckPayloadCapacity = 21000;
-    validatedAction.dwt = 21000;
+    validatedAction.truckPayloadCapacity = 21;
+    validatedAction.dwt = 21;
     if (typeof window.handleVehicleTypeSelection === 'function') {
       window.handleVehicleTypeSelection(targetVehicle);
     }

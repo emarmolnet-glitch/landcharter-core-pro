@@ -38085,12 +38085,12 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
         function handleVehicleTypeSelection(selectedNameOrId, options = {}) {
             if (!selectedNameOrId) return null;
             const vehicleTypes = (State.vehicleTypes && State.vehicleTypes.length) ? State.vehicleTypes : (window.LAND_VEHICLE_TYPES || [
-                { id: 'plataforma_grua', name: 'Camión Plataforma con Grúa Autocarga', payloadKg: 21000, consumptionPer100Km: 34.0 },
-                { id: 'plataforma_abierta', name: 'Camión Plataforma Abierta (Sin Grúa)', payloadKg: 24000, consumptionPer100Km: 31.5 },
-                { id: 'lona_estandar', name: 'Lona Estándar', payloadKg: 24000, consumptionPer100Km: 31.5 },
-                { id: 'frigorifico', name: 'Frigorífico', payloadKg: 22000, consumptionPer100Km: 34.0 },
-                { id: 'mega_lona', name: 'Mega Lona', payloadKg: 24000, consumptionPer100Km: 33.0 },
-                { id: 'tren_carretera', name: 'Tren de Carretera', payloadKg: 44000, consumptionPer100Km: 42.0 },
+                { id: 'plataforma_grua', name: 'Camión Plataforma con Grúa Autocarga', payloadKg: 21000, payloadTons: 21, payload: 21, consumptionPer100Km: 34.0 },
+                { id: 'plataforma_abierta', name: 'Camión Plataforma Abierta (Sin Grúa)', payloadKg: 24000, payloadTons: 24, payload: 24, consumptionPer100Km: 31.5 },
+                { id: 'lona_estandar', name: 'Lona Estándar', payloadKg: 24000, payloadTons: 24, payload: 24, consumptionPer100Km: 31.5 },
+                { id: 'frigorifico', name: 'Frigorífico', payloadKg: 22000, payloadTons: 22, payload: 22, consumptionPer100Km: 34.0 },
+                { id: 'mega_lona', name: 'Mega Lona', payloadKg: 24000, payloadTons: 24, payload: 24, consumptionPer100Km: 33.0 },
+                { id: 'tren_carretera', name: 'Tren de Carretera', payloadKg: 44000, payloadTons: 44, payload: 44, consumptionPer100Km: 42.0 },
             ]);
 
             const query = String(selectedNameOrId).toLowerCase().trim();
@@ -38106,6 +38106,7 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
             });
 
             if (matched) {
+                const payloadTons = matched.payloadTons || (matched.payloadKg > 100 ? Math.round(matched.payloadKg / 1000) : matched.payloadKg) || 24;
                 State.vehicleType = matched.name;
                 State.truckType = matched.name;
                 State.vehicleConsumption = matched.consumptionPer100Km;
@@ -38113,7 +38114,7 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                 State.dwt = matched.payloadKg;
                 State.payloadKg = matched.payloadKg;
                 State.cargaUtil = matched.payloadKg;
-                State.truckPayloadCapacity = matched.payloadKg;
+                State.truckPayloadCapacity = payloadTons;
 
                 const inputBuque = document.getElementById('nombre-buque-calculadora');
                 if (inputBuque && inputBuque.value !== matched.name) {
@@ -38131,15 +38132,15 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
 
                 const truckCapInput = document.getElementById('truckPayloadCapacity');
                 if (truckCapInput) {
-                    truckCapInput.value = matched.payloadKg;
+                    truckCapInput.value = payloadTons;
                 }
                 const dwtInput = document.getElementById('vessel-dwt');
                 if (dwtInput) {
-                    dwtInput.value = matched.payloadKg;
+                    dwtInput.value = payloadTons;
                 }
                 const dwtMetaInput = document.getElementById('vessel-identity-dwt');
                 if (dwtMetaInput) {
-                    dwtMetaInput.value = matched.payloadKg;
+                    dwtMetaInput.value = payloadTons;
                 }
 
                 const badge = document.getElementById('vessel-badge');

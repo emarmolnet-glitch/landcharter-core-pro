@@ -399,7 +399,7 @@ export function normalizeNlpVoyagePayload(payload = {}, sourceText = "") {
       truck_type: resolvedVehicle,
       truckType: resolvedVehicle,
       vessel_class: resolvedVehicle,
-      ...(isPackagedCargo ? { truckPayloadCapacity: 21000, dwt: 21000, cargaUtil: 21000 } : {}),
+      ...(isPackagedCargo ? { truckPayloadCapacity: 21, dwt: 21, cargaUtil: 21 } : {}),
     } : {}),
     ...(isPackagedCargo ? {
       loadingMethod: 'Autocarga con Grúa del Camión',

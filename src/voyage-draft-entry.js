@@ -403,9 +403,9 @@ function injectVoyageScenario(incomingScenario = {}, options = {}) {
             window.State = window.State || {};
             window.State.vehicleType = 'Camión Plataforma con Grúa Autocarga';
             window.State.truckType = 'Camión Plataforma con Grúa Autocarga';
-            window.State.truckPayloadCapacity = 21000;
-            window.State.cargaUtil = 21000;
-            window.State.dwt = 21000;
+            window.State.truckPayloadCapacity = 21;
+            window.State.cargaUtil = 21;
+            window.State.dwt = 21;
         }
         if (typeof document !== 'undefined') {
             const inputBuque = document.getElementById('nombre-buque-calculadora');
@@ -414,6 +414,10 @@ function injectVoyageScenario(incomingScenario = {}, options = {}) {
             if (badgeEl) badgeEl.innerText = 'Camión Plataforma con Grúa Autocarga';
             const execEl = document.getElementById('exec-vessel-type');
             if (execEl) execEl.textContent = 'Camión Plataforma con Grúa Autocarga';
+            const truckCapEl = document.getElementById('truckPayloadCapacity');
+            if (truckCapEl) truckCapEl.value = 21;
+            const dwtEl = document.getElementById('vessel-dwt');
+            if (dwtEl) dwtEl.value = 21;
         }
     }
 
@@ -425,8 +429,9 @@ function injectVoyageScenario(incomingScenario = {}, options = {}) {
             truckType: 'Camión Plataforma con Grúa Autocarga',
             vessel: 'Camión Plataforma con Grúa Autocarga',
             vessel_class: 'Camión Plataforma con Grúa Autocarga',
-            truckPayloadCapacity: 21000,
-            cargaUtil: 21000,
+            truckPayloadCapacity: 21,
+            cargaUtil: 21,
+            dwt: 21,
         } : {}),
         ...(incomingPol || scenario.pol_port ? { pol } : {}),
         ...(incomingPod || scenario.pod_port ? { pod } : {}),
@@ -607,8 +612,8 @@ function applyAssistantCalculatorAutofill(payload = {}) {
         if (cargoClassDisplay) cargoClassDisplay.textContent = `Clasificado como: ${vesselClass}`;
 
         if (isPackagedAutofill) {
-            setValue('vessel-dwt', 21000);
-            setValue('truckPayloadCapacity', 21000);
+            setValue('vessel-dwt', 21);
+            setValue('truckPayloadCapacity', 21);
             if (typeof window.handleVehicleTypeSelection === 'function') {
                 window.handleVehicleTypeSelection('Camión Plataforma con Grúa Autocarga');
             }
