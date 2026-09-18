@@ -52,11 +52,11 @@ test('4. handleSaveProjectCargo explicitly injects land_freight_cost and valor_t
   assert.match(saveFn, /savedLineItem\s*=\s*\{[\s\S]*?valor_total_mercancia_usd:\s*merchandiseValueUsd/);
 
   // In updatedProject
-  assert.match(saveFn, /updatedProject\s*=\s*\{[\s\S]*?land_freight_cost:\s*calculatedLandFreightCost/);
+  assert.match(saveFn, /updatedProject\s*=\s*\{[\s\S]*?land_freight_cost:\s*(?:totalServicesCost|calculatedLandFreightCost)/);
   assert.match(saveFn, /updatedProject\s*=\s*\{[\s\S]*?valor_total_mercancia_usd:\s*merchandiseValueUsd/);
 
   // In Data Bridge sync call
-  assert.match(saveFn, /roadSyncFn\s*\(\s*\{[\s\S]*?land_freight_cost:\s*calculatedLandFreightCost/);
+  assert.match(saveFn, /roadSyncFn\s*\(\s*\{[\s\S]*?land_freight_cost:\s*(?:totalServicesCost|calculatedLandFreightCost)/);
   assert.match(saveFn, /roadSyncFn\s*\(\s*\{[\s\S]*?valor_total_mercancia_usd:\s*merchandiseValueUsd/);
 });
 
