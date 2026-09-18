@@ -1591,6 +1591,8 @@ export function ForwarderWorkspace() {
   const [warehouseWaitPenaltyEur, setWarehouseWaitPenaltyEur] = useState(0);
 
   // Setters y aliases para sincronización con Modo Técnico y DataBridge
+  const origin = pol;
+  const destination = pod;
   const setOrigin = setPol;
   const setDestination = setPod;
   const setDistance = setDistanceNm;
@@ -2310,8 +2312,10 @@ export function ForwarderWorkspace() {
         discharge_method: projectToSave.discharge_method,
         route_and_chartering: projectToSave.route_and_chartering,
         charteringAssessment: projectToSave.charteringAssessment,
-        land_origin: projectToSave.land_origin || projectToSave.pol,
-        land_destination: projectToSave.land_destination || projectToSave.pod,
+        land_origin: pol || origin || projectToSave.land_origin || projectToSave.pol,
+        land_destination: pod || destination || projectToSave.land_destination || projectToSave.pod,
+        pol: pol || origin || projectToSave.pol || projectToSave.land_origin,
+        pod: pod || destination || projectToSave.pod || projectToSave.land_destination,
         land_distance: projectToSave.land_distance,
         road_transit_days: projectToSave.road_transit_days,
         road_net_margin: projectToSave.road_net_margin,
@@ -4419,6 +4423,10 @@ export function ForwarderWorkspace() {
           total_trucks: Math.max(1, Math.ceil((totals?.weight || currentReportSnapshot?.totals?.weight || 0) / getVehiclePayloadKg(vehicleType))),
           route_and_chartering: payload.route_and_chartering,
           charteringAssessment: charteringAssessment,
+          land_origin: pol || origin || activeProject?.land_origin || activeProject?.pol,
+          land_destination: pod || destination || activeProject?.land_destination || activeProject?.pod,
+          pol: pol || origin || activeProject?.pol || activeProject?.land_origin,
+          pod: pod || destination || activeProject?.pod || activeProject?.land_destination,
           land_freight_cost: totalServicesCost,
           land_freight_sale: totalServicesSale,
           targetSalePrice: totalServicesSale,
@@ -5283,7 +5291,11 @@ export function ForwarderWorkspace() {
                           type="text"
                           required
                           value={pol}
-                          onChange={(e) => setPol(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPol(val);
+                            setActiveProject(prev => ({ ...prev, land_origin: val, pol: val }));
+                          }}
                           placeholder="Ej: Madrid, Barcelona, Zaragoza"
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
                         />
@@ -5298,7 +5310,11 @@ export function ForwarderWorkspace() {
                           type="text"
                           required
                           value={pod}
-                          onChange={(e) => setPod(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPod(val);
+                            setActiveProject(prev => ({ ...prev, land_destination: val, pod: val }));
+                          }}
                           placeholder="Ej: París, Milán, Frankfurt"
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
                         />
@@ -5314,7 +5330,21 @@ export function ForwarderWorkspace() {
                           min={1}
                           required
                           value={loadingRate}
-                          onChange={(e) => setLoadingRate(Math.max(1, Number(e.target.value)))}
+                          onChange={(e) => {
+                            const val = Math.max(1, Number(e.target.value));
+                            setLoadingRate(val);
+                            setActiveProject(prev => ({
+                              ...prev,
+                              loadingRate: val,
+                              loading_rate: val,
+                              loading_rate_mt_day: val,
+                              route_and_chartering: {
+                                ...(prev?.route_and_chartering || {}),
+                                loading_rate_mt_day: val,
+                                loadingRate: val,
+                              }
+                            }));
+                          }}
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
                           title="Tiempo de carga en almacén. Franquicia 2h; penalización legal tras exceder franquicia."
                         />
@@ -5330,7 +5360,24 @@ export function ForwarderWorkspace() {
                           min={1}
                           required
                           value={dischargingRate}
-                          onChange={(e) => setDischargingRate(Math.max(1, Number(e.target.value)))}
+                          onChange={(e) => {
+                            const val = Math.max(1, Number(e.target.value));
+                            setDischargingRate(val);
+                            setActiveProject(prev => ({
+                              ...prev,
+                              dischargingRate: val,
+                              discharging_rate: val,
+                              discharging_rate_mt_day: val,
+                              discharge_rate: val,
+                              dischargeRate: val,
+                              route_and_chartering: {
+                                ...(prev?.route_and_chartering || {}),
+                                discharging_rate_mt_day: val,
+                                dischargingRate: val,
+                                dischargeRate: val,
+                              }
+                            }));
+                          }}
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
                           title="Tiempo de descarga en almacén. Franquicia 2h; penalización legal tras exceder franquicia."
                         />
@@ -5347,7 +5394,11 @@ export function ForwarderWorkspace() {
                           type="text"
                           required
                           value={pol}
-                          onChange={(e) => setPol(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPol(val);
+                            setActiveProject(prev => ({ ...prev, land_origin: val, pol: val }));
+                          }}
                           placeholder="Ej: Madrid, Barcelona, Sevilla"
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
                         />
@@ -5362,7 +5413,11 @@ export function ForwarderWorkspace() {
                           type="text"
                           required
                           value={pod}
-                          onChange={(e) => setPod(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPod(val);
+                            setActiveProject(prev => ({ ...prev, land_destination: val, pod: val }));
+                          }}
                           placeholder="Ej: París, Lyon, Milán"
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
                         />
@@ -5392,7 +5447,21 @@ export function ForwarderWorkspace() {
                           min={1}
                           required
                           value={loadingRate}
-                          onChange={(e) => setLoadingRate(Math.max(1, Number(e.target.value)))}
+                          onChange={(e) => {
+                            const val = Math.max(1, Number(e.target.value));
+                            setLoadingRate(val);
+                            setActiveProject(prev => ({
+                              ...prev,
+                              loadingRate: val,
+                              loading_rate: val,
+                              loading_rate_mt_day: val,
+                              route_and_chartering: {
+                                ...(prev?.route_and_chartering || {}),
+                                loading_rate_mt_day: val,
+                                loadingRate: val,
+                              }
+                            }));
+                          }}
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
                           title="Tiempo de carga en almacén. Franquicia 2h; penalización legal tras exceder franquicia."
                         />
@@ -5408,7 +5477,24 @@ export function ForwarderWorkspace() {
                           min={1}
                           required
                           value={dischargingRate}
-                          onChange={(e) => setDischargingRate(Math.max(1, Number(e.target.value)))}
+                          onChange={(e) => {
+                            const val = Math.max(1, Number(e.target.value));
+                            setDischargingRate(val);
+                            setActiveProject(prev => ({
+                              ...prev,
+                              dischargingRate: val,
+                              discharging_rate: val,
+                              discharging_rate_mt_day: val,
+                              discharge_rate: val,
+                              dischargeRate: val,
+                              route_and_chartering: {
+                                ...(prev?.route_and_chartering || {}),
+                                discharging_rate_mt_day: val,
+                                dischargingRate: val,
+                                dischargeRate: val,
+                              }
+                            }));
+                          }}
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
                           title="Tiempo de descarga en almacén. Franquicia 2h; penalización legal tras exceder franquicia."
                         />
