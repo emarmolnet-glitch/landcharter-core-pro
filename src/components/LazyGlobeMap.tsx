@@ -87,6 +87,11 @@ function RouteAutoFitter({ positions }: { positions?: [number, number][] }) {
   const map = useMap();
   
   useEffect(() => {
+    // Si el contenedor del mapa no existe, return temprano para evitar appendChild
+    if (!map) return;
+    const container = typeof map.getContainer === 'function' ? map.getContainer() : null;
+    if (!container) return;
+
     // Exponer el mapa globalmente por si lo necesitamos desde index.html
     (window as any).GlobalLeafletMap = map;
 
@@ -177,6 +182,10 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
   }, []);
 
   useEffect(() => {
+    // Si el contenedor del mapa no existe, return temprano para evitar appendChild
+    const container = typeof document !== 'undefined' ? document.getElementById(containerId) : null;
+    if (!container) return;
+
     let mountTimerId: number | undefined;
     let resizeFrameId: number | undefined;
     let resizeObserver: ResizeObserver | undefined;
@@ -185,7 +194,15 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
       if (mountTimerId !== undefined) window.clearTimeout(mountTimerId);
       if (resizeFrameId !== undefined) window.cancelAnimationFrame(resizeFrameId);
       resizeObserver?.disconnect();
-      const globeWindow = window as unknown as { GlobalFleetGlobe?: { destroy?: (key?: string) => void } };
+      const globeWindow = window as unknown as { GlobalFleetGlobe?: { destroy?: (key?: string) => void }, GlobalLeafletMap?: any, map?: any };
+      if (globeWindow.GlobalLeafletMap && typeof globeWindow.GlobalLeafletMap.remove === 'function') {
+        try { globeWindow.GlobalLeafletMap.remove(); } catch (_) {}
+        globeWindow.GlobalLeafletMap = null;
+      }
+      if (globeWindow.map && typeof globeWindow.map.remove === 'function') {
+        try { globeWindow.map.remove(); } catch (_) {}
+        globeWindow.map = null;
+      }
       globeWindow.GlobalFleetGlobe?.destroy?.(globeKey);
     };
   }, [containerId, globeKey]);

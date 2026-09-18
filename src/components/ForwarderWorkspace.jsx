@@ -27,6 +27,36 @@ const COMMODITY_TARIFFS = {
   "CEM I 52,5 R BIGBAG": { inlandUsdMt: 3.00, portDuesUsdMt: 2.00, customsUsdMt: 0.30, packagingUsdMt: 3.50 }
 };
 
+/**
+ * Catálogo de Valoración Unitaria de Mercancías (USD/MT) para Land Charter
+ */
+export const COMMODITY_VALUES = {
+  "CEM I 42,5N/R BIGBAG": 55,
+  "CEM I 52,5N BIGBAG": 60,
+  "CEM I 52,5N SAC 50KG": 62,
+  "CEM I 42,5N/R SAC 50KG": 57,
+  "CEM II 52.5N/R 50KG": 58,
+  "CEM II 52.5N BIGBAG": 56,
+  "CEM II 42,5N/R FARDILISE": 54,
+  "CEM II 42,5N/R FARDILLISE TAVCIM": 54,
+  "CEM II 42,5 VRAC": 50,
+  "CEM II 42,5 R BIGBAG": 53,
+  "CEM I 52,5 R BIGBAG": 59,
+  // Normalizaciones y variantes de sintaxis (punto/coma) para resiliencia total
+  "CEM II 52,5N/R 50KG": 58,
+  "CEM II 52,5N BIGBAG": 56,
+  "CEM I 42.5N/R BIGBAG": 55,
+  "CEM I 52.5N BIGBAG": 60,
+  "CEM I 52.5N SAC 50KG": 62,
+  "CEM I 42.5N/R SAC 50KG": 57,
+  "CEM II 42.5N/R FARDILISE": 54,
+  "CEM II 42.5N/R FARDILLISE TAVCIM": 54,
+  "CEM II 42.5 VRAC": 50,
+  "CEM II 42.5 R BIGBAG": 53,
+  "CEM I 52.5 R BIGBAG": 59
+};
+export const CARGO_VALUATIONS = COMMODITY_VALUES;
+
 function NumericCounter({ label, subtitle, value, onChange, min = 0 }) {
   const numValue = Number(value) || 0;
   return (
@@ -727,7 +757,9 @@ export function detectCargoPackagingType(items = [], project = null) {
     /(?:big|bog)[-\s_]*bags?/i.test(rawCombined) ||
     /(big\s*bag|saco|sling|paletizad|envasad)/i.test(rawCombined);
 
-  if (isPackaged && !isStrictBulk) {
+  const isBigBagCaseInsensitive = /big\s*bag/i.test(rawCombined) || /big\s*bag/i.test(String(project?.cargoType || project?.cargo_type || project?.product || ''));
+
+  if (isBigBagCaseInsensitive || (isPackaged && !isStrictBulk)) {
     return {
       packaging: 'packaged',
       isPackaged: true,
@@ -744,7 +776,7 @@ export function detectCargoPackagingType(items = [], project = null) {
     };
   }
 
-  if (isStrictBulk) {
+  if (isStrictBulk && !isBigBagCaseInsensitive) {
     return {
       packaging: 'bulk',
       isPackaged: false,
@@ -1562,7 +1594,23 @@ export function ForwarderWorkspace() {
   const [inlandCost, setInlandCost] = useState(0);
   const [customsCost, setCustomsCost] = useState(0);
   const [insuranceCost, setInsuranceCost] = useState(0);
+  const [mercanciaCost, setMercanciaCost] = useState(() => {
+    return Number(
+      activeProject?.valor_total_mercancia_usd
+      ?? activeProject?.goodsValue
+      ?? activeProject?.merchandiseValue
+      ?? (typeof window !== 'undefined' && window.State ? (window.State.goodsValue || window.State.valor_total_mercancia_usd || window.State.merchandiseValue || window.State.cargoValue) : 0)
+      ?? 0
+    );
+  });
   const userEditedSurveyor = useRef(false);
+  const userEditedMercanciaCost = useRef(false);
+  const lastDetectedCargoTypeRef = useRef(null);
+  const lastCalculatedItemsRef = useRef('');
+  const lastRoadSyncPayloadRef = useRef('');
+  const lastSyncDataBridgeRef = useRef('');
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
 
   // Parámetros dinámicos de ruta, ritmos operativos, rotación y demoras
   const [pol, setPol] = useState(activeProject?.pol || activeProject?.land_origin || '');
@@ -1958,18 +2006,75 @@ export function ForwarderWorkspace() {
           setCargoCategory(syncItems[0].category);
         }
 
-        if (withSrvs.truck_type || withSrvs.vehicle_type) {
-          setVehicleType(withSrvs.truck_type || withSrvs.vehicle_type);
-        }
-        if (withSrvs.loading_method || withSrvs.metodo_carga) {
-          setLoadingMethod(withSrvs.loading_method || withSrvs.metodo_carga);
-        }
-        if (withSrvs.discharge_method || withSrvs.metodo_descarga || withSrvs.metodo_descarga_pod) {
-          setDischargeMethod(withSrvs.discharge_method || withSrvs.metodo_descarga || withSrvs.metodo_descarga_pod);
+        // Blindar el NLP (Big Bag vs Granel): Si activeProject/withSrvs o items incluyen "big bag" (case-insensitive),
+        // forzar estrictamente "Camión Plataforma con Grúa Autocarga" y bloquear cualquier fallback a granel
+        const nlpOrCargoText = [
+          withSrvs.cargoType,
+          withSrvs.cargo_type,
+          withSrvs.product,
+          withSrvs.type,
+          withSrvs.description,
+          withSrvs.cargoCategory,
+          withSrvs.cargo_category,
+          withSrvs.prompt,
+          withSrvs.instruction,
+          withSrvs.message,
+          withSrvs.text,
+          withSrvs.cargoName,
+          withSrvs.cargo_name,
+          ...(currentEffectiveItems || []).map(it => `${it.type || ''} ${it.category || ''} ${it.description || ''}`)
+        ].filter(Boolean).join(' ');
+
+        const isBigBagDetected = /big\s*bag/i.test(nlpOrCargoText);
+
+        if (isBigBagDetected) {
+          const targetVehicle = 'Camión Plataforma con Grúa Autocarga';
+          setVehicleType(targetVehicle);
+          setLoadingMethod('Autocarga con Grúa del Camión');
+          setDischargeMethod('Autocarga con Grúa del Camión');
+          withSrvs.truck_type = targetVehicle;
+          withSrvs.vehicle_type = targetVehicle;
+          if (typeof window !== 'undefined') {
+            window.State = window.State || {};
+            window.State.vehicleType = targetVehicle;
+            window.State.truckType = targetVehicle;
+            window.State.truckPayloadCapacity = 21;
+            window.State.cargaUtil = 21;
+            window.State.dwt = 21;
+            if (typeof window.handleVehicleTypeSelection === 'function') {
+              window.handleVehicleTypeSelection(targetVehicle);
+            }
+          }
+          if (typeof document !== 'undefined') {
+            const inputEl = document.getElementById('nombre-buque-calculadora');
+            if (inputEl) inputEl.value = targetVehicle;
+            const badgeEl = document.getElementById('vessel-badge');
+            if (badgeEl) badgeEl.innerText = targetVehicle;
+            const execEl = document.getElementById('exec-vessel-type');
+            if (execEl) execEl.textContent = targetVehicle;
+            const truckCapEl = document.getElementById('truckPayloadCapacity');
+            if (truckCapEl) truckCapEl.value = 21;
+            const dwtEl = document.getElementById('vessel-dwt');
+            if (dwtEl) dwtEl.value = 21;
+          }
+        } else {
+          if (withSrvs.truck_type || withSrvs.vehicle_type) {
+            setVehicleType(withSrvs.truck_type || withSrvs.vehicle_type);
+          }
+          if (withSrvs.loading_method || withSrvs.metodo_carga) {
+            setLoadingMethod(withSrvs.loading_method || withSrvs.metodo_carga);
+          }
+          if (withSrvs.discharge_method || withSrvs.metodo_descarga || withSrvs.metodo_descarga_pod) {
+            setDischargeMethod(withSrvs.discharge_method || withSrvs.metodo_descarga || withSrvs.metodo_descarga_pod);
+          }
         }
 
-        // Ejecutar de forma reactiva y simultánea el cálculo sobre los items sincronizados
-        autoCalculateEstimates(currentEffectiveItems);
+        // Freno al bucle infinito: Deep Compare de los items sincronizados
+        const syncItemsString = JSON.stringify(currentEffectiveItems);
+        if (lastCalculatedItemsRef.current !== syncItemsString) {
+          lastCalculatedItemsRef.current = syncItemsString;
+          autoCalculateEstimates(currentEffectiveItems);
+        }
 
         const pFinancials = withSrvs.line_items?.[0]?.payload_data?.financial_summary ||
           withSrvs.services?.[0]?.payload_data?.financial_summary ||
@@ -2115,18 +2220,77 @@ export function ForwarderWorkspace() {
           }
         }
 
-        if (activeProject.truck_type || activeProject.vehicle_type || activeProject.data?.truckType) {
-          setVehicleType(activeProject.truck_type || activeProject.vehicle_type || activeProject.data?.truckType);
-        }
-        if (activeProject.loading_method || activeProject.metodo_carga) {
-          setLoadingMethod(activeProject.loading_method || activeProject.metodo_carga);
-        }
-        if (activeProject.discharge_method || activeProject.metodo_descarga || activeProject.metodo_descarga_pod) {
-          setDischargeMethod(activeProject.discharge_method || activeProject.metodo_descarga || activeProject.metodo_descarga_pod);
+        // Blindar el NLP (Big Bag vs Granel): Para asegurar que el crash no revierta el vehículo,
+        // verifica en la función de hidratación de React que si activeProject.cargoType o el texto del NLP
+        // incluye las palabras "big bag" (case insensitive), se fuerce estrictamente el vehicleType a
+        // "Camión Plataforma con Grúa Autocarga" y se bloquee cualquier fallback automático a granel.
+        const nlpOrCargoText = [
+          activeProject.cargoType,
+          activeProject.cargo_type,
+          activeProject.product,
+          activeProject.type,
+          activeProject.description,
+          activeProject.cargoCategory,
+          activeProject.cargo_category,
+          activeProject.prompt,
+          activeProject.instruction,
+          activeProject.message,
+          activeProject.text,
+          activeProject.cargoName,
+          activeProject.cargo_name,
+          ...(currentEffectiveItems || []).map(it => `${it.type || ''} ${it.category || ''} ${it.description || ''}`)
+        ].filter(Boolean).join(' ');
+
+        const isBigBagDetected = /big\s*bag/i.test(nlpOrCargoText);
+
+        if (isBigBagDetected) {
+          const targetVehicle = 'Camión Plataforma con Grúa Autocarga';
+          setVehicleType(targetVehicle);
+          setLoadingMethod('Autocarga con Grúa del Camión');
+          setDischargeMethod('Autocarga con Grúa del Camión');
+          activeProject.truck_type = targetVehicle;
+          activeProject.vehicle_type = targetVehicle;
+          if (typeof window !== 'undefined') {
+            window.State = window.State || {};
+            window.State.vehicleType = targetVehicle;
+            window.State.truckType = targetVehicle;
+            window.State.truckPayloadCapacity = 21;
+            window.State.cargaUtil = 21;
+            window.State.dwt = 21;
+            if (typeof window.handleVehicleTypeSelection === 'function') {
+              window.handleVehicleTypeSelection(targetVehicle);
+            }
+          }
+          if (typeof document !== 'undefined') {
+            const inputEl = document.getElementById('nombre-buque-calculadora');
+            if (inputEl) inputEl.value = targetVehicle;
+            const badgeEl = document.getElementById('vessel-badge');
+            if (badgeEl) badgeEl.innerText = targetVehicle;
+            const execEl = document.getElementById('exec-vessel-type');
+            if (execEl) execEl.textContent = targetVehicle;
+            const truckCapEl = document.getElementById('truckPayloadCapacity');
+            if (truckCapEl) truckCapEl.value = 21;
+            const dwtEl = document.getElementById('vessel-dwt');
+            if (dwtEl) dwtEl.value = 21;
+          }
+        } else {
+          if (activeProject.truck_type || activeProject.vehicle_type || activeProject.data?.truckType) {
+            setVehicleType(activeProject.truck_type || activeProject.vehicle_type || activeProject.data?.truckType);
+          }
+          if (activeProject.loading_method || activeProject.metodo_carga) {
+            setLoadingMethod(activeProject.loading_method || activeProject.metodo_carga);
+          }
+          if (activeProject.discharge_method || activeProject.metodo_descarga || activeProject.metodo_descarga_pod) {
+            setDischargeMethod(activeProject.discharge_method || activeProject.metodo_descarga || activeProject.metodo_descarga_pod);
+          }
         }
 
-        // Recálculo reactivo inmediato
-        autoCalculateEstimates(currentEffectiveItems);
+        // Recálculo reactivo inmediato protegido con Deep Compare
+        const hydrationItemsString = JSON.stringify(currentEffectiveItems);
+        if (lastCalculatedItemsRef.current !== hydrationItemsString) {
+          lastCalculatedItemsRef.current = hydrationItemsString;
+          autoCalculateEstimates(currentEffectiveItems);
+        }
       }
 
       // Conectar Totales Inferiores (Coste y Venta)
@@ -2178,6 +2342,17 @@ export function ForwarderWorkspace() {
         activeProject.services?.[0]?.payload_data?.charteringAssessment;
       if (projectAssessment) {
         setCharteringAssessment(projectAssessment);
+      }
+
+      const rawProjectGoodsVal = Number(
+        activeProject.valor_total_mercancia_usd
+        ?? activeProject.goodsValue
+        ?? activeProject.merchandiseValue
+        ?? (typeof window !== 'undefined' ? (window.State?.goodsValue || window.State?.valor_total_mercancia_usd || window.State?.merchandiseValue) : 0)
+        ?? 0
+      );
+      if (rawProjectGoodsVal > 0) {
+        setMercanciaCost(rawProjectGoodsVal);
       }
     } else {
       setprojectDocuments([]);
@@ -2582,6 +2757,7 @@ export function ForwarderWorkspace() {
 
   const autoCalculateEstimates = (items) => {
     if (!items || items.length === 0) {
+      lastCalculatedItemsRef.current = '[]';
       setDunnage(0); setChains(0); setSlings(0); setShackles(0);
       setGangs(0); setHeavyLift(0); setMafiPlatforms(0); setLashingTeams(0);
       setShippingMode('Lo-Lo'); setVesselType('Geared Breakbulk (Lo-Lo)');
@@ -2593,6 +2769,7 @@ export function ForwarderWorkspace() {
       setIsCommodityTariffActive(false);
       return;
     }
+    lastCalculatedItemsRef.current = JSON.stringify(items);
     let totalPieces = 0; let totalWeightKg = 0; let totalVolumeM3 = 0; let total_m2 = 0;
     let maxPieceWeight = 0; let roRoItems = 0; const staticItems = [];
     const roRoRegex = /camion|vehiculo|trailer|tractor|coche|furgoneta/i;
@@ -2614,6 +2791,38 @@ export function ForwarderWorkspace() {
     const effectiveTargetType = (items && items.length > 0 && items[0]?.type) ? items[0].type : (cargoItems[0]?.type || '');
     const rawType = String(effectiveTargetType || cargoItems[0]?.type || '').toUpperCase().trim();
     const appliedTariff = COMMODITY_TARIFFS[rawType] || null;
+
+    // Auto-Cálculo de Valor de Mercancía por Catálogo de Commodities (Land Charter)
+    const targetCargoType = (items && items.length > 0 && items[0]?.type) ? items[0].type : (cargoItems[0]?.type || activeProject?.cargoType || activeProject?.cargo_type || '');
+    const cleanCargoType = String(targetCargoType || '').trim();
+    const upperCargoType = cleanCargoType.toUpperCase();
+    const cargoType = COMMODITY_VALUES[cleanCargoType] !== undefined
+      ? cleanCargoType
+      : (COMMODITY_VALUES[upperCargoType] !== undefined
+        ? upperCargoType
+        : (COMMODITY_VALUES[upperCargoType.replace(/\./g, ',')] !== undefined
+          ? upperCargoType.replace(/\./g, ',')
+          : (COMMODITY_VALUES[upperCargoType.replace(/,/g, '.')] !== undefined
+            ? upperCargoType.replace(/,/g, '.')
+            : cleanCargoType)));
+
+    if (COMMODITY_VALUES[cargoType] !== undefined) {
+      const autoMercanciaUsd = totalWeightTons * COMMODITY_VALUES[cargoType];
+      if (!userEditedMercanciaCost.current || lastDetectedCargoTypeRef.current !== cargoType) {
+        lastDetectedCargoTypeRef.current = cargoType;
+        userEditedMercanciaCost.current = false;
+        setMercanciaCost(autoMercanciaUsd);
+        if (activeProject) {
+          activeProject.valor_total_mercancia_usd = autoMercanciaUsd;
+          setActiveProject((prev) => (prev ? { ...prev, valor_total_mercancia_usd: autoMercanciaUsd } : prev));
+        }
+        if (typeof window !== 'undefined') {
+          window.State = window.State || {};
+          window.State.valor_total_mercancia_usd = autoMercanciaUsd;
+          window.State.goodsValue = autoMercanciaUsd;
+        }
+      }
+    }
 
     if (appliedTariff) {
       setIsCommodityTariffActive(true);
@@ -2654,9 +2863,19 @@ export function ForwarderWorkspace() {
       setInlandCost(commodityInlandFreight);
 
       // Adaptación terrestre y selección automática según Envasado vs Granel
+      const isBigBagInTariff = /big\s*bag|sac|pallet|envasad/i.test([
+        activeProject?.cargoType,
+        activeProject?.cargo_type,
+        activeProject?.product,
+        activeProject?.prompt,
+        activeProject?.instruction,
+        activeProject?.description,
+        ...(items || []).map(it => `${it.type || ''} ${it.category || ''} ${it.description || ''}`)
+      ].filter(Boolean).join(' '));
+
       const detectedTariff = detectCargoPackagingType(items, activeProject);
       if (detectedTariff) {
-        if (detectedTariff.isPackaged) {
+        if (detectedTariff.isPackaged || isBigBagInTariff) {
           setVehicleType('Camión Plataforma con Grúa Autocarga');
           setLoadingMethod('Autocarga con Grúa del Camión');
           setDischargeMethod('Autocarga con Grúa del Camión');
@@ -2685,7 +2904,7 @@ export function ForwarderWorkspace() {
             const dwtEl = document.getElementById('vessel-dwt');
             if (dwtEl) dwtEl.value = 21;
           }
-        } else if (detectedTariff.isBulk) {
+        } else if (detectedTariff.isBulk && !isBigBagInTariff) {
           setVehicleType('Bañera Basculante (Granel)');
           setLoadingMethod('Carga por Silo / Tubo (Granel)');
           setDischargeMethod('Basculante / Tolva (Granel)');
@@ -2711,9 +2930,19 @@ export function ForwarderWorkspace() {
     setIsCommodityTariffActive(false);
 
     // Detección de Carga Envasada vs Granel para selección de vehículo y métodos en cálculo no tarifario
+    const isBigBagInNonTariff = /big\s*bag|sac|pallet|envasad/i.test([
+      activeProject?.cargoType,
+      activeProject?.cargo_type,
+      activeProject?.product,
+      activeProject?.prompt,
+      activeProject?.instruction,
+      activeProject?.description,
+      ...(items || []).map(it => `${it.type || ''} ${it.category || ''} ${it.description || ''}`)
+    ].filter(Boolean).join(' '));
+
     const detectedNonTariff = detectCargoPackagingType(items, activeProject);
     if (detectedNonTariff) {
-      if (detectedNonTariff.isPackaged) {
+      if (detectedNonTariff.isPackaged || isBigBagInNonTariff) {
         setVehicleType('Camión Plataforma con Grúa Autocarga');
         setLoadingMethod('Autocarga con Grúa del Camión');
         setDischargeMethod('Autocarga con Grúa del Camión');
@@ -2740,7 +2969,7 @@ export function ForwarderWorkspace() {
           const dwtEl = document.getElementById('vessel-dwt');
           if (dwtEl) dwtEl.value = 21;
         }
-      } else if (detectedNonTariff.isBulk) {
+      } else if (detectedNonTariff.isBulk && !isBigBagInNonTariff) {
         setVehicleType('Bañera Basculante (Granel)');
         setLoadingMethod('Carga por Silo / Tubo (Granel)');
         setDischargeMethod('Basculante / Tolva (Granel)');
@@ -2987,6 +3216,12 @@ export function ForwarderWorkspace() {
   };
 
   useEffect(() => {
+    // Freno al Bucle Infinito (Deep Compare): solo ejecutar si el string de cargoItems cambia
+    const currentItemsString = JSON.stringify(cargoItems);
+    if (lastCalculatedItemsRef.current === currentItemsString) {
+      return;
+    }
+    lastCalculatedItemsRef.current = currentItemsString;
     autoCalculateEstimates(cargoItems);
   }, [
     cargoItems,
@@ -3011,7 +3246,8 @@ export function ForwarderWorkspace() {
   // Cálculo y Renderizado Reactivo de "FOB + Mercancía Unitario"
   useEffect(() => {
     const rawGoodsVal = Number(
-      activeProject?.valor_total_mercancia_usd
+      (mercanciaCost > 0 ? mercanciaCost : null)
+      ?? activeProject?.valor_total_mercancia_usd
       ?? activeProject?.goodsValue
       ?? activeProject?.merchandiseValue
       ?? activeProject?.cargo_value
@@ -3049,7 +3285,7 @@ export function ForwarderWorkspace() {
         } : prev);
       }
     }
-  }, [cargoItems, totals, activeProject, subtotalFreight, subtotalFobOperations, estimatedCost]);
+  }, [cargoItems, totals, activeProject, subtotalFreight, subtotalFobOperations, estimatedCost, mercanciaCost]);
 
   useEffect(() => {
     if (isDualTradingOpen && dualViewRef.current) {
@@ -3088,6 +3324,27 @@ export function ForwarderWorkspace() {
       };
     }
   }, [isDualTradingOpen, activeReport, financialBreakdown, totals, activeProject]);
+
+  // Proteger el Mapa (Evitar el Crash): asegurar limpieza con map.remove() y return temprano si no existe el contenedor
+  useEffect(() => {
+    // Si el contenedor del mapa (el div o el ref) no existe, haz un return temprano para evitar el error appendChild
+    const container = mapContainerRef.current || (typeof document !== 'undefined' ? document.getElementById('map-container') : null);
+    if (!container) return;
+
+    // Función de limpieza (cleanup) en el useEffect que destruye la instancia del mapa anterior (map.remove())
+    return () => {
+      if (mapInstanceRef.current) {
+        try {
+          if (typeof mapInstanceRef.current.remove === 'function') {
+            mapInstanceRef.current.remove();
+          }
+        } catch (mapErr) {
+          console.warn('[ForwarderWorkspace] Error no bloqueante al destruir mapa anterior:', mapErr);
+        }
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
 
   const handleApplyProjectPayload = async (payload) => {
     if (!payload) return;
@@ -3145,7 +3402,8 @@ export function ForwarderWorkspace() {
 
     const PACKAGED_REGEX = /(big\s*bag|saco|sling|paletizad|envasad)/i;
     const BULK_REGEX = /(granel|bulk)/i;
-    const isPackagedFromNlp = PACKAGED_REGEX.test(detectedCargoCandidate) && !BULK_REGEX.test(detectedCargoCandidate);
+    const isExplicitBigBag = /big\s*bag/i.test(detectedCargoCandidate);
+    const isPackagedFromNlp = isExplicitBigBag || (PACKAGED_REGEX.test(detectedCargoCandidate) && !BULK_REGEX.test(detectedCargoCandidate));
 
     if (isPackagedFromNlp) {
       const targetVehicle = 'Camión Plataforma con Grúa Autocarga';
@@ -4016,14 +4274,24 @@ export function ForwarderWorkspace() {
       // Actualizar el estado de filas con los valores normalizados
       setCargoItems(currentItems);
 
-      // Detección reactiva de Carga Envasada vs Granel
+      // Detección reactiva de Carga Envasada vs Granel con blindaje NLP para Big Bags
+      const isBigBagInRecalc = /big\s*bag/i.test([
+        activeProject?.cargoType,
+        activeProject?.cargo_type,
+        activeProject?.product,
+        activeProject?.prompt,
+        activeProject?.instruction,
+        activeProject?.description,
+        ...(currentItems || []).map(it => `${it.type || ''} ${it.category || ''} ${it.description || ''}`)
+      ].filter(Boolean).join(' '));
+
       const detectedRecalc = detectCargoPackagingType(currentItems, activeProject);
       if (detectedRecalc) {
-        if (detectedRecalc.isPackaged) {
+        if (detectedRecalc.isPackaged || isBigBagInRecalc) {
           setVehicleType('Camión Plataforma con Grúa Autocarga');
           setLoadingMethod('Autocarga con Grúa del Camión');
           setDischargeMethod('Autocarga con Grúa del Camión');
-        } else if (detectedRecalc.isBulk) {
+        } else if (detectedRecalc.isBulk && !isBigBagInRecalc) {
           setVehicleType('Bañera Basculante (Granel)');
           setLoadingMethod('Carga por Silo / Tubo (Granel)');
           setDischargeMethod('Basculante / Tolva (Granel)');
@@ -4048,6 +4316,38 @@ export function ForwarderWorkspace() {
       const totalWeightTons = totalWeightKg / 1000;
       const rawType = String(cargoItems[0]?.type || '').toUpperCase().trim();
       const appliedTariff = COMMODITY_TARIFFS[rawType] || null;
+
+      // Auto-Cálculo de Valor de Mercancía por Catálogo de Commodities (Land Charter)
+      const targetCargoType = (cargoItems && cargoItems.length > 0 && cargoItems[0]?.type) ? cargoItems[0].type : (activeProject?.cargoType || activeProject?.cargo_type || '');
+      const cleanCargoType = String(targetCargoType || '').trim();
+      const upperCargoType = cleanCargoType.toUpperCase();
+      const cargoType = COMMODITY_VALUES[cleanCargoType] !== undefined
+        ? cleanCargoType
+        : (COMMODITY_VALUES[upperCargoType] !== undefined
+          ? upperCargoType
+          : (COMMODITY_VALUES[upperCargoType.replace(/\./g, ',')] !== undefined
+            ? upperCargoType.replace(/\./g, ',')
+            : (COMMODITY_VALUES[upperCargoType.replace(/,/g, '.')] !== undefined
+              ? upperCargoType.replace(/,/g, '.')
+              : cleanCargoType)));
+
+      if (COMMODITY_VALUES[cargoType] !== undefined) {
+        const autoMercanciaUsd = totalWeightTons * COMMODITY_VALUES[cargoType];
+        if (!userEditedMercanciaCost.current || lastDetectedCargoTypeRef.current !== cargoType) {
+          lastDetectedCargoTypeRef.current = cargoType;
+          userEditedMercanciaCost.current = false;
+          setMercanciaCost(autoMercanciaUsd);
+          if (activeProject) {
+            activeProject.valor_total_mercancia_usd = autoMercanciaUsd;
+            setActiveProject((prev) => (prev ? { ...prev, valor_total_mercancia_usd: autoMercanciaUsd } : prev));
+          }
+          if (typeof window !== 'undefined') {
+            window.State = window.State || {};
+            window.State.valor_total_mercancia_usd = autoMercanciaUsd;
+            window.State.goodsValue = autoMercanciaUsd;
+          }
+        }
+      }
 
       let localEstimatedCost;
       let localSalePrice;
@@ -4286,7 +4586,8 @@ export function ForwarderWorkspace() {
         || (calculatedLandFreightCost > 0 ? Math.round(calculatedLandFreightCost * 1.18) : 0);
 
       const merchandiseValueUsd = Number(
-        currentReportSnapshot?.valor_total_mercancia_usd
+        (mercanciaCost > 0 ? mercanciaCost : null)
+        ?? currentReportSnapshot?.valor_total_mercancia_usd
         ?? activeProject?.valor_total_mercancia_usd
         ?? activeProject?.goodsValue
         ?? activeProject?.merchandiseValue
@@ -4446,17 +4747,30 @@ export function ForwarderWorkspace() {
           if (typeof window !== 'undefined') {
             const roadSyncFn = typeof window.syncRoadMetricsToBridge === 'function' ? window.syncRoadMetricsToBridge : null;
             if (typeof roadSyncFn === 'function') {
-              await roadSyncFn({
-                reference: activeProject?.project_ref,
-                project_ref: activeProject?.project_ref,
+              const currentRoadSyncKey = JSON.stringify({
+                ref: activeProject?.project_ref,
                 total_trucks: updatedProject.total_trucks,
-                land_freight_cost: totalServicesCost,
-                land_freight_sale: totalServicesSale,
-                valor_total_mercancia_usd: merchandiseValueUsd,
-                freight_cost: totalServicesCost,
-                services: updatedLineItems,
-                line_items: updatedLineItems,
+                cost: totalServicesCost,
+                sale: totalServicesSale,
+                mercancia: merchandiseValueUsd,
+                items: updatedLineItems,
               });
+              if (lastRoadSyncPayloadRef.current !== currentRoadSyncKey) {
+                lastRoadSyncPayloadRef.current = currentRoadSyncKey;
+                await roadSyncFn({
+                  reference: activeProject?.project_ref,
+                  project_ref: activeProject?.project_ref,
+                  total_trucks: updatedProject.total_trucks,
+                  land_freight_cost: totalServicesCost,
+                  land_freight_sale: totalServicesSale,
+                  valor_total_mercancia_usd: merchandiseValueUsd,
+                  freight_cost: totalServicesCost,
+                  services: updatedLineItems,
+                  line_items: updatedLineItems,
+                });
+              } else {
+                console.log('[Data Bridge] Envío a sync-road omitido por carga idéntica (Deep Compare)');
+              }
             }
           }
         } catch (syncBridgeErr) {
@@ -5530,6 +5844,46 @@ export function ForwarderWorkspace() {
                   <input type="number" min="0" value={inlandCost} onChange={(e) => setInlandCost(e.target.value)} />
                   <input type="number" min="0" value={customsCost} onChange={(e) => setCustomsCost(e.target.value)} />
                   <input type="number" min="0" id="input-insurance-cost" value={insuranceCost} onChange={(e) => setInsuranceCost(e.target.value)} />
+                  <input
+                    type="number"
+                    min="0"
+                    id="input-mercancia-cost"
+                    value={mercanciaCost}
+                    onChange={(e) => {
+                      userEditedMercanciaCost.current = true;
+                      const val = parseFloat(e.target.value) || 0;
+                      setMercanciaCost(val);
+                      if (activeProject) {
+                        activeProject.valor_total_mercancia_usd = val;
+                        setActiveProject((prev) => (prev ? { ...prev, valor_total_mercancia_usd: val } : prev));
+                      }
+                      if (typeof window !== 'undefined') {
+                        window.State = window.State || {};
+                        window.State.valor_total_mercancia_usd = val;
+                        window.State.goodsValue = val;
+                      }
+                    }}
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    id="valor_total_mercancia_usd"
+                    value={mercanciaCost}
+                    onChange={(e) => {
+                      userEditedMercanciaCost.current = true;
+                      const val = parseFloat(e.target.value) || 0;
+                      setMercanciaCost(val);
+                      if (activeProject) {
+                        activeProject.valor_total_mercancia_usd = val;
+                        setActiveProject((prev) => (prev ? { ...prev, valor_total_mercancia_usd: val } : prev));
+                      }
+                      if (typeof window !== 'undefined') {
+                        window.State = window.State || {};
+                        window.State.valor_total_mercancia_usd = val;
+                        window.State.goodsValue = val;
+                      }
+                    }}
+                  />
                   <input id="input-actual-loading-days" type="number" value={actualLoadingDays} onChange={(e) => setActualLoadingDays(e.target.value)} />
                   <input id="input-actual-discharging-days" type="number" value={actualDischargingDays} onChange={(e) => setActualDischargingDays(e.target.value)} />
                   <input id="input-demurrage-rate" type="number" value={demurrageDailyRateUsd} onChange={(e) => setDemurrageDailyRateUsd(Number(e.target.value))} />
@@ -5642,8 +5996,8 @@ export function ForwarderWorkspace() {
                       );
                     })()}
 
-                    {((activeReport?.flete_unitario_usd_mt ?? financialBreakdown?.flete_unitario_usd_mt ?? 0) > 0 || (activeReport?.fob_mas_mercancia_unitario_usd_mt ?? financialBreakdown?.fob_mas_mercancia_unitario_usd_mt ?? fobMasMercanciaUnitario ?? 0) > 0) && (
-                      <div id="financial-unit-ratios-summary" className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {((activeReport?.flete_unitario_usd_mt ?? financialBreakdown?.flete_unitario_usd_mt ?? 0) > 0 || (activeReport?.fob_mas_mercancia_unitario_usd_mt ?? financialBreakdown?.fob_mas_mercancia_unitario_usd_mt ?? fobMasMercanciaUnitario ?? 0) > 0 || mercanciaCost > 0) && (
+                      <div id="financial-unit-ratios-summary" className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                         <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-center justify-between transition-all hover:border-sky-300">
                           <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0"></span>
@@ -5654,6 +6008,43 @@ export function ForwarderWorkspace() {
                               {Number(activeReport?.flete_unitario_usd_mt ?? financialBreakdown?.flete_unitario_usd_mt ?? 0).toFixed(2)}
                             </span>
                             <span className="text-[11px] font-bold text-sky-700">USD/MT</span>
+                          </div>
+                        </div>
+                        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-center justify-between transition-all hover:border-emerald-300">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                            <div>
+                              <span className="text-xs font-bold text-slate-700 tracking-wide block">Valor Mercancía</span>
+                              <span className="text-[10px] text-slate-400">Catálogo / Editable</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 font-mono">
+                            <span className="text-sm font-bold text-slate-400">$</span>
+                            <input
+                              type="number"
+                              id="input-valor-mercancia"
+                              name="valor_total_mercancia_usd"
+                              min="0"
+                              step="any"
+                              value={mercanciaCost || ''}
+                              onChange={(e) => {
+                                userEditedMercanciaCost.current = true;
+                                const val = parseFloat(e.target.value) || 0;
+                                setMercanciaCost(val);
+                                if (activeProject) {
+                                  activeProject.valor_total_mercancia_usd = val;
+                                  setActiveProject((prev) => (prev ? { ...prev, valor_total_mercancia_usd: val } : prev));
+                                }
+                                if (typeof window !== 'undefined') {
+                                  window.State = window.State || {};
+                                  window.State.valor_total_mercancia_usd = val;
+                                  window.State.goodsValue = val;
+                                }
+                              }}
+                              placeholder="0.00"
+                              className="w-28 text-right bg-slate-50 border border-slate-200 rounded px-2 py-1 text-sm font-bold text-slate-900 focus:outline-none focus:border-emerald-500 font-mono"
+                            />
+                            <span className="text-[11px] font-bold text-emerald-800">USD</span>
                           </div>
                         </div>
                         <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-center justify-between transition-all hover:border-amber-300">
@@ -6803,5 +7194,83 @@ export function ForwarderWorkspace() {
     </>
   );
 }
+
+/**
+ * Componente protector de renderizado de Mapa (Leaflet / Canvas)
+ * Evita el crash por appendChild destruyendo la instancia de mapa anterior (map.remove())
+ * antes de crear una nueva, y realizando un return temprano si el contenedor del mapa (el div o el ref) no existe.
+ */
+export function LandCharterMap({ containerId = 'map-container', className = '' }) {
+  const localContainerRef = useRef(null);
+  const localInstanceRef = useRef(null);
+
+  useEffect(() => {
+    // Si el contenedor del mapa (el div o el ref) no existe, haz un return temprano para evitar el error appendChild
+    const container = localContainerRef.current || (typeof document !== 'undefined' ? document.getElementById(containerId) : null);
+    if (!container) {
+      return;
+    }
+
+    // Asegúrate de que haya una función de limpieza (cleanup) en el useEffect que destruya la instancia del mapa anterior (map.remove()) antes de crear una nueva
+    if (localInstanceRef.current) {
+      try {
+        if (typeof localInstanceRef.current.remove === 'function') {
+          localInstanceRef.current.remove();
+        }
+      } catch (err) {
+        console.warn('[LandCharterMap] Error no bloqueante al destruir mapa anterior:', err);
+      }
+      localInstanceRef.current = null;
+    }
+
+    if (typeof L !== 'undefined' && typeof L.map === 'function') {
+      try {
+        if (container._leaflet_id) {
+          container._leaflet_id = null;
+        }
+        const map = L.map(container, {
+          center: [50.5, 10.5],
+          zoom: 4,
+          preferCanvas: true
+        });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        localInstanceRef.current = map;
+        if (typeof window !== 'undefined') {
+          window.map = map;
+          window.GlobalLeafletMap = map;
+        }
+      } catch (err) {
+        console.warn('[LandCharterMap] Error al inicializar Leaflet map:', err);
+      }
+    }
+
+    // Función de limpieza (cleanup) en el useEffect que destruye la instancia
+    return () => {
+      if (localInstanceRef.current) {
+        try {
+          if (typeof localInstanceRef.current.remove === 'function') {
+            localInstanceRef.current.remove();
+          }
+        } catch (err) {
+          console.warn('[LandCharterMap] Error al destruir mapa en cleanup:', err);
+        }
+        localInstanceRef.current = null;
+      }
+    };
+  }, [containerId]);
+
+  return (
+    <div
+      id={containerId}
+      ref={localContainerRef}
+      className={`w-full h-full min-h-[400px] rounded-lg border border-slate-200 overflow-hidden relative ${className}`}
+    />
+  );
+}
+export const ForwarderRouteMap = LandCharterMap;
 
 export default ForwarderWorkspace;

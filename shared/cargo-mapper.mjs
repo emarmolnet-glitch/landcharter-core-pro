@@ -175,8 +175,32 @@ function includesAlias(normalizedText, alias) {
 }
 
 function selectCargoProduct(normalizedCargo, specificationId, hasBigBags) {
-  if (hasBigBags) return "Big Bags (Minerales/Cemento)";
+  const isPackagedRequest = /big\s*bag|sac|pallet|envasad/i.test(normalizedCargo);
+  const isPackaged = hasBigBags || isPackagedRequest;
+
+  if (isPackaged) {
+    // Buscar en el árbol de productos el primer producto coincidente con el material y formato envasado,
+    // descartando variantes a granel (VRAC, GRANEL, BULK).
+    const matchingProducts = CARGO_PRODUCTS.filter((prod) => {
+      const normProd = normalizeLookupText(prod);
+      if (/vrac|granel|bulk/i.test(normProd)) return false;
+      return /big\s*bag|sac|pallet|envasad/i.test(normProd);
+    });
+
+    if (matchingProducts.length > 0) {
+      if (specificationId === "10") {
+        return matchingProducts.find((p) => normalizeLookupText(p).includes("mineral") || normalizeLookupText(p).includes("cemento")) || matchingProducts[0];
+      }
+      return matchingProducts[0];
+    }
+
+    return "Big Bags (Minerales/Cemento)";
+  }
+
   if (specificationId === "10") {
+    if (isPackaged || hasBigBags || /big\s*bag|sac|pallet|envasad/i.test(normalizedCargo)) {
+      return "Big Bags (Minerales/Cemento)";
+    }
     if (includesAlias(normalizedCargo, "clinker")) return "Clínker";
     if (includesAlias(normalizedCargo, "yeso") || includesAlias(normalizedCargo, "gypsum")) return "Yeso";
     return "Cemento a granel";
@@ -536,3 +560,77 @@ export function validateSixStepWizardPayload(wizardData = {}, extractedScenario 
     podCalcMode: "manual",
   };
 }
+
+/**
+ * Mapeador dinámico y universal de categoría y producto para mercancías envasadas vs granel
+ * @param {string} cargoName - Texto de entrada de la mercancía / prompt
+ * @param {string} currentCategory - Categoría previa opcional
+ * @param {string} currentType - Tipo/producto previo opcional
+ * @param {object} catalog - Diccionario o catálogo opcional
+ */
+export function mapCargoCategoryAndType(cargoName = "", currentCategory = "", currentType = "", catalog = null) {
+  const rawText = String(cargoName ?? "").trim();
+  const isPackagedRequest = /big\s*bag|sac|pallet|envasad/i.test(rawText);
+  const normalizedText = normalizeLookupText(rawText);
+
+  // Si se provee o dispone de un catálogo de productos/tarifas, buscar dinámicamente
+  if (catalog && typeof catalog === "object") {
+    const keys = Object.keys(catalog);
+    if (isPackagedRequest) {
+      // Priorizar el primer producto del catálogo que coincida con el material Y sea envasado (BIGBAG, SAC, etc.)
+      // Excluyendo inmediatamente coincidencias que contengan VRAC, GRANEL o BULK
+      const nonBulkKeys = keys.filter((k) => !/vrac|granel|bulk/i.test(normalizeLookupText(k)));
+      const packagedMatches = nonBulkKeys.filter((k) => /big\s*bag|sac|pallet|envasad/i.test(normalizeLookupText(k)));
+      
+      // Buscar coincidencia que además comparta tokens de material (ej. cemento, yeso, fertilizante)
+      const materialMatch = packagedMatches.find((k) => {
+        const normK = normalizeLookupText(k);
+        return normalizedText.split(" ").some((token) => token.length > 3 && normK.includes(token));
+      });
+
+      if (materialMatch) {
+        return {
+          category: "Carga Unitizada / Envasada",
+          type: materialMatch,
+          cargoType: materialMatch,
+          product: materialMatch,
+          bulk: false,
+        };
+      }
+
+      if (packagedMatches.length > 0) {
+        return {
+          category: "Carga Unitizada / Envasada",
+          type: packagedMatches[0],
+          cargoType: packagedMatches[0],
+          product: packagedMatches[0],
+          bulk: false,
+        };
+      }
+    }
+  }
+
+  // Resolución estándar apoyada en la taxonomía universal
+  const mapped = mapCargoDescription(rawText);
+  let resolvedProduct = mapped.productoEspecifico;
+  let resolvedCategory = mapped.categoriaCarga || currentCategory || "Carga Unitizada / Envasada";
+
+  if (isPackagedRequest) {
+    if (!resolvedProduct || /vrac|granel|bulk/i.test(normalizeLookupText(resolvedProduct))) {
+      resolvedProduct = "Big Bags (Minerales/Cemento)";
+      resolvedCategory = "Carga Unitizada / Envasada";
+    }
+  }
+
+  return {
+    category: resolvedCategory,
+    type: resolvedProduct || currentType || rawText,
+    cargoType: resolvedProduct || currentType || rawText,
+    product: resolvedProduct || currentType || rawText,
+    categoriaCarga: resolvedCategory,
+    productoEspecifico: resolvedProduct,
+    hasBigBags: isPackagedRequest,
+    bulk: !isPackagedRequest,
+  };
+}
+

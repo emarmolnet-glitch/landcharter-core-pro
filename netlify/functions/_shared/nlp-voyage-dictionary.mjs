@@ -224,7 +224,7 @@ function extractCargo(text) {
   ]);
   if (!cargo_type) {
     cargo_type = captureFirst(text, [
-      /\b(cemento(?:\s+(?:a\s+granel|en\s+polvo))?|granos?|cl[ií]nker|trigo|ma[ií]z|soja|fertilizantes?|carb[oó]n|mineral\s+de\s+hierro)\b/i,
+      /\b(cemento(?:\s+(?:en\s+big\s*bags?|en\s+sacos?|en\s+slings?|paletizado|envasado|a\s+granel|en\s+polvo))?|granos?|cl[ií]nker|trigo|ma[ií]z|soja|fertilizantes?(?:\s+(?:en\s+big\s*bags?|en\s+sacos?|a\s+granel))?|carb[oó]n|mineral\s+de\s+hierro)\b/i,
     ]);
   }
   return { cargo_qty, cargo_type };
