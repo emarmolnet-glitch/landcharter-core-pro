@@ -2056,16 +2056,14 @@ export function ForwarderWorkspace() {
           withSrvs.services?.[0]?.payload_data?.route_and_chartering ||
           withSrvs.data?.route || {};
 
-        const sOrigin = withSrvs.pol || withSrvs.land_origin || withSrvs.origin || withSrvs.origin_name || pRoute.pol || pRoute.origin || '';
-        const sDestination = withSrvs.pod || withSrvs.land_destination || withSrvs.destination || withSrvs.destination_name || pRoute.pod || pRoute.destination || '';
-        const sDistRaw = Number(withSrvs.totalKilometers || withSrvs.land_distance || withSrvs.total_distance_km || withSrvs.distance_km || pRoute.distance_km || (Number(pRoute.distance_nm) > 0 ? Math.round(Number(pRoute.distance_nm) * 1.852) : null) || 0);
-        const sDist = Math.round(sDistRaw);
+        // BLINDAJE: Solo heredar datos estrictamente terrestres
+        const sOrigin = withSrvs.land_origin || '';
+        const sDestination = withSrvs.land_destination || '';
+        const sDist = Math.round(Number(withSrvs.land_distance || 0));
 
         if (sOrigin) { setOrigin(sOrigin); setPol(sOrigin); }
         if (sDestination) { setDestination(sDestination); setPod(sDestination); }
-        if (sDist) { setDistance(sDist); setDistanceNm(sDist); }
-        if (pRoute.loading_rate_mt_day || pRoute.loadingRate) setLoadingRate(Number(pRoute.loading_rate_mt_day || pRoute.loadingRate));
-        if (pRoute.discharging_rate_mt_day || pRoute.dischargeRate) setDischargingRate(Number(pRoute.discharging_rate_mt_day || pRoute.dischargeRate));
+        if (sDist > 0) { setDistance(sDist); setDistanceNm(sDist); }
 
         // Hidratar lista de empaque / mercancía preservando desglose íntegro y aplicando Mapeo Inteligente
         const rawSyncItems = extractProjectCargoItems(updated);
@@ -2088,7 +2086,12 @@ export function ForwarderWorkspace() {
         } else if (syncItems.length > 0 && syncItems[0]?.category) {
           setCargoCategory(syncItems[0].category);
         }
-
+        // FORZAR ACTUALIZACIÓN DEL TEXTO DE MERCANCÍA DESDE CORE PRO
+        const rootCargoType = withSrvs.cargoType || withSrvs.cargo_type || withSrvs.product;
+        if (rootCargoType && currentEffectiveItems.length > 0) {
+            currentEffectiveItems[0].type = rootCargoType;
+            setCargoItems([...currentEffectiveItems]); // Forzamos a React a pintar el cambio
+        }
         // Blindar el NLP (Big Bag vs Granel): Si activeProject/withSrvs o items incluyen "big bag" (case-insensitive),
         // forzar estrictamente "Camión Plataforma con Grúa Autocarga" y bloquear cualquier fallback a granel
         const nlpOrCargoText = [
