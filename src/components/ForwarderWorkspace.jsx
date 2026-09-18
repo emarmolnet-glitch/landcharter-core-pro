@@ -2878,7 +2878,16 @@ export function ForwarderWorkspace() {
 
     const totalWeightTons = totalWeightKg / 1000;
     const rawType = String(cargoItems[0]?.type || '').toUpperCase().trim();
-    const appliedTariff = COMMODITY_TARIFFS[rawType] || null;
+    let appliedTariff = COMMODITY_TARIFFS[rawType] || null;
+
+    // Fuzzy Matching: Si no hay coincidencia exacta pero es cemento, asignamos la tarifa plana internamente sin tocar la UI.
+    if (!appliedTariff && rawType.includes('CEM')) {
+      if (rawType.includes('BIG') || rawType.includes('SAC') || rawType.includes('BAG') || rawType.includes('ENVAS')) {
+        appliedTariff = COMMODITY_TARIFFS['CEM I 52,5N BIGBAG'] || null;
+      } else if (rawType.includes('GRANEL') || rawType.includes('BULK') || rawType.includes('VRAC')) {
+        appliedTariff = COMMODITY_TARIFFS['CEM II 42,5 VRAC'] || null;
+      }
+    }
 
     // Auto-Cálculo de Valor de Mercancía por Catálogo de Commodities (Land Charter)
     const targetCargoType = (items && items.length > 0 && items[0]?.type) ? items[0].type : (cargoItems[0]?.type || activeProject?.cargoType || activeProject?.cargo_type || '');
@@ -5953,7 +5962,11 @@ export function ForwarderWorkspace() {
                       const displayTolls = (isCommodityTariffActive && currentTariff) ? 0 : Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollsCost || (distKm * 0.18)));
                       const transitDays = distKm > 0 ? Math.max(1, Math.ceil(distKm / 650)) : 1;
                       const displayDiets = (isCommodityTariffActive && currentTariff) ? 0 : Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
-                      const waitPenalty = (isCommodityTariffActive && currentTariff) ? 0 : (warehouseWaitPenaltyEur || Math.max(0, (Number(loadingRate || 2) - 2) * 40) + Math.max(0, (Number(dischargingRate || 2) - 2) * 40));
+                      
+                      // Freno a las horas marítimas: Si viene > 24 (ej. 1500 MT/día), lo forzamos a 2 horas de camión para evitar multas millonarias
+                      const safeLoadHours = Number(loadingRate || 2) > 24 ? 2 : Number(loadingRate || 2);
+                      const safeDischHours = Number(dischargingRate || 2) > 24 ? 2 : Number(dischargingRate || 2);
+                      const waitPenalty = (isCommodityTariffActive && currentTariff) ? 0 : (warehouseWaitPenaltyEur || Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40));
                       const projectCost = activeProject?.land_freight_cost || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.cost_eur || 0), 0);
                       const projectSale = activeProject?.land_freight_sale || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.sale_price_eur || 0), 0);
                       const wTons = (totals.weight || 0) / 1000;
