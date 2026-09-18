@@ -2890,38 +2890,6 @@ export function ForwarderWorkspace() {
       }
     }
 
-    // Auto-Cálculo de Valor de Mercancía por Catálogo de Commodities (Land Charter)
-    const targetCargoType = (items && items.length > 0 && items[0]?.type) ? items[0].type : (cargoItems[0]?.type || activeProject?.cargoType || activeProject?.cargo_type || '');
-    const cleanCargoType = String(targetCargoType || '').trim();
-    const upperCargoType = cleanCargoType.toUpperCase();
-    const cargoType = COMMODITY_VALUES[cleanCargoType] !== undefined
-      ? cleanCargoType
-      : (COMMODITY_VALUES[upperCargoType] !== undefined
-        ? upperCargoType
-        : (COMMODITY_VALUES[upperCargoType.replace(/\./g, ',')] !== undefined
-          ? upperCargoType.replace(/\./g, ',')
-          : (COMMODITY_VALUES[upperCargoType.replace(/,/g, '.')] !== undefined
-            ? upperCargoType.replace(/,/g, '.')
-            : cleanCargoType)));
-
-    if (COMMODITY_VALUES[cargoType] !== undefined) {
-      const autoMercanciaUsd = totalWeightTons * COMMODITY_VALUES[cargoType];
-      if (!userEditedMercanciaCost.current || lastDetectedCargoTypeRef.current !== cargoType) {
-        lastDetectedCargoTypeRef.current = cargoType;
-        userEditedMercanciaCost.current = false;
-        setMercanciaCost(autoMercanciaUsd);
-        if (activeProject) {
-          activeProject.valor_total_mercancia_usd = autoMercanciaUsd;
-          setActiveProject((prev) => (prev ? { ...prev, valor_total_mercancia_usd: autoMercanciaUsd } : prev));
-        }
-        if (typeof window !== 'undefined') {
-          window.State = window.State || {};
-          window.State.valor_total_mercancia_usd = autoMercanciaUsd;
-          window.State.goodsValue = autoMercanciaUsd;
-        }
-      }
-    }
-
     if (appliedTariff) {
       setIsCommodityTariffActive(true);
 
