@@ -1803,11 +1803,11 @@ export function ForwarderWorkspace() {
   const mapInstanceRef = useRef(null);
 
   // Parámetros dinámicos de ruta, ritmos operativos, rotación y demoras
-  const [pol, setPol] = useState(activeProject?.pol || activeProject?.land_origin || '');
-  const [pod, setPod] = useState(activeProject?.pod || activeProject?.land_destination || '');
+  const [pol, setPol] = useState(activeProject?.pol || '');
+  const [pod, setPod] = useState(activeProject?.pod || '');
   const [loadingRate, setLoadingRate] = useState(2);
   const [dischargingRate, setDischargingRate] = useState(2);
-  const [distanceNm, setDistanceNm] = useState(activeProject?.land_distance || activeProject?.totalKilometers || 0);
+  const [distanceNm, setDistanceNm] = useState(activeProject?.distance_nm || activeProject?.distanceNm || 0);
   const [vesselSpeedKnots, setVesselSpeedKnots] = useState(12.0);
   const [vesselDailyHireUsd, setVesselDailyHireUsd] = useState(11500);
   const [exchangeRateUsdEur, setExchangeRateUsdEur] = useState(0.92);
@@ -1815,6 +1815,11 @@ export function ForwarderWorkspace() {
   const [actualDischargingDays, setActualDischargingDays] = useState('');
   const [demurrageDailyRateUsd, setDemurrageDailyRateUsd] = useState(11500);
   const [charteringAssessment, setCharteringAssessment] = useState(null);
+
+  // Aislamiento total del estado terrestre (Cero Data Bleed)
+  const [landOrigin, setLandOrigin] = useState(activeProject?.land_route?.origin || activeProject?.land_origin || '');
+  const [landDestination, setLandDestination] = useState(activeProject?.land_route?.destination || activeProject?.land_destination || '');
+  const [distanceKm, setDistanceKm] = useState(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0);
 
   const [subtotalFreight, setSubtotalFreight] = useState('0.00');
   const [subtotalFobOperations, setSubtotalFobOperations] = useState('0.00');
@@ -2197,13 +2202,13 @@ export function ForwarderWorkspace() {
           withSrvs.data?.route || {};
 
         // BLINDAJE: Solo heredar datos estrictamente terrestres
-        const sOrigin = withSrvs.land_origin || '';
-        const sDestination = withSrvs.land_destination || '';
-        const sDist = Math.round(Number(withSrvs.land_distance || 0));
+        const sOrigin = withSrvs.land_route?.origin || withSrvs.land_origin || '';
+        const sDestination = withSrvs.land_route?.destination || withSrvs.land_destination || '';
+        const sDist = Math.round(Number(withSrvs.land_route?.distance_km || withSrvs.land_distance || 0));
 
-        if (sOrigin) { setOrigin(sOrigin); setPol(sOrigin); }
-        if (sDestination) { setDestination(sDestination); setPod(sDestination); }
-        if (sDist > 0) { setDistance(sDist); setDistanceNm(sDist); }
+        if (sOrigin) { setLandOrigin(sOrigin); }
+        if (sDestination) { setLandDestination(sDestination); }
+        if (sDist > 0) { setDistanceKm(sDist); }
 
         // Hidratar lista de empaque / mercancía preservando desglose íntegro y aplicando Mapeo Inteligente
         const rawSyncItems = extractProjectCargoItems(updated);
@@ -2390,9 +2395,12 @@ export function ForwarderWorkspace() {
         activeProject.data?.route || {};
 
       // Hidratación forzosa de los estados del Modo Técnico
-      setOrigin(activeProject.pol || activeProject.land_origin || '');
-      setDestination(activeProject.pod || activeProject.land_destination || '');
-      setDistance(Math.round(Number(activeProject.totalKilometers || activeProject.land_distance || 0)));
+      setOrigin(activeProject.pol || '');
+      setDestination(activeProject.pod || '');
+      setDistance(Math.round(Number(activeProject.distance_nm || activeProject.distanceNm || 0)));
+      setLandOrigin(activeProject?.land_route?.origin || activeProject?.land_origin || '');
+      setLandDestination(activeProject?.land_route?.destination || activeProject?.land_destination || '');
+      setDistanceKm(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0));
 
       // Extraer costes si están anidados
       const dbCost = activeProject.land_freight_cost || 0;
@@ -2539,19 +2547,26 @@ export function ForwarderWorkspace() {
       setSalePrice(prev => (effectiveSale === 0 && Number(prev) > 0) ? prev : effectiveSale);
 
       // Sobrescribe los estados visuales con los datos reales de Neon / DataBridge
-      const newOrigin = activeProject.pol || activeProject.land_origin || projectRoute.pol || projectRoute.origin || activeProject.origin || activeProject.origin_name || (typeof window !== 'undefined' ? window.State?.pol : '') || '';
-      const newDestination = activeProject.pod || activeProject.land_destination || projectRoute.pod || projectRoute.destination || activeProject.destination || activeProject.destination_name || (typeof window !== 'undefined' ? window.State?.pod : '') || '';
-      const rawDistance = Number(activeProject.totalKilometers || activeProject.land_distance || activeProject.total_distance_km || activeProject.distance_km || activeProject.distance || projectRoute.distance_km || projectRoute.distance_nm || projectRoute.distance || (typeof window !== 'undefined' ? (window.State?.totalKilometers || window.State?.distance) : 0) || 0);
+      const newOrigin = activeProject.pol || projectRoute.pol || (typeof window !== 'undefined' ? window.State?.pol : '') || '';
+      const newDestination = activeProject.pod || projectRoute.pod || (typeof window !== 'undefined' ? window.State?.pod : '') || '';
+      const rawDistance = Number(activeProject.distance_nm || activeProject.distanceNm || projectRoute.distance_nm || (typeof window !== 'undefined' ? (window.State?.distance_nm || window.State?.distance) : 0) || 0);
       const newDistance = Math.round(rawDistance);
 
-      const newTolls = Number(activeProject.tollCost || activeProject.tollsCost || activeProject.peajes || activeProject.data?.financials?.tollCost || (typeof window !== 'undefined' ? (window.State?.tollCost || window.State?.peajes) : 0) || (newDistance > 0 ? Math.round(newDistance * 0.18) : 0));
-      const newDiets = Number(activeProject.driverDiets || activeProject.dietas || activeProject.data?.financials?.driverDiets || (typeof window !== 'undefined' ? (window.State?.driverDiets || window.State?.dietas) : 0) || (newDistance > 0 ? Math.round(Math.max(1, Math.ceil(newDistance / 650)) * 75) : 0));
+      const newLandOrigin = activeProject?.land_route?.origin || activeProject?.land_origin || '';
+      const newLandDestination = activeProject?.land_route?.destination || activeProject?.land_destination || '';
+      const newDistanceKm = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0);
+
+      const newTolls = Number(activeProject.tollCost || activeProject.tollsCost || activeProject.peajes || activeProject.data?.financials?.tollCost || (typeof window !== 'undefined' ? (window.State?.tollCost || window.State?.peajes) : 0) || (newDistanceKm > 0 ? Math.round(newDistanceKm * 0.18) : 0));
+      const newDiets = Number(activeProject.driverDiets || activeProject.dietas || activeProject.data?.financials?.driverDiets || (typeof window !== 'undefined' ? (window.State?.driverDiets || window.State?.dietas) : 0) || (newDistanceKm > 0 ? Math.round(Math.max(1, Math.ceil(newDistanceKm / 650)) * 75) : 0));
 
       setOriginState(newOrigin);
       setDestinationState(newDestination);
       // Sanear Decimales en Distancia
       setDistanceState(Math.round(newDistance));
       setDistance(Math.round(newDistance));
+      setLandOrigin(newLandOrigin);
+      setLandDestination(newLandDestination);
+      setDistanceKm(newDistanceKm);
       setTollsState(newTolls);
       setDietsState(newDiets);
 
@@ -4190,8 +4205,8 @@ export function ForwarderWorkspace() {
     }) || isBigBagsCargo;
 
     // Parámetros de Ruta, Ritmos Operativos y Demoras
-    const reportPol = sourcePayload?.route_and_chartering?.pol || activeProject?.pol || activeProject?.land_origin || pol || '';
-    const reportPod = sourcePayload?.route_and_chartering?.pod || activeProject?.pod || activeProject?.land_destination || pod || '';
+    const reportPol = sourcePayload?.route_and_chartering?.pol || activeProject?.pol || pol || '';
+    const reportPod = sourcePayload?.route_and_chartering?.pod || activeProject?.pod || pod || '';
     const reportLoadRate = Math.max(1, Number(sourcePayload?.route_and_chartering?.loading_rate_mt_day ?? loadingRate) || (isBigBags ? 1200 : 850));
     const reportDischRate = Math.max(1, Number(sourcePayload?.route_and_chartering?.discharging_rate_mt_day ?? dischargingRate) || (isBigBags ? 1000 : 750));
     const reportDistance = Math.max(10, Number(sourcePayload?.route_and_chartering?.distance_nm ?? distanceNm) || 1500);
@@ -4647,6 +4662,9 @@ export function ForwarderWorkspace() {
     setShippingMode('Lo-Lo'); setVesselType('Geared Breakbulk (Lo-Lo)');
     setStorageDays(0); setSurveyorCost(0); setInlandCost(0); setCustomsCost(0); setInsuranceCost(0);
     userEditedSurveyor.current = false; setEstimatedCost(''); setSalePrice('');
+    setLandOrigin(activeProject?.land_route?.origin || activeProject?.land_origin || '');
+    setLandDestination(activeProject?.land_route?.destination || activeProject?.land_destination || '');
+    setDistanceKm(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0));
     setIsCargoModalOpen(true);
   };
 
@@ -4655,6 +4673,19 @@ export function ForwarderWorkspace() {
     setEditingLineItemId(item.id);
     const payload = item.payload_data;
     if (payload) {
+      if (payload.land_route) {
+        setLandOrigin(payload.land_route.origin || '');
+        setLandDestination(payload.land_route.destination || '');
+        setDistanceKm(Number(payload.land_route.distance_km || 0));
+      } else if (payload.land_origin || payload.land_destination || payload.land_distance) {
+        setLandOrigin(payload.land_origin || '');
+        setLandDestination(payload.land_destination || '');
+        setDistanceKm(Number(payload.land_distance || 0));
+      } else {
+        setLandOrigin(activeProject?.land_route?.origin || activeProject?.land_origin || '');
+        setLandDestination(activeProject?.land_route?.destination || activeProject?.land_destination || '');
+        setDistanceKm(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0));
+      }
       let mappedItems = [];
       if (Array.isArray(payload.cargo_items)) {
         mappedItems = payload.cargo_items.map((ci) => ({
@@ -4791,9 +4822,6 @@ export function ForwarderWorkspace() {
         ?? 0
       );
 
-      const landOrigin = pol || origin || activeProject?.land_origin || activeProject?.pol || '';
-      const landDestination = pod || destination || activeProject?.land_destination || activeProject?.pod || '';
-      const distanceKm = Number(activeProject?.land_distance) || Number(distanceNm) || 0;
       const tuVariableDeCosteTotalTerrestre = calculatedLandFreightCost;
       const tuVariableDePrecioVentaTerrestre = calculatedLandFreightSale;
 
@@ -4861,8 +4889,8 @@ export function ForwarderWorkspace() {
         payload_kg: getVehiclePayloadKg(vehicleType),
         total_trucks: Math.max(1, Math.ceil((totals?.weight || currentReportSnapshot?.totals?.weight || 0) / getVehiclePayloadKg(vehicleType))),
         route_and_chartering: {
-          pol: pol || activeProject?.pol || activeProject?.land_origin || '',
-          pod: pod || activeProject?.pod || activeProject?.land_destination || '',
+          pol: pol || activeProject?.pol || '',
+          pod: pod || activeProject?.pod || '',
           distance_nm: Number(distanceNm) || 1500,
           loading_rate_mt_day: Number(loadingRate) || 1200,
           discharging_rate_mt_day: Number(dischargingRate) || 1000,
@@ -4950,10 +4978,11 @@ export function ForwarderWorkspace() {
           total_trucks: Math.max(1, Math.ceil((totals?.weight || currentReportSnapshot?.totals?.weight || 0) / getVehiclePayloadKg(vehicleType))),
           route_and_chartering: payload.route_and_chartering,
           charteringAssessment: charteringAssessment,
-          land_origin: pol || origin || activeProject?.land_origin || activeProject?.pol,
-          land_destination: pod || destination || activeProject?.land_destination || activeProject?.pod,
-          pol: pol || origin || activeProject?.pol || activeProject?.land_origin,
-          pod: pod || destination || activeProject?.pod || activeProject?.land_destination,
+          land_origin: landOrigin || activeProject?.land_origin || '',
+          land_destination: landDestination || activeProject?.land_destination || '',
+          land_distance: distanceKm,
+          pol: pol || activeProject?.pol || '',
+          pod: pod || activeProject?.pod || '',
           land_freight_cost: totalServicesCost,
           land_freight_sale: totalServicesSale,
           targetSalePrice: totalServicesSale,
@@ -5212,31 +5241,13 @@ export function ForwarderWorkspace() {
 
                 // Flete Marítimo Venta: Identificación y normalización
                 const ocean_freight_sale =
-                  activeProject?.ocean_freight_sale ??
-                  activeProject?.target_freight ??
-                  activeProject?.sea_freight_sale ??
-                  activeProject?.ocean_freight ??
-                  activeProject?.sea_freight ??
-                  activeProject?.oceanFreightSale ??
-                  activeProject?.targetFreight ??
-                  activeProject?.target_freight_sale ??
-                  activeProject?.financial_summary?.customer_sale_price_usd ??
-                  activeProject?.financial_summary?.customer_sale_price_eur ??
-                  activeProject?.financial_summary?.subtotal_ocean_freight_usd ??
-                  activeProject?.financial_summary?.subtotal_ocean_freight_eur ??
-                  activeProject?.financialBreakdown?.subtotals?.oceanFreight ??
-                  activeProject?.financialBreakdown?.subtotalOceanFreight ??
-                  activeProject?.financialBreakdown?.oceanFreight?.subtotal ??
-                  activeProject?.data?.ocean_freight_sale ??
-                  activeProject?.data?.target_freight ??
-                  activeProject?.data?.financial_summary?.customer_sale_price_usd ??
-                  activeProject?.data?.financial_summary?.customer_sale_price_eur ??
-                  activeProject?.route_and_chartering?.target_freight ??
-                  activeProject?.route_and_chartering?.freight_rate_usd ??
-                  activeProject?.route_and_chartering?.ocean_freight_sale ??
+                  activeProject?.ocean_freight_sale ||
+                  activeProject?.financial_summary?.customer_sale_price_usd ||
+                  activeProject?.data?.financial_summary?.customer_sale_price_usd ||
+                  activeProject?.target_freight ||
                   0;
                 const target_freight = ocean_freight_sale;
-                const seaFreightSale = Number(ocean_freight_sale) || 0;
+                const seaFreightSale = Number(activeProject?.ocean_freight_sale) || Number(activeProject?.financial_summary?.customer_sale_price_usd) || Number(activeProject?.data?.financial_summary?.customer_sale_price_usd) || 0;
                 const formattedSeaFreightSale = seaFreightSale > 0
                   ? (activeProject?.currency === '$' || activeProject?.currency === 'USD'
                       ? `$ ${seaFreightSale.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -5245,9 +5256,9 @@ export function ForwarderWorkspace() {
 
                 // 2. Extracción y Cálculos Terrestres Provisionales (Nivel 2)
                 const routeInfo = activeProject?.route_and_chartering || activeProject?.data?.route || activeProject?.data || {};
-                const rOrigin = activeProject?.pol || activeProject?.land_origin || pol || routeInfo.pol || routeInfo.origin || activeProject?.origin || '';
-                const rDestination = activeProject?.pod || activeProject?.land_destination || pod || routeInfo.pod || routeInfo.destination || activeProject?.destination || '';
-                const rDistKm = Number(activeProject?.land_distance || activeProject?.totalKilometers || routeInfo.distance_km || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Math.round(Number(distanceNm) * 1.852)) : 0));
+                const rOrigin = activeProject?.land_route?.origin || activeProject?.land_origin || landOrigin || '';
+                const rDestination = activeProject?.land_route?.destination || activeProject?.land_destination || landDestination || '';
+                const rDistKm = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0);
                 const rTruckType = vehicleType || activeProject?.truck_type || activeProject?.vehicle_type || activeProject?.data?.truckType || 'Camión / Tráiler';
 
                 const rLdm = Number(
@@ -5992,11 +6003,11 @@ export function ForwarderWorkspace() {
                           id="input-pol"
                           type="text"
                           required
-                          value={pol}
+                          value={landOrigin}
                           onChange={(e) => {
                             const val = e.target.value;
-                            setPol(val);
-                            setActiveProject(prev => ({ ...prev, land_origin: val, pol: val }));
+                            setLandOrigin(val);
+                            setActiveProject(prev => ({ ...prev, land_origin: val, land_route: { ...(prev?.land_route || {}), origin: val } }));
                           }}
                           placeholder="Ej: Madrid, Barcelona, Sevilla"
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
@@ -6011,11 +6022,11 @@ export function ForwarderWorkspace() {
                           id="input-pod"
                           type="text"
                           required
-                          value={pod}
+                          value={landDestination}
                           onChange={(e) => {
                             const val = e.target.value;
-                            setPod(val);
-                            setActiveProject(prev => ({ ...prev, land_destination: val, pod: val }));
+                            setLandDestination(val);
+                            setActiveProject(prev => ({ ...prev, land_destination: val, land_route: { ...(prev?.land_route || {}), destination: val } }));
                           }}
                           placeholder="Ej: París, Lyon, Milán"
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
@@ -6030,8 +6041,12 @@ export function ForwarderWorkspace() {
                           id="input-distance-nm"
                           type="number"
                           min={10}
-                          value={distanceNm}
-                          onChange={(e) => setDistanceNm(Number(e.target.value))}
+                          value={distanceKm || ''}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setDistanceKm(val);
+                            setActiveProject(prev => ({ ...prev, land_distance: val, land_route: { ...(prev?.land_route || {}), distance_km: val } }));
+                          }}
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-900 shadow-sm"
                         />
                       </div>
@@ -6652,14 +6667,14 @@ export function ForwarderWorkspace() {
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Distancia por carretera</span>
                     <span className="text-sm font-black text-slate-900 mt-1 block font-mono">
-                      {Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Math.round(Number(distanceNm) * 1.852)) : 0))).toLocaleString('es-ES')} km
+                      {Math.round(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0)).toLocaleString('es-ES')} km
                     </span>
                     <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">Corredor UE</span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Jornadas de tacógrafo</span>
                     <span className="text-sm font-black text-blue-700 mt-1 block font-mono">
-                      ~{Math.max(1, Math.ceil(Number(activeProject?.land_distance || activeProject?.totalKilometers || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Math.round(Number(distanceNm) * 1.852)) : 0)) / 650))} jornada(s)
+                      ~{Math.max(1, Math.ceil(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0) / 650))} jornada(s)
                     </span>
                     <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">Reglamento CE 561/2006</span>
                   </div>
@@ -6667,8 +6682,8 @@ export function ForwarderWorkspace() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center mt-3 pt-3 border-t border-slate-200">
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Ruta Terrestre</span>
-                    <span className="text-xs font-black text-slate-900 mt-1 block">{activeProject?.pol || activeProject?.land_origin || pol || ''} ➔ {activeProject?.pod || activeProject?.land_destination || pod || ''}</span>
-                    <span className="block text-[9px] text-slate-500 font-mono">{(Number(activeProject?.land_distance || activeProject?.totalKilometers || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Math.round(Number(distanceNm) * 1.852)) : 0))).toLocaleString('es-ES')} km (Corredor UE)</span>
+                    <span className="text-xs font-black text-slate-900 mt-1 block">{activeProject?.land_route?.origin || activeProject?.land_origin || landOrigin || ''} ➔ {activeProject?.land_route?.destination || activeProject?.land_destination || landDestination || ''}</span>
+                    <span className="block text-[9px] text-slate-500 font-mono">{(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0)).toLocaleString('es-ES')} km (Corredor UE)</span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Tiempos Carga / Descarga</span>
@@ -6677,7 +6692,7 @@ export function ForwarderWorkspace() {
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Tránsito & Tacógrafo</span>
-                    <span className="text-xs font-black text-blue-700 mt-1 block font-mono">~{Math.max(1, Math.ceil(Number(activeProject?.land_distance || activeProject?.totalKilometers || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Math.round(Number(distanceNm) * 1.852)) : 0)) / 650))} jornada(s) chófer</span>
+                    <span className="text-xs font-black text-blue-700 mt-1 block font-mono">~{Math.max(1, Math.ceil(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0) / 650))} jornada(s) chófer</span>
                     <span className="block text-[9px] text-slate-500">Reglamento CE 561/2006</span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
