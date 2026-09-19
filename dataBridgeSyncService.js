@@ -319,6 +319,19 @@ export function buildRoadSyncPayload(options = {}) {
         payload.land_freight_sale = land_freight_sale;
     }
 
+    // 8. Cargo Items / Packing List / Land Route (Non-destructive inheritance)
+    const rawItems = options.items ?? options.cargo_items;
+    if (Array.isArray(rawItems) && rawItems.length > 0) {
+        payload.items = rawItems;
+        payload.cargo_items = rawItems;
+    }
+    if (options.packing_list) {
+        payload.packing_list = options.packing_list;
+    }
+    if (options.land_route) {
+        payload.land_route = options.land_route;
+    }
+
     return payload;
 }
 

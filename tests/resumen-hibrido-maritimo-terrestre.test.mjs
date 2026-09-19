@@ -11,22 +11,22 @@ test('1. ForwarderWorkspace define extracción segura de variables marítimas de
   // Origen marítimo con fallback 'N/A'
   assert.match(
     forwarderWorkspaceSource,
-    /const\s+seaOrigin\s*=\s*activeProject\?\.pol\s*\|\|\s*activeProject\?\.origin\s*\|\|\s*['"]N\/A['"]/,
-    'Debe definir seaOrigin con extracción segura desde pol u origin, fallback "N/A"'
+    /const\s+seaOrigin\s*=\s*activeProject\?\.route_and_chartering\?\.pol\s*\|\|\s*activeProject\?\.data\?\.pol\s*\|\|\s*activeProject\?\.pol\s*\|\|\s*['"]N\/A['"]/,
+    'Debe definir seaOrigin con extracción segura desde route_and_chartering, data o pol, fallback "N/A"'
   );
 
   // Destino marítimo con fallback 'N/A'
   assert.match(
     forwarderWorkspaceSource,
-    /const\s+seaDest\s*=\s*activeProject\?\.pod\s*\|\|\s*activeProject\?\.destination\s*\|\|\s*['"]N\/A['"]/,
-    'Debe definir seaDest con extracción segura desde pod o destination, fallback "N/A"'
+    /const\s+seaDest\s*=\s*activeProject\?\.route_and_chartering\?\.pod\s*\|\|\s*activeProject\?\.data\?\.pod\s*\|\|\s*activeProject\?\.pod\s*\|\|\s*['"]N\/A['"]/,
+    'Debe definir seaDest con extracción segura desde route_and_chartering, data o pod, fallback "N/A"'
   );
 
   // Millas marítimas con fallback 0
   assert.match(
     forwarderWorkspaceSource,
-    /const\s+seaMiles\s*=\s*activeProject\?\.distance_nm\s*\|\|\s*activeProject\?\.distance\s*\|\|\s*0/,
-    'Debe definir seaMiles con extracción segura desde distance_nm o distance, fallback 0'
+    /const\s+seaMiles\s*=\s*activeProject\?\.route_and_chartering\?\.distance_nm\s*\|\|\s*activeProject\?\.distance_nm\s*\|\|\s*activeProject\?\.data\?\.distance_nm\s*\|\|\s*0/,
+    'Debe definir seaMiles con extracción segura desde route_and_chartering, distance_nm o data.distance_nm, fallback 0'
   );
 
   // Toneladas marítimas con cálculo por items o fallback
@@ -196,9 +196,9 @@ test('4. Simulación funcional: cálculo y formateo de datos marítimos', () => 
 
   // Caso 3: Proyecto vacío o sin datos (resiliencia y valores por defecto)
   const projectC = {};
-  const seaOriginC = projectC?.pol || projectC?.origin || 'N/A';
-  const seaDestC = projectC?.pod || projectC?.destination || 'N/A';
-  const seaMilesC = projectC?.distance_nm || projectC?.distance || 0;
+  const seaOriginC = projectC?.route_and_chartering?.pol || projectC?.data?.pol || projectC?.pol || 'N/A';
+  const seaDestC = projectC?.route_and_chartering?.pod || projectC?.data?.pod || projectC?.pod || 'N/A';
+  const seaMilesC = projectC?.route_and_chartering?.distance_nm || projectC?.distance_nm || projectC?.data?.distance_nm || 0;
   const seaTonsC = projectC?.total_weight_tons || 0;
   const seaFreightSaleC = Number(projectC?.ocean_freight_sale ?? projectC?.target_freight ?? 0);
   const formattedSaleC = seaFreightSaleC > 0
@@ -210,4 +210,39 @@ test('4. Simulación funcional: cálculo y formateo de datos marítimos', () => 
   assert.strictEqual(seaMilesC, 0);
   assert.strictEqual(seaTonsC, 0);
   assert.strictEqual(formattedSaleC, '0,00 €');
+
+  // Caso 4: Proyecto con propiedades anidadas en route_and_chartering y data (Neon Deep Extraction)
+  const projectD = {
+    route_and_chartering: {
+      pol: 'Bilbao Port',
+      pod: 'Antwerp Port',
+      distance_nm: 650,
+    },
+    data: {
+      pol: 'Fallback Port',
+      pod: 'Fallback Dest',
+      distance_nm: 999,
+    },
+  };
+  const seaOriginD = projectD?.route_and_chartering?.pol || projectD?.data?.pol || projectD?.pol || 'N/A';
+  const seaDestD = projectD?.route_and_chartering?.pod || projectD?.data?.pod || projectD?.pod || 'N/A';
+  const seaMilesD = projectD?.route_and_chartering?.distance_nm || projectD?.distance_nm || projectD?.data?.distance_nm || 0;
+  assert.strictEqual(seaOriginD, 'Bilbao Port');
+  assert.strictEqual(seaDestD, 'Antwerp Port');
+  assert.strictEqual(seaMilesD, 650);
+
+  // Caso 5: Proyecto con propiedades anidadas en data (fallback de route_and_chartering)
+  const projectE = {
+    data: {
+      pol: 'Barcelona',
+      pod: 'Marseille',
+      distance_nm: 220,
+    },
+  };
+  const seaOriginE = projectE?.route_and_chartering?.pol || projectE?.data?.pol || projectE?.pol || 'N/A';
+  const seaDestE = projectE?.route_and_chartering?.pod || projectE?.data?.pod || projectE?.pod || 'N/A';
+  const seaMilesE = projectE?.route_and_chartering?.distance_nm || projectE?.distance_nm || projectE?.data?.distance_nm || 0;
+  assert.strictEqual(seaOriginE, 'Barcelona');
+  assert.strictEqual(seaDestE, 'Marseille');
+  assert.strictEqual(seaMilesE, 220);
 });
