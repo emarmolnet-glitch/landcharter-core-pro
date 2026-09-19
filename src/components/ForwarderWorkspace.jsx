@@ -1820,6 +1820,8 @@ function ForwarderWorkspaceInner() {
   const [landOrigin, setLandOrigin] = useState(activeProject?.land_route?.origin || activeProject?.land_origin || '');
   const [landDestination, setLandDestination] = useState(activeProject?.land_route?.destination || activeProject?.land_destination || '');
   const [distanceKm, setDistanceKm] = useState(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0);
+  const [safeLoadHours, setSafeLoadHours] = useState(2);
+  const [safeDischHours, setSafeDischHours] = useState(2);
 
   const [subtotalFreight, setSubtotalFreight] = useState('0.00');
   const [subtotalFobOperations, setSubtotalFobOperations] = useState('0.00');
