@@ -5258,7 +5258,7 @@ export function ForwarderWorkspace() {
                 const calculatedSeaItemsTons = Array.isArray(seaItemsList) && seaItemsList.length > 0
                   ? seaItemsList.reduce((acc, it) => acc + (Number(it.quantity || it.qty || 1) * Number(it.unit_weight_kg || it.weight || 0)), 0) / 1000
                   : 0;
-                const seaTons = Number(activeProject?.total_weight_tons) || Number(activeProject?.items?.[0]?.payload_data?.totals?.weight / 1000) || 0;
+                const seaTons = Number(activeProject?.total_weight_tons) || (Number(activeProject?.items?.[0]?.payload_data?.totals?.weight) / 1000) || 0;
 
                 // Flete Marítimo Venta: Identificación y normalización
                 const seaFreightSale = Number(activeProject?.items?.[0]?.payload_data?.financial_summary?.customer_sale_price_usd) || Number(activeProject?.financialBreakdown?.oceanFreight?.subtotal) || Number(activeProject?.ocean_freight_sale) || 0;
@@ -6168,11 +6168,6 @@ export function ForwarderWorkspace() {
                           onChange={(e) => {
                             const val = Math.max(1, Number(e.target.value));
                             setLoadingRate(val);
-                            setActiveProject(prev => ({
-                              ...prev,
-                              loadingRate: val,
-                              loading_rate: val,
-                            }));
                           }}
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
                           title="Tiempo de carga en almacén. Franquicia 2h; penalización legal tras exceder franquicia."
@@ -6192,13 +6187,6 @@ export function ForwarderWorkspace() {
                           onChange={(e) => {
                             const val = Math.max(1, Number(e.target.value));
                             setDischargingRate(val);
-                            setActiveProject(prev => ({
-                              ...prev,
-                              dischargingRate: val,
-                              discharging_rate: val,
-                              discharge_rate: val,
-                              dischargeRate: val,
-                            }));
                           }}
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
                           title="Tiempo de descarga en almacén. Franquicia 2h; penalización legal tras exceder franquicia."
