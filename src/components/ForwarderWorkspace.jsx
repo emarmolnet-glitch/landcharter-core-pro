@@ -6104,17 +6104,15 @@ export function ForwarderWorkspace() {
                           Origen (Carga) * {landOrigin ? <span className="text-emerald-600 font-bold ml-1">✅ OK</span> : <span className="text-amber-600 font-bold ml-1">⚠️ Vacío</span>}
                         </label>
                         <input
-                          id="input-pol"
-                          type="text"
-                          required
-                          value={landOrigin}
-                          onChange={(e) => {
-  const val = e.target.value;
-  setLandOrigin(val);
-}}
-                          placeholder="Ej: Madrid, Barcelona, Sevilla"
-                          className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
-                        />
+                          <input
+  id="input-pol"
+  type="text"
+  required
+  value={landOrigin}
+  onChange={(e) => setLandOrigin(e.target.value)}
+  placeholder="Ej: Madrid, Barcelona, Sevilla"
+  className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
+/>
                       </div>
 
                       <div>
@@ -6122,17 +6120,14 @@ export function ForwarderWorkspace() {
                           Destino (Entrega) * {landDestination ? <span className="text-emerald-600 font-bold ml-1">✅ OK</span> : <span className="text-amber-600 font-bold ml-1">⚠️ Vacío</span>}
                         </label>
                         <input
-                          id="input-pod"
-                          type="text"
-                          required
-                          value={landDestination}
-                          onChange={(e) => {
-  const val = e.target.value;
-  setLandDestination(val);
-}}
-                          placeholder="Ej: París, Lyon, Milán"
-                          className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
-                        />
+  id="input-pod"
+  type="text"
+  required
+  value={landDestination}
+  onChange={(e) => setLandDestination(e.target.value)}
+  placeholder="Ej: París, Lyon, Milán"
+  className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
+/>
                       </div>
 
                       <div>
@@ -6140,16 +6135,13 @@ export function ForwarderWorkspace() {
                           Distancia Ruta (KM) * {distanceKm > 0 ? <span className="text-emerald-600 font-bold ml-1">✅ OK</span> : <span className="text-amber-600 font-bold ml-1">⚠️ Vacío</span>}
                         </label>
                         <input
-                          id="input-distance-nm"
-                          type="number"
-                          min={10}
-                          value={distanceKm || ''}
-                          onChange={(e) => {
-  const val = e.target.value;
-  setDistanceKm(val);
-}}
-                          className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-900 shadow-sm"
-                        />
+  id="input-distance-nm"
+  type="number"
+  min={10}
+  value={distanceKm || ''}
+  onChange={(e) => setDistanceKm(e.target.value)}
+  className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-900 shadow-sm"
+/>
                       </div>
 
                       <div>
@@ -6162,12 +6154,9 @@ export function ForwarderWorkspace() {
   min={1}
   required
   value={safeLoadHours}
-  onChange={(e) => {
-    const val = Math.max(1, Number(e.target.value));
-    setSafeLoadHours(val);
-  }}
+  onChange={(e) => setSafeLoadHours(Math.max(1, Number(e.target.value)))}
   className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
-  title="Tiempo de carga en almacén. Franquicia 2h; penalización legal tras exceder franquicia."
+  title="Tiempo de carga en almacén de origen (horas)."
 />
                       </div>
 
@@ -6181,12 +6170,9 @@ export function ForwarderWorkspace() {
   min={1}
   required
   value={safeDischHours}
-  onChange={(e) => {
-    const val = Math.max(1, Number(e.target.value));
-    setSafeDischHours(val);
-  }}
+  onChange={(e) => setSafeDischHours(Math.max(1, Number(e.target.value)))}
   className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
-  title="Tiempo de descarga en almacén de destino (horas). Franquicia legal: 2 horas."
+  title="Tiempo de descarga en almacén de destino (horas)."
 />
                       </div>
                     </div>
