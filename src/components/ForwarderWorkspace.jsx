@@ -2716,41 +2716,44 @@ export function ForwarderWorkspace() {
 
   const persistProjectToDatabase = async (projectToSave) => {
     try {
-      const servicesList = (Array.isArray(projectToSave.services) && projectToSave.services.length > 0)
+      const servicesList = (Array.isArray(projectToSave?.services) && projectToSave.services.length > 0)
         ? projectToSave.services
-        : (Array.isArray(projectToSave.line_items) ? projectToSave.line_items : []);
+        : (Array.isArray(projectToSave?.line_items) ? projectToSave.line_items : []);
+
+      const landOrigin = origin || pol || projectToSave?.land_origin || projectToSave?.pol || activeProject?.land_origin || activeProject?.pol || '';
+      const landDestination = destination || pod || projectToSave?.land_destination || projectToSave?.pod || activeProject?.land_destination || activeProject?.pod || '';
+      const distanceKm = Number(projectToSave?.land_distance) || Number(distanceNm) || Number(activeProject?.land_distance) || 0;
+      const tuVariableDeCosteTotalTerrestre = Number(projectToSave?.land_freight_cost) || Number(estimatedCost || activeProject?.land_freight_cost || 0);
+      const tuVariableDePrecioVentaTerrestre = Number(projectToSave?.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) || Number(salePrice || activeProject?.land_freight_sale || 0);
 
       const payload = {
-        id: projectToSave.id,
-        project_ref: projectToSave.project_ref,
-        client_name: projectToSave.client_name,
-        status: projectToSave.status,
-        global_margin_percentage: projectToSave.global_margin_percentage,
-        documents: projectToSave.documents || [],
-        items: projectToSave.items || [],
+        ...activeProject, // Heredar todo por defecto
+        ...(projectToSave || {}),
+        items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.items || projectToSave?.items || []),
+        cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || projectToSave?.cargo_items || []),
+        packing_list: activeProject?.packing_list || projectToSave?.packing_list || null,
+        // ... (tus campos terrestres actualizados)
+        land_route: { origin: landOrigin, destination: landDestination, distance_km: distanceKm },
+        truck_type: vehicleType || projectToSave?.truck_type || activeProject?.truck_type,
+        vehicle_type: vehicleType || projectToSave?.vehicle_type || activeProject?.vehicle_type,
+        vehicle_attributes: activeProject?.vehicle_attributes || projectToSave?.vehicle_attributes || null,
+        loading_method: loadingMethod || projectToSave?.loading_method || activeProject?.loading_method,
+        discharge_method: dischargeMethod || projectToSave?.discharge_method || activeProject?.discharge_method,
         services: servicesList,
         line_items: servicesList,
-        land_freight_cost: Number(projectToSave.land_freight_cost) || 0,
-        land_freight_sale: Number(projectToSave.land_freight_sale || projectToSave.targetSalePrice || projectToSave.sale) || 0,
-        valor_total_mercancia_usd: Number(projectToSave.valor_total_mercancia_usd) || 0,
-        total_trucks: projectToSave.total_trucks,
-        truck_type: projectToSave.truck_type || projectToSave.vehicle_type,
-        vehicle_type: projectToSave.vehicle_type || projectToSave.truck_type,
-        loading_method: projectToSave.loading_method,
-        discharge_method: projectToSave.discharge_method,
-        route_and_chartering: projectToSave.route_and_chartering,
-        charteringAssessment: projectToSave.charteringAssessment,
-        land_origin: pol || origin || projectToSave.land_origin || projectToSave.pol,
-        land_destination: pod || destination || projectToSave.land_destination || projectToSave.pod,
-        pol: pol || origin || projectToSave.pol || projectToSave.land_origin,
-        pod: pod || destination || projectToSave.pod || projectToSave.land_destination,
-        land_distance: projectToSave.land_distance,
-        road_transit_days: projectToSave.road_transit_days,
-        road_net_margin: projectToSave.road_net_margin,
-        dossier_ref: projectToSave.dossier_ref || projectToSave.parent_ref || projectToSave.referenciaPadre || referenciaActivaGlobal || null,
-        parent_ref: projectToSave.parent_ref || projectToSave.dossier_ref || projectToSave.referenciaPadre || referenciaActivaGlobal || null,
-        referenciaPadre: projectToSave.referenciaPadre || projectToSave.dossier_ref || projectToSave.parent_ref || referenciaActivaGlobal || null,
-        data: projectToSave.data || {},
+        land_freight_cost: Number(projectToSave.land_freight_cost) || Number(tuVariableDeCosteTotalTerrestre || 0),
+        land_freight_sale: Number(projectToSave.land_freight_sale || projectToSave.targetSalePrice || projectToSave.sale) || Number(tuVariableDePrecioVentaTerrestre || 0),
+        valor_total_mercancia_usd: Number(projectToSave.valor_total_mercancia_usd) || Number(activeProject?.valor_total_mercancia_usd) || 0,
+        land_origin: landOrigin,
+        land_destination: landDestination,
+        land_distance: distanceKm,
+        total_trucks: projectToSave?.total_trucks || activeProject?.total_trucks,
+        road_transit_days: projectToSave?.road_transit_days || activeProject?.road_transit_days,
+        road_net_margin: projectToSave?.road_net_margin || activeProject?.road_net_margin,
+        dossier_ref: projectToSave?.dossier_ref || projectToSave?.parent_ref || projectToSave?.referenciaPadre || referenciaActivaGlobal || activeProject?.dossier_ref || null,
+        parent_ref: projectToSave?.parent_ref || projectToSave?.dossier_ref || projectToSave?.referenciaPadre || referenciaActivaGlobal || activeProject?.parent_ref || null,
+        referenciaPadre: projectToSave?.referenciaPadre || projectToSave?.dossier_ref || projectToSave?.parent_ref || referenciaActivaGlobal || activeProject?.referenciaPadre || null,
+        data: projectToSave?.data || activeProject?.data || {},
       };
 
       const res = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
@@ -2769,6 +2772,31 @@ export function ForwarderWorkspace() {
       console.error('Error al guardar en base de datos:', err);
     }
   };
+
+  const handleSaveProject = async () => {
+    const landOrigin = origin || pol || activeProject?.land_origin || activeProject?.pol || '';
+    const landDestination = destination || pod || activeProject?.land_destination || activeProject?.pod || '';
+    const distanceKm = Number(activeProject?.land_distance) || Number(distanceNm) || 0;
+    const tuVariableDeCosteTotalTerrestre = Number(estimatedCost || activeProject?.land_freight_cost || 0);
+    const tuVariableDePrecioVentaTerrestre = Number(salePrice || activeProject?.land_freight_sale || 0);
+
+    const payload = {
+      ...activeProject, // Heredar todo por defecto
+      items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.items || []),
+      cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || []),
+      packing_list: activeProject?.packing_list || null,
+      // ... (tus campos terrestres actualizados)
+      land_route: { origin: landOrigin, destination: landDestination, distance_km: distanceKm },
+      land_freight_cost: Number(tuVariableDeCosteTotalTerrestre || 0),
+      land_freight_sale: Number(tuVariableDePrecioVentaTerrestre || 0),
+    };
+
+    return persistProjectToDatabase(payload);
+  };
+
+  if (typeof window !== 'undefined') {
+    window.handleSaveProject = handleSaveProject;
+  }
 
   const handleCreateProject = async () => {
     const input = window.prompt('Introduce el nombre del cliente para el nuevo proyecto:');
@@ -4691,10 +4719,35 @@ export function ForwarderWorkspace() {
         ?? 0
       );
 
-      const safeCargoItems = Array.isArray(cargoItems) ? cargoItems : [];
+      const landOrigin = pol || origin || activeProject?.land_origin || activeProject?.pol || '';
+      const landDestination = pod || destination || activeProject?.land_destination || activeProject?.pod || '';
+      const distanceKm = Number(activeProject?.land_distance) || Number(distanceNm) || 0;
+      const tuVariableDeCosteTotalTerrestre = calculatedLandFreightCost;
+      const tuVariableDePrecioVentaTerrestre = calculatedLandFreightSale;
+
+      const inheritedCargoItems = (cargoItems && cargoItems.length > 0)
+        ? cargoItems
+        : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || activeProject?.items || []);
+
+      const safeCargoItems = Array.isArray(inheritedCargoItems) ? inheritedCargoItems : [];
       const payload = {
+        ...activeProject, // Heredar todo por defecto
+        items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.items || []),
+        cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || []),
+        packing_list: activeProject?.packing_list || null,
+        // ... (tus campos terrestres actualizados)
+        land_route: { origin: landOrigin, destination: landDestination, distance_km: distanceKm },
+        land_freight_cost: calculatedLandFreightCost,
+        land_freight_sale: calculatedLandFreightSale,
+        truck_type: vehicleType,
+        vehicle_type: vehicleType,
+        vehicle_attributes: activeProject?.vehicle_attributes || null,
+        loading_method: loadingMethod,
+        discharge_method: dischargeMethod,
+        payload_kg: getVehiclePayloadKg(vehicleType),
+        total_trucks: Math.max(1, Math.ceil((totals?.weight || currentReportSnapshot?.totals?.weight || 0) / getVehiclePayloadKg(vehicleType))),
         project_ref: activeProject?.project_ref,
-        cargo_items: safeCargoItems.map((item) => ({
+        cargo_items_detail: safeCargoItems.map((item) => ({
           id: item.id || `item-${Date.now()}-${Math.random()}`,
           category: item.category || 'Equipos de Proceso',
           quantity: parseInt(item.quantity, 10) || 1,
@@ -4812,8 +4865,13 @@ export function ForwarderWorkspace() {
 
         const updatedProject = {
           ...activeProject,
+          items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.items || []),
+          cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || []),
+          packing_list: activeProject?.packing_list || null,
+          land_route: { origin: landOrigin, destination: landDestination, distance_km: distanceKm },
           truck_type: vehicleType,
           vehicle_type: vehicleType,
+          vehicle_attributes: activeProject?.vehicle_attributes || null,
           loading_method: loadingMethod,
           discharge_method: dischargeMethod,
           payload_kg: getVehiclePayloadKg(vehicleType),
@@ -4863,6 +4921,10 @@ export function ForwarderWorkspace() {
                   freight_cost: totalServicesCost,
                   services: updatedLineItems,
                   line_items: updatedLineItems,
+                  items: updatedProject.items,
+                  cargo_items: updatedProject.cargo_items,
+                  packing_list: updatedProject.packing_list,
+                  land_route: updatedProject.land_route,
                 });
               } else {
                 console.log('[Data Bridge] Envío a sync-road omitido por carga idéntica (Deep Compare)');
@@ -5062,9 +5124,9 @@ export function ForwarderWorkspace() {
               {/* RESUMEN HÍBRIDO (MARÍTIMO + TERRESTRE PROVISIONAL) */}
               {(() => {
                 // 1. Extracción Segura de Datos Marítimos (Core PRO)
-                const seaOrigin = activeProject?.pol || activeProject?.origin || 'N/A';
-                const seaDest = activeProject?.pod || activeProject?.destination || 'N/A';
-                const seaMiles = activeProject?.distance_nm || activeProject?.distance || 0;
+                const seaOrigin = activeProject?.route_and_chartering?.pol || activeProject?.data?.pol || activeProject?.pol || 'N/A';
+                const seaDest = activeProject?.route_and_chartering?.pod || activeProject?.data?.pod || activeProject?.pod || 'N/A';
+                const seaMiles = activeProject?.route_and_chartering?.distance_nm || activeProject?.distance_nm || activeProject?.data?.distance_nm || 0;
 
                 const pItems = activeProject?.line_items?.[0]?.payload_data?.cargo_items || activeProject?.items || cargoItems || [];
                 const pVol = pItems.reduce((acc, it) => acc + (Number(it.quantity || 1) * Number(it.length_m || it.length || 0) * Number(it.width_m || it.width || 0) * Number(it.height_m || it.height || 0)), 0) || Number(totals.m3 || 0);
