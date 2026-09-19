@@ -5059,17 +5059,62 @@ export function ForwarderWorkspace() {
                 </div>
               </header>
 
-              {/* TARJETAS DE RESUMEN TERRESTRE (READING FROM NEON / ACTIVE PROJECT) */}
+              {/* RESUMEN HÍBRIDO (MARÍTIMO + TERRESTRE PROVISIONAL) */}
               {(() => {
+                // 1. Extracción Segura de Datos Marítimos (Core PRO)
+                const seaOrigin = activeProject?.pol || activeProject?.origin || 'N/A';
+                const seaDest = activeProject?.pod || activeProject?.destination || 'N/A';
+                const seaMiles = activeProject?.distance_nm || activeProject?.distance || 0;
+
+                const pItems = activeProject?.line_items?.[0]?.payload_data?.cargo_items || activeProject?.items || cargoItems || [];
+                const pVol = pItems.reduce((acc, it) => acc + (Number(it.quantity || 1) * Number(it.length_m || it.length || 0) * Number(it.width_m || it.width || 0) * Number(it.height_m || it.height || 0)), 0) || Number(totals.m3 || 0);
+                const pWtTons = (pItems.reduce((acc, it) => acc + (Number(it.quantity || 1) * Number(it.unit_weight_kg || it.weight || 0)), 0) || Number(totals.weight || 0)) / 1000;
+
+                const seaItemsList = (typeof extractProjectCargoItems === 'function' ? extractProjectCargoItems(activeProject) : null) || pItems;
+                const calculatedSeaItemsTons = Array.isArray(seaItemsList) && seaItemsList.length > 0
+                  ? seaItemsList.reduce((acc, it) => acc + (Number(it.quantity || it.qty || 1) * Number(it.unit_weight_kg || it.weight || 0)), 0) / 1000
+                  : 0;
+                const seaTons = activeProject?.total_weight_tons || calculatedSeaItemsTons || (pWtTons > 0 ? pWtTons : 0);
+
+                // Flete Marítimo Venta: Identificación y normalización
+                const ocean_freight_sale =
+                  activeProject?.ocean_freight_sale ??
+                  activeProject?.target_freight ??
+                  activeProject?.sea_freight_sale ??
+                  activeProject?.ocean_freight ??
+                  activeProject?.sea_freight ??
+                  activeProject?.oceanFreightSale ??
+                  activeProject?.targetFreight ??
+                  activeProject?.target_freight_sale ??
+                  activeProject?.financial_summary?.customer_sale_price_usd ??
+                  activeProject?.financial_summary?.customer_sale_price_eur ??
+                  activeProject?.financial_summary?.subtotal_ocean_freight_usd ??
+                  activeProject?.financial_summary?.subtotal_ocean_freight_eur ??
+                  activeProject?.financialBreakdown?.subtotals?.oceanFreight ??
+                  activeProject?.financialBreakdown?.subtotalOceanFreight ??
+                  activeProject?.financialBreakdown?.oceanFreight?.subtotal ??
+                  activeProject?.data?.ocean_freight_sale ??
+                  activeProject?.data?.target_freight ??
+                  activeProject?.data?.financial_summary?.customer_sale_price_usd ??
+                  activeProject?.data?.financial_summary?.customer_sale_price_eur ??
+                  activeProject?.route_and_chartering?.target_freight ??
+                  activeProject?.route_and_chartering?.freight_rate_usd ??
+                  activeProject?.route_and_chartering?.ocean_freight_sale ??
+                  0;
+                const target_freight = ocean_freight_sale;
+                const seaFreightSale = Number(ocean_freight_sale) || 0;
+                const formattedSeaFreightSale = seaFreightSale > 0
+                  ? (activeProject?.currency === '$' || activeProject?.currency === 'USD'
+                      ? `$ ${seaFreightSale.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : `${seaFreightSale.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`)
+                  : (activeProject?.currency === '$' || activeProject?.currency === 'USD' ? '$ 0.00' : '0,00 €');
+
+                // 2. Extracción y Cálculos Terrestres Provisionales (Nivel 2)
                 const routeInfo = activeProject?.route_and_chartering || activeProject?.data?.route || activeProject?.data || {};
                 const rOrigin = activeProject?.pol || activeProject?.land_origin || pol || routeInfo.pol || routeInfo.origin || activeProject?.origin || '';
                 const rDestination = activeProject?.pod || activeProject?.land_destination || pod || routeInfo.pod || routeInfo.destination || activeProject?.destination || '';
                 const rDistKm = Number(activeProject?.land_distance || activeProject?.totalKilometers || routeInfo.distance_km || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Math.round(Number(distanceNm) * 1.852)) : 0));
                 const rTruckType = vehicleType || activeProject?.truck_type || activeProject?.vehicle_type || activeProject?.data?.truckType || 'Camión / Tráiler';
-
-                const pItems = activeProject?.line_items?.[0]?.payload_data?.cargo_items || activeProject?.items || cargoItems || [];
-                const pVol = pItems.reduce((acc, it) => acc + (Number(it.quantity || 1) * Number(it.length_m || it.length || 0) * Number(it.width_m || it.width || 0) * Number(it.height_m || it.height || 0)), 0) || Number(totals.m3 || 0);
-                const pWtTons = (pItems.reduce((acc, it) => acc + (Number(it.quantity || 1) * Number(it.unit_weight_kg || it.weight || 0)), 0) || Number(totals.weight || 0)) / 1000;
 
                 const rLdm = Number(
                   activeProject?.data?.ldm ||
@@ -5088,94 +5133,177 @@ export function ForwarderWorkspace() {
                 const rDrivingDays = rDistKm > 0 ? Math.max(1, Math.ceil(rDistKm / 650)) : 1;
 
                 return (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-                    {/* Tarjeta 1: Origen y Destino (Ruta) */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Ruta Terrestre</span>
-                          <span className="text-base">🛣️</span>
+                  <div className="space-y-4">
+                    {/* BANNER MARÍTIMO (NIVEL 1): CONTEXTO MARÍTIMO (CORE PRO) */}
+                    <div className="bg-blue-50/50 border border-blue-200 rounded-xl p-4 shadow-xs">
+                      <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-blue-100">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xs font-black uppercase tracking-wider text-blue-900">
+                            🚢 CONTEXTO MARÍTIMO (CORE PRO)
+                          </h3>
                         </div>
-                        <div className="font-bold text-slate-800 text-sm truncate" title={`${rOrigin} ➔ ${rDestination}`}>
-                          {rOrigin} <span className="text-blue-600 font-black">➔</span> {rDestination}
-                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-100/70 border border-blue-200 px-2 py-0.5 rounded-full">
+                          Solo Lectura
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-slate-100">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                        <span className="text-[11px] font-medium text-slate-600">Corredor Directo UE</span>
-                      </div>
-                    </div>
 
-                    {/* Tarjeta 2: Distancia (km) */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Distancia (km)</span>
-                          <span className="text-base">📍</span>
-                        </div>
-                        <div className="text-xl font-mono font-black text-slate-900">
-                          {rDistKm.toLocaleString('es-ES')} <span className="text-xs font-semibold text-slate-500">km</span>
-                        </div>
-                      </div>
-                      <div className="text-[11px] font-medium text-slate-600 mt-3 pt-2 border-t border-slate-100">
-                        ~{rDrivingDays} jornada{rDrivingDays > 1 ? 's' : ''} (Tacógrafo UE)
-                      </div>
-                    </div>
-
-                    {/* Tarjeta 3: Tipo de Camión */}
-                    {(() => {
-                      const effPayloadKg = getVehiclePayloadKg(rTruckType);
-                      const effPayloadTons = effPayloadKg / 1000;
-                      return (
-                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                        {/* Columna 1: Ruta */}
+                        <div className="bg-white/80 border border-blue-100 rounded-lg p-3 shadow-2xs flex flex-col justify-between">
                           <div>
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Tipo de Camión</span>
-                              <span className="text-base">🚛</span>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Ruta</span>
+                              <span className="text-sm">⚓</span>
                             </div>
-                            <div className="font-bold text-slate-800 text-sm truncate" title={rTruckType}>
-                              {rTruckType}
+                            <div className="font-bold text-slate-800 text-sm truncate" title={`${seaOrigin} ➔ ${seaDest}`}>
+                              {seaOrigin} <span className="text-blue-600 font-black">➔</span> {seaDest}
                             </div>
                           </div>
-                          <div className="text-[11px] font-medium text-slate-600 mt-3 pt-2 border-t border-slate-100 flex justify-between items-center">
-                            <span>40t MMA · {effPayloadTons}t Carga Útil</span>
-                            <span className="text-[10px] font-mono font-bold text-blue-600">{effPayloadKg.toLocaleString('es-ES')} kg</span>
+                          <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-blue-50 text-[10px] font-medium text-slate-500">
+                            <span>POL ➔ POD Marítimo</span>
                           </div>
                         </div>
-                      );
-                    })()}
 
-                    {/* Tarjeta 4: Metros Lineales (LDM) / Pallets */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Metros Lineales (LDM)</span>
-                          <span className="text-base">📦</span>
+                        {/* Columna 2: Distancia */}
+                        <div className="bg-white/80 border border-blue-100 rounded-lg p-3 shadow-2xs flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Distancia</span>
+                              <span className="text-sm">🧭</span>
+                            </div>
+                            <div className="text-xl font-mono font-black text-slate-900">
+                              {Number(seaMiles).toLocaleString('es-ES')} <span className="text-xs font-semibold text-slate-500">NM</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-blue-50 text-[10px] font-medium text-slate-500">
+                            <span>Millas Náuticas</span>
+                          </div>
                         </div>
-                        <div className="text-xl font-mono font-black text-slate-900">
-                          {rLdm} <span className="text-xs font-semibold text-slate-500">LDM</span>
+
+                        {/* Columna 3: Carga */}
+                        <div className="bg-white/80 border border-blue-100 rounded-lg p-3 shadow-2xs flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Carga</span>
+                              <span className="text-sm">⚖️</span>
+                            </div>
+                            <div className="text-xl font-mono font-black text-slate-900">
+                              {Number(seaTons).toLocaleString('es-ES', { maximumFractionDigits: 2 })} <span className="text-xs font-semibold text-slate-500">Toneladas</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-blue-50 text-[10px] font-medium text-slate-500">
+                            <span>Partidas Core PRO</span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] font-medium text-slate-600 mt-3 pt-2 border-t border-slate-100">
-                        <span>{rPalletsEuro} Europalets</span>
-                        <span className="font-mono font-bold text-blue-600">{rLdmPct}%</span>
+
+                        {/* Columna 4: Flete Marítimo (Venta) */}
+                        <div className="bg-white/80 border border-blue-100 rounded-lg p-3 shadow-2xs flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Flete Marítimo (Venta)</span>
+                              <span className="text-sm">🌊</span>
+                            </div>
+                            <div className="text-xl font-mono font-black text-blue-700">
+                              {formattedSeaFreightSale}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-blue-50 text-[10px] font-medium text-slate-500">
+                            <span>Venta Marítima Objetivo</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Tarjeta 5: Coste de Flete Terrestre vs. Venta */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-emerald-300 transition-all flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Flete Terrestre vs. Venta</span>
-                          <span className="text-base">💶</span>
+                    {/* CUADRÍCULA DE RESUMEN TERRESTRE (NIVEL 2) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+                      {/* Tarjeta 1: Origen y Destino (Ruta) */}
+                      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Ruta Terrestre</span>
+                            <span className="text-base">🛣️</span>
+                          </div>
+                          <div className="font-bold text-slate-800 text-sm truncate" title={`${rOrigin} ➔ ${rDestination}`}>
+                            {rOrigin} <span className="text-blue-600 font-black">➔</span> {rDestination}
+                          </div>
                         </div>
-                        <div className="flex items-baseline gap-1 text-slate-900">
-                          <span className="text-xl font-mono font-black text-emerald-600">{rSaleEur.toLocaleString('es-ES')} €</span>
-                          <span className="text-[10px] font-mono text-slate-400">venta</span>
+                        <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-slate-100">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                          <span className="text-[11px] font-medium text-slate-600">Corredor Directo UE</span>
                         </div>
                       </div>
-                      <div className="text-[11px] text-slate-600 mt-3 pt-2 border-t border-slate-100 font-mono truncate">
-                        Coste: {rCostEur.toLocaleString('es-ES')} € · <span className="text-emerald-600 font-bold">+{rMargin.toLocaleString('es-ES')} € ({rMarginPct}%)</span>
+
+                      {/* Tarjeta 2: Distancia (km) */}
+                      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Distancia (km)</span>
+                            <span className="text-base">📍</span>
+                          </div>
+                          <div className="text-xl font-mono font-black text-slate-900">
+                            {rDistKm.toLocaleString('es-ES')} <span className="text-xs font-semibold text-slate-500">km</span>
+                          </div>
+                        </div>
+                        <div className="text-[11px] font-medium text-slate-600 mt-3 pt-2 border-t border-slate-100">
+                          ~{rDrivingDays} jornada{rDrivingDays > 1 ? 's' : ''} (Tacógrafo UE)
+                        </div>
+                      </div>
+
+                      {/* Tarjeta 3: Tipo de Camión */}
+                      {(() => {
+                        const effPayloadKg = getVehiclePayloadKg(rTruckType);
+                        const effPayloadTons = effPayloadKg / 1000;
+                        return (
+                          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Tipo de Camión</span>
+                                <span className="text-base">🚛</span>
+                              </div>
+                              <div className="font-bold text-slate-800 text-sm truncate" title={rTruckType}>
+                                {rTruckType}
+                              </div>
+                            </div>
+                            <div className="text-[11px] font-medium text-slate-600 mt-3 pt-2 border-t border-slate-100 flex justify-between items-center">
+                              <span>40t MMA · {effPayloadTons}t Carga Útil</span>
+                              <span className="text-[10px] font-mono font-bold text-blue-600">{effPayloadKg.toLocaleString('es-ES')} kg</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Tarjeta 4: Metros Lineales (LDM) / Pallets */}
+                      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Metros Lineales (LDM)</span>
+                            <span className="text-base">📦</span>
+                          </div>
+                          <div className="text-xl font-mono font-black text-slate-900">
+                            {rLdm} <span className="text-xs font-semibold text-slate-500">LDM</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] font-medium text-slate-600 mt-3 pt-2 border-t border-slate-100">
+                          <span>{rPalletsEuro} Europalets</span>
+                          <span className="font-mono font-bold text-blue-600">{rLdmPct}%</span>
+                        </div>
+                      </div>
+
+                      {/* Tarjeta 5: Coste de Flete Terrestre vs. Venta */}
+                      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-emerald-300 transition-all flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Flete Terrestre vs. Venta</span>
+                            <span className="text-base">💶</span>
+                          </div>
+                          <div className="flex items-baseline gap-1 text-slate-900">
+                            <span className="text-xl font-mono font-black text-emerald-600">{rSaleEur.toLocaleString('es-ES')} €</span>
+                            <span className="text-[10px] font-mono text-slate-400">venta</span>
+                          </div>
+                        </div>
+                        <div className="text-[11px] text-slate-600 mt-3 pt-2 border-t border-slate-100 font-mono truncate">
+                          Coste: {rCostEur.toLocaleString('es-ES')} € · <span className="text-emerald-600 font-bold">+{rMargin.toLocaleString('es-ES')} € ({rMarginPct}%)</span>
+                        </div>
                       </div>
                     </div>
                   </div>
