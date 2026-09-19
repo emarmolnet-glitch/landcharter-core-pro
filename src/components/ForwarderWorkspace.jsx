@@ -2206,10 +2206,10 @@ function ForwarderWorkspaceInner() {
           withSrvs.services?.[0]?.payload_data?.route_and_chartering ||
           withSrvs.data?.route || {};
 
-        // BLINDAJE: Solo heredar datos estrictamente terrestres
-        const sOrigin = withSrvs.land_route?.origin || withSrvs.land_origin || '';
-        const sDestination = withSrvs.land_route?.destination || withSrvs.land_destination || '';
-        const sDist = Math.round(Number(withSrvs.land_route?.distance_km || withSrvs.land_distance || 0));
+        // BLINDAJE: Heredar de BD, o rescatar de la Memoria Global (Calculadora) si la BD está vacía
+        const sOrigin = withSrvs.land_route?.origin || withSrvs.land_origin || (typeof window !== 'undefined' ? (window.State?.land_origin || window.State?.origin || window.State?.pol) : '') || '';
+        const sDestination = withSrvs.land_route?.destination || withSrvs.land_destination || (typeof window !== 'undefined' ? (window.State?.land_destination || window.State?.destination || window.State?.pod) : '') || '';
+        const sDist = Math.round(Number(withSrvs.land_route?.distance_km || withSrvs.land_distance || (typeof window !== 'undefined' ? (window.State?.land_distance || window.State?.distanceKm || window.State?.distance) : 0) || 0));
 
         if (sOrigin) { setLandOrigin(sOrigin); }
         if (sDestination) { setLandDestination(sDestination); }
@@ -2399,13 +2399,14 @@ function ForwarderWorkspaceInner() {
         activeProject.services?.[0]?.payload_data?.route_and_chartering ||
         activeProject.data?.route || {};
 
-      // Hidratación forzosa de los estados del Modo Técnico
+      // Hidratación forzosa de los estados del Modo Técnico + Memoria Global
       setOrigin(activeProject.pol || '');
       setDestination(activeProject.pod || '');
       setDistance(Math.round(Number(activeProject.distance_nm || activeProject.distanceNm || 0)));
-      setLandOrigin(activeProject?.land_route?.origin || activeProject?.land_origin || '');
-      setLandDestination(activeProject?.land_route?.destination || activeProject?.land_destination || '');
-      setDistanceKm(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0));
+      
+      setLandOrigin(activeProject?.land_route?.origin || activeProject?.land_origin || (typeof window !== 'undefined' ? (window.State?.land_origin || window.State?.origin || window.State?.pol) : '') || '');
+      setLandDestination(activeProject?.land_route?.destination || activeProject?.land_destination || (typeof window !== 'undefined' ? (window.State?.land_destination || window.State?.destination || window.State?.pod) : '') || '');
+      setDistanceKm(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || (typeof window !== 'undefined' ? (window.State?.land_distance || window.State?.distanceKm || window.State?.distance) : 0) || 0));
 
       // Extraer costes si están anidados
       const dbCost = activeProject.land_freight_cost || 0;
@@ -2557,10 +2558,10 @@ function ForwarderWorkspaceInner() {
       const rawDistance = Number(activeProject.distance_nm || activeProject.distanceNm || projectRoute.distance_nm || (typeof window !== 'undefined' ? (window.State?.distance_nm || window.State?.distance) : 0) || 0);
       const newDistance = Math.round(rawDistance);
 
-      const newLandOrigin = activeProject?.land_route?.origin || activeProject?.land_origin || '';
-      const newLandDestination = activeProject?.land_route?.destination || activeProject?.land_destination || '';
-      const newDistanceKm = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0);
-
+      const newLandOrigin = activeProject?.land_route?.origin || activeProject?.land_origin || (typeof window !== 'undefined' ? (window.State?.land_origin || window.State?.origin || window.State?.pol) : '') || '';
+      const newLandDestination = activeProject?.land_route?.destination || activeProject?.land_destination || (typeof window !== 'undefined' ? (window.State?.land_destination || window.State?.destination || window.State?.pod) : '') || '';
+      const newDistanceKm = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || (typeof window !== 'undefined' ? (window.State?.land_distance || window.State?.distanceKm || window.State?.distance) : 0) || 0);
+      
       const newTolls = Number(activeProject.tollCost || activeProject.tollsCost || activeProject.peajes || activeProject.data?.financials?.tollCost || (typeof window !== 'undefined' ? (window.State?.tollCost || window.State?.peajes) : 0) || (newDistanceKm > 0 ? Math.round(newDistanceKm * 0.18) : 0));
       const newDiets = Number(activeProject.driverDiets || activeProject.dietas || activeProject.data?.financials?.driverDiets || (typeof window !== 'undefined' ? (window.State?.driverDiets || window.State?.dietas) : 0) || (newDistanceKm > 0 ? Math.round(Math.max(1, Math.ceil(newDistanceKm / 650)) * 75) : 0));
 
