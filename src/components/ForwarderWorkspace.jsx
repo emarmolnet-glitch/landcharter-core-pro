@@ -4168,10 +4168,12 @@ function ForwarderWorkspaceInner() {
         const polLabel = originData?.displayName || originData?.name || (typeof aiPol === 'string' ? aiPol : '');
         const podLabel = destData?.displayName || destData?.name || (typeof aiPod === 'string' ? aiPod : '');
 
-        ['map-port-pol', 'port-pol'].forEach(id => {
+        // Inyectar en casillas terrestres y marítimas, avisando a React
+        ['input-pol', 'map-port-pol', 'port-pol'].forEach(id => {
           const el = document.getElementById(id);
           if (el && polLabel) {
             el.value = polLabel;
+            el.dispatchEvent(new Event('input', { bubbles: true })); // <-- Avisa a React
             if (originData) {
               el.dataset.selectedLatitude = originData.lat;
               el.dataset.selectedLongitude = originData.lon;
@@ -4182,10 +4184,12 @@ function ForwarderWorkspaceInner() {
             try { el.blur(); } catch (_) {}
           }
         });
-        ['map-port-pod', 'port-pod'].forEach(id => {
+
+        ['input-pod', 'map-port-pod', 'port-pod'].forEach(id => {
           const el = document.getElementById(id);
           if (el && podLabel) {
             el.value = podLabel;
+            el.dispatchEvent(new Event('input', { bubbles: true })); // <-- Avisa a React
             if (destData) {
               el.dataset.selectedLatitude = destData.lat;
               el.dataset.selectedLongitude = destData.lon;
@@ -7707,6 +7711,14 @@ export function LandCharterMap({ containerId = 'map-container', className = '' }
   const localInstanceRef = useRef(null);
 
   useEffect(() => {
+    // FIX ANTICRASH LEAFLET CANVAS (Evita el error 'clearRect' al renderizar doble)
+    if (typeof L !== 'undefined' && L.Canvas) {
+      const originalClear = L.Canvas.prototype._clear;
+      L.Canvas.prototype._clear = function() {
+        if (!this._ctx) return;
+        originalClear.call(this);
+      };
+    }
     // Si el contenedor del mapa (el div o el ref) no existe, haz un return temprano para evitar el error appendChild
     const container = localContainerRef.current || (typeof document !== 'undefined' ? document.getElementById(containerId) : null);
     if (!container) {
