@@ -32,8 +32,8 @@ const COMMODITY_TARIFFS = {
  */
 export const COMMODITY_VALUES = {
   "CEM I 42,5N/R BIGBAG": 55,
-  "CEM I 52,5N BIGBAG": 60,
-  "CEM I 52,5N SAC 50KG": 62,
+  " BIGBAG": 60,
+  " SAC 50KG": 62,
   "CEM I 42,5N/R SAC 50KG": 57,
   "CEM II 52.5N/R 50KG": 58,
   "CEM II 52.5N BIGBAG": 56,
@@ -262,18 +262,18 @@ export function hydrateCargoItem(it, defaultCategory = '', defaultType = '', ind
   if (!it || typeof it !== 'object') {
     return {
       id: `item-${Date.now()}-${index}`,
-      category: 'Carga Unitizada / Envasada',
-      type: 'CEM I 52,5N BIGBAG',
+      category: defaultCategory || 'Carga General',
+      type: defaultType || 'Mercancía sin especificar',
       quantity: 1,
-      length: 1.15,
-      width: 1.1,
-      height: 1.2,
-      length_m: 1.15,
-      width_m: 1.1,
-      height_m: 1.2,
-      weight: 1500,
-      unit_weight_kg: 1500,
-      shipping_mode_supported: 'Tráiler Lona (13.6m)'
+      length: 0,
+      width: 0,
+      height: 0,
+      length_m: 0,
+      width_m: 0,
+      height_m: 0,
+      weight: 0,
+      unit_weight_kg: 0,
+      shipping_mode_supported: ''
     };
   }
 
