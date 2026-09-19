@@ -1805,8 +1805,8 @@ export function ForwarderWorkspace() {
   // Parámetros dinámicos de ruta, ritmos operativos, rotación y demoras
   const [pol, setPol] = useState(activeProject?.pol || activeProject?.land_origin || '');
   const [pod, setPod] = useState(activeProject?.pod || activeProject?.land_destination || '');
-  const [loadingRate, setLoadingRate] = useState(1200);
-  const [dischargingRate, setDischargingRate] = useState(1000);
+  const [loadingRate, setLoadingRate] = useState(2);
+  const [dischargingRate, setDischargingRate] = useState(2);
   const [distanceNm, setDistanceNm] = useState(activeProject?.land_distance || activeProject?.totalKilometers || 0);
   const [vesselSpeedKnots, setVesselSpeedKnots] = useState(12.0);
   const [vesselDailyHireUsd, setVesselDailyHireUsd] = useState(11500);
@@ -1842,6 +1842,10 @@ export function ForwarderWorkspace() {
   const setFreightSaleState = setSalePrice;
   const setTollsState = setTollCost;
   const setDietsState = setDriverDiets;
+  const loadTime = loadingRate;
+  const dischargeTime = dischargingRate;
+  const setLoadTime = setLoadingRate;
+  const setDischargeTime = setDischargingRate;
 
   const setDunnage = setDunnageWood;
   const setChains = setChainsBinders;
@@ -2551,8 +2555,18 @@ export function ForwarderWorkspace() {
       setTollsState(newTolls);
       setDietsState(newDiets);
 
-      if (projectRoute.loading_rate_mt_day || projectRoute.loadingRate) setLoadingRate(Number(projectRoute.loading_rate_mt_day || projectRoute.loadingRate));
-      if (projectRoute.discharging_rate_mt_day || projectRoute.dischargeRate) setDischargingRate(Number(projectRoute.discharging_rate_mt_day || projectRoute.dischargeRate));
+      const rawLoadRate = Number(projectRoute.loading_rate_mt_day || projectRoute.loadingRate || activeProject.loadingRate);
+      if (rawLoadRate > 0) {
+        setLoadTime(rawLoadRate > 24 ? 2 : rawLoadRate);
+      } else {
+        setLoadTime(2);
+      }
+      const rawDischargeRate = Number(projectRoute.discharging_rate_mt_day || projectRoute.dischargeRate || activeProject.dischargingRate);
+      if (rawDischargeRate > 0) {
+        setDischargeTime(rawDischargeRate > 24 ? 2 : rawDischargeRate);
+      } else {
+        setDischargeTime(2);
+      }
       if (projectRoute.vessel_speed_knots) setVesselSpeedKnots(Number(projectRoute.vessel_speed_knots));
       if (projectRoute.daily_hire_rate_usd) setVesselDailyHireUsd(Number(projectRoute.daily_hire_rate_usd));
       if (projectRoute.actual_loading_days !== undefined && projectRoute.actual_loading_days !== null) {
@@ -2587,6 +2601,16 @@ export function ForwarderWorkspace() {
       setprojectDocuments([]);
     }
   }, [activeProject]);
+
+  // Guarda estricta para camiones: Fix de Estado Fantasma (Horas de Camión)
+  useEffect(() => {
+    if (!activeProject || totalWeightKg === 0) {
+      setLoadTime(2);
+      setDischargeTime(2);
+      setOrigin('');
+      setDestination('');
+    }
+  }, [activeProject, totalWeightKg]);
 
   // Hook de sincronización reactiva (Two-Way Binding): Parser del Agente -> Inputs del Formulario y Contadores Visuales
   // Asegura que cuando el Agente de Proyectos procese una instrucción (charteringAssessment / rotationBreakdown),
@@ -2775,6 +2799,10 @@ export function ForwarderWorkspace() {
       setProjects((prev) => [createdProject, ...prev]);
       setActiveProject(createdProject);
       setprojectDocuments([]);
+      setLoadTime(2);
+      setDischargeTime(2);
+      setOrigin('');
+      setDestination('');
     } catch (err) {
       window.alert('No se pudo crear el proyecto.');
     } finally {
@@ -5298,37 +5326,40 @@ export function ForwarderWorkspace() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-6 space-y-8 divide-y divide-slate-100">
+                <div className="flex flex-wrap items-center justify-start gap-3 mb-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCargoModalOpen(false);
+                      setActiveProject(null);
+                    }}
+                    className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 shadow-sm transition-colors mr-2 cursor-pointer"
+                  >
+                    ← Volver a Proyectos
+                  </button>
+                  <button
+                    type="button"
+                    id="btn-sync-databridge-top"
+                    onClick={handleSyncDataBridge}
+                    disabled={isSyncingDataBridge}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-700 border border-blue-300 rounded-lg text-xs font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-50 mr-1 whitespace-nowrap"
+                    title="Sincronizar expediente con base de datos Neon (DataBridge)"
+                  >
+                    {isSyncingDataBridge ? (
+                      <>
+                        <span className="text-sm animate-spin text-blue-600">⚡</span>
+                        <span>Sincronizando...</span>
+                      </>
+                    ) : (
+                      <span>⚡ Sync DataBridge</span>
+                    )}
+                  </button>
+                </div>
+
                 <section className="space-y-4">
                   <div className="flex justify-between items-center">
                     <h3 className="text-sm font-black text-blue-600 uppercase tracking-wider">1. Lista de Empaque (Packing List)</h3>
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsCargoModalOpen(false);
-                          setActiveProject(null);
-                        }}
-                        className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 shadow-sm transition-colors mr-2 cursor-pointer"
-                      >
-                        ← Volver a Proyectos
-                      </button>
-                      <button
-                        type="button"
-                        id="btn-sync-databridge-packing-list"
-                        onClick={handleSyncDataBridge}
-                        disabled={isSyncingDataBridge}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-700 border border-blue-300 rounded-lg text-xs font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-50 mr-1 whitespace-nowrap"
-                        title="Sincronizar expediente con base de datos Neon (DataBridge)"
-                      >
-                        {isSyncingDataBridge ? (
-                          <>
-                            <span className="text-sm animate-spin text-blue-600">⚡</span>
-                            <span>Sincronizando...</span>
-                          </>
-                        ) : (
-                          <span>⚡ Sync DataBridge</span>
-                        )}
-                      </button>
                       <input ref={fileInputRef} type="file" multiple accept=".pdf,.xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleFileUpload} />
                       <button onClick={handleTriggerImport} className="px-3.5 py-2 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg cursor-pointer shadow-sm whitespace-nowrap">🤖 Importar PDF/Excel</button>
                       <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 whitespace-nowrap">
@@ -5690,109 +5721,6 @@ export function ForwarderWorkspace() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                      <div>
-                        <label htmlFor="input-pol" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
-                          Origen (Carga / POL) *
-                        </label>
-                        <input
-                          id="input-pol"
-                          type="text"
-                          required
-                          value={pol}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setPol(val);
-                            setActiveProject(prev => ({ ...prev, land_origin: val, pol: val }));
-                          }}
-                          placeholder="Ej: Madrid, Barcelona, Zaragoza"
-                          className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
-                        />
-                      </div>
-
-                      <div>
-                        <label htmlFor="input-pod" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
-                          Destino (Entrega / POD) *
-                        </label>
-                        <input
-                          id="input-pod"
-                          type="text"
-                          required
-                          value={pod}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setPod(val);
-                            setActiveProject(prev => ({ ...prev, land_destination: val, pod: val }));
-                          }}
-                          placeholder="Ej: París, Milán, Frankfurt"
-                          className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
-                        />
-                      </div>
-
-                      <div>
-                        <label htmlFor="input-loading-rate" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1" title="Tiempo de carga en almacén de origen (horas). Franquicia legal: 2 horas.">
-                          Tiempo Carga Almacén (h) *
-                        </label>
-                        <input
-                          id="input-loading-rate"
-                          type="number"
-                          min={1}
-                          required
-                          value={loadingRate}
-                          onChange={(e) => {
-                            const val = Math.max(1, Number(e.target.value));
-                            setLoadingRate(val);
-                            setActiveProject(prev => ({
-                              ...prev,
-                              loadingRate: val,
-                              loading_rate: val,
-                              loading_rate_mt_day: val,
-                              route_and_chartering: {
-                                ...(prev?.route_and_chartering || {}),
-                                loading_rate_mt_day: val,
-                                loadingRate: val,
-                              }
-                            }));
-                          }}
-                          className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
-                          title="Tiempo de carga en almacén. Franquicia 2h; penalización legal tras exceder franquicia."
-                        />
-                      </div>
-
-                      <div>
-                        <label htmlFor="input-discharging-rate" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1" title="Tiempo de descarga en almacén de destino (horas). Franquicia legal: 2 horas.">
-                          Tiempo Descarga Almacén (h) *
-                        </label>
-                        <input
-                          id="input-discharging-rate"
-                          type="number"
-                          min={1}
-                          required
-                          value={dischargingRate}
-                          onChange={(e) => {
-                            const val = Math.max(1, Number(e.target.value));
-                            setDischargingRate(val);
-                            setActiveProject(prev => ({
-                              ...prev,
-                              dischargingRate: val,
-                              discharging_rate: val,
-                              discharging_rate_mt_day: val,
-                              discharge_rate: val,
-                              dischargeRate: val,
-                              route_and_chartering: {
-                                ...(prev?.route_and_chartering || {}),
-                                discharging_rate_mt_day: val,
-                                dischargingRate: val,
-                                dischargeRate: val,
-                              }
-                            }));
-                          }}
-                          className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
-                          title="Tiempo de descarga en almacén. Franquicia 2h; penalización legal tras exceder franquicia."
-                        />
-                      </div>
-                    </div>
-
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                       <div>
                         <label htmlFor="input-pol" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
@@ -5834,7 +5762,7 @@ export function ForwarderWorkspace() {
 
                       <div>
                         <label htmlFor="input-distance-nm" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
-                          Distancia Ruta (km) *
+                          Distancia Ruta (KM) *
                         </label>
                         <input
                           id="input-distance-nm"
@@ -5848,7 +5776,7 @@ export function ForwarderWorkspace() {
 
                       <div>
                         <label htmlFor="input-loading-rate" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1" title="Tiempo de carga en almacén de origen (horas). Franquicia legal: 2 horas.">
-                          Tiempo Carga (h) *
+                          Tiempo Carga (H) *
                         </label>
                         <input
                           id="input-loading-rate"
@@ -5878,7 +5806,7 @@ export function ForwarderWorkspace() {
 
                       <div>
                         <label htmlFor="input-discharging-rate" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1" title="Tiempo de descarga en almacén de destino (horas). Franquicia legal: 2 horas.">
-                          Tiempo Descarga (h) *
+                          Tiempo Descarga (H) *
                         </label>
                         <input
                           id="input-discharging-rate"
@@ -6231,6 +6159,36 @@ export function ForwarderWorkspace() {
                     </div>
                   </div>
                 </section>
+
+                <div className="flex flex-wrap items-center justify-start gap-3 mt-6 mb-8">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCargoModalOpen(false);
+                      setActiveProject(null);
+                    }}
+                    className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 shadow-sm transition-colors mr-2 cursor-pointer"
+                  >
+                    ← Volver a Proyectos
+                  </button>
+                  <button
+                    type="button"
+                    id="btn-sync-databridge-bottom"
+                    onClick={handleSyncDataBridge}
+                    disabled={isSyncingDataBridge}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-700 border border-blue-300 rounded-lg text-xs font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-50 mr-1 whitespace-nowrap"
+                    title="Sincronizar expediente con base de datos Neon (DataBridge)"
+                  >
+                    {isSyncingDataBridge ? (
+                      <>
+                        <span className="text-sm animate-spin text-blue-600">⚡</span>
+                        <span>Sincronizando...</span>
+                      </>
+                    ) : (
+                      <span>⚡ Sync DataBridge</span>
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="bg-slate-50 p-6 border-t border-slate-200 flex justify-between items-end shrink-0">
