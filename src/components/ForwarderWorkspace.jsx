@@ -6109,10 +6109,9 @@ export function ForwarderWorkspace() {
                           required
                           value={landOrigin}
                           onChange={(e) => {
-                            const val = e.target.value;
-                            setLandOrigin(val);
-                            setActiveProject(prev => ({ ...prev, land_origin: val, land_route: { ...(prev?.land_route || {}), origin: val } }));
-                          }}
+  const val = e.target.value;
+  setLandOrigin(val);
+}}
                           placeholder="Ej: Madrid, Barcelona, Sevilla"
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
                         />
@@ -6128,10 +6127,9 @@ export function ForwarderWorkspace() {
                           required
                           value={landDestination}
                           onChange={(e) => {
-                            const val = e.target.value;
-                            setLandDestination(val);
-                            setActiveProject(prev => ({ ...prev, land_destination: val, land_route: { ...(prev?.land_route || {}), destination: val } }));
-                          }}
+  const val = e.target.value;
+  setLandDestination(val);
+}}
                           placeholder="Ej: París, Lyon, Milán"
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
                         />
@@ -6147,10 +6145,9 @@ export function ForwarderWorkspace() {
                           min={10}
                           value={distanceKm || ''}
                           onChange={(e) => {
-                            const val = Number(e.target.value);
-                            setDistanceKm(val);
-                            setActiveProject(prev => ({ ...prev, land_distance: val, land_route: { ...(prev?.land_route || {}), distance_km: val } }));
-                          }}
+  const val = e.target.value;
+  setDistanceKm(val);
+}}
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-900 shadow-sm"
                         />
                       </div>
@@ -6160,18 +6157,18 @@ export function ForwarderWorkspace() {
                           Tiempo Carga (H) *
                         </label>
                         <input
-                          id="input-loading-rate"
-                          type="number"
-                          min={1}
-                          required
-                          value={loadingRate}
-                          onChange={(e) => {
-                            const val = Math.max(1, Number(e.target.value));
-                            setLoadingRate(val);
-                          }}
-                          className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
-                          title="Tiempo de carga en almacén. Franquicia 2h; penalización legal tras exceder franquicia."
-                        />
+  id="input-loading-rate"
+  type="number"
+  min={1}
+  required
+  value={safeLoadHours}
+  onChange={(e) => {
+    const val = Math.max(1, Number(e.target.value));
+    setSafeLoadHours(val);
+  }}
+  className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
+  title="Tiempo de carga en almacén. Franquicia 2h; penalización legal tras exceder franquicia."
+/>
                       </div>
 
                       <div>
@@ -6179,18 +6176,18 @@ export function ForwarderWorkspace() {
                           Tiempo Descarga (H) *
                         </label>
                         <input
-                          id="input-discharging-rate"
-                          type="number"
-                          min={1}
-                          required
-                          value={dischargingRate}
-                          onChange={(e) => {
-                            const val = Math.max(1, Number(e.target.value));
-                            setDischargingRate(val);
-                          }}
-                          className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
-                          title="Tiempo de descarga en almacén. Franquicia 2h; penalización legal tras exceder franquicia."
-                        />
+  id="input-discharging-rate"
+  type="number"
+  min={1}
+  required
+  value={safeDischHours}
+  onChange={(e) => {
+    const val = Math.max(1, Number(e.target.value));
+    setSafeDischHours(val);
+  }}
+  className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
+  title="Tiempo de descarga en almacén de destino (horas). Franquicia legal: 2 horas."
+/>
                       </div>
                     </div>
                   </div>
