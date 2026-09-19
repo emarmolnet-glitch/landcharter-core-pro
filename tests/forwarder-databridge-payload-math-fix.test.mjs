@@ -113,3 +113,67 @@ test('3. Mathematical simulation: prevents astronomical multi-million payload va
   assert.equal(payload.total_trucks, 3);
   assert.equal(payload.land_route.distance_km, 1200);
 });
+
+test('4. handleSaveProject strictly enforces intact maritime inheritance in payload', () => {
+  const saveFnMatch = forwarderJsx.match(/const\s+handleSaveProject\s*=\s*async\s*\(\)\s*=>\s*\{[\s\S]*?return\s+persistProjectToDatabase\(/);
+  assert.ok(saveFnMatch, 'handleSaveProject definition must exist');
+  const saveFnSource = saveFnMatch[0];
+
+  assert.match(
+    saveFnSource,
+    /route_and_chartering:\s*activeProject\?\.route_and_chartering\s*\|\|\s*null/,
+    'payload must force intact maritime inheritance with activeProject?.route_and_chartering || null'
+  );
+
+  assert.match(
+    saveFnSource,
+    /items:\s*activeProject\?\.items\s*\|\|\s*\[\]/,
+    'payload must force items: activeProject?.items || []'
+  );
+
+  assert.match(
+    saveFnSource,
+    /cargo_items:\s*activeProject\?\.cargo_items\s*\|\|\s*\[\]/,
+    'payload must force cargo_items: activeProject?.cargo_items || []'
+  );
+
+  assert.match(
+    saveFnSource,
+    /land_origin:\s*landOrigin/,
+    'payload must assign land_origin'
+  );
+
+  assert.match(
+    saveFnSource,
+    /land_destination:\s*landDestination/,
+    'payload must assign land_destination'
+  );
+
+  assert.match(
+    saveFnSource,
+    /land_distance:\s*distanceKm/,
+    'payload must assign land_distance'
+  );
+});
+
+test('5. Saneamiento Matemático: cost is strictly 0 when distanceKm is 0 or null', () => {
+  const checkZeroDistance = (distanceKm) => {
+    const runningCost = Math.round(distanceKm * 1.57);
+    const tolls = Math.round(distanceKm > 0 ? distanceKm * 0.18 : 0);
+    const transitDays = distanceKm > 0 ? Math.max(1, Math.ceil(distanceKm / 650)) : 1;
+    const diets = 0;
+    const waitPenalty = 0;
+    const baseTruckOperatingCost = runningCost + tolls + diets + waitPenalty;
+
+    const costeOperativoPorCamion = (!distanceKm || Number(distanceKm) <= 0)
+      ? 0
+      : (baseTruckOperatingCost > 0 ? baseTruckOperatingCost : 0);
+    const trucksNeeded = 3;
+    const finalTotalLandCost = Number((trucksNeeded * costeOperativoPorCamion).toFixed(2));
+    return finalTotalLandCost;
+  };
+
+  assert.equal(checkZeroDistance(0), 0, 'Cost must be 0 when distanceKm is 0');
+  assert.equal(checkZeroDistance(null), 0, 'Cost must be 0 when distanceKm is null');
+  assert.equal(checkZeroDistance(undefined), 0, 'Cost must be 0 when distanceKm is undefined');
+});

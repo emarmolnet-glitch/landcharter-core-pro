@@ -95,8 +95,8 @@ test('4. Level 1 Maritime Banner extracts seaFreightSale through Core PRO financ
   // Exact extraction line required
   assert.match(
     forwarderJsx,
-    /const\s+seaFreightSale\s*=\s*Number\(activeProject\?\.ocean_freight_sale\)\s*\|\|\s*Number\(activeProject\?\.financial_summary\?\.customer_sale_price_usd\)\s*\|\|\s*Number\(activeProject\?\.data\?\.financial_summary\?\.customer_sale_price_usd\)\s*\|\|\s*0;/,
-    'seaFreightSale must extract from activeProject.ocean_freight_sale || financial_summary.customer_sale_price_usd || data.financial_summary.customer_sale_price_usd || 0'
+    /const\s+seaFreightSale\s*=\s*Number\(activeProject\?\.items\?\.\[0\]\?\.payload_data\?\.financial_summary\?\.customer_sale_price_usd\)\s*\|\|\s*Number\(activeProject\?\.items\?\.\[0\]\?\.payload_data\?\.financial_summary\?\.customer_sale_price_eur\)\s*\|\|\s*Number\(activeProject\?\.financial_summary\?\.customer_sale_price_usd\)\s*\|\|\s*0;/,
+    'seaFreightSale must extract from items[0].payload_data.financial_summary or financial_summary.customer_sale_price_usd'
   );
 });
 
@@ -122,15 +122,21 @@ test('5. Level 2 Provisional Land Summary avoids data bleed from maritime pol, p
 });
 
 test('6. Functional simulation: Zero Data Bleed and Financial Extraction behavior', () => {
-  // Project with maritime data and no land data
+  // Project with maritime data in items array (Core PRO structure)
   const maritimeOnlyProject = {
     pol: 'Valencia Port',
     pod: 'Rotterdam Port',
     distance_nm: 1850,
     ocean_freight_sale: 0,
-    financial_summary: {
-      customer_sale_price_usd: 48500,
-    },
+    items: [
+      {
+        payload_data: {
+          financial_summary: {
+            customer_sale_price_usd: 48500,
+          },
+        },
+      },
+    ],
   };
 
   // Land state initialization for maritime-only project: must be blank/zero
@@ -142,15 +148,15 @@ test('6. Functional simulation: Zero Data Bleed and Financial Extraction behavio
   assert.equal(landDestination, '', 'Land destination must be blank for maritime-only project');
   assert.equal(distanceKm, 0, 'Distance KM must be 0 for maritime-only project');
 
-  // Financial extraction in maritime banner: must retrieve 48500 from financial_summary
-  const seaFreightSale = Number(maritimeOnlyProject?.ocean_freight_sale) ||
+  // Financial extraction in maritime banner: must retrieve 48500 from items[0].payload_data.financial_summary
+  const seaFreightSale = Number(maritimeOnlyProject?.items?.[0]?.payload_data?.financial_summary?.customer_sale_price_usd) ||
+    Number(maritimeOnlyProject?.items?.[0]?.payload_data?.financial_summary?.customer_sale_price_eur) ||
     Number(maritimeOnlyProject?.financial_summary?.customer_sale_price_usd) ||
-    Number(maritimeOnlyProject?.data?.financial_summary?.customer_sale_price_usd) ||
     0;
 
-  assert.equal(seaFreightSale, 48500, 'seaFreightSale must extract value from financial_summary');
+  assert.equal(seaFreightSale, 48500, 'seaFreightSale must extract value from items[0].payload_data.financial_summary');
 
   // Formatted output
-  const formattedSeaFreightSale = `${seaFreightSale.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
-  assert.equal(formattedSeaFreightSale, '48.500,00 €', 'Should format as 48.500,00 €');
+  const formattedSeaFreightSale = `$ ${seaFreightSale.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  assert.equal(formattedSeaFreightSale, '$ 48,500.00', 'Should format as $ 48,500.00');
 });

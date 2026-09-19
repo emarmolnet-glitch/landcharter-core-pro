@@ -2828,9 +2828,13 @@ export function ForwarderWorkspace() {
   };
 
   const handleSaveProject = async () => {
-    const landOrigin = origin || pol || activeProject?.land_origin || activeProject?.pol || '';
-    const landDestination = destination || pod || activeProject?.land_destination || activeProject?.pod || '';
-    const distanceKm = Number(activeProject?.land_distance) || Number(distanceNm) || 0;
+    const currentOrigin = activeProject?.land_route?.origin || activeProject?.land_origin || landOrigin || '';
+    const currentDestination = activeProject?.land_route?.destination || activeProject?.land_destination || landDestination || '';
+    const currentDistance = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0);
+
+    const landOrigin = currentOrigin;
+    const landDestination = currentDestination;
+    const distanceKm = currentDistance;
 
     // 1. Obtener la carga total en KG
     const tuVariableDeKilosCalculados = totals?.weight || (totalWeightKg || 0);
@@ -2851,12 +2855,16 @@ export function ForwarderWorkspace() {
     const waitPenalty = Number(warehouseWaitPenaltyEur || 0) || (Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40));
     const baseTruckOperatingCost = runningCost + tolls + diets + waitPenalty;
 
-    const costeOperativoPorCamion = baseTruckOperatingCost > 0
-      ? baseTruckOperatingCost
-      : (Number(estimatedCost) > 0 ? Number(estimatedCost) : (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0));
-    const precioVentaPorCamion = costeOperativoPorCamion > 0
-      ? Number((costeOperativoPorCamion * 1.18).toFixed(2))
-      : (Number(salePrice) > 0 ? Number(salePrice) : (Number(activeProject?.land_freight_sale) > 0 ? Number(activeProject.land_freight_sale) : 0));
+    const costeOperativoPorCamion = (!distanceKm || Number(distanceKm) <= 0)
+      ? 0
+      : (baseTruckOperatingCost > 0
+        ? baseTruckOperatingCost
+        : (Number(estimatedCost) > 0 ? Number(estimatedCost) : (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0)));
+    const precioVentaPorCamion = (!distanceKm || Number(distanceKm) <= 0)
+      ? 0
+      : (costeOperativoPorCamion > 0
+        ? Number((costeOperativoPorCamion * 1.18).toFixed(2))
+        : (Number(salePrice) > 0 ? Number(salePrice) : (Number(activeProject?.land_freight_sale) > 0 ? Number(activeProject.land_freight_sale) : 0)));
 
     // 3. Coste y Venta Total (SIN volver a multiplicar por toneladas ni kilos)
     const finalTotalLandCost = Number((trucksNeeded * costeOperativoPorCamion).toFixed(2));
@@ -2864,18 +2872,23 @@ export function ForwarderWorkspace() {
 
     const payload = {
       ...activeProject,
-      // ... (respetar la lógica anterior de items y cargo_items)
-      items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.items || []),
-      cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || []),
-      packing_list: activeProject?.packing_list || null,
-      land_freight_cost: finalTotalLandCost,
-      land_freight_sale: finalTotalLandSale,
-      total_trucks: trucksNeeded,
+      // 1. FORZAR HERENCIA MARÍTIMA INTACTA (Cero mutación)
+      route_and_chartering: activeProject?.route_and_chartering || null,
+      items: activeProject?.items || [],
+      cargo_items: activeProject?.cargo_items || [],
+
+      // 2. ACTUALIZAR EXCLUSIVAMENTE VARIABLES TERRESTRES
       land_route: {
         origin: landOrigin,
         destination: landDestination,
         distance_km: distanceKm
-      }
+      },
+      land_origin: landOrigin,
+      land_destination: landDestination,
+      land_distance: distanceKm,
+      land_freight_cost: finalTotalLandCost,
+      land_freight_sale: finalTotalLandSale,
+      total_trucks: trucksNeeded
     };
 
     return persistProjectToDatabase(payload);
@@ -4892,8 +4905,8 @@ export function ForwarderWorkspace() {
           pol: pol || activeProject?.pol || '',
           pod: pod || activeProject?.pod || '',
           distance_nm: Number(distanceNm) || 1500,
-          loading_rate_mt_day: Number(loadingRate) || 1200,
-          discharging_rate_mt_day: Number(dischargingRate) || 1000,
+          loading_rate_mt_day: Number(activeProject?.route_and_chartering?.loading_rate_mt_day) || (Number(loadingRate) > 24 ? Number(loadingRate) : 1200),
+          discharging_rate_mt_day: Number(activeProject?.route_and_chartering?.discharging_rate_mt_day) || (Number(dischargingRate) > 24 ? Number(dischargingRate) : 1000),
           vessel_speed_knots: Number(vesselSpeedKnots) || 12.0,
           daily_hire_rate_usd: Number(vesselDailyHireUsd) || 11500,
           exchange_rate: Number(exchangeRateUsdEur) || 0.92,
@@ -5240,14 +5253,15 @@ export function ForwarderWorkspace() {
                 const seaTons = activeProject?.total_weight_tons || calculatedSeaItemsTons || (pWtTons > 0 ? pWtTons : 0);
 
                 // Flete Marítimo Venta: Identificación y normalización
+                const seaFreightSale = Number(activeProject?.items?.[0]?.payload_data?.financial_summary?.customer_sale_price_usd) || Number(activeProject?.items?.[0]?.payload_data?.financial_summary?.customer_sale_price_eur) || Number(activeProject?.financial_summary?.customer_sale_price_usd) || 0;
                 const ocean_freight_sale =
+                  seaFreightSale ||
                   activeProject?.ocean_freight_sale ||
                   activeProject?.financial_summary?.customer_sale_price_usd ||
                   activeProject?.data?.financial_summary?.customer_sale_price_usd ||
                   activeProject?.target_freight ||
                   0;
                 const target_freight = ocean_freight_sale;
-                const seaFreightSale = Number(activeProject?.ocean_freight_sale) || Number(activeProject?.financial_summary?.customer_sale_price_usd) || Number(activeProject?.data?.financial_summary?.customer_sale_price_usd) || 0;
                 const formattedSeaFreightSale = seaFreightSale > 0
                   ? (activeProject?.currency === '$' || activeProject?.currency === 'USD'
                       ? `$ ${seaFreightSale.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -6068,12 +6082,6 @@ export function ForwarderWorkspace() {
                               ...prev,
                               loadingRate: val,
                               loading_rate: val,
-                              loading_rate_mt_day: val,
-                              route_and_chartering: {
-                                ...(prev?.route_and_chartering || {}),
-                                loading_rate_mt_day: val,
-                                loadingRate: val,
-                              }
                             }));
                           }}
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
@@ -6098,15 +6106,8 @@ export function ForwarderWorkspace() {
                               ...prev,
                               dischargingRate: val,
                               discharging_rate: val,
-                              discharging_rate_mt_day: val,
                               discharge_rate: val,
                               dischargeRate: val,
-                              route_and_chartering: {
-                                ...(prev?.route_and_chartering || {}),
-                                discharging_rate_mt_day: val,
-                                dischargingRate: val,
-                                dischargeRate: val,
-                              }
                             }));
                           }}
                           className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
