@@ -3904,6 +3904,37 @@ function ForwarderWorkspaceInner() {
 
     if (payload.pol || payload.portOfLoading) { setPol(payload.pol || payload.portOfLoading); hasChanges = true; }
     if (payload.pod || payload.portOfDischarge) { setPod(payload.pod || payload.portOfDischarge); hasChanges = true; }
+    // --- NUEVO BLINDAJE TERRESTRE: Conectar IA con las casillas de la interfaz ---
+    if (payload.land_origin || payload.origin) { 
+      const newOrigin = payload.land_origin || payload.origin;
+      setLandOrigin(newOrigin); 
+      updatedProject.land_origin = newOrigin;
+      hasChanges = true; 
+    }
+    if (payload.land_destination || payload.destination) { 
+      const newDest = payload.land_destination || payload.destination;
+      setLandDestination(newDest); 
+      updatedProject.land_destination = newDest;
+      hasChanges = true; 
+    }
+    if (payload.land_distance || payload.distanceKm !== undefined || payload.distance !== undefined) { 
+      const newDist = Number(payload.land_distance || payload.distanceKm || payload.distance);
+      if (newDist > 0) {
+        setDistanceKm(newDist); 
+        updatedProject.land_distance = newDist;
+        hasChanges = true; 
+      }
+    }
+    
+    // Asegurar que el objeto de ruta se guarde correctamente en la base de datos
+    if (updatedProject.land_origin || updatedProject.land_destination) {
+      updatedProject.land_route = {
+        origin: updatedProject.land_origin || landOrigin,
+        destination: updatedProject.land_destination || landDestination,
+        distance_km: updatedProject.land_distance || distanceKm
+      };
+    }
+    // ----------------------------------------------------
     if (payload.loadingRate || payload.loadingRateMtDay) {
       setLoadingRate(Number(payload.loadingRate || payload.loadingRateMtDay));
       hasChanges = true;
