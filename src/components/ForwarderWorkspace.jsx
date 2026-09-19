@@ -1600,9 +1600,99 @@ function calculateUniversalStowagePlan(items = [], orderTotals = null, options =
   return stowagePlan;
 }
 
+/**
+ * Obtiene la Referencia Activa de la sesión global (Topbar / Core PRO).
+ */
+export function getActiveGlobalReference() {
+  if (typeof window === 'undefined') return '';
+
+  // 1. Input de la barra superior (#quick-ref)
+  const quickRefEl = typeof document !== 'undefined' ? document.getElementById('quick-ref') : null;
+  const quickRef = quickRefEl && 'value' in quickRefEl ? String(quickRefEl.value || '').trim() : '';
+  if (quickRef) return quickRef;
+
+  // 2. Gestor central de referencia contractual
+  const mgrRef = window.ContractRefManager?.getActiveContractRef?.()
+    || window.ContractReference?.getActiveContractRef?.()
+    || (typeof window.getActiveContractRef === 'function' ? window.getActiveContractRef() : '');
+  if (mgrRef && String(mgrRef).trim()) return String(mgrRef).trim();
+
+  // 3. Estado global
+  const stateRef = window.State?.activeReference;
+  if (stateRef && String(stateRef).trim()) return String(stateRef).trim();
+
+  // 4. Referencia anclada en ventana
+  const anchored = window.anchoredReference;
+  if (anchored && String(anchored).trim()) return String(anchored).trim();
+
+  // 5. Atributo en body del expediente activo
+  if (typeof document !== 'undefined' && document.body?.dataset?.activeDossierRef) {
+    return String(document.body.dataset.activeDossierRef).trim();
+  }
+
+  // 6. Parámetros de URL
+  if (typeof window.location !== 'undefined' && window.location?.search) {
+    const params = new URLSearchParams(window.location.search);
+    const urlRef = params.get('ref') || params.get('contract_ref') || params.get('dossier_ref');
+    if (urlRef && urlRef.trim()) return urlRef.trim();
+  }
+
+  // 7. Session / Local Storage
+  try {
+    const stored = (typeof window.sessionStorage !== 'undefined' ? window.sessionStorage.getItem('active_contract_ref') : null)
+      || (typeof window.localStorage !== 'undefined' ? window.localStorage.getItem('active_contract_ref') : null);
+    if (stored && stored.trim()) return stored.trim();
+  } catch (_e) {}
+
+  return '';
+}
+
+if (typeof window !== 'undefined') {
+  window.getActiveGlobalReference = getActiveGlobalReference;
+}
+
+/**
+ * Verifica si un proyecto (hijo) coincide o pertenece al expediente activo (padre).
+ */
+export function isProjectMatchingActiveDossier(project, activeDossierRef) {
+  if (!project || !activeDossierRef) return false;
+  const active = String(activeDossierRef).trim().toUpperCase();
+  if (!active) return false;
+
+  const candidateParentRefs = [
+    project.referenciaPadre,
+    project.referencia_padre,
+    project.dossier_ref,
+    project.dossierRef,
+    project.parent_ref,
+    project.parentRef,
+    project.data?.dossier_ref,
+    project.data?.parent_ref,
+    project.data?.referenciaPadre,
+    project.data?.referencia_padre,
+  ];
+
+  for (const candidate of candidateParentRefs) {
+    if (candidate !== undefined && candidate !== null) {
+      const norm = String(candidate).trim().toUpperCase();
+      if (norm && (norm === active || norm.startsWith(active) || active.startsWith(norm))) {
+        return true;
+      }
+    }
+  }
+
+  const projectRef = String(project.project_ref || project.projectRef || '').trim().toUpperCase();
+  if (projectRef && (projectRef === active || projectRef.startsWith(active))) {
+    return true;
+  }
+
+  return false;
+}
+
 export function ForwarderWorkspace() {
 
   const [projects, setProjects] = useState([]);
+  const [referenciaActivaGlobal, setReferenciaActivaGlobal] = useState(() => getActiveGlobalReference());
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState(null);
@@ -1938,6 +2028,52 @@ export function ForwarderWorkspace() {
     return () => {
       window.removeEventListener('sea-assistant:field-updated', handleAssistantFieldUpdate);
       window.removeEventListener('vehicle-type:selected', handleVehicleTypeCustomEvent);
+    };
+  }, []);
+
+  // Sincronización reactiva de la Referencia Activa Global del Topbar (Core PRO / quick-ref)
+  useEffect(() => {
+    const syncActiveRef = () => {
+      const current = getActiveGlobalReference();
+      setReferenciaActivaGlobal((prev) => (prev !== current ? current : prev));
+    };
+    syncActiveRef();
+
+    const handleContractChange = (e) => {
+      const ref = e?.detail?.reference || getActiveGlobalReference();
+      setReferenciaActivaGlobal(ref || '');
+    };
+
+    const handleContractCleared = () => {
+      setReferenciaActivaGlobal('');
+    };
+
+    const quickRefEl = typeof document !== 'undefined' ? document.getElementById('quick-ref') : null;
+    const handleQuickRefInput = (e) => {
+      const val = e?.target?.value || '';
+      setReferenciaActivaGlobal(val.trim());
+    };
+
+    if (quickRefEl) {
+      quickRefEl.addEventListener('input', handleQuickRefInput);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('contract-reference:changed', handleContractChange);
+      window.addEventListener('contract-reference:cleared', handleContractCleared);
+    }
+
+    const intervalId = setInterval(syncActiveRef, 1000);
+
+    return () => {
+      if (quickRefEl) {
+        quickRefEl.removeEventListener('input', handleQuickRefInput);
+      }
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('contract-reference:changed', handleContractChange);
+        window.removeEventListener('contract-reference:cleared', handleContractCleared);
+      }
+      clearInterval(intervalId);
     };
   }, []);
 
@@ -2587,6 +2723,9 @@ export function ForwarderWorkspace() {
         land_distance: projectToSave.land_distance,
         road_transit_days: projectToSave.road_transit_days,
         road_net_margin: projectToSave.road_net_margin,
+        dossier_ref: projectToSave.dossier_ref || projectToSave.parent_ref || projectToSave.referenciaPadre || referenciaActivaGlobal || null,
+        parent_ref: projectToSave.parent_ref || projectToSave.dossier_ref || projectToSave.referenciaPadre || referenciaActivaGlobal || null,
+        referenciaPadre: projectToSave.referenciaPadre || projectToSave.dossier_ref || projectToSave.parent_ref || referenciaActivaGlobal || null,
         data: projectToSave.data || {},
       };
 
@@ -2612,13 +2751,27 @@ export function ForwarderWorkspace() {
     if (!input || !input.trim()) return;
     setIsCreating(true);
     try {
+      const activeRef = referenciaActivaGlobal || getActiveGlobalReference();
       const res = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ client_name: input.trim(), documents: [] }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          client_name: input.trim(),
+          documents: [],
+          dossier_ref: activeRef || null,
+          parent_ref: activeRef || null,
+          referenciaPadre: activeRef || null,
+        }),
       });
       if (!res.ok) throw new Error();
       const payload = await res.json();
-      const createdProject = payload.project || payload;
+      const createdPayload = payload.project || payload;
+      const createdProject = {
+        ...createdPayload,
+        dossier_ref: createdPayload?.dossier_ref || activeRef || null,
+        parent_ref: createdPayload?.parent_ref || activeRef || null,
+        referenciaPadre: createdPayload?.referenciaPadre || activeRef || null,
+      };
       setProjects((prev) => [createdProject, ...prev]);
       setActiveProject(createdProject);
       setprojectDocuments([]);
@@ -4709,6 +4862,10 @@ export function ForwarderWorkspace() {
     return generateDynamicStowageAscii(plan);
   };
 
+  const displayedProjects = !referenciaActivaGlobal
+    ? []
+    : projects.filter((p) => isProjectMatchingActiveDossier(p, referenciaActivaGlobal));
+
   return (
     <>
       {/* Light Theme corporativo (legacy token preserve: bg-slate-950 bg-slate-900 border-slate-800) */}
@@ -4734,41 +4891,64 @@ export function ForwarderWorkspace() {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {projects.map((proj) => {
-              const isSelected = activeProject && (
-                (proj.id && activeProject.id === proj.id) ||
-                (proj.project_ref && activeProject.project_ref === proj.project_ref)
-              );
-              return (
-                <div
-                  key={proj.id || proj.project_ref}
-                  onClick={() => setActiveProject(proj)}
-                  className={`group p-3 rounded-xl border transition-all cursor-pointer relative ${
-                    isSelected
-                      ? 'bg-blue-50/80 border-blue-400 text-slate-900 shadow-xs'
-                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
-                  }`}
+            {!referenciaActivaGlobal ? (
+              <div className="p-6 text-center text-slate-500 flex flex-col items-center justify-center h-48 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                <span className="text-2xl mb-2">📁</span>
+                <p className="text-xs font-semibold text-slate-600">Selecciona un expediente en la barra superior</p>
+                <p className="text-[11px] text-slate-400 mt-1">Vincula tus proyectos al expediente activo de Core PRO.</p>
+              </div>
+            ) : displayedProjects.length === 0 ? (
+              <div className="p-6 text-center text-slate-500 flex flex-col items-center justify-center h-48 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                <span className="text-2xl mb-2">📋</span>
+                <p className="text-xs font-semibold text-slate-600">No hay proyectos para este expediente</p>
+                <p className="text-[11px] text-slate-400 mt-1 font-mono">Ref: {referenciaActivaGlobal}</p>
+                <button
+                  type="button"
+                  onClick={handleCreateProject}
+                  disabled={isCreating}
+                  className="mt-3 text-[11px] font-bold text-blue-600 hover:text-blue-700 underline cursor-pointer"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <span className="font-mono text-[11px] font-bold text-blue-600 block">{proj.project_ref}</span>
-                      <h3 className="font-bold text-slate-800 text-sm truncate">{proj.client_name}</h3>
+                  + Crear proyecto vinculado
+                </button>
+              </div>
+            ) : (
+              /* projects.map((proj) => { */
+              displayedProjects.map((proj) => {
+                const isSelected = activeProject && (
+                  (proj.id && activeProject.id === proj.id) ||
+                  (proj.project_ref && activeProject.project_ref === proj.project_ref)
+                );
+                return (
+                  <div
+                    key={proj.id || proj.project_ref}
+                    onClick={() => setActiveProject(proj)}
+                    className={`group p-3 rounded-xl border transition-all cursor-pointer relative ${
+                      isSelected
+                        ? 'bg-blue-50/80 border-blue-400 text-slate-900 shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <span className="font-mono text-[11px] font-bold text-blue-600 block">{proj.project_ref}</span>
+                        <h3 className="font-bold text-slate-800 text-sm truncate">{proj.client_name}</h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteProject(e, proj)}
+                        title="Eliminar proyecto"
+                        aria-label={`Eliminar proyecto ${proj.client_name || proj.project_ref || ''}`}
+                        className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer shrink-0 opacity-70 group-hover:opacity-100"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => handleDeleteProject(e, proj)}
-                      title="Eliminar proyecto"
-                      aria-label={`Eliminar proyecto ${proj.client_name || proj.project_ref || ''}`}
-                      className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer shrink-0 opacity-70 group-hover:opacity-100"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </aside>
 
