@@ -13,16 +13,16 @@ test('1. ForwarderWorkspace defines origin and destination aliases to match pol 
 });
 
 test('2. Origen and Destino inputs synchronize activeProject in onChange handlers', () => {
-  // Check Origen input updates activeProject with land_origin and pol
+  // Check Origen input updates activeProject with land_origin and setLandOrigin (zero data bleed)
   assert.match(
     forwarderJsx,
-    /id="input-pol"[\s\S]*?onChange=\{\(e\)\s*=>\s*\{[\s\S]*?setPol\([^)]+\);[\s\S]*?setActiveProject\(prev\s*=>\s*\(\{\s*\.\.\.prev,\s*land_origin:\s*[^,]+,\s*pol:\s*[^}]+}\)\);/
+    /id="input-pol"[\s\S]*?onChange=\{\(e\)\s*=>\s*\{[\s\S]*?setLandOrigin\([^)]+\);[\s\S]*?setActiveProject\(prev\s*=>\s*\(\{\s*\.\.\.prev,\s*land_origin:/
   );
 
-  // Check Destino input updates activeProject with land_destination and pod
+  // Check Destino input updates activeProject with land_destination and setLandDestination (zero data bleed)
   assert.match(
     forwarderJsx,
-    /id="input-pod"[\s\S]*?onChange=\{\(e\)\s*=>\s*\{[\s\S]*?setPod\([^)]+\);[\s\S]*?setActiveProject\(prev\s*=>\s*\(\{\s*\.\.\.prev,\s*land_destination:\s*[^,]+,\s*pod:\s*[^}]+}\)\);/
+    /id="input-pod"[\s\S]*?onChange=\{\(e\)\s*=>\s*\{[\s\S]*?setLandDestination\([^)]+\);[\s\S]*?setActiveProject\(prev\s*=>\s*\(\{\s*\.\.\.prev,\s*land_destination:/
   );
 });
 
