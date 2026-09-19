@@ -4135,8 +4135,8 @@ function ForwarderWorkspaceInner() {
     }
 
    // 🌉 PUENTE INTELIGENTE HACIA EL MOTOR NATIVO (Sin hacks de clics en el DOM ni eventos sintéticos)
-    const aiPol = payload.pol || payload.portOfLoading || payload.charteringAssessment?.rotationBreakdown?.pol || payload.rotationBreakdown?.pol || payload.payload?.pol;
-    const aiPod = payload.pod || payload.portOfDischarge || payload.charteringAssessment?.rotationBreakdown?.pod || payload.rotationBreakdown?.pod || payload.payload?.pod;
+    const aiPol = payload.land_origin || payload.origin || payload.pol || payload.portOfLoading || payload.charteringAssessment?.rotationBreakdown?.pol || payload.rotationBreakdown?.pol || payload.payload?.pol;
+    const aiPod = payload.land_destination || payload.destination || payload.pod || payload.portOfDischarge || payload.charteringAssessment?.rotationBreakdown?.pod || payload.rotationBreakdown?.pod || payload.payload?.pod;
 
     if (aiPol || aiPod) {
       // 1. Función para buscar coordenadas exactas de forma silenciosa si no vinieron en el payload
