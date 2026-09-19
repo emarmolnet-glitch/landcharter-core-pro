@@ -80,6 +80,8 @@ async function ensureForwarderProjectsTable(clientOrPool) {
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS on_carriage JSONB DEFAULT '{}'::jsonb;
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_route JSONB DEFAULT '{}'::jsonb;
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS route_and_chartering JSONB;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS dossier_ref VARCHAR(255);
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS parent_ref VARCHAR(255);
       CREATE INDEX IF NOT EXISTS idx_forwarder_projects_ref ON forwarder_projects (project_ref);
     `);
     tableEnsured = true;
@@ -308,7 +310,9 @@ exports.handler = async (event) => {
       }
 
       // MODO CREACIÓN (Nuevo Proyecto)
-      const { client_name, status, documents, items, line_items, cargo_items, services, global_margin_percentage } = data;
+      const { client_name, status, documents, items, line_items, cargo_items, services, global_margin_percentage, dossier_ref, parent_ref, referenciaPadre } = data;
+      const effectiveDossierRef = dossier_ref || parent_ref || referenciaPadre || null;
+      const effectiveParentRef = parent_ref || dossier_ref || referenciaPadre || null;
       const projectRef = `EXP-${Date.now().toString().slice(-6)}`;
       const projectStatus = (status && typeof status === 'string' && status.trim()) ? status.trim() : 'BORRADOR';
       const marginPercentage = (global_margin_percentage !== undefined && global_margin_percentage !== null)
@@ -332,8 +336,20 @@ exports.handler = async (event) => {
       const result = await dbPool.query(insertQuery, insertValues);
 
       const createdRow = result.rows[0];
+      if (createdRow && (effectiveDossierRef || effectiveParentRef)) {
+        try {
+          await dbPool.query(
+            `UPDATE forwarder_projects SET dossier_ref = COALESCE($1, dossier_ref), parent_ref = COALESCE($2, parent_ref) WHERE id = $3`,
+            [effectiveDossierRef, effectiveParentRef, createdRow.id]
+          );
+        } catch (_ignore) {}
+      }
+
       const createdProject = createdRow ? {
         ...createdRow,
+        dossier_ref: createdRow.dossier_ref || effectiveDossierRef,
+        parent_ref: createdRow.parent_ref || effectiveParentRef,
+        referenciaPadre: effectiveDossierRef || effectiveParentRef,
         services: Array.isArray(createdRow.services) ? createdRow.services : [],
         line_items: Array.isArray(createdRow.services) ? createdRow.services : [],
         land_freight_cost: Number(createdRow.land_freight_cost) || 0,

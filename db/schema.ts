@@ -412,6 +412,8 @@ export const forwarderProjects = pgTable(
     onCarriage: jsonb("on_carriage").default({}),
     landRoute: jsonb("land_route").default({}),
     routeAndChartering: jsonb("route_and_chartering"),
+    dossierRef: varchar("dossier_ref", { length: 255 }),
+    parentRef: varchar("parent_ref", { length: 255 }),
     data: jsonb("data").default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
