@@ -95,8 +95,8 @@ test('4. Level 1 Maritime Banner extracts seaFreightSale through Core PRO financ
   // Exact extraction line required
   assert.match(
     forwarderJsx,
-    /const\s+seaFreightSale\s*=\s*Number\(activeProject\?\.items\?\.\[0\]\?\.payload_data\?\.financial_summary\?\.customer_sale_price_usd\)\s*\|\|\s*Number\(activeProject\?\.items\?\.\[0\]\?\.payload_data\?\.financial_summary\?\.customer_sale_price_eur\)\s*\|\|\s*Number\(activeProject\?\.financial_summary\?\.customer_sale_price_usd\)\s*\|\|\s*0;/,
-    'seaFreightSale must extract from items[0].payload_data.financial_summary or financial_summary.customer_sale_price_usd'
+    /const\s+seaFreightSale\s*=\s*Number\(activeProject\?\.items\?\.\[0\]\?\.payload_data\?\.financial_summary\?\.customer_sale_price_usd\)\s*\|\|\s*Number\(activeProject\?\.financialBreakdown\?\.oceanFreight\?\.subtotal\)\s*\|\|\s*Number\(activeProject\?\.ocean_freight_sale\)\s*\|\|\s*0;/,
+    'seaFreightSale must extract from items[0].payload_data.financial_summary, financialBreakdown, or ocean_freight_sale'
   );
 });
 
