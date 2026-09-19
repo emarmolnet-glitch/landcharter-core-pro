@@ -2723,8 +2723,47 @@ export function ForwarderWorkspace() {
       const landOrigin = origin || pol || projectToSave?.land_origin || projectToSave?.pol || activeProject?.land_origin || activeProject?.pol || '';
       const landDestination = destination || pod || projectToSave?.land_destination || projectToSave?.pod || activeProject?.land_destination || activeProject?.pod || '';
       const distanceKm = Number(projectToSave?.land_distance) || Number(distanceNm) || Number(activeProject?.land_distance) || 0;
-      const tuVariableDeCosteTotalTerrestre = Number(projectToSave?.land_freight_cost) || Number(estimatedCost || activeProject?.land_freight_cost || 0);
-      const tuVariableDePrecioVentaTerrestre = Number(projectToSave?.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) || Number(salePrice || activeProject?.land_freight_sale || 0);
+
+      // 1. Obtener la carga total en KG
+      const tuVariableDeKilosCalculados = totals?.weight || (totalWeightKg || 0);
+      const totalKg = (projectToSave?.total_weight_tons || activeProject?.total_weight_tons)
+        ? ((projectToSave?.total_weight_tons || activeProject.total_weight_tons) * 1000)
+        : (tuVariableDeKilosCalculados || 0);
+
+      // 2. Calcular los camiones necesarios reales
+      const truckType = vehicleType || projectToSave?.truck_type || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
+      const payloadPerTruck = getVehiclePayloadKg(truckType) || 24000;
+      const trucksNeeded = Number(projectToSave?.total_trucks) > 0
+        ? Number(projectToSave.total_trucks)
+        : (totalKg > 0 ? Math.ceil(totalKg / payloadPerTruck) : 1);
+
+      // Coste y Venta por camión
+      const runningCost = Math.round(distanceKm * 1.57);
+      const tolls = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollCost || (distanceKm > 0 ? distanceKm * 0.18 : 0)));
+      const transitDays = distanceKm > 0 ? Math.max(1, Math.ceil(distanceKm / 650)) : 1;
+      const diets = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
+      const safeLoadHours = Number(loadingRate || 2) > 24 ? 2 : Number(loadingRate || 2);
+      const safeDischHours = Number(dischargingRate || 2) > 24 ? 2 : Number(dischargingRate || 2);
+      const waitPenalty = Number(warehouseWaitPenaltyEur || 0) || (Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40));
+      const baseTruckOperatingCost = runningCost + tolls + diets + waitPenalty;
+
+      const costeOperativoPorCamion = baseTruckOperatingCost > 0
+        ? baseTruckOperatingCost
+        : (Number(estimatedCost) > 0 ? Number(estimatedCost) : (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0));
+      const precioVentaPorCamion = costeOperativoPorCamion > 0
+        ? Number((costeOperativoPorCamion * 1.18).toFixed(2))
+        : (Number(salePrice) > 0 ? Number(salePrice) : (Number(activeProject?.land_freight_sale) > 0 ? Number(activeProject.land_freight_sale) : 0));
+
+      // 3. Coste y Venta Total (SIN volver a multiplicar por toneladas ni kilos)
+      const finalTotalLandCost = Number((trucksNeeded * costeOperativoPorCamion).toFixed(2));
+      const finalTotalLandSale = Number((trucksNeeded * precioVentaPorCamion).toFixed(2));
+
+      const tuVariableDeCosteTotalTerrestre = Number(projectToSave?.land_freight_cost) > 0
+        ? Number(projectToSave.land_freight_cost)
+        : (finalTotalLandCost > 0 ? finalTotalLandCost : Number(estimatedCost || activeProject?.land_freight_cost || 0));
+      const tuVariableDePrecioVentaTerrestre = Number(projectToSave?.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) > 0
+        ? Number(projectToSave.land_freight_sale || projectToSave.targetSalePrice || projectToSave.sale)
+        : (finalTotalLandSale > 0 ? finalTotalLandSale : Number(salePrice || activeProject?.land_freight_sale || 0));
 
       const payload = {
         ...activeProject, // Heredar todo por defecto
@@ -2744,10 +2783,10 @@ export function ForwarderWorkspace() {
         land_freight_cost: Number(projectToSave.land_freight_cost) || Number(tuVariableDeCosteTotalTerrestre || 0),
         land_freight_sale: Number(projectToSave.land_freight_sale || projectToSave.targetSalePrice || projectToSave.sale) || Number(tuVariableDePrecioVentaTerrestre || 0),
         valor_total_mercancia_usd: Number(projectToSave.valor_total_mercancia_usd) || Number(activeProject?.valor_total_mercancia_usd) || 0,
-        land_origin: landOrigin,
-        land_destination: landDestination,
+        land_origin: pol || origin || projectToSave.land_origin || projectToSave.pol || activeProject?.land_origin || activeProject?.pol || landOrigin,
+        land_destination: pod || destination || projectToSave.land_destination || projectToSave.pod || activeProject?.land_destination || activeProject?.pod || landDestination,
         land_distance: distanceKm,
-        total_trucks: projectToSave?.total_trucks || activeProject?.total_trucks,
+        total_trucks: Number(projectToSave?.total_trucks) > 0 ? Number(projectToSave.total_trucks) : (trucksNeeded || activeProject?.total_trucks),
         road_transit_days: projectToSave?.road_transit_days || activeProject?.road_transit_days,
         road_net_margin: projectToSave?.road_net_margin || activeProject?.road_net_margin,
         dossier_ref: projectToSave?.dossier_ref || projectToSave?.parent_ref || projectToSave?.referenciaPadre || referenciaActivaGlobal || activeProject?.dossier_ref || null,
@@ -2777,18 +2816,51 @@ export function ForwarderWorkspace() {
     const landOrigin = origin || pol || activeProject?.land_origin || activeProject?.pol || '';
     const landDestination = destination || pod || activeProject?.land_destination || activeProject?.pod || '';
     const distanceKm = Number(activeProject?.land_distance) || Number(distanceNm) || 0;
-    const tuVariableDeCosteTotalTerrestre = Number(estimatedCost || activeProject?.land_freight_cost || 0);
-    const tuVariableDePrecioVentaTerrestre = Number(salePrice || activeProject?.land_freight_sale || 0);
+
+    // 1. Obtener la carga total en KG
+    const tuVariableDeKilosCalculados = totals?.weight || (totalWeightKg || 0);
+    const totalKg = activeProject?.total_weight_tons ? (activeProject.total_weight_tons * 1000) : (tuVariableDeKilosCalculados || 0);
+
+    // 2. Calcular los camiones necesarios reales
+    const truckType = vehicleType || activeProject?.truck_type || activeProject?.vehicle_type || 'Tráiler Tauliner (13.6m)';
+    const payloadPerTruck = getVehiclePayloadKg(truckType) || 24000;
+    const trucksNeeded = totalKg > 0 ? Math.ceil(totalKg / payloadPerTruck) : 1;
+
+    // Coste y Venta por camión
+    const runningCost = Math.round(distanceKm * 1.57);
+    const tolls = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollCost || (distanceKm > 0 ? distanceKm * 0.18 : 0)));
+    const transitDays = distanceKm > 0 ? Math.max(1, Math.ceil(distanceKm / 650)) : 1;
+    const diets = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
+    const safeLoadHours = Number(loadingRate || 2) > 24 ? 2 : Number(loadingRate || 2);
+    const safeDischHours = Number(dischargingRate || 2) > 24 ? 2 : Number(dischargingRate || 2);
+    const waitPenalty = Number(warehouseWaitPenaltyEur || 0) || (Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40));
+    const baseTruckOperatingCost = runningCost + tolls + diets + waitPenalty;
+
+    const costeOperativoPorCamion = baseTruckOperatingCost > 0
+      ? baseTruckOperatingCost
+      : (Number(estimatedCost) > 0 ? Number(estimatedCost) : (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0));
+    const precioVentaPorCamion = costeOperativoPorCamion > 0
+      ? Number((costeOperativoPorCamion * 1.18).toFixed(2))
+      : (Number(salePrice) > 0 ? Number(salePrice) : (Number(activeProject?.land_freight_sale) > 0 ? Number(activeProject.land_freight_sale) : 0));
+
+    // 3. Coste y Venta Total (SIN volver a multiplicar por toneladas ni kilos)
+    const finalTotalLandCost = Number((trucksNeeded * costeOperativoPorCamion).toFixed(2));
+    const finalTotalLandSale = Number((trucksNeeded * precioVentaPorCamion).toFixed(2));
 
     const payload = {
-      ...activeProject, // Heredar todo por defecto
+      ...activeProject,
+      // ... (respetar la lógica anterior de items y cargo_items)
       items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.items || []),
       cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || []),
       packing_list: activeProject?.packing_list || null,
-      // ... (tus campos terrestres actualizados)
-      land_route: { origin: landOrigin, destination: landDestination, distance_km: distanceKm },
-      land_freight_cost: Number(tuVariableDeCosteTotalTerrestre || 0),
-      land_freight_sale: Number(tuVariableDePrecioVentaTerrestre || 0),
+      land_freight_cost: finalTotalLandCost,
+      land_freight_sale: finalTotalLandSale,
+      total_trucks: trucksNeeded,
+      land_route: {
+        origin: landOrigin,
+        destination: landDestination,
+        distance_km: distanceKm
+      }
     };
 
     return persistProjectToDatabase(payload);
