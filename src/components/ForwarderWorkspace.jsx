@@ -6104,7 +6104,6 @@ export function ForwarderWorkspace() {
                           Origen (Carga) * {landOrigin ? <span className="text-emerald-600 font-bold ml-1">✅ OK</span> : <span className="text-amber-600 font-bold ml-1">⚠️ Vacío</span>}
                         </label>
                         <input
-                          <input
   id="input-pol"
   type="text"
   required
