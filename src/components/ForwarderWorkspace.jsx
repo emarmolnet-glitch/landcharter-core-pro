@@ -1689,7 +1689,7 @@ export function isProjectMatchingActiveDossier(project, activeDossierRef) {
   return false;
 }
 
-export function ForwarderWorkspace() {
+function ForwarderWorkspaceInner() {
 
   const [projects, setProjects] = useState([]);
   const [referenciaActivaGlobal, setReferenciaActivaGlobal] = useState(() => getActiveGlobalReference());
@@ -2091,36 +2091,39 @@ export function ForwarderWorkspace() {
     try {
       const res = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), { method: 'GET', headers: { Accept: 'application/json' } });
       if (!res.ok) {
-        console.warn(`[ForwarderWorkspace] HTTP ${res.status} al cargar proyectos, operando en modo local.`);
-        setProjects([]);
+        console.warn(`[ForwarderWorkspace] HTTP ${res.status} al cargar proyectos, preservando estado local.`);
         return;
       }
       const data = await res.json();
-      const list = Array.isArray(data) ? data : (data.projects || []);
-      setProjects(list);
+      const list = Array.isArray(data) ? data : (data?.projects || []);
+      if (list.length > 0 || !activeProject) {
+        setProjects(list);
+      } else {
+        setProjects((prev) => (prev && prev.length > 0 ? prev : list));
+      }
       const urlRef = typeof window !== 'undefined' && window.location?.search
         ? new URLSearchParams(window.location.search).get('ref')
         : null;
 
       if (activeProject) {
-        const updated = list.find((p) => p.id === activeProject.id || p.project_ref === activeProject.project_ref);
+        const updated = list.find((p) => p?.id === activeProject?.id || p?.project_ref === activeProject?.project_ref);
         if (updated) {
           const srvs = (Array.isArray(updated.services) && updated.services.length > 0)
             ? updated.services
-            : ((Array.isArray(updated.line_items) && updated.line_items.length > 0) ? updated.line_items : (activeProject.line_items || activeProject.services || []));
+            : ((Array.isArray(updated.line_items) && updated.line_items.length > 0) ? updated.line_items : (activeProject?.line_items || activeProject?.services || []));
           const withSrvs = {
             ...updated,
             services: srvs,
             line_items: srvs,
-            land_freight_cost: Number(updated.land_freight_cost) > 0 ? Number(updated.land_freight_cost) : (activeProject.land_freight_cost || 0),
-            land_freight_sale: Number(updated.land_freight_sale) > 0 ? Number(updated.land_freight_sale) : (activeProject.land_freight_sale || 0),
-            valor_total_mercancia_usd: Number(updated.valor_total_mercancia_usd) > 0 ? Number(updated.valor_total_mercancia_usd) : (activeProject.valor_total_mercancia_usd || 0),
+            land_freight_cost: Number(updated.land_freight_cost) > 0 ? Number(updated.land_freight_cost) : (activeProject?.land_freight_cost || 0),
+            land_freight_sale: Number(updated.land_freight_sale) > 0 ? Number(updated.land_freight_sale) : (activeProject?.land_freight_sale || 0),
+            valor_total_mercancia_usd: Number(updated.valor_total_mercancia_usd) > 0 ? Number(updated.valor_total_mercancia_usd) : (activeProject?.valor_total_mercancia_usd || 0),
           };
           setActiveProject(withSrvs);
           setprojectDocuments(withSrvs.documents || withSrvs.files || []);
         }
       } else if (urlRef) {
-        const matching = list.find((p) => String(p.project_ref || '').toUpperCase() === urlRef.toUpperCase());
+        const matching = list.find((p) => String(p?.project_ref || '').toUpperCase() === urlRef.toUpperCase());
         if (matching) {
           const srvs = (Array.isArray(matching.services) && matching.services.length > 0)
             ? matching.services
@@ -2190,7 +2193,7 @@ export function ForwarderWorkspace() {
           valor_total_mercancia_usd: Number(updated.valor_total_mercancia_usd) > 0 ? Number(updated.valor_total_mercancia_usd) : (activeProject?.valor_total_mercancia_usd || 0),
         };
         setActiveProject(withSrvs);
-        setProjects((prev) => prev.map((p) => (p.id === withSrvs.id || p.project_ref === withSrvs.project_ref ? withSrvs : p)));
+        setProjects((prev) => (prev || []).map((p) => (p?.id === withSrvs?.id || p?.project_ref === withSrvs?.project_ref ? withSrvs : p)));
         if (updated.documents || updated.files) {
           setprojectDocuments(updated.documents || updated.files);
         }
@@ -2212,7 +2215,7 @@ export function ForwarderWorkspace() {
 
         // Hidratar lista de empaque / mercancía preservando desglose íntegro y aplicando Mapeo Inteligente
         const rawSyncItems = extractProjectCargoItems(updated);
-        const mappedSyncItems = rawSyncItems.map((it, idx) => hydrateCargoItem(it, withSrvs.cargoCategory || withSrvs.cargo_category || '', it.type || it.description || '', idx));
+        const mappedSyncItems = (rawSyncItems || []).map((it, idx) => hydrateCargoItem(it, withSrvs.cargoCategory || withSrvs.cargo_category || '', it.type || it.description || '', idx));
         const syncItems = mappedSyncItems;
         setCargoItems(mappedSyncItems);
 
@@ -2830,87 +2833,109 @@ export function ForwarderWorkspace() {
           body: JSON.stringify(payload)
         });
       }
+      setActiveProject((prev) => (prev && (prev.id === payload.id || prev.project_ref === payload.project_ref) ? { ...prev, ...payload } : (prev || payload)));
+      setProjects((prev) => {
+        const list = Array.isArray(prev) ? prev : [];
+        const exists = list.some((p) => p?.id === payload.id || p?.project_ref === payload.project_ref);
+        if (exists) {
+          return list.map((p) => (p?.id === payload.id || p?.project_ref === payload.project_ref ? { ...p, ...payload } : p));
+        }
+        return [payload, ...list];
+      });
     } catch (err) {
       console.error('Error al guardar en base de datos:', err);
     }
   };
 
   const handleSaveProject = async () => {
-    const currentOrigin = activeProject?.land_route?.origin || activeProject?.land_origin || landOrigin || '';
-    const currentDestination = activeProject?.land_route?.destination || activeProject?.land_destination || landDestination || '';
-    const currentDistance = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0);
+    try {
+      if (!activeProject) return;
+      const currentOrigin = activeProject?.land_route?.origin || activeProject?.land_origin || landOrigin || '';
+      const currentDestination = activeProject?.land_route?.destination || activeProject?.land_destination || landDestination || '';
+      const currentDistance = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0);
 
-    const landOrigin = currentOrigin;
-    const landDestination = currentDestination;
-    const distanceKm = currentDistance;
+      const landOrigin = currentOrigin;
+      const landDestination = currentDestination;
+      const distanceKm = currentDistance;
 
-    // 1. Obtener la carga total en KG
-    const tuVariableDeKilosCalculados = totals?.weight || (totalWeightKg || 0);
-    const totalKg = activeProject?.total_weight_tons ? (activeProject.total_weight_tons * 1000) : (tuVariableDeKilosCalculados || 0);
+      // 1. Obtener la carga total en KG
+      const tuVariableDeKilosCalculados = totals?.weight || (totalWeightKg || 0);
+      const totalKg = activeProject?.total_weight_tons ? (activeProject.total_weight_tons * 1000) : (tuVariableDeKilosCalculados || 0);
 
-    // 2. Calcular los camiones necesarios reales
-    const truckType = vehicleType || activeProject?.truck_type || activeProject?.vehicle_type || 'Tráiler Tauliner (13.6m)';
-    const payloadPerTruck = getVehiclePayloadKg(truckType) || 24000;
-    const trucksNeeded = totalKg > 0 ? Math.ceil(totalKg / payloadPerTruck) : 1;
+      // 2. Calcular los camiones necesarios reales
+      const truckType = vehicleType || activeProject?.truck_type || activeProject?.vehicle_type || 'Tráiler Tauliner (13.6m)';
+      const payloadPerTruck = getVehiclePayloadKg(truckType) || 24000;
+      const trucksNeeded = totalKg > 0 ? Math.ceil(totalKg / payloadPerTruck) : 1;
 
-    // Coste y Venta por camión
-    const runningCost = Math.round(distanceKm * 1.57);
-    const tolls = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollCost || (distanceKm > 0 ? distanceKm * 0.18 : 0)));
-    const transitDays = distanceKm > 0 ? Math.max(1, Math.ceil(distanceKm / 650)) : 1;
-    const diets = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
-    const safeLoadHours = Number(loadingRate || 2) > 24 ? 2 : Number(loadingRate || 2);
-    const safeDischHours = Number(dischargingRate || 2) > 24 ? 2 : Number(dischargingRate || 2);
-    const waitPenalty = Number(warehouseWaitPenaltyEur || 0) || (Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40));
-    const baseTruckOperatingCost = runningCost + tolls + diets + waitPenalty;
+      // Coste y Venta por camión
+      const runningCost = Math.round(distanceKm * 1.57);
+      const tolls = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollCost || (distanceKm > 0 ? distanceKm * 0.18 : 0)));
+      const transitDays = distanceKm > 0 ? Math.max(1, Math.ceil(distanceKm / 650)) : 1;
+      const diets = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
+      const safeLoadHours = Number(loadingRate || 2) > 24 ? 2 : Number(loadingRate || 2);
+      const safeDischHours = Number(dischargingRate || 2) > 24 ? 2 : Number(dischargingRate || 2);
+      const waitPenalty = Number(warehouseWaitPenaltyEur || 0) || (Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40));
+      const baseTruckOperatingCost = runningCost + tolls + diets + waitPenalty;
 
-    const costeOperativoPorCamion = (!distanceKm || Number(distanceKm) <= 0)
-      ? 0
-      : (baseTruckOperatingCost > 0
-        ? baseTruckOperatingCost
-        : (Number(estimatedCost) > 0 ? Number(estimatedCost) : (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0)));
-    const precioVentaPorCamion = (!distanceKm || Number(distanceKm) <= 0)
-      ? 0
-      : (costeOperativoPorCamion > 0
-        ? Number((costeOperativoPorCamion * 1.18).toFixed(2))
-        : (Number(salePrice) > 0 ? Number(salePrice) : (Number(activeProject?.land_freight_sale) > 0 ? Number(activeProject.land_freight_sale) : 0)));
+      const costeOperativoPorCamion = (!distanceKm || Number(distanceKm) <= 0)
+        ? 0
+        : (baseTruckOperatingCost > 0
+          ? baseTruckOperatingCost
+          : (Number(estimatedCost) > 0 ? Number(estimatedCost) : (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0)));
+      const precioVentaPorCamion = (!distanceKm || Number(distanceKm) <= 0)
+        ? 0
+        : (costeOperativoPorCamion > 0
+          ? Number((costeOperativoPorCamion * 1.18).toFixed(2))
+          : (Number(salePrice) > 0 ? Number(salePrice) : (Number(activeProject?.land_freight_sale) > 0 ? Number(activeProject.land_freight_sale) : 0)));
 
-    // 3. Coste y Venta Total (SIN volver a multiplicar por toneladas ni kilos)
-    const finalTotalLandCost = Number((trucksNeeded * costeOperativoPorCamion).toFixed(2));
-    const finalTotalLandSale = Number((trucksNeeded * precioVentaPorCamion).toFixed(2));
+      // 3. Coste y Venta Total (SIN volver a multiplicar por toneladas ni kilos)
+      const finalTotalLandCost = Number((trucksNeeded * costeOperativoPorCamion).toFixed(2));
+      const finalTotalLandSale = Number((trucksNeeded * precioVentaPorCamion).toFixed(2));
 
-    // 1. ELIMINAR EL BLOAT MARÍTIMO (Dieta estricta para evitar Error 500)
-    const cleanProject = { ...activeProject };
-    delete cleanProject.weather_data;
-    delete cleanProject.meteo;
-    delete cleanProject.port_history;
-    delete cleanProject.wave_height;
-    delete cleanProject.ocean_conditions;
-    delete cleanProject.historical_data;
+      // 1. ELIMINAR EL BLOAT MARÍTIMO (Dieta estricta para evitar Error 500)
+      const cleanProject = { ...activeProject };
+      delete cleanProject.weather_data;
+      delete cleanProject.meteo;
+      delete cleanProject.port_history;
+      delete cleanProject.wave_height;
+      delete cleanProject.ocean_conditions;
+      delete cleanProject.historical_data;
 
-    // 2. CONSTRUIR PAYLOAD PURAMENTE TERRESTRE
-    const payload = {
-      ...cleanProject,
-      // Blindaje de mercancía
-      items: cleanProject.items || [],
-      cargo_items: (typeof cargoItems !== 'undefined' && cargoItems.length > 0) ? cargoItems : (cleanProject.cargo_items || []),
+      // 2. CONSTRUIR PAYLOAD PURAMENTE TERRESTRE
+      const payload = {
+        ...cleanProject,
+        // Blindaje de mercancía
+        items: cleanProject.items || [],
+        cargo_items: (typeof cargoItems !== 'undefined' && cargoItems.length > 0) ? cargoItems : (cleanProject.cargo_items || []),
+        
+        // Actualización exclusiva del camión
+        land_route: {
+          origin: landOrigin,
+          destination: landDestination,
+          distance_km: distanceKm
+        },
+        land_origin: landOrigin,
+        land_destination: landDestination,
+        land_distance: distanceKm,
+        land_freight_cost: finalTotalLandCost,
+        land_freight_sale: finalTotalLandSale,
+        total_trucks: trucksNeeded,
+        safe_load_hours: typeof safeLoadHours !== 'undefined' ? safeLoadHours : (activeProject?.safe_load_hours || 2),
+        safe_disch_hours: typeof safeDischHours !== 'undefined' ? safeDischHours : (activeProject?.safe_disch_hours || 2)
+      };
+
+      setActiveProject(payload);
+      setProjects((prev) => (prev || []).map((p) => (p?.id === payload.id || p?.project_ref === payload.project_ref ? payload : p)));
       
-      // Actualización exclusiva del camión
-      land_route: {
-        origin: landOrigin,
-        destination: landDestination,
-        distance_km: distanceKm
-      },
-      land_origin: landOrigin,
-      land_destination: landDestination,
-      land_distance: distanceKm,
-      land_freight_cost: finalTotalLandCost,
-      land_freight_sale: finalTotalLandSale,
-      total_trucks: trucksNeeded,
-      safe_load_hours: typeof safeLoadHours !== 'undefined' ? safeLoadHours : (activeProject?.safe_load_hours || 2),
-      safe_disch_hours: typeof safeDischHours !== 'undefined' ? safeDischHours : (activeProject?.safe_disch_hours || 2)
-    };
-    
-    return persistProjectToDatabase(payload);
+      const res = await persistProjectToDatabase(payload);
+      setSaveSuccessMessage('¡Expediente guardado correctamente!');
+      setTimeout(() => setSaveSuccessMessage(null), 3500);
+      return res;
+    } catch (err) {
+      console.error('[ForwarderWorkspace] Error en handleSaveProject:', err);
+      setError('Error al guardar el proyecto: ' + (err?.message || 'Error desconocido'));
+      setTimeout(() => setError(null), 4000);
+    }
   };
 
   if (typeof window !== 'undefined') {
@@ -4688,117 +4713,133 @@ export function ForwarderWorkspace() {
   };
 
   const handleOpenCreateService = () => {
-    setEditingLineItemId(null); setCargoItems([]);
-    setDunnageWood(0); setHighCapacitySlings(0); setChainsBinders(0); setShackles(0);
-    setStevedoreGangs(0); setLashingTeam(0); setHeavyLiftCrane(0); setMafiPlatforms(0);
-    setShippingMode('Lo-Lo'); setVesselType('Geared Breakbulk (Lo-Lo)');
-    setStorageDays(0); setSurveyorCost(0); setInlandCost(0); setCustomsCost(0); setInsuranceCost(0);
-    userEditedSurveyor.current = false; setEstimatedCost(''); setSalePrice('');
-    setLandOrigin(activeProject?.land_route?.origin || activeProject?.land_origin || '');
-    setLandDestination(activeProject?.land_route?.destination || activeProject?.land_destination || '');
-    setDistanceKm(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0));
-    setIsCargoModalOpen(true);
+    try {
+      setEditingLineItemId(null); setCargoItems([]);
+      setDunnageWood(0); setHighCapacitySlings(0); setChainsBinders(0); setShackles(0);
+      setStevedoreGangs(0); setLashingTeam(0); setHeavyLiftCrane(0); setMafiPlatforms(0);
+      setShippingMode('Lo-Lo'); setVesselType('Geared Breakbulk (Lo-Lo)');
+      setStorageDays(0); setSurveyorCost(0); setInlandCost(0); setCustomsCost(0); setInsuranceCost(0);
+      userEditedSurveyor.current = false; setEstimatedCost(''); setSalePrice('');
+      setLandOrigin(activeProject?.land_route?.origin || activeProject?.land_origin || '');
+      setLandDestination(activeProject?.land_route?.destination || activeProject?.land_destination || '');
+      setDistanceKm(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0));
+      setIsCargoModalOpen(true);
+    } catch (err) {
+      console.error('[ForwarderWorkspace] Error al abrir creador de servicios:', err);
+    }
   };
 
   const handleEditService = (item) => {
-    if (!item) return;
-    setEditingLineItemId(item.id);
-    const payload = item.payload_data;
-    if (payload) {
-      if (payload.land_route) {
-        setLandOrigin(payload.land_route.origin || '');
-        setLandDestination(payload.land_route.destination || '');
-        setDistanceKm(Number(payload.land_route.distance_km || 0));
-      } else if (payload.land_origin || payload.land_destination || payload.land_distance) {
-        setLandOrigin(payload.land_origin || '');
-        setLandDestination(payload.land_destination || '');
-        setDistanceKm(Number(payload.land_distance || 0));
-      } else {
-        setLandOrigin(activeProject?.land_route?.origin || activeProject?.land_origin || '');
-        setLandDestination(activeProject?.land_route?.destination || activeProject?.land_destination || '');
-        setDistanceKm(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0));
-      }
-      let mappedItems = [];
-      if (Array.isArray(payload.cargo_items)) {
-        mappedItems = payload.cargo_items.map((ci) => ({
-          id: ci.id || `item-${Date.now()}`, category: ci.category || 'Equipos de Proceso', quantity: ci.quantity || 1, type: ci.type || '',
-          length: ci.length_m ?? ci.length ?? '', width: ci.width_m ?? ci.width ?? '', height: ci.height_m ?? ci.height ?? '', weight: ci.unit_weight_kg ?? ci.weight ?? '', shipping_mode_supported: ci.shipping_mode_supported || 'Tráiler Lona (13.6m)'
-        }));
-        setCargoItems(mappedItems);
-      }
-      const mats = payload.lashing_and_dunnage_materials || {};
-      setDunnageWood(mats.dunnage_wood || 0); setHighCapacitySlings(mats.high_capacity_slings || 0); setChainsBinders(mats.chains_and_binders || 0); setShackles(mats.shackles || 0);
-      setSpreaderMultipunto(mats.spreader_multipunto || 0);
-      const labor = payload.port_labor_and_equipment || {};
-      setStevedoreGangs(labor.stevedore_gangs_shifts || 0); setLashingTeam(labor.lashing_team || 0); setHeavyLiftCrane(labor.heavy_lift_crane || 0); setMafiPlatforms(labor.mafi_platforms || 0);
-      if (payload.shipping_mode) setShippingMode(payload.shipping_mode);
-      if (payload.recommended_vessel) setVesselType(payload.recommended_vessel);
-      const peri = payload.peripheral_services || {};
-      setStorageDays(peri.storage_days || 0); setSurveyorCost(peri.surveyor_cost || 0); setInlandCost(peri.inland_cost || 0); setCustomsCost(peri.customs_cost || 0);
-      setInsuranceCost(peri.insurance_cost || peri.seguro_mercancia || peri.insuranceCost || 0);
-      userEditedSurveyor.current = (peri.surveyor_cost || peri.surveyorCost) != null;
-      const fin = payload.financial_summary || {};
-      const fCost = fin.subtotal_ocean_freight_usd ?? fin.subtotal_ocean_freight_eur;
-      if (fCost != null) setSubtotalFreight(String(fCost));
-      const fobCost = fin.subtotal_fob_operations_usd ?? fin.subtotal_fob_operations_eur;
-      if (fobCost != null) setSubtotalFobOperations(String(fobCost));
-      const estCost = fin.estimated_total_cost_usd ?? fin.estimated_total_cost_eur;
-      setEstimatedCost(estCost ? String(estCost) : '');
-      const sPrice = fin.customer_sale_price_usd ?? fin.customer_sale_price_eur;
-      setSalePrice(sPrice ? String(sPrice) : '');
+    try {
+      if (!item) return;
+      setEditingLineItemId(item?.id || null);
+      const payload = item?.payload_data || item?.data || {};
+      if (payload) {
+        if (payload.land_route) {
+          setLandOrigin(payload.land_route.origin || '');
+          setLandDestination(payload.land_route.destination || '');
+          setDistanceKm(Number(payload.land_route.distance_km || 0));
+        } else if (payload.land_origin || payload.land_destination || payload.land_distance) {
+          setLandOrigin(payload.land_origin || '');
+          setLandDestination(payload.land_destination || '');
+          setDistanceKm(Number(payload.land_distance || 0));
+        } else {
+          setLandOrigin(activeProject?.land_route?.origin || activeProject?.land_origin || '');
+          setLandDestination(activeProject?.land_route?.destination || activeProject?.land_destination || '');
+          setDistanceKm(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0));
+        }
+        let mappedItems = [];
+        if (Array.isArray(payload.cargo_items)) {
+          mappedItems = (payload.cargo_items || []).map((ci) => ({
+            id: ci.id || `item-${Date.now()}`, category: ci.category || 'Equipos de Proceso', quantity: ci.quantity || 1, type: ci.type || '',
+            length: ci.length_m ?? ci.length ?? '', width: ci.width_m ?? ci.width ?? '', height: ci.height_m ?? ci.height ?? '', weight: ci.unit_weight_kg ?? ci.weight ?? '', shipping_mode_supported: ci.shipping_mode_supported || 'Tráiler Lona (13.6m)'
+          }));
+          setCargoItems(mappedItems);
+        }
+        const mats = payload.lashing_and_dunnage_materials || {};
+        setDunnageWood(mats.dunnage_wood || 0); setHighCapacitySlings(mats.high_capacity_slings || 0); setChainsBinders(mats.chains_and_binders || 0); setShackles(mats.shackles || 0);
+        setSpreaderMultipunto(mats.spreader_multipunto || 0);
+        const labor = payload.port_labor_and_equipment || {};
+        setStevedoreGangs(labor.stevedore_gangs_shifts || 0); setLashingTeam(labor.lashing_team || 0); setHeavyLiftCrane(labor.heavy_lift_crane || 0); setMafiPlatforms(labor.mafi_platforms || 0);
+        if (payload.shipping_mode) setShippingMode(payload.shipping_mode);
+        if (payload.recommended_vessel) setVesselType(payload.recommended_vessel);
+        const peri = payload.peripheral_services || {};
+        setStorageDays(peri.storage_days || 0); setSurveyorCost(peri.surveyor_cost || 0); setInlandCost(peri.inland_cost || 0); setCustomsCost(peri.customs_cost || 0);
+        setInsuranceCost(peri.insurance_cost || peri.seguro_mercancia || peri.insuranceCost || 0);
+        userEditedSurveyor.current = (peri.surveyor_cost || peri.surveyorCost) != null;
+        const fin = payload.financial_summary || {};
+        const fCost = fin.subtotal_ocean_freight_usd ?? fin.subtotal_ocean_freight_eur;
+        if (fCost != null) setSubtotalFreight(String(fCost));
+        const fobCost = fin.subtotal_fob_operations_usd ?? fin.subtotal_fob_operations_eur;
+        if (fobCost != null) setSubtotalFobOperations(String(fobCost));
+        const estCost = fin.estimated_total_cost_usd ?? fin.estimated_total_cost_eur;
+        setEstimatedCost(estCost ? String(estCost) : '');
+        const sPrice = fin.customer_sale_price_usd ?? fin.customer_sale_price_eur;
+        setSalePrice(sPrice ? String(sPrice) : '');
 
-      if (payload.route_and_chartering) {
-        const rc = payload.route_and_chartering;
-        if (rc.pol) setPol(rc.pol);
-        if (rc.pod) setPod(rc.pod);
-        if (rc.loading_rate_mt_day) setLoadingRate(Number(rc.loading_rate_mt_day));
-        if (rc.discharging_rate_mt_day) setDischargingRate(Number(rc.discharging_rate_mt_day));
-        if (rc.distance_nm) setDistanceNm(Number(rc.distance_nm));
-        if (rc.vessel_speed_knots) setVesselSpeedKnots(Number(rc.vessel_speed_knots));
-        if (rc.daily_hire_rate_usd) setVesselDailyHireUsd(Number(rc.daily_hire_rate_usd));
-        if (rc.actual_loading_days !== undefined && rc.actual_loading_days !== null) {
-          setActualLoadingDays(rc.actual_loading_days);
+        if (payload.route_and_chartering) {
+          const rc = payload.route_and_chartering;
+          if (rc.pol) setPol(rc.pol);
+          if (rc.pod) setPod(rc.pod);
+          if (rc.loading_rate_mt_day) setLoadingRate(Number(rc.loading_rate_mt_day));
+          if (rc.discharging_rate_mt_day) setDischargingRate(Number(rc.discharging_rate_mt_day));
+          if (rc.distance_nm) setDistanceNm(Number(rc.distance_nm));
+          if (rc.vessel_speed_knots) setVesselSpeedKnots(Number(rc.vessel_speed_knots));
+          if (rc.daily_hire_rate_usd) setVesselDailyHireUsd(Number(rc.daily_hire_rate_usd));
+          if (rc.actual_loading_days !== undefined && rc.actual_loading_days !== null) {
+            setActualLoadingDays(rc.actual_loading_days);
+          }
+          if (rc.actual_discharging_days !== undefined && rc.actual_discharging_days !== null) {
+            setActualDischargingDays(rc.actual_discharging_days);
+          }
+          if (rc.demurrage_daily_rate_usd) {
+            setDemurrageDailyRateUsd(Number(rc.demurrage_daily_rate_usd));
+          }
         }
-        if (rc.actual_discharging_days !== undefined && rc.actual_discharging_days !== null) {
-          setActualDischargingDays(rc.actual_discharging_days);
+        if (payload.charteringAssessment || payload.chartering_assessment) {
+          setCharteringAssessment(payload.charteringAssessment || payload.chartering_assessment);
         }
-        if (rc.demurrage_daily_rate_usd) {
-          setDemurrageDailyRateUsd(Number(rc.demurrage_daily_rate_usd));
-        }
-      }
-      if (payload.charteringAssessment || payload.chartering_assessment) {
-        setCharteringAssessment(payload.charteringAssessment || payload.chartering_assessment);
-      }
 
-      const repData = buildExecutiveReportData(item);
-      setActiveReport(repData);
-      setReportData(repData);
+        try {
+          const repData = buildExecutiveReportData(item);
+          setActiveReport(repData);
+          setReportData(repData);
+        } catch (repErr) {
+          console.warn('[ForwarderWorkspace] Error no bloqueante al generar reporte ejecutivo:', repErr);
+        }
+      }
+      setIsCargoModalOpen(true);
+    } catch (err) {
+      console.error('[ForwarderWorkspace] Error en handleEditService:', err);
     }
-    setIsCargoModalOpen(true);
   };
 
   const handleDeleteService = (itemId) => {
-    if (!activeProject || !window.confirm('¿Seguro que deseas eliminar este servicio?')) return;
-    const existingItems = (Array.isArray(activeProject.line_items) && activeProject.line_items.length > 0)
-      ? activeProject.line_items
-      : (Array.isArray(activeProject.services) ? activeProject.services : []);
-    const updatedLineItems = existingItems.filter((line) => line.id !== itemId);
-    const updatedCost = updatedLineItems.reduce((acc, it) => acc + (Number(it.cost_eur) || 0), 0);
-    const updatedSale = updatedLineItems.reduce((acc, it) => acc + (Number(it.sale_price_eur) || 0), 0);
-    const updatedProject = {
-      ...activeProject,
-      line_items: updatedLineItems,
-      services: updatedLineItems,
-      land_freight_cost: updatedCost,
-      land_freight_sale: updatedSale,
-      targetSalePrice: updatedSale,
-      totalTripCost: updatedCost,
-      cost: updatedCost,
-      sale: updatedSale,
-    };
-    setActiveProject(updatedProject);
-    setProjects((prev) => prev.map((p) => (p.id === activeProject.id || p.project_ref === activeProject.project_ref) ? updatedProject : p));
-    persistProjectToDatabase(updatedProject);
+    try {
+      if (!activeProject || !window.confirm('¿Seguro que deseas eliminar este servicio?')) return;
+      const existingItems = (Array.isArray(activeProject?.line_items) && activeProject.line_items.length > 0)
+        ? activeProject.line_items
+        : (Array.isArray(activeProject?.services) ? activeProject.services : []);
+      const updatedLineItems = (existingItems || []).filter((line) => line?.id !== itemId);
+      const updatedCost = (updatedLineItems || []).reduce((acc, it) => acc + (Number(it?.cost_eur) || 0), 0);
+      const updatedSale = (updatedLineItems || []).reduce((acc, it) => acc + (Number(it?.sale_price_eur) || 0), 0);
+      const updatedProject = {
+        ...activeProject,
+        line_items: updatedLineItems,
+        services: updatedLineItems,
+        land_freight_cost: updatedCost,
+        land_freight_sale: updatedSale,
+        targetSalePrice: updatedSale,
+        totalTripCost: updatedCost,
+        cost: updatedCost,
+        sale: updatedSale,
+      };
+      setActiveProject(updatedProject);
+      setProjects((prev) => (prev || []).map((p) => (p?.id === activeProject?.id || p?.project_ref === activeProject?.project_ref) ? updatedProject : p));
+      persistProjectToDatabase(updatedProject);
+    } catch (err) {
+      console.error('[ForwarderWorkspace] Error al eliminar servicio:', err);
+    }
   };
 
   const handleSaveProjectCargo = async () => {
@@ -5026,7 +5067,7 @@ export function ForwarderWorkspace() {
           services: updatedLineItems
         };
         setActiveProject(updatedProject);
-        setProjects((prev) => prev.map((p) => (p.id === activeProject.id || p.project_ref === activeProject.project_ref) ? updatedProject : p));
+        setProjects((prev) => (prev || []).map((p) => (p?.id === activeProject?.id || p?.project_ref === activeProject?.project_ref) ? updatedProject : p));
         await persistProjectToDatabase(updatedProject);
 
         // Envío seguro y atómico hacia Data Bridge
@@ -5070,8 +5111,9 @@ export function ForwarderWorkspace() {
       }
     } catch (err) {
       console.error('Error al guardar flete y estiba:', err);
+      setError('Error al guardar flete y estiba: ' + (err?.message || 'Error desconocido'));
+      setTimeout(() => setError(null), 4000);
     } finally {
-      setCargoItems([]);
       setIsCargoModalOpen(false);
       setSaveSuccessMessage('¡Flete y estiba guardados correctamente!');
       setTimeout(() => setSaveSuccessMessage(null), 3500);
@@ -5120,7 +5162,7 @@ export function ForwarderWorkspace() {
                 <p className="text-xs font-semibold text-slate-600">Selecciona un expediente en la barra superior</p>
                 <p className="text-[11px] text-slate-400 mt-1">Vincula tus proyectos al expediente activo de Core PRO.</p>
               </div>
-            ) : displayedProjects.length === 0 ? (
+            ) : (displayedProjects || []).length === 0 ? (
               <div className="p-6 text-center text-slate-500 flex flex-col items-center justify-center h-48 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
                 <span className="text-2xl mb-2">📋</span>
                 <p className="text-xs font-semibold text-slate-600">No hay proyectos para este expediente</p>
@@ -5138,12 +5180,12 @@ export function ForwarderWorkspace() {
               /* projects.map((proj) => { */
               displayedProjects.map((proj) => {
                 const isSelected = activeProject && (
-                  (proj.id && activeProject.id === proj.id) ||
-                  (proj.project_ref && activeProject.project_ref === proj.project_ref)
+                  (proj?.id && activeProject?.id === proj?.id) ||
+                  (proj?.project_ref && activeProject?.project_ref === proj?.project_ref)
                 );
                 return (
                   <div
-                    key={proj.id || proj.project_ref}
+                    key={proj?.id || proj?.project_ref || Math.random()}
                     onClick={() => setActiveProject(proj)}
                     className={`group p-3 rounded-xl border transition-all cursor-pointer relative ${
                       isSelected
@@ -5579,31 +5621,31 @@ export function ForwarderWorkspace() {
                   </span>
                 </div>
 
-                {projectDocuments.length === 0 ? (
+                {(projectDocuments || []).length === 0 ? (
                   <p className="text-xs text-slate-500 italic py-3 text-center border border-dashed border-slate-200 rounded-lg">
                     No hay documentos adjuntos en este proyecto. Sube un archivo mediante el Agente de Proyectos o el botón de importación para guardarlo permanentemente en la base de datos.
                   </p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {projectDocuments.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg hover:border-blue-300 transition">
+                    {(projectDocuments || []).map((doc) => (
+                      <div key={doc?.id || Math.random()} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg hover:border-blue-300 transition">
                         <div className="flex items-center gap-3">
                           <span className="text-2xl">📄</span>
                           <div>
-                            <h4 className="text-xs font-bold text-slate-800 truncate max-w-[200px]">{doc.name}</h4>
-                            <span className="text-[10px] text-slate-500 font-mono">Guardado: {doc.date} | Ítems: {doc.itemsCount || 1}</span>
+                            <h4 className="text-xs font-bold text-slate-800 truncate max-w-[200px]">{doc?.name || 'Documento'}</h4>
+                            <span className="text-[10px] text-slate-500 font-mono">Guardado: {doc?.date || 'N/A'} | Ítems: {doc?.itemsCount || 1}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <button 
   type="button"
   onClick={() => {
-    const base64Data = doc.payload?.dataBase64 || doc.dataBase64;
+    const base64Data = doc?.payload?.dataBase64 || doc?.dataBase64;
     if (base64Data) {
       try {
         // Convertir el Base64 en un Blob nativo para evitar el bloqueo de seguridad de Chrome
         const arr = base64Data.split(',');
-        const mimeMatch = arr[0].match(/:(.*?);/);
+        const mimeMatch = arr[0]?.match(/:(.*?);/);
         const mime = mimeMatch ? mimeMatch[1] : 'application/pdf';
         const bstr = atob(arr[1]);
         let n = bstr.length;
@@ -5621,11 +5663,11 @@ export function ForwarderWorkspace() {
         window.alert('No se pudo renderizar el archivo directamente. Intentando descarga...');
         const link = document.createElement('a');
         link.href = base64Data;
-        link.download = doc.name;
+        link.download = doc?.name || 'documento';
         link.click();
       }
     } else {
-      window.alert(`Información del Documento:\nNombre: ${doc.name}\nFecha: ${doc.date}\nÍtems asociados: ${doc.itemsCount || 1}\n(Nota: Este documento no tiene contenido binario asociado).`);
+      window.alert(`Información del Documento:\nNombre: ${doc?.name}\nFecha: ${doc?.date}\nÍtems asociados: ${doc?.itemsCount || 1}\n(Nota: Este documento no tiene contenido binario asociado).`);
     }
   }}
   className="px-2.5 py-1 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 text-[11px] font-bold rounded cursor-pointer shadow-xs flex items-center gap-1"
@@ -5634,7 +5676,7 @@ export function ForwarderWorkspace() {
 </button>
                           <button 
                             type="button"
-                            onClick={() => handleDeletePersistentDocument(doc.id)}
+                            onClick={() => handleDeletePersistentDocument(doc?.id)}
                             className="px-2 py-1 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 text-[11px] font-bold rounded cursor-pointer"
                             title="Eliminar documento"
                           >
@@ -5648,14 +5690,14 @@ export function ForwarderWorkspace() {
               </div>
 
               {/* SERVICIOS DE TRANSPORTE TERRESTRE */}
-              {(activeProject.line_items?.length > 0 || activeProject.services?.length > 0) ? (
+              {(activeProject?.line_items?.length > 0 || activeProject?.services?.length > 0) ? (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <h3 className="text-base font-bold text-slate-900">Servicios</h3>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => handleOpenExecutiveReport((activeProject.line_items?.length > 0 ? activeProject.line_items : activeProject.services)[0])}
+                        onClick={() => handleOpenExecutiveReport(((activeProject?.line_items?.length > 0 ? activeProject.line_items : activeProject?.services) || [])[0])}
                         className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-xs rounded-lg shadow-xs cursor-pointer flex items-center gap-1.5 transition"
                       >
                         📄 Reporte Ejecutivo
@@ -5676,15 +5718,15 @@ export function ForwarderWorkspace() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-slate-800">
-                        {(activeProject.line_items?.length > 0 ? activeProject.line_items : activeProject.services).map((item) => (
-                          <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
-                            <td className="px-4 py-3 font-semibold">{item.description}</td>
-                            <td className="px-4 py-3 text-right text-rose-600 font-bold font-mono">{Number(item.cost_eur).toLocaleString('es-ES')} €</td>
-                            <td className="px-4 py-3 text-right text-emerald-600 font-bold font-mono">{Number(item.sale_price_eur).toLocaleString('es-ES')} €</td>
+                        {((activeProject?.line_items?.length > 0 ? activeProject.line_items : activeProject?.services) || []).map((item) => (
+                          <tr key={item?.id || Math.random()} className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                            <td className="px-4 py-3 font-semibold">{item?.description || 'Servicio'}</td>
+                            <td className="px-4 py-3 text-right text-rose-600 font-bold font-mono">{Number(item?.cost_eur || 0).toLocaleString('es-ES')} €</td>
+                            <td className="px-4 py-3 text-right text-emerald-600 font-bold font-mono">{Number(item?.sale_price_eur || 0).toLocaleString('es-ES')} €</td>
                             <td className="px-4 py-3 text-center">
                               <button type="button" onClick={() => handleOpenExecutiveReport(item)} className="mx-1 cursor-pointer hover:scale-110 transition-transform" title="Generar Reporte Ejecutivo">📄</button>
                               <button onClick={() => handleEditService(item)} className="mx-1 cursor-pointer" title="Editar">✏️</button>
-                              <button onClick={() => handleDeleteService(item.id)} className="mx-1 cursor-pointer" title="Eliminar">🗑️</button>
+                              <button onClick={() => handleDeleteService(item?.id)} className="mx-1 cursor-pointer" title="Eliminar">🗑️</button>
                             </td>
                           </tr>
                         ))}
@@ -5850,26 +5892,26 @@ export function ForwarderWorkspace() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {cargoItems.map((item) => {
-                          const qty = Math.max(1, Number(item.quantity) || 1);
-                          const l = Math.max(0, parseFloat(item.length) || 0);
-                          const w = Math.max(0, parseFloat(item.width) || 0);
-                          const h = Math.max(0, parseFloat(item.height) || 0);
+                        {(cargoItems || []).map((item) => {
+                          const qty = Math.max(1, Number(item?.quantity) || 1);
+                          const l = Math.max(0, parseFloat(item?.length) || 0);
+                          const w = Math.max(0, parseFloat(item?.width) || 0);
+                          const h = Math.max(0, parseFloat(item?.height) || 0);
                           const itemM2 = qty * (l * w);
                           const itemM3 = qty * (l * w * h);
 
                           return (
-                            <tr key={item.id} className="hover:bg-slate-50/80">
-                              <td className="p-1"><input type="text" value={item.category || ''} onChange={(e) => handleUpdateCargoItem(item.id, 'category', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-slate-800 text-[11px]" placeholder="Ej: Equipos..." /></td>
-                              <td className="p-1"><input type="text" list="commodity-list" value={item.type || ''} onChange={(e) => handleUpdateCargoItem(item.id, 'type', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-slate-900 font-semibold text-[11px]" placeholder="Descripción de pieza..." /></td>
-                              <td className="p-1"><input type="number" min={1} value={item.quantity} onChange={(e) => handleUpdateCargoItem(item.id, 'quantity', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-1 py-1.5 text-center text-slate-900 text-[11px]" /></td>
-                              <td className="p-1"><input type="number" value={item.length} onChange={(e) => handleUpdateCargoItem(item.id, 'length', e.target.value)} className="w-full bg-white border border-slate-300 px-1 py-1.5 rounded text-center text-[11px]" placeholder="L" /></td>
-                              <td className="p-1"><input type="number" value={item.width} onChange={(e) => handleUpdateCargoItem(item.id, 'width', e.target.value)} className="w-full bg-white border border-slate-300 px-1 py-1.5 rounded text-center text-[11px]" placeholder="W" /></td>
-                              <td className="p-1"><input type="number" value={item.height} onChange={(e) => handleUpdateCargoItem(item.id, 'height', e.target.value)} className="w-full bg-white border border-slate-300 px-1 py-1.5 rounded text-center text-[11px]" placeholder="H" /></td>
-                              <td className="p-1"><input type="number" value={item.weight} onChange={(e) => handleUpdateCargoItem(item.id, 'weight', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-right font-mono text-[11px]" /></td>
+                            <tr key={item?.id || Math.random()} className="hover:bg-slate-50/80">
+                              <td className="p-1"><input type="text" value={item?.category || ''} onChange={(e) => handleUpdateCargoItem(item.id, 'category', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-slate-800 text-[11px]" placeholder="Ej: Equipos..." /></td>
+                              <td className="p-1"><input type="text" list="commodity-list" value={item?.type || ''} onChange={(e) => handleUpdateCargoItem(item.id, 'type', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-slate-900 font-semibold text-[11px]" placeholder="Descripción de pieza..." /></td>
+                              <td className="p-1"><input type="number" min={1} value={item?.quantity ?? 1} onChange={(e) => handleUpdateCargoItem(item.id, 'quantity', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-1 py-1.5 text-center text-slate-900 text-[11px]" /></td>
+                              <td className="p-1"><input type="number" value={item?.length ?? ''} onChange={(e) => handleUpdateCargoItem(item.id, 'length', e.target.value)} className="w-full bg-white border border-slate-300 px-1 py-1.5 rounded text-center text-[11px]" placeholder="L" /></td>
+                              <td className="p-1"><input type="number" value={item?.width ?? ''} onChange={(e) => handleUpdateCargoItem(item.id, 'width', e.target.value)} className="w-full bg-white border border-slate-300 px-1 py-1.5 rounded text-center text-[11px]" placeholder="W" /></td>
+                              <td className="p-1"><input type="number" value={item?.height ?? ''} onChange={(e) => handleUpdateCargoItem(item.id, 'height', e.target.value)} className="w-full bg-white border border-slate-300 px-1 py-1.5 rounded text-center text-[11px]" placeholder="H" /></td>
+                              <td className="p-1"><input type="number" value={item?.weight ?? ''} onChange={(e) => handleUpdateCargoItem(item.id, 'weight', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-right font-mono text-[11px]" /></td>
                               <td className="p-1 text-right font-mono text-[11px] text-slate-600">{itemM2.toFixed(2)}</td>
                               <td className="p-1 text-right font-mono text-[11px] text-slate-600">{itemM3.toFixed(2)}</td>
-                              <td className="p-1"><input type="text" value={item.shipping_mode_supported || ''} onChange={(e) => handleUpdateCargoItem(item.id, 'shipping_mode_supported', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-slate-600 text-[10px]" placeholder="Modo..." /></td>
+                              <td className="p-1"><input type="text" value={item?.shipping_mode_supported || ''} onChange={(e) => handleUpdateCargoItem(item.id, 'shipping_mode_supported', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-slate-600 text-[10px]" placeholder="Modo..." /></td>
                               <td className="p-1 text-center"><button onClick={() => handleRemoveCargoItem(item.id)} className="text-rose-500 hover:text-rose-700 bg-rose-50 rounded p-1 font-bold w-full h-full cursor-pointer">✕</button></td>
                             </tr>
                           );
@@ -6119,7 +6161,11 @@ export function ForwarderWorkspace() {
   type="text"
   required
   value={landOrigin}
-  onChange={(e) => setLandOrigin(e.target.value)}
+  onChange={(e) => {
+    const val = e.target.value;
+    setLandOrigin(val);
+    setActiveProject(prev => ({ ...prev, land_origin: val, pol: val }));
+  }}
   placeholder="Ej: Madrid, Barcelona, Sevilla"
   className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
 />
@@ -6134,7 +6180,11 @@ export function ForwarderWorkspace() {
   type="text"
   required
   value={landDestination}
-  onChange={(e) => setLandDestination(e.target.value)}
+  onChange={(e) => {
+    const val = e.target.value;
+    setLandDestination(val);
+    setActiveProject(prev => ({ ...prev, land_destination: val, pod: val }));
+  }}
   placeholder="Ej: París, Lyon, Milán"
   className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
 />
@@ -6149,7 +6199,10 @@ export function ForwarderWorkspace() {
   type="number"
   min={10}
   value={distanceKm || ''}
-  onChange={(e) => setDistanceKm(e.target.value)}
+  onChange={(e) => {
+    const val = e.target.value;
+    setDistanceKm(val);
+  }}
   className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-900 shadow-sm"
 />
                       </div>
@@ -6164,7 +6217,12 @@ export function ForwarderWorkspace() {
   min={1}
   required
   value={safeLoadHours}
-  onChange={(e) => setSafeLoadHours(Math.max(1, Number(e.target.value)))}
+  onChange={(e) => {
+    const val = Math.max(1, Number(e.target.value));
+    setSafeLoadHours(val);
+    setLoadingRate(val);
+    setActiveProject(prev => ({ ...prev, loadingRate: val, safe_load_hours: val }));
+  }}
   className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
   title="Tiempo de carga en almacén de origen (horas)."
 />
@@ -6180,7 +6238,12 @@ export function ForwarderWorkspace() {
   min={1}
   required
   value={safeDischHours}
-  onChange={(e) => setSafeDischHours(Math.max(1, Number(e.target.value)))}
+  onChange={(e) => {
+    const val = Math.max(1, Number(e.target.value));
+    setSafeDischHours(val);
+    setDischargingRate(val);
+    setActiveProject(prev => ({ ...prev, dischargingRate: val, safe_disch_hours: val }));
+  }}
   className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm font-mono"
   title="Tiempo de descarga en almacén de destino (horas)."
 />
@@ -7013,16 +7076,16 @@ export function ForwarderWorkspace() {
                   <span>Valor del Flete {fleteUnitarioUsdMt}</span>
                   <span>Costes FOB + Mercancía {fobMasMercanciaUnitarioUsdMt}</span>
                 </section>
-                {activeReport?.stowagePlan?.holds?.map((hold) => (
-                  <div key={hold.holdNumber}>
-                    <span>{hold.name}</span>
+                {(activeReport?.stowagePlan?.holds || []).map((hold) => (
+                  <div key={hold?.holdNumber || Math.random()}>
+                    <span>{hold?.name || 'Bodega'}</span>
                     <span>Distribución Multi-Carga Optimizada</span>
                     <span>Resistencia Estructural</span>
                     <span>GM Estabilidad</span>
                   </div>
                 ))}
-                {activeReport?.stowagePlan?.holds?.map((hold) => (
-                  <div key={hold.holdNumber}></div>
+                {(activeReport?.stowagePlan?.holds || []).map((hold) => (
+                  <div key={hold?.holdNumber || Math.random()}></div>
                 ))}
                 <section
                 className="stowage-plan-section"
@@ -7678,5 +7741,61 @@ export function LandCharterMap({ containerId = 'map-container', className = '' }
   );
 }
 export const ForwarderRouteMap = LandCharterMap;
+
+class ForwarderWorkspaceErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('[ForwarderWorkspace] Error no controlado capturado por ErrorBoundary:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-full h-full min-h-[500px] flex flex-col items-center justify-center p-8 bg-slate-50 text-slate-800 font-sans">
+          <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl p-6 shadow-xl text-center space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-3xl">
+              🛡️
+            </div>
+            <h2 className="text-lg font-black text-slate-900">Protección del Espacio de Trabajo</h2>
+            <p className="text-xs text-slate-600">
+              Se ha evitado un colapso en el renderizado de proyectos. Los datos se han protegido contra pérdida.
+            </p>
+            {this.state.error?.message && (
+              <pre className="text-[11px] font-mono text-rose-700 bg-rose-50 p-2.5 rounded-lg border border-rose-200 overflow-x-auto text-left max-h-32">
+                {this.state.error.message}
+              </pre>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+              }}
+              className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase rounded-lg shadow-sm transition-colors cursor-pointer"
+            >
+              Reintentar Renderizado
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export function ForwarderWorkspace(props) {
+  return (
+    <ForwarderWorkspaceErrorBoundary>
+      <ForwarderWorkspaceInner {...props} />
+    </ForwarderWorkspaceErrorBoundary>
+  );
+}
 
 export default ForwarderWorkspace;
