@@ -11,28 +11,28 @@ test('1. ForwarderWorkspace define extracción segura de variables marítimas de
   // Origen marítimo con fallback 'N/A'
   assert.match(
     forwarderWorkspaceSource,
-    /const\s+seaOrigin\s*=\s*activeProject\?\.route_and_chartering\?\.pol\s*\|\|\s*activeProject\?\.data\?\.pol\s*\|\|\s*activeProject\?\.pol\s*\|\|\s*['"]N\/A['"]/,
-    'Debe definir seaOrigin con extracción segura desde route_and_chartering, data o pol, fallback "N/A"'
+    /const\s+seaOrigin\s*=\s*activeProject\?\.items\?\.\[0\]\?\.payload_data\?\.route_and_chartering\?\.pol\s*\|\|\s*activeProject\?\.route_and_chartering\?\.pol\s*\|\|\s*activeProject\?\.pol\s*\|\|\s*['"]N\/A['"]/,
+    'Debe definir seaOrigin con extracción exhaustiva desde items[0].payload_data o route_and_chartering, fallback "N/A"'
   );
 
   // Destino marítimo con fallback 'N/A'
   assert.match(
     forwarderWorkspaceSource,
-    /const\s+seaDest\s*=\s*activeProject\?\.route_and_chartering\?\.pod\s*\|\|\s*activeProject\?\.data\?\.pod\s*\|\|\s*activeProject\?\.pod\s*\|\|\s*['"]N\/A['"]/,
-    'Debe definir seaDest con extracción segura desde route_and_chartering, data o pod, fallback "N/A"'
+    /const\s+seaDest\s*=\s*activeProject\?\.items\?\.\[0\]\?\.payload_data\?\.route_and_chartering\?\.pod\s*\|\|\s*activeProject\?\.route_and_chartering\?\.pod\s*\|\|\s*activeProject\?\.pod\s*\|\|\s*['"]N\/A['"]/,
+    'Debe definir seaDest con extracción exhaustiva desde items[0].payload_data o route_and_chartering, fallback "N/A"'
   );
 
   // Millas marítimas con fallback 0
   assert.match(
     forwarderWorkspaceSource,
-    /const\s+seaMiles\s*=\s*activeProject\?\.route_and_chartering\?\.distance_nm\s*\|\|\s*activeProject\?\.distance_nm\s*\|\|\s*activeProject\?\.data\?\.distance_nm\s*\|\|\s*0/,
-    'Debe definir seaMiles con extracción segura desde route_and_chartering, distance_nm o data.distance_nm, fallback 0'
+    /const\s+seaMiles\s*=\s*Number\(activeProject\?\.items\?\.\[0\]\?\.payload_data\?\.route_and_chartering\?\.distance_nm\)/,
+    'Debe definir seaMiles con extracción exhaustiva desde items[0].payload_data o route_and_chartering, fallback 0'
   );
 
   // Toneladas marítimas con cálculo por items o fallback
   assert.match(
     forwarderWorkspaceSource,
-    /const\s+seaTons\s*=\s*activeProject\?\.total_weight_tons/,
+    /const\s+seaTons\s*=\s*Number\(activeProject\?\.total_weight_tons\)/,
     'Debe definir seaTons extrayendo total_weight_tons o sumando el peso de los items'
   );
 
@@ -127,7 +127,7 @@ test('3. ForwarderWorkspace conserva intacto el Resumen Terrestre (Nivel 2) bajo
     'Debe conservar la tarjeta de Flete Terrestre vs. Venta'
   );
 
-  // Mantiene los cálculos provisionales de LDM y Flete Terrestre vs Venta
+  // Mantiene los cálculos provisionales de LDM y Flete Terrestre vs Venta con regla de distancia cero
   assert.match(
     forwarderWorkspaceSource,
     /const\s+rLdm\s*=\s*Number\(/,
@@ -135,17 +135,71 @@ test('3. ForwarderWorkspace conserva intacto el Resumen Terrestre (Nivel 2) bajo
   );
   assert.match(
     forwarderWorkspaceSource,
-    /const\s+rCostEur\s*=\s*Number\(projectCost\)/,
-    'Debe mantener el cálculo provisional del coste terrestre'
+    /const\s+rCostEur\s*=\s*isZeroDist\s*\?\s*0\s*:\s*\(Number\(projectCost\)/,
+    'Debe mantener el cálculo provisional del coste terrestre con blindaje de distancia cero'
   );
   assert.match(
     forwarderWorkspaceSource,
-    /const\s+rSaleEur\s*=\s*Number\(projectSale\)/,
-    'Debe mantener el cálculo provisional de la venta terrestre'
+    /const\s+rSaleEur\s*=\s*isZeroDist\s*\?\s*0\s*:\s*\(Number\(projectSale\)/,
+    'Debe mantener el cálculo provisional de la venta terrestre con blindaje de distancia cero'
   );
 });
 
-test('4. Simulación funcional: cálculo y formateo de datos marítimos', () => {
+test('4. Inyección de Visual Health Checks (OK / Vacío / Faltan datos) en Banner Marítimo y Nivel 2', () => {
+  // Validación de Ruta Marítima
+  assert.match(
+    forwarderWorkspaceSource,
+    /seaOrigin\s*!==\s*['"]N\/A['"]\s*&&\s*seaDest\s*!==\s*['"]N\/A['"]\s*\?\s*[\s\S]*?✅ OK[\s\S]*?:\s*[\s\S]*?⚠️ Faltan datos/,
+    'Debe renderizar ✅ OK o ⚠️ Faltan datos en la ruta marítima'
+  );
+
+  // Validación de Distancia Marítima
+  assert.match(
+    forwarderWorkspaceSource,
+    /seaMiles\s*>\s*0\s*\?\s*[\s\S]*?✅ OK[\s\S]*?:\s*[\s\S]*?⚠️ Vacío/,
+    'Debe renderizar ✅ OK o ⚠️ Vacío en la distancia marítima'
+  );
+
+  // Validación de Flete Marítimo Venta
+  assert.match(
+    forwarderWorkspaceSource,
+    /seaFreightSale\s*>\s*0\s*\?\s*[\s\S]*?✅ OK[\s\S]*?:\s*[\s\S]*?⚠️ Vacío/,
+    'Debe renderizar ✅ OK o ⚠️ Vacío en el flete marítimo venta'
+  );
+
+  // Validación de Ruta Terrestre
+  assert.match(
+    forwarderWorkspaceSource,
+    /\(?rOrigin\s*&&\s*rDestination\)?\s*\?\s*[\s\S]*?✅ OK[\s\S]*?:\s*[\s\S]*?⚠️ Faltan datos/,
+    'Debe renderizar ✅ OK o ⚠️ Faltan datos en la ruta terrestre'
+  );
+
+  // Validación de Distancia Terrestre
+  assert.match(
+    forwarderWorkspaceSource,
+    /rDistKm\s*>\s*0\s*\?\s*[\s\S]*?✅ OK[\s\S]*?:\s*[\s\S]*?⚠️ Vacío/,
+    'Debe renderizar ✅ OK o ⚠️ Vacío en la distancia terrestre'
+  );
+
+  // Labels de Inputs Terrestres
+  assert.match(
+    forwarderWorkspaceSource,
+    /Origen \(Carga\) \* \{landOrigin \?[\s\S]*?✅ OK[\s\S]*?:[\s\S]*?⚠️ Vacío[\s\S]*?\}/,
+    'Label de Origen debe mostrar validador visual'
+  );
+  assert.match(
+    forwarderWorkspaceSource,
+    /Destino \(Entrega\) \* \{landDestination \?[\s\S]*?✅ OK[\s\S]*?:[\s\S]*?⚠️ Vacío[\s\S]*?\}/,
+    'Label de Destino debe mostrar validador visual'
+  );
+  assert.match(
+    forwarderWorkspaceSource,
+    /Distancia Ruta \(KM\) \* \{distanceKm > 0 \?[\s\S]*?✅ OK[\s\S]*?:[\s\S]*?⚠️ Vacío[\s\S]*?\}/,
+    'Label de Distancia KM debe mostrar validador visual'
+  );
+});
+
+test('5. Simulación funcional: cálculo y formateo de datos marítimos', () => {
   // Caso 1: Proyecto con campos directos de Core PRO
   const projectA = {
     pol: 'Valencia Port',

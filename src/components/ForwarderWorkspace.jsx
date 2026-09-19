@@ -2762,23 +2762,31 @@ export function ForwarderWorkspace() {
       const waitPenalty = Number(warehouseWaitPenaltyEur || 0) || (Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40));
       const baseTruckOperatingCost = runningCost + tolls + diets + waitPenalty;
 
-      const costeOperativoPorCamion = baseTruckOperatingCost > 0
-        ? baseTruckOperatingCost
-        : (Number(estimatedCost) > 0 ? Number(estimatedCost) : (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0));
-      const precioVentaPorCamion = costeOperativoPorCamion > 0
-        ? Number((costeOperativoPorCamion * 1.18).toFixed(2))
-        : (Number(salePrice) > 0 ? Number(salePrice) : (Number(activeProject?.land_freight_sale) > 0 ? Number(activeProject.land_freight_sale) : 0));
+      const costeOperativoPorCamion = (!distanceKm || Number(distanceKm) <= 0)
+        ? 0
+        : (baseTruckOperatingCost > 0
+          ? baseTruckOperatingCost
+          : (Number(estimatedCost) > 0 ? Number(estimatedCost) : (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0)));
+      const precioVentaPorCamion = (!distanceKm || Number(distanceKm) <= 0)
+        ? 0
+        : (costeOperativoPorCamion > 0
+          ? Number((costeOperativoPorCamion * 1.18).toFixed(2))
+          : (Number(salePrice) > 0 ? Number(salePrice) : (Number(activeProject?.land_freight_sale) > 0 ? Number(activeProject.land_freight_sale) : 0)));
 
       // 3. Coste y Venta Total (SIN volver a multiplicar por toneladas ni kilos)
-      const finalTotalLandCost = Number((trucksNeeded * costeOperativoPorCamion).toFixed(2));
-      const finalTotalLandSale = Number((trucksNeeded * precioVentaPorCamion).toFixed(2));
+      const finalTotalLandCost = (!distanceKm || Number(distanceKm) <= 0) ? 0 : Number((trucksNeeded * costeOperativoPorCamion).toFixed(2));
+      const finalTotalLandSale = (!distanceKm || Number(distanceKm) <= 0) ? 0 : Number((trucksNeeded * precioVentaPorCamion).toFixed(2));
 
-      const tuVariableDeCosteTotalTerrestre = Number(projectToSave?.land_freight_cost) > 0
-        ? Number(projectToSave.land_freight_cost)
-        : (finalTotalLandCost > 0 ? finalTotalLandCost : Number(estimatedCost || activeProject?.land_freight_cost || 0));
-      const tuVariableDePrecioVentaTerrestre = Number(projectToSave?.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) > 0
-        ? Number(projectToSave.land_freight_sale || projectToSave.targetSalePrice || projectToSave.sale)
-        : (finalTotalLandSale > 0 ? finalTotalLandSale : Number(salePrice || activeProject?.land_freight_sale || 0));
+      const tuVariableDeCosteTotalTerrestre = (!distanceKm || Number(distanceKm) <= 0)
+        ? 0
+        : (Number(projectToSave?.land_freight_cost) > 0
+          ? Number(projectToSave.land_freight_cost)
+          : (finalTotalLandCost > 0 ? finalTotalLandCost : Number(estimatedCost || activeProject?.land_freight_cost || 0)));
+      const tuVariableDePrecioVentaTerrestre = (!distanceKm || Number(distanceKm) <= 0)
+        ? 0
+        : (Number(projectToSave?.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) > 0
+          ? Number(projectToSave.land_freight_sale || projectToSave.targetSalePrice || projectToSave.sale)
+          : (finalTotalLandSale > 0 ? finalTotalLandSale : Number(salePrice || activeProject?.land_freight_sale || 0)));
 
       const payload = {
         ...activeProject, // Heredar todo por defecto
@@ -2795,8 +2803,8 @@ export function ForwarderWorkspace() {
         discharge_method: dischargeMethod || projectToSave?.discharge_method || activeProject?.discharge_method,
         services: servicesList,
         line_items: servicesList,
-        land_freight_cost: Number(projectToSave.land_freight_cost) || Number(tuVariableDeCosteTotalTerrestre || 0),
-        land_freight_sale: Number(projectToSave.land_freight_sale || projectToSave.targetSalePrice || projectToSave.sale) || Number(tuVariableDePrecioVentaTerrestre || 0),
+        land_freight_cost: (!distanceKm || Number(distanceKm) <= 0) ? 0 : (Number(projectToSave.land_freight_cost) || Number(tuVariableDeCosteTotalTerrestre || 0)),
+        land_freight_sale: (!distanceKm || Number(distanceKm) <= 0) ? 0 : (Number(projectToSave.land_freight_sale || projectToSave.targetSalePrice || projectToSave.sale) || Number(tuVariableDePrecioVentaTerrestre || 0)),
         valor_total_mercancia_usd: Number(projectToSave.valor_total_mercancia_usd) || Number(activeProject?.valor_total_mercancia_usd) || 0,
         land_origin: pol || origin || projectToSave.land_origin || projectToSave.pol || activeProject?.land_origin || activeProject?.pol || landOrigin,
         land_destination: pod || destination || projectToSave.land_destination || projectToSave.pod || activeProject?.land_destination || activeProject?.pod || landDestination,
@@ -5238,9 +5246,9 @@ export function ForwarderWorkspace() {
               {/* RESUMEN HÍBRIDO (MARÍTIMO + TERRESTRE PROVISIONAL) */}
               {(() => {
                 // 1. Extracción Segura de Datos Marítimos (Core PRO)
-                const seaOrigin = activeProject?.route_and_chartering?.pol || activeProject?.data?.pol || activeProject?.pol || 'N/A';
-                const seaDest = activeProject?.route_and_chartering?.pod || activeProject?.data?.pod || activeProject?.pod || 'N/A';
-                const seaMiles = activeProject?.route_and_chartering?.distance_nm || activeProject?.distance_nm || activeProject?.data?.distance_nm || 0;
+                const seaOrigin = activeProject?.items?.[0]?.payload_data?.route_and_chartering?.pol || activeProject?.route_and_chartering?.pol || activeProject?.pol || 'N/A';
+                const seaDest = activeProject?.items?.[0]?.payload_data?.route_and_chartering?.pod || activeProject?.route_and_chartering?.pod || activeProject?.pod || 'N/A';
+                const seaMiles = Number(activeProject?.items?.[0]?.payload_data?.route_and_chartering?.distance_nm) || Number(activeProject?.route_and_chartering?.distance_nm) || Number(activeProject?.distance_nm) || 0;
 
                 const pItems = activeProject?.line_items?.[0]?.payload_data?.cargo_items || activeProject?.items || cargoItems || [];
                 const pVol = pItems.reduce((acc, it) => acc + (Number(it.quantity || 1) * Number(it.length_m || it.length || 0) * Number(it.width_m || it.width || 0) * Number(it.height_m || it.height || 0)), 0) || Number(totals.m3 || 0);
@@ -5250,10 +5258,10 @@ export function ForwarderWorkspace() {
                 const calculatedSeaItemsTons = Array.isArray(seaItemsList) && seaItemsList.length > 0
                   ? seaItemsList.reduce((acc, it) => acc + (Number(it.quantity || it.qty || 1) * Number(it.unit_weight_kg || it.weight || 0)), 0) / 1000
                   : 0;
-                const seaTons = activeProject?.total_weight_tons || calculatedSeaItemsTons || (pWtTons > 0 ? pWtTons : 0);
+                const seaTons = Number(activeProject?.total_weight_tons) || Number(activeProject?.items?.[0]?.payload_data?.totals?.weight / 1000) || 0;
 
                 // Flete Marítimo Venta: Identificación y normalización
-                const seaFreightSale = Number(activeProject?.items?.[0]?.payload_data?.financial_summary?.customer_sale_price_usd) || Number(activeProject?.items?.[0]?.payload_data?.financial_summary?.customer_sale_price_eur) || Number(activeProject?.financial_summary?.customer_sale_price_usd) || 0;
+                const seaFreightSale = Number(activeProject?.items?.[0]?.payload_data?.financial_summary?.customer_sale_price_usd) || Number(activeProject?.financialBreakdown?.oceanFreight?.subtotal) || Number(activeProject?.ocean_freight_sale) || 0;
                 const ocean_freight_sale =
                   seaFreightSale ||
                   activeProject?.ocean_freight_sale ||
@@ -5283,13 +5291,14 @@ export function ForwarderWorkspace() {
                 const rPalletsEuro = Math.min(33, Math.max(1, Math.ceil(rLdm / 0.4)));
                 const rLdmPct = Math.min(100, Math.round((rLdm / 13.6) * 100));
 
+                const isZeroDist = !rDistKm || Number(rDistKm) <= 0;
                 const projectCost = activeProject?.land_freight_cost || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.cost_eur || 0), 0);
                 const projectSale = activeProject?.land_freight_sale || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.sale_price_eur || 0), 0);
-                const rCostEur = Number(projectCost) || (rDistKm > 0 ? Math.round(rDistKm * 1.57 + 75) : 0);
-                const rSaleEur = Number(projectSale) || (rCostEur > 0 ? Math.round(rCostEur * 1.18) : 0);
+                const rCostEur = isZeroDist ? 0 : (Number(projectCost) || Math.round(rDistKm * 1.57 + 75));
+                const rSaleEur = isZeroDist ? 0 : (Number(projectSale) || (rCostEur > 0 ? Math.round(rCostEur * 1.18) : 0));
                 const rMargin = rSaleEur - rCostEur;
-                const rMarginPct = rCostEur > 0 ? Math.round((rMargin / rSaleEur) * 100) : 18;
-                const rDrivingDays = rDistKm > 0 ? Math.max(1, Math.ceil(rDistKm / 650)) : 1;
+                const rMarginPct = rCostEur > 0 ? Math.round((rMargin / rSaleEur) * 100) : 0;
+                const rDrivingDays = rDistKm > 0 ? Math.max(1, Math.ceil(rDistKm / 650)) : 0;
 
                 return (
                   <div className="space-y-4">
@@ -5311,7 +5320,18 @@ export function ForwarderWorkspace() {
                         <div className="bg-white/80 border border-blue-100 rounded-lg p-3 shadow-2xs flex flex-col justify-between">
                           <div>
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Ruta</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Ruta</span>
+                                {seaOrigin !== 'N/A' && seaDest !== 'N/A' ? (
+                                  <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                                    ✅ OK
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                                    ⚠️ Faltan datos
+                                  </span>
+                                )}
+                              </div>
                               <span className="text-sm">⚓</span>
                             </div>
                             <div className="font-bold text-slate-800 text-sm truncate" title={`${seaOrigin} ➔ ${seaDest}`}>
@@ -5327,7 +5347,18 @@ export function ForwarderWorkspace() {
                         <div className="bg-white/80 border border-blue-100 rounded-lg p-3 shadow-2xs flex flex-col justify-between">
                           <div>
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Distancia</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Distancia</span>
+                                {seaMiles > 0 ? (
+                                  <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                                    ✅ OK
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                                    ⚠️ Vacío
+                                  </span>
+                                )}
+                              </div>
                               <span className="text-sm">🧭</span>
                             </div>
                             <div className="text-xl font-mono font-black text-slate-900">
@@ -5343,7 +5374,18 @@ export function ForwarderWorkspace() {
                         <div className="bg-white/80 border border-blue-100 rounded-lg p-3 shadow-2xs flex flex-col justify-between">
                           <div>
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Carga</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Carga</span>
+                                {seaTons > 0 ? (
+                                  <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                                    ✅ OK
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                                    ⚠️ Vacío
+                                  </span>
+                                )}
+                              </div>
                               <span className="text-sm">⚖️</span>
                             </div>
                             <div className="text-xl font-mono font-black text-slate-900">
@@ -5359,7 +5401,18 @@ export function ForwarderWorkspace() {
                         <div className="bg-white/80 border border-blue-100 rounded-lg p-3 shadow-2xs flex flex-col justify-between">
                           <div>
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Flete Marítimo (Venta)</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Flete Marítimo (Venta)</span>
+                                {seaFreightSale > 0 ? (
+                                  <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                                    ✅ OK
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                                    ⚠️ Vacío
+                                  </span>
+                                )}
+                              </div>
                               <span className="text-sm">🌊</span>
                             </div>
                             <div className="text-xl font-mono font-black text-blue-700">
@@ -5379,15 +5432,26 @@ export function ForwarderWorkspace() {
                       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Ruta Terrestre</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Ruta Terrestre</span>
+                              {(rOrigin && rDestination) ? (
+                                <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                                  ✅ OK
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                                  ⚠️ Faltan datos
+                                </span>
+                              )}
+                            </div>
                             <span className="text-base">🛣️</span>
                           </div>
-                          <div className="font-bold text-slate-800 text-sm truncate" title={`${rOrigin} ➔ ${rDestination}`}>
-                            {rOrigin} <span className="text-blue-600 font-black">➔</span> {rDestination}
+                          <div className="font-bold text-slate-800 text-sm truncate" title={`${rOrigin || 'N/A'} ➔ ${rDestination || 'N/A'}`}>
+                            {rOrigin || 'N/A'} <span className="text-blue-600 font-black">➔</span> {rDestination || 'N/A'}
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-slate-100">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                          <span className={`w-2 h-2 rounded-full ${(rOrigin && rDestination) ? 'bg-emerald-500' : 'bg-amber-400'} shrink-0`}></span>
                           <span className="text-[11px] font-medium text-slate-600">Corredor Directo UE</span>
                         </div>
                       </div>
@@ -5396,7 +5460,18 @@ export function ForwarderWorkspace() {
                       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Distancia (km)</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Distancia (km)</span>
+                              {rDistKm > 0 ? (
+                                <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                                  ✅ OK
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                                  ⚠️ Vacío
+                                </span>
+                              )}
+                            </div>
                             <span className="text-base">📍</span>
                           </div>
                           <div className="text-xl font-mono font-black text-slate-900">
@@ -5404,7 +5479,7 @@ export function ForwarderWorkspace() {
                           </div>
                         </div>
                         <div className="text-[11px] font-medium text-slate-600 mt-3 pt-2 border-t border-slate-100">
-                          ~{rDrivingDays} jornada{rDrivingDays > 1 ? 's' : ''} (Tacógrafo UE)
+                          {rDistKm > 0 ? `~${rDrivingDays} jornada${rDrivingDays > 1 ? 's' : ''} (Tacógrafo UE)` : 'Sin distancia calculada'}
                         </div>
                       </div>
 
@@ -5452,7 +5527,18 @@ export function ForwarderWorkspace() {
                       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-emerald-300 transition-all flex flex-col justify-between">
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Flete Terrestre vs. Venta</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Flete Terrestre vs. Venta</span>
+                              {rSaleEur > 0 ? (
+                                <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                                  ✅ OK
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                                  ⚠️ Vacío
+                                </span>
+                              )}
+                            </div>
                             <span className="text-base">💶</span>
                           </div>
                           <div className="flex items-baseline gap-1 text-slate-900">
@@ -5461,7 +5547,11 @@ export function ForwarderWorkspace() {
                           </div>
                         </div>
                         <div className="text-[11px] text-slate-600 mt-3 pt-2 border-t border-slate-100 font-mono truncate">
-                          Coste: {rCostEur.toLocaleString('es-ES')} € · <span className="text-emerald-600 font-bold">+{rMargin.toLocaleString('es-ES')} € ({rMarginPct}%)</span>
+                          {rCostEur > 0 ? (
+                            <>Coste: {rCostEur.toLocaleString('es-ES')} € · <span className="text-emerald-600 font-bold">+{rMargin.toLocaleString('es-ES')} € ({rMarginPct}%)</span></>
+                          ) : (
+                            <span className="text-slate-400 italic">Coste: 0 € · Requiere distancia para cálculo</span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -6011,7 +6101,7 @@ export function ForwarderWorkspace() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                       <div>
                         <label htmlFor="input-pol" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
-                          Origen (Carga) *
+                          Origen (Carga) * {landOrigin ? <span className="text-emerald-600 font-bold ml-1">✅ OK</span> : <span className="text-amber-600 font-bold ml-1">⚠️ Vacío</span>}
                         </label>
                         <input
                           id="input-pol"
@@ -6030,7 +6120,7 @@ export function ForwarderWorkspace() {
 
                       <div>
                         <label htmlFor="input-pod" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
-                          Destino (Entrega) *
+                          Destino (Entrega) * {landDestination ? <span className="text-emerald-600 font-bold ml-1">✅ OK</span> : <span className="text-amber-600 font-bold ml-1">⚠️ Vacío</span>}
                         </label>
                         <input
                           id="input-pod"
@@ -6049,7 +6139,7 @@ export function ForwarderWorkspace() {
 
                       <div>
                         <label htmlFor="input-distance-nm" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
-                          Distancia Ruta (KM) *
+                          Distancia Ruta (KM) * {distanceKm > 0 ? <span className="text-emerald-600 font-bold ml-1">✅ OK</span> : <span className="text-amber-600 font-bold ml-1">⚠️ Vacío</span>}
                         </label>
                         <input
                           id="input-distance-nm"
