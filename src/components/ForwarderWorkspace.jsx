@@ -2878,14 +2878,23 @@ export function ForwarderWorkspace() {
     const finalTotalLandCost = Number((trucksNeeded * costeOperativoPorCamion).toFixed(2));
     const finalTotalLandSale = Number((trucksNeeded * precioVentaPorCamion).toFixed(2));
 
-    const payload = {
-      ...activeProject,
-      // 1. FORZAR HERENCIA MARÍTIMA INTACTA (Cero mutación)
-      route_and_chartering: activeProject?.route_and_chartering || null,
-      items: activeProject?.items || [],
-      cargo_items: activeProject?.cargo_items || [],
+    // 1. ELIMINAR EL BLOAT MARÍTIMO (Dieta estricta para evitar Error 500)
+    const cleanProject = { ...activeProject };
+    delete cleanProject.weather_data;
+    delete cleanProject.meteo;
+    delete cleanProject.port_history;
+    delete cleanProject.wave_height;
+    delete cleanProject.ocean_conditions;
+    delete cleanProject.historical_data;
 
-      // 2. ACTUALIZAR EXCLUSIVAMENTE VARIABLES TERRESTRES
+    // 2. CONSTRUIR PAYLOAD PURAMENTE TERRESTRE
+    const payload = {
+      ...cleanProject,
+      // Blindaje de mercancía
+      items: cleanProject.items || [],
+      cargo_items: (typeof cargoItems !== 'undefined' && cargoItems.length > 0) ? cargoItems : (cleanProject.cargo_items || []),
+      
+      // Actualización exclusiva del camión
       land_route: {
         origin: landOrigin,
         destination: landDestination,
@@ -2896,9 +2905,11 @@ export function ForwarderWorkspace() {
       land_distance: distanceKm,
       land_freight_cost: finalTotalLandCost,
       land_freight_sale: finalTotalLandSale,
-      total_trucks: trucksNeeded
+      total_trucks: trucksNeeded,
+      safe_load_hours: typeof safeLoadHours !== 'undefined' ? safeLoadHours : (activeProject?.safe_load_hours || 2),
+      safe_disch_hours: typeof safeDischHours !== 'undefined' ? safeDischHours : (activeProject?.safe_disch_hours || 2)
     };
-
+    
     return persistProjectToDatabase(payload);
   };
 
