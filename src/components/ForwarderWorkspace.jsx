@@ -1996,6 +1996,53 @@ function ForwarderWorkspaceInner() {
       }
     }
   }, [vehicleType]);
+  
+  // 🛡️ VIGILANTE DE MEMORIA GLOBAL (Calculadora LDM -> Ficha de Proyectos -> Data Bridge)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const rescatarDatosCalculadora = () => {
+      // Leemos la memoria silenciosa que deja la Calculadora
+      const gOrigin = window.State?.land_origin || window.State?.origin || window.State?.pol;
+      const gDest = window.State?.land_destination || window.State?.destination || window.State?.pod;
+      const gDist = Number(window.State?.land_distance || window.State?.distanceKm || window.State?.distance || 0);
+
+      let changed = false;
+      
+      // Si hay datos en memoria y la ficha está vacía, los rescatamos y pintamos
+      if (gOrigin && gOrigin !== landOrigin && (!landOrigin || landOrigin === 'N/A')) {
+        setLandOrigin(gOrigin);
+        changed = true;
+      }
+      if (gDest && gDest !== landDestination && (!landDestination || landDestination === 'N/A')) {
+        setLandDestination(gDest);
+        changed = true;
+      }
+      if (gDist > 0 && Number(distanceKm) !== gDist && Number(distanceKm) === 0) {
+        setDistanceKm(gDist);
+        changed = true;
+      }
+
+      // Si rescatamos algo, forzamos la actualización del proyecto para que Data Bridge lo guarde
+      if (changed && activeProject) {
+        setActiveProject(prev => ({
+          ...prev,
+          land_origin: gOrigin || prev?.land_origin,
+          land_destination: gDest || prev?.land_destination,
+          land_distance: gDist > 0 ? gDist : prev?.land_distance,
+          land_route: {
+            origin: gOrigin || prev?.land_route?.origin,
+            destination: gDest || prev?.land_route?.destination,
+            distance_km: gDist > 0 ? gDist : prev?.land_route?.distance_km
+          }
+        }));
+      }
+    };
+
+    // El vigilante comprueba la memoria cada segundo sin ralentizar la app
+    const intervalId = setInterval(rescatarDatosCalculadora, 1000);
+    return () => clearInterval(intervalId);
+  }, [landOrigin, landDestination, distanceKm, activeProject]);
 
   // Recálculo automático de horas previstas de carga/descarga según ratio operativo
   useEffect(() => {
