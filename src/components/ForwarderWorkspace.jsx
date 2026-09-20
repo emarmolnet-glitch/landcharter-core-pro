@@ -2210,13 +2210,58 @@ function ForwarderWorkspaceInner() {
     if (!activeProject) return;
     setIsSyncingDataBridge(true);
     try {
+      // 1. Forzar persistencia del estado terrestre actual antes de sincronizar
+      try {
+        await persistProjectToDatabase(activeProject);
+      } catch (persistErr) {
+        console.warn('[Data Bridge] Advertencia al persistir estado antes de sincronizar:', persistErr);
+      }
+
       const ref = activeProject.project_ref || activeProject.id;
-      const res = await fetch(getApiUrl(`/.netlify/functions/forwarder-projects?ref=${encodeURIComponent(ref)}`), {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
+      const effectiveLandOrigin = origin || pol || landOrigin || activeProject.land_origin || activeProject.pol || '';
+      const effectiveLandDest = destination || pod || landDestination || activeProject.land_destination || activeProject.pod || '';
+      const effectiveLandDist = Number(distanceKm) || Number(activeProject.land_distance) || Number(distanceNm) || 0;
+      const effectiveLandCost = Number(estimatedCost) || Number(activeProject.land_freight_cost) || 0;
+      const effectiveTotalTrucks = Number(activeProject.total_trucks) || 1;
+
+      // 2. Sincronización activa: Enviar actualización terrestre a forwarder-projects
+      const syncPayload = {
+        ...activeProject,
+        project_ref: activeProject.project_ref || (typeof ref === 'string' ? ref : undefined),
+        id: activeProject.id,
+        land_origin: effectiveLandOrigin,
+        land_destination: effectiveLandDest,
+        land_distance: effectiveLandDist,
+        land_freight_cost: effectiveLandCost,
+        total_trucks: effectiveTotalTrucks,
+      };
+
+      let res = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(syncPayload),
       });
+
+      // Si PUT no encuentra el registro o no es soportado para nuevo proyecto, intentar POST
+      if (!res.ok && res.status === 404) {
+        res = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(syncPayload),
+        });
+      }
+
+      // Si fallase la mutación directa, consultar vía GET como recuperación
+      if (!res.ok) {
+        res = await fetch(getApiUrl(`/.netlify/functions/forwarder-projects?ref=${encodeURIComponent(ref)}`), {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        });
+      }
+
       let updated = null;
-      if (res.ok) {
+      const isHttpSuccess = res && (res.status === 200 || res.status === 201);
+      if (isHttpSuccess) {
         const data = await res.json();
         if (Array.isArray(data)) {
           updated = data.find((p) => p.project_ref === ref || p.id === activeProject.id) || data[0];
@@ -2422,8 +2467,13 @@ function ForwarderWorkspaceInner() {
         }
       }
 
-      setSaveSuccessMessage('¡Expediente sincronizado con éxito desde Neon (DataBridge)!');
-      setTimeout(() => setSaveSuccessMessage(null), 3500);
+      if (updated && isHttpSuccess) {
+        setSaveSuccessMessage('¡Expediente sincronizado con éxito desde Neon (DataBridge)!');
+        setTimeout(() => setSaveSuccessMessage(null), 3500);
+      } else {
+        setError('No se pudo sincronizar el expediente con Neon: respuesta vacía o error en la petición');
+        setTimeout(() => setError(null), 4000);
+      }
     } catch (err) {
       console.warn('[ForwarderWorkspace] Error al sincronizar con Neon DataBridge:', err);
       setError('Error al sincronizar con Neon: ' + (err?.message || 'Error desconocido'));
