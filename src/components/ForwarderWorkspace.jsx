@@ -32,8 +32,8 @@ const COMMODITY_TARIFFS = {
  */
 export const COMMODITY_VALUES = {
   "CEM I 42,5N/R BIGBAG": 55,
-  " BIGBAG": 60,
-  " SAC 50KG": 62,
+  "CEM I 52,5N BIGBAG": 60,
+  "CEM I 52,5N SAC 50KG": 62,
   "CEM I 42,5N/R SAC 50KG": 57,
   "CEM II 52.5N/R 50KG": 58,
   "CEM II 52.5N BIGBAG": 56,
@@ -3136,6 +3136,87 @@ function ForwarderWorkspaceInner() {
         servicesList.push(defaultService);
       }
 
+      // Cálculo y persistencia del Valor FOB (Catálogo de Materiales GICA)
+      const estadoDelValorFobCalculado = Number(mercanciaCost) || Number(activeProject?.valor_total_mercancia_usd) || (typeof window !== 'undefined' && window.State ? Number(window.State.valor_total_mercancia_usd || window.State.goodsValue || 0) : 0) || 0;
+
+      const cargoArrayForFob = (cargoItems && cargoItems.length > 0)
+        ? cargoItems
+        : ((projectToSave?.items && projectToSave.items.length > 0)
+          ? projectToSave.items
+          : ((projectToSave?.cargo_items && projectToSave.cargo_items.length > 0)
+            ? projectToSave.cargo_items
+            : (activeProject?.items || activeProject?.cargo_items || [])));
+
+      const resolveMaterialUnitValue = (rawType) => {
+        if (!rawType) return null;
+        const clean = String(rawType).trim();
+        const upper = clean.toUpperCase();
+        if (COMMODITY_VALUES[clean] !== undefined) return COMMODITY_VALUES[clean];
+        if (COMMODITY_VALUES[upper] !== undefined) return COMMODITY_VALUES[upper];
+        const withComma = upper.replace(/\./g, ',');
+        if (COMMODITY_VALUES[withComma] !== undefined) return COMMODITY_VALUES[withComma];
+        const withDot = upper.replace(/,/g, '.');
+        if (COMMODITY_VALUES[withDot] !== undefined) return COMMODITY_VALUES[withDot];
+
+        // Fuzzy matching para cementos GICA (CEM I / CEM II)
+        if (upper.includes('CEM I') || upper.includes('CEM 1') || (upper.includes('CEM') && (upper.includes('BIG') || upper.includes('SAC') || upper.includes('BAG') || upper.includes('ENVAS')))) {
+          if (upper.includes('42,5') || upper.includes('42.5')) {
+            return upper.includes('SAC') ? COMMODITY_VALUES['CEM I 42,5N/R SAC 50KG'] : COMMODITY_VALUES['CEM I 42,5N/R BIGBAG'];
+          }
+          return upper.includes('SAC') ? COMMODITY_VALUES['CEM I 52,5N SAC 50KG'] : COMMODITY_VALUES['CEM I 52,5N BIGBAG'];
+        }
+        if (upper.includes('CEM II') || upper.includes('CEM 2') || (upper.includes('CEM') && (upper.includes('GRANEL') || upper.includes('BULK') || upper.includes('VRAC')))) {
+          if (upper.includes('VRAC') || upper.includes('GRANEL') || upper.includes('BULK')) {
+            return COMMODITY_VALUES['CEM II 42,5 VRAC'];
+          }
+          if (upper.includes('FARDILISE') || upper.includes('TAVCIM')) {
+            return COMMODITY_VALUES['CEM II 42,5N/R FARDILISE'];
+          }
+          return COMMODITY_VALUES['CEM II 52.5N BIGBAG'];
+        }
+        return null;
+      };
+
+      let valorCalculadoDeItems = 0;
+      if (Array.isArray(cargoArrayForFob) && cargoArrayForFob.length > 0) {
+        valorCalculadoDeItems = cargoArrayForFob.reduce((acc, item) => {
+          if (!item) return acc;
+          const rawType = String(item?.type || item?.description || item?.name || item?.cargo_type || item?.product || '').trim();
+          const qty = Math.max(1, Number(item?.quantity ?? item?.qty ?? item?.cant ?? item?.piezas ?? 1) || 1);
+          const pieceWeight = Math.max(0, parseFloat(String(item?.weight ?? item?.unit_weight_kg ?? item?.pieceWeight ?? 0).replace(',', '.')) || 0);
+          const itemTotalKg = pieceWeight > 0 ? (qty * pieceWeight) : 0;
+          let weightTons = itemTotalKg > 0 ? (itemTotalKg / 1000) : (Number(item?.weight_tons || item?.total_weight_tons) || 0);
+
+          if (weightTons <= 0 && (projectToSave?.total_weight_tons || activeProject?.total_weight_tons)) {
+            const fallbackTotalTons = Number(projectToSave?.total_weight_tons || activeProject?.total_weight_tons || 0);
+            weightTons = cargoArrayForFob.length > 0 ? (fallbackTotalTons / cargoArrayForFob.length) : fallbackTotalTons;
+          }
+
+          let unitPrice = resolveMaterialUnitValue(rawType);
+          if (unitPrice === null || unitPrice === undefined) {
+            unitPrice = Number(item?.unit_value ?? item?.valor_unitario ?? item?.unit_price ?? item?.price ?? 0);
+          }
+
+          let itemFobVal = 0;
+          if (unitPrice && unitPrice > 0) {
+            itemFobVal = weightTons > 0 ? (weightTons * unitPrice) : (qty * unitPrice);
+          } else if (item?.valor_total || item?.total_value || item?.valor_total_mercancia_usd) {
+            itemFobVal = Number(item.valor_total || item.total_value || item.valor_total_mercancia_usd) || 0;
+          }
+
+          return acc + (itemFobVal > 0 ? itemFobVal : 0);
+        }, 0);
+      }
+
+      if (valorCalculadoDeItems === 0 && (projectToSave?.total_weight_tons || activeProject?.total_weight_tons)) {
+        const totalTons = Number(projectToSave?.total_weight_tons || activeProject?.total_weight_tons || 0);
+        const fallbackRawType = String(cargoArrayForFob?.[0]?.type || projectToSave?.cargo_type || activeProject?.cargo_type || activeProject?.cargoType || '').trim();
+        const fallbackGicaPrice = resolveMaterialUnitValue(fallbackRawType) || (fallbackRawType.toUpperCase().includes('CEM') ? 60 : 0);
+        if (fallbackGicaPrice > 0 && totalTons > 0) {
+          valorCalculadoDeItems = totalTons * fallbackGicaPrice;
+        }
+      }
+
       const payload = {
         ...activeProject, // Heredar todo por defecto
         ...(projectToSave || {}),
@@ -3154,7 +3235,7 @@ function ForwarderWorkspaceInner() {
         line_items: servicesList,
         land_freight_cost: Number(projectToSave.land_freight_cost) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDeCosteTotalTerrestre || 0)),
         land_freight_sale: Number(projectToSave.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDePrecioVentaTerrestre || 0)),
-        valor_total_mercancia_usd: Number(projectToSave.valor_total_mercancia_usd) || Number(activeProject?.valor_total_mercancia_usd) || 0,
+        valor_total_mercancia_usd: Number(estadoDelValorFobCalculado) || Number(valorCalculadoDeItems) || Number(projectToSave.valor_total_mercancia_usd) || 0,
         land_origin: pol || origin || projectToSave.land_origin || projectToSave.pol || activeProject?.land_origin || activeProject?.pol || landOrigin,
         land_destination: pod || destination || projectToSave.land_destination || projectToSave.pod || activeProject?.land_destination || activeProject?.pod || landDestination,
         land_distance: distanceKm,
@@ -3167,27 +3248,48 @@ function ForwarderWorkspaceInner() {
         data: projectToSave?.data || activeProject?.data || {},
       };
 
-      // Si servicesList o payload.services quedó vacío y hay coste terrestre, asegurar inyección en payload
-      if ((!payload.services || payload.services.length === 0) && !projectToSave?.is_delete_action && (Number(tuVariableDeCosteTotalTerrestre) > 0 || Number(payload.land_freight_cost) > 0 || costeCalculado > 0)) {
+      // Auto-generación de Línea de Servicio Terrestre
+      const isServicesEmpty = (!payload.services || payload.services.length === 0) || (!payload.line_items || payload.line_items.length === 0);
+      if (isServicesEmpty && Number(payload.land_freight_cost) > 0 && !projectToSave?.is_delete_action) {
         const finalAutoCost = Number(payload.land_freight_cost) || costeCalculado || Number(tuVariableDeCosteTotalTerrestre) || 0;
         const finalAutoSale = Number(payload.land_freight_sale) || ventaCalculada || Number(tuVariableDePrecioVentaTerrestre) || 0;
-        const finalAutoName = 'Flete y Operaciones Terrestres (' + (payload.total_trucks || 1) + ' Camiones: ' + (payload.land_origin || 'Origen') + ' ➔ ' + (payload.land_destination || 'Destino') + ')';
-        const defaultService = {
+        const finalAutoName = 'Flete Terrestre (' + (payload.total_trucks || 1) + ' Camiones: ' + (payload.land_origin || 'Origen') + ' ➔ ' + (payload.land_destination || 'Destino') + ')';
+        const autoService = {
           id: 'srv-auto-' + Date.now(),
-          name: finalAutoName,
+          name: 'Flete Terrestre (' + (payload.total_trucks || 1) + ' Camiones: ' + (payload.land_origin || 'Origen') + ' ➔ ' + (payload.land_destination || 'Destino') + ')',
+          cost: payload.land_freight_cost,
+          sale: payload.land_freight_sale,
           description: finalAutoName,
-          cost: finalAutoCost,
-          sale: finalAutoSale,
           cost_eur: finalAutoCost,
           sale_price_eur: finalAutoSale,
           margin_eur: Number((finalAutoSale - finalAutoCost).toFixed(2)),
           land_freight_cost: finalAutoCost,
           land_freight_sale: finalAutoSale,
         };
-        payload.services = [defaultService];
-        payload.line_items = [defaultService];
+        if (!Array.isArray(payload.services)) {
+          payload.services = [];
+        }
+        if (payload.services.length === 0) {
+          payload.services.push(autoService);
+        }
+        if (!Array.isArray(payload.line_items)) {
+          payload.line_items = [];
+        }
+        if (payload.line_items.length === 0) {
+          payload.line_items.push(autoService);
+        }
         if (Array.isArray(servicesList) && servicesList.length === 0) {
-          servicesList.push(defaultService);
+          servicesList.push(autoService);
+        }
+      }
+
+      if (payload.valor_total_mercancia_usd > 0) {
+        if (!mercanciaCost || Number(mercanciaCost) === 0) {
+          setMercanciaCost(payload.valor_total_mercancia_usd);
+        }
+        if (typeof window !== 'undefined' && window.State) {
+          window.State.valor_total_mercancia_usd = payload.valor_total_mercancia_usd;
+          window.State.goodsValue = payload.valor_total_mercancia_usd;
         }
       }
 
@@ -3241,9 +3343,16 @@ function ForwarderWorkspaceInner() {
         }
       }
 
+      const finalServices = (Array.isArray(savedProject?.services) && savedProject.services.length > 0)
+        ? savedProject.services
+        : (Array.isArray(payload.services) && payload.services.length > 0 ? payload.services : payload.line_items);
+
       const finalSaved = savedProject ? {
         ...payload,
         ...savedProject,
+        services: finalServices,
+        line_items: finalServices,
+        valor_total_mercancia_usd: Number(payload.valor_total_mercancia_usd) > 0 ? Number(payload.valor_total_mercancia_usd) : Number(savedProject?.valor_total_mercancia_usd || 0),
         is_maritime_dossier: false,
       } : payload;
 

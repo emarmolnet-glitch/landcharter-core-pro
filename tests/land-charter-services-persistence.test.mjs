@@ -53,7 +53,7 @@ test('1. ForwarderWorkspace handleSaveProjectCargo forces complete payload with 
 test('2. persistProjectToDatabase builds complete payload and sends PUT/POST to forwarder-projects endpoint', () => {
   assert.match(
     forwarderWorkspaceSource,
-    /const\s+persistProjectToDatabase\s*=\s*async\s*\(\s*projectToSave\s*\)\s*=>\s*\{[\s\S]*?services:\s*servicesList[\s\S]*?line_items:\s*servicesList[\s\S]*?land_freight_cost:\s*Number\(projectToSave\.land_freight_cost\)[\s\S]*?land_freight_sale:\s*Number\(projectToSave\.land_freight_sale[\s\S]*?valor_total_mercancia_usd:\s*Number\(projectToSave\.valor_total_mercancia_usd\)/,
+    /const\s+persistProjectToDatabase\s*=\s*async\s*\(\s*projectToSave\s*\)\s*=>\s*\{[\s\S]*?services:\s*servicesList[\s\S]*?line_items:\s*servicesList[\s\S]*?land_freight_cost:\s*Number\(projectToSave\.land_freight_cost\)[\s\S]*?land_freight_sale:\s*Number\(projectToSave\.land_freight_sale[\s\S]*?valor_total_mercancia_usd:\s*Number\(estadoDelValorFobCalculado\)\s*\|\|\s*Number\(valorCalculadoDeItems\)\s*\|\|\s*Number\(projectToSave\.valor_total_mercancia_usd\)/,
     'persistProjectToDatabase must explicitly build payload with services, land_freight_cost, land_freight_sale, and valor_total_mercancia_usd'
   );
 });
