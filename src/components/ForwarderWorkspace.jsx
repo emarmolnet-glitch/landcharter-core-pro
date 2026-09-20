@@ -1974,6 +1974,7 @@ function ForwarderWorkspaceInner() {
   const setOrigin = setPol;
   const setDestination = setPod;
   const setDistance = setDistanceNm;
+  const cost = Number(activeProject?.cost) || Number(estimatedCost) || 0;
   const setCost = setEstimatedCost;
   const setOriginState = setPol;
   const setDestinationState = setPod;
@@ -2712,9 +2713,13 @@ function ForwarderWorkspaceInner() {
       setLandDestination(activeProject?.land_route?.destination || activeProject?.land_destination || (typeof window !== 'undefined' ? (window.State?.land_destination || window.State?.destination || window.State?.pod) : '') || '');
       setDistanceKm(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || (typeof window !== 'undefined' ? (window.State?.land_distance || window.State?.distanceKm || window.State?.distance) : 0) || 0));
 
-      // Extraer costes si están anidados
-      const dbCost = activeProject.land_freight_cost || 0;
-      setCost(dbCost);
+      // Rehidratación de costes de Land Freight desde Neon (si ya vienen guardados)
+      if (activeProject.land_freight_cost !== undefined && activeProject.land_freight_cost !== null && activeProject.land_freight_cost !== '' && Number(activeProject.land_freight_cost) > 0) {
+        // setEstimatedCost anulado: Evita usar el Gran Total de la BD como coste unitario base.
+      }
+      if (activeProject.land_freight_sale !== undefined && activeProject.land_freight_sale !== null && activeProject.land_freight_sale !== '' && Number(activeProject.land_freight_sale) > 0) {
+        // setSalePrice anulado: Evita usar el Gran Total de la BD como venta unitaria base.
+      }
 
       // Hidratar la Lista de Empaque (Mercancía) preservando desglose íntegro y aplicando Mapeo Inteligente
       const currentProjKey = `${activeProject.id || activeProject.project_ref || ''}_${activeProject.updated_at || ''}_${(activeProject.items || activeProject.cargo_items || activeProject.line_items || []).length}`;
@@ -2849,12 +2854,28 @@ function ForwarderWorkspaceInner() {
       const totalServicesCost = projectServicesList.reduce((acc, it) => acc + (Number(it.cost_eur) || 0), 0);
       const totalServicesSale = projectServicesList.reduce((acc, it) => acc + (Number(it.sale_price_eur) || 0), 0);
 
-      const effectiveCost = activeProject.land_freight_cost || activeProject.totalTripCost || activeProject.cost || totalServicesCost || 0;
-      const effectiveSale = activeProject.land_freight_sale || activeProject.targetSalePrice || activeProject.sale || totalServicesSale || 0;
+      const hasNeonCost = activeProject.land_freight_cost !== undefined && activeProject.land_freight_cost !== null && activeProject.land_freight_cost !== '' && Number(activeProject.land_freight_cost) > 0;
+      const hasNeonSale = activeProject.land_freight_sale !== undefined && activeProject.land_freight_sale !== null && activeProject.land_freight_sale !== '' && Number(activeProject.land_freight_sale) > 0;
+
+      const effectiveCost = hasNeonCost
+        ? (typeof activeProject.land_freight_cost === 'number' ? activeProject.land_freight_cost.toFixed(2) : String(activeProject.land_freight_cost))
+        : (activeProject.totalTripCost || activeProject.cost || (totalServicesCost > 0 ? totalServicesCost.toFixed(2) : 0));
+      const effectiveSale = hasNeonSale
+        ? (typeof activeProject.land_freight_sale === 'number' ? activeProject.land_freight_sale.toFixed(2) : String(activeProject.land_freight_sale))
+        : (activeProject.targetSalePrice || activeProject.sale || (totalServicesSale > 0 ? totalServicesSale.toFixed(2) : 0));
       
-      // BLINDAJE DEL FOOTER: Evita sobrescrituras con 0 si ya hay cálculo.
-      setEstimatedCost(prev => (effectiveCost === 0 && Number(prev) > 0) ? prev : effectiveCost);
-      setSalePrice(prev => (effectiveSale === 0 && Number(prev) > 0) ? prev : effectiveSale);
+      // BLINDAJE DEL FOOTER: Si el proyecto viene con datos guardados desde Neon se rehidratan; si no, evita sobrescrituras con 0 si ya hay cálculo.
+      if (hasNeonCost) {
+        // setEstimatedCost anulado: Evita usar el Gran Total de la BD como coste unitario base.
+      } else {
+        setEstimatedCost(prev => ((effectiveCost === 0 || effectiveCost === '0.00') && Number(prev) > 0) ? prev : (effectiveCost ? String(effectiveCost) : prev));
+      }
+
+      if (hasNeonSale) {
+        // setSalePrice anulado: Evita usar el Gran Total de la BD como venta unitaria base.
+      } else {
+        setSalePrice(prev => ((effectiveSale === 0 || effectiveSale === '0.00') && Number(prev) > 0) ? prev : (effectiveSale ? String(effectiveSale) : prev));
+      }
 
       // Sobrescribe los estados visuales con los datos reales de Neon / DataBridge
       const newOrigin = activeProject.pol || projectRoute.pol || (typeof window !== 'undefined' ? window.State?.pol : '') || '';
@@ -3733,8 +3754,7 @@ function ForwarderWorkspaceInner() {
       setGangs(0); setHeavyLift(0); setMafiPlatforms(0); setLashingTeams(0);
       setShippingMode('Lo-Lo'); setVesselType('Geared Breakbulk (Lo-Lo)');
       setSubtotalFreight('0.00'); setSubtotalFobOperations('0.00');
-      // En Land Charter, DataBridge es la única fuente de verdad: se anula la mutación financiera local
-      // setEstimatedCost(''); setSalePrice('');
+      setEstimatedCost(''); setSalePrice('');
       setIsUnder40t(false); setTceActive(false); setTceValue(null);
       setOperationalProfileNotice('');
       setIsCommodityTariffActive(false);
@@ -3760,69 +3780,81 @@ function ForwarderWorkspaceInner() {
 
     const totalWeightTons = totalWeightKg / 1000;
     const rawType = String(cargoItems[0]?.type || '').toUpperCase().trim();
-    let appliedTariff = COMMODITY_TARIFFS[rawType] || null;
+    // Condicionar el trigger de FSPE/Tarifa GICA a la palabra clave exacta "GICA"
+    const hasGicaTrigger = /gica/i.test(rawType || '');
+    let appliedTariff = hasGicaTrigger ? (COMMODITY_TARIFFS[rawType] || null) : null;
 
-    // Fuzzy Matching: Si no hay coincidencia exacta pero es cemento, asignamos la tarifa plana internamente sin tocar la UI.
-    if (!appliedTariff && rawType.includes('CEM')) {
+    // Fuzzy Matching: Solo si contiene explícitamente "GICA" y no hay coincidencia exacta de clave
+    if (hasGicaTrigger && !appliedTariff) {
       if (rawType.includes('BIG') || rawType.includes('SAC') || rawType.includes('BAG') || rawType.includes('ENVAS')) {
         appliedTariff = COMMODITY_TARIFFS['CEM I 52,5N BIGBAG'] || null;
       } else if (rawType.includes('GRANEL') || rawType.includes('BULK') || rawType.includes('VRAC')) {
         appliedTariff = COMMODITY_TARIFFS['CEM II 42,5 VRAC'] || null;
+      } else {
+        appliedTariff = COMMODITY_TARIFFS['CEM I 52,5N BIGBAG'] || null;
       }
     }
 
     // Auto-Cálculo de Valor de Mercancía por Catálogo de Commodities (Land Charter)
+    // Solo se activa automáticamente bajo demanda explícita si incluye la palabra clave "GICA"
     const targetCargoType = (cargoItems && cargoItems.length > 0 && cargoItems[0]?.type)
       ? cargoItems[0].type
       : ((items && items.length > 0 && items[0]?.type) ? items[0].type : (activeProject?.cargoType || activeProject?.cargo_type || ''));
     const cleanCargoType = String(targetCargoType || '').trim();
     const upperCargoType = cleanCargoType.toUpperCase();
-    let cargoType = COMMODITY_VALUES[cleanCargoType] !== undefined
-      ? cleanCargoType
-      : (COMMODITY_VALUES[upperCargoType] !== undefined
-        ? upperCargoType
-        : (COMMODITY_VALUES[rawType] !== undefined
-          ? rawType
-          : (COMMODITY_VALUES[upperCargoType.replace(/\./g, ',')] !== undefined
-            ? upperCargoType.replace(/\./g, ',')
-            : (COMMODITY_VALUES[upperCargoType.replace(/,/g, '.')] !== undefined
-              ? upperCargoType.replace(/,/g, '.')
-              : cleanCargoType))));
+    const isGicaExplicit = /gica/i.test(`${rawType} ${upperCargoType}`);
 
-    // Fallback de fuzzy match seguro para derivados de 'CEM I' y 'CEM II' si no hay coincidencia exacta
-    if (COMMODITY_VALUES[cargoType] === undefined) {
-      const matchCandidate = rawType || upperCargoType;
-      if (matchCandidate.includes('CEM I') || matchCandidate.includes('CEM 1') || (matchCandidate.includes('CEM') && (matchCandidate.includes('BIG') || matchCandidate.includes('SAC') || matchCandidate.includes('BAG') || matchCandidate.includes('ENVAS')))) {
-        if (matchCandidate.includes('42,5') || matchCandidate.includes('42.5')) {
-          cargoType = matchCandidate.includes('SAC') ? 'CEM I 42,5N/R SAC 50KG' : 'CEM I 42,5N/R BIGBAG';
-        } else {
-          cargoType = matchCandidate.includes('SAC') ? 'CEM I 52,5N SAC 50KG' : 'CEM I 52,5N BIGBAG';
-        }
-      } else if (matchCandidate.includes('CEM II') || matchCandidate.includes('CEM 2') || (matchCandidate.includes('CEM') && (matchCandidate.includes('GRANEL') || matchCandidate.includes('BULK') || matchCandidate.includes('VRAC')))) {
-        if (matchCandidate.includes('VRAC') || matchCandidate.includes('GRANEL') || matchCandidate.includes('BULK')) {
-          cargoType = 'CEM II 42,5 VRAC';
-        } else if (matchCandidate.includes('FARDILISE') || matchCandidate.includes('TAVCIM')) {
-          cargoType = 'CEM II 42,5N/R FARDILISE';
-        } else {
-          cargoType = 'CEM II 52.5N BIGBAG';
+    let cargoType = cleanCargoType;
+    if (isGicaExplicit) {
+      cargoType = COMMODITY_VALUES[cleanCargoType] !== undefined
+        ? cleanCargoType
+        : (COMMODITY_VALUES[upperCargoType] !== undefined
+          ? upperCargoType
+          : (COMMODITY_VALUES[rawType] !== undefined
+            ? rawType
+            : (COMMODITY_VALUES[upperCargoType.replace(/\./g, ',')] !== undefined
+              ? upperCargoType.replace(/\./g, ',')
+              : (COMMODITY_VALUES[upperCargoType.replace(/,/g, '.')] !== undefined
+                ? upperCargoType.replace(/,/g, '.')
+                : cleanCargoType))));
+
+      // Fallback de fuzzy match seguro para derivados GICA si no hay coincidencia exacta
+      if (COMMODITY_VALUES[cargoType] === undefined) {
+        const matchCandidate = rawType || upperCargoType;
+        if (matchCandidate.includes('CEM I') || matchCandidate.includes('CEM 1') || matchCandidate.includes('BIG') || matchCandidate.includes('SAC') || matchCandidate.includes('BAG') || matchCandidate.includes('ENVAS')) {
+          if (matchCandidate.includes('42,5') || matchCandidate.includes('42.5')) {
+            cargoType = matchCandidate.includes('SAC') ? 'CEM I 42,5N/R SAC 50KG' : 'CEM I 42,5N/R BIGBAG';
+          } else {
+            cargoType = matchCandidate.includes('SAC') ? 'CEM I 52,5N SAC 50KG' : 'CEM I 52,5N BIGBAG';
+          }
+        } else if (matchCandidate.includes('CEM II') || matchCandidate.includes('CEM 2') || matchCandidate.includes('GRANEL') || matchCandidate.includes('BULK') || matchCandidate.includes('VRAC')) {
+          if (matchCandidate.includes('VRAC') || matchCandidate.includes('GRANEL') || matchCandidate.includes('BULK')) {
+            cargoType = 'CEM II 42,5 VRAC';
+          } else if (matchCandidate.includes('FARDILISE') || matchCandidate.includes('TAVCIM')) {
+            cargoType = 'CEM II 42,5N/R FARDILISE';
+          } else {
+            cargoType = 'CEM II 52.5N BIGBAG';
+          }
         }
       }
     }
 
     if (COMMODITY_VALUES[cargoType] !== undefined) {
-      const autoMercanciaUsd = totalWeightTons * COMMODITY_VALUES[cargoType];
-      if (!userEditedMercanciaCost.current || lastDetectedCargoTypeRef.current !== cargoType) {
-        lastDetectedCargoTypeRef.current = cargoType;
-        userEditedMercanciaCost.current = false;
-        setMercanciaCost(autoMercanciaUsd);
-        if (activeProject) {
-          activeProject.valor_total_mercancia_usd = autoMercanciaUsd;
-          setActiveProject((prev) => (prev ? { ...prev, valor_total_mercancia_usd: autoMercanciaUsd } : prev));
-        }
-        if (typeof window !== 'undefined') {
-          window.State = window.State || {};
-          window.State.valor_total_mercancia_usd = autoMercanciaUsd;
-          window.State.goodsValue = autoMercanciaUsd;
+      if (isGicaExplicit) {
+        const autoMercanciaUsd = totalWeightTons * COMMODITY_VALUES[cargoType];
+        if (!userEditedMercanciaCost.current || lastDetectedCargoTypeRef.current !== cargoType) {
+          lastDetectedCargoTypeRef.current = cargoType;
+          userEditedMercanciaCost.current = false;
+          setMercanciaCost(autoMercanciaUsd);
+          if (activeProject) {
+            activeProject.valor_total_mercancia_usd = autoMercanciaUsd;
+            setActiveProject((prev) => (prev ? { ...prev, valor_total_mercancia_usd: autoMercanciaUsd } : prev));
+          }
+          if (typeof window !== 'undefined') {
+            window.State = window.State || {};
+            window.State.valor_total_mercancia_usd = autoMercanciaUsd;
+            window.State.goodsValue = autoMercanciaUsd;
+          }
         }
       }
     }
@@ -4121,9 +4153,8 @@ function ForwarderWorkspaceInner() {
 
     setSubtotalFreight(calculatedOceanFreight.toFixed(2));
     setSubtotalFobOperations(calculatedFobOperations.toFixed(2));
-    // En Land Charter, DataBridge es la única fuente de verdad: se anula el recálculo financiero local automático
-    // setEstimatedCost(totalEstimatedCost.toFixed(2));
-    // setSalePrice((totalEstimatedCost * 1.15).toFixed(2));
+    setEstimatedCost(totalEstimatedCost.toFixed(2));
+    setSalePrice((totalEstimatedCost * 1.15).toFixed(2));
   };
 
   useEffect(() => {
@@ -5290,7 +5321,7 @@ function ForwarderWorkspaceInner() {
       setStevedoreGangs(0); setLashingTeam(0); setHeavyLiftCrane(0); setMafiPlatforms(0);
       setShippingMode('Lo-Lo'); setVesselType('Geared Breakbulk (Lo-Lo)');
       setStorageDays(0); setSurveyorCost(0); setInlandCost(0); setCustomsCost(0); setInsuranceCost(0);
-      userEditedSurveyor.current = false; setEstimatedCost(''); setSalePrice('');
+      userEditedSurveyor.current = false; // setEstimatedCost(''); setSalePrice('');
       setLandOrigin(activeProject?.land_route?.origin || activeProject?.land_origin || '');
       setLandDestination(activeProject?.land_route?.destination || activeProject?.land_destination || '');
       setDistanceKm(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0));
@@ -5470,6 +5501,14 @@ function ForwarderWorkspaceInner() {
       const tuVariableDeCosteTotalTerrestre = calculatedLandFreightCost;
       const tuVariableDePrecioVentaTerrestre = calculatedLandFreightSale;
 
+      const safeDist = Number(distanceKm) || Number(activeProject?.land_route?.distance_km) || 0;
+      const safeTrucks = Number(camionesReales) || Number(activeProject?.total_trucks) || 1;
+      const safeExchange = Number(exchangeRate) || 1;
+
+      // Matemáticas puras en el momento de guardar. Inmune a estados corrompidos.
+      const absoluteLandCost = ((safeDist * 1.57) + (safeDist * 0.18) + 75) * safeTrucks * safeExchange;
+      const absoluteLandSale = absoluteLandCost * 1.18; // 18% de margen comercial
+
       const inheritedCargoItems = (cargoItems && cargoItems.length > 0)
         ? cargoItems
         : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || activeProject?.items || []);
@@ -5477,13 +5516,18 @@ function ForwarderWorkspaceInner() {
       const safeCargoItems = Array.isArray(inheritedCargoItems) ? inheritedCargoItems : [];
       const payload = {
         ...activeProject, // Heredar todo por defecto
-        items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.items || []),
+        items: activeProject?.items || [],
+        services: activeProject?.services || [],
+        cargoQuantity: activeProject?.cargoQuantity || null,
         cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || []),
         packing_list: activeProject?.packing_list || null,
         // ... (tus campos terrestres actualizados)
         land_route: { origin: landOrigin, destination: landDestination, distance_km: distanceKm },
-        land_freight_cost: calculatedLandFreightCost,
-        land_freight_sale: calculatedLandFreightSale,
+        land_freight_cost: absoluteLandCost,
+        land_freight_sale: absoluteLandSale,
+        total_trucks: safeTrucks,
+        cost: activeProject?.cost || null,
+        sale: activeProject?.sale || null,
         truck_type: vehicleType,
         vehicle_type: vehicleType,
         vehicle_attributes: activeProject?.vehicle_attributes || null,
@@ -5605,12 +5649,16 @@ function ForwarderWorkspaceInner() {
           ? existingItems.map((li) => (li.id === editingLineItemId ? savedLineItem : li))
           : [...existingItems, savedLineItem];
 
-        const totalServicesCost = updatedLineItems.reduce((acc, it) => acc + (Number(it.cost_eur) || 0), 0) || calculatedLandFreightCost;
-        const totalServicesSale = updatedLineItems.reduce((acc, it) => acc + (Number(it.sale_price_eur) || 0), 0) || lineItemPrice || calculatedLandFreightSale;
+        const totalServicesCost = updatedLineItems.reduce((acc, it) => acc + (Number(it.cost_eur) || 0), 0) || absoluteLandCost;
+        const totalServicesSale = updatedLineItems.reduce((acc, it) => acc + (Number(it.sale_price_eur) || 0), 0) || lineItemPrice || absoluteLandSale;
 
         const updatedProject = {
           ...activeProject,
-          items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.items || []),
+          land_freight_cost: totalServicesCost,
+          land_freight_sale: totalServicesSale,
+          valor_total_mercancia_usd: merchandiseValueUsd,
+          line_items: updatedLineItems,
+          services: updatedLineItems,
           cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || []),
           packing_list: activeProject?.packing_list || null,
           land_route: { origin: landOrigin, destination: landDestination, distance_km: distanceKm },
@@ -5620,7 +5668,6 @@ function ForwarderWorkspaceInner() {
           loading_method: loadingMethod,
           discharge_method: dischargeMethod,
           payload_kg: getVehiclePayloadKg(vehicleType),
-          total_trucks: Math.max(1, Math.ceil((totals?.weight || currentReportSnapshot?.totals?.weight || 0) / getVehiclePayloadKg(vehicleType))),
           route_and_chartering: payload.route_and_chartering,
           charteringAssessment: charteringAssessment,
           land_origin: landOrigin || activeProject?.land_origin || '',
@@ -5628,15 +5675,16 @@ function ForwarderWorkspaceInner() {
           land_distance: distanceKm,
           pol: pol || activeProject?.pol || '',
           pod: pod || activeProject?.pod || '',
-          land_freight_cost: totalServicesCost,
-          land_freight_sale: totalServicesSale,
+          total_trucks: safeTrucks,
+
+          // BLINDAJE CORE PRO: Reinyectamos el estado de la BD original para evitar que Land Charter lo pise con ceros
+          cost: activeProject?.cost || null,
+          sale: activeProject?.sale || null,
+          items: activeProject?.items || [],
+          services: activeProject?.services || [],
+          cargoQuantity: activeProject?.cargoQuantity || null,
           targetSalePrice: totalServicesSale,
-          totalTripCost: totalServicesCost,
-          cost: totalServicesCost,
-          sale: totalServicesSale,
-          valor_total_mercancia_usd: merchandiseValueUsd,
-          line_items: updatedLineItems,
-          services: updatedLineItems
+          totalTripCost: totalServicesCost
         };
         setActiveProject(updatedProject);
         setProjects((prev) => (prev || []).map((p) => (p?.id === activeProject?.id || p?.project_ref === activeProject?.project_ref) ? updatedProject : p));
@@ -5702,6 +5750,45 @@ function ForwarderWorkspaceInner() {
   const displayedProjects = !referenciaActivaGlobal
     ? []
     : projects.filter((p) => isProjectMatchingActiveDossier(p, referenciaActivaGlobal));
+
+  // --- LÓGICA DE DIVISA GLOBAL Y CÁLCULO DE FLOTA ---
+  const isEurope = /(ES|PT|FR|DE|IT|BE|NL|PL|España|Francia)/i.test(activeProject?.land_origin || landOrigin || '');
+  const displayCurrency = isEurope ? 'EUR' : 'USD';
+  const exchangeRate = isEurope ? 1 : (typeof window !== 'undefined' && window.State?.exchangeRate ? window.State.exchangeRate : 1.10);
+
+  // Usamos la variable de coste terrestre extraída (ej. totalRoadCost o cost), NUNCA el estimatedCost marítimo.
+  const distKmUpper = Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : (distanceKm || 0))));
+  const runningCostUpper = Math.round(distKmUpper * (1.35 + 0.22));
+  const tollsUpper = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollsCost || (distKmUpper * 0.18)));
+  const dietsUpper = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (Math.max(1, Math.ceil(distKmUpper / 650)) * 75)));
+  const waitPenaltyUpper = Number(warehouseWaitPenaltyEur || 0);
+  const calculatedTerrestrialUnit = runningCostUpper + tollsUpper + dietsUpper + waitPenaltyUpper;
+
+  const terrestrialUnitCost = Number(typeof totalRoadCost !== 'undefined' ? totalRoadCost : (typeof cost !== 'undefined' && cost > 0 ? cost : (calculatedTerrestrialUnit > 0 ? calculatedTerrestrialUnit : (((distanceKm || 0) * 1.5) + 50))));
+  const rawCost = Number(activeProject?.land_freight_cost) || terrestrialUnitCost || 0;
+  const rawSale = Number(activeProject?.land_freight_sale) || (terrestrialUnitCost * 1.18) || 0;
+
+  const fallbackTrucks = Number(activeProject?.total_trucks) > 0 ? Number(activeProject.total_trucks) : 1;
+  const pesoTotalMercanciaKg = typeof totals !== 'undefined' && totals?.weight ? totals.weight : (activeProject?.items || []).reduce((sum, it) => sum + (Number(it.weight) || (Number(it.cantidad) * Number(it.peso_unitario)) || 0), 0);
+  const camionesReales = pesoTotalMercanciaKg > 0 ? Math.ceil(pesoTotalMercanciaKg / 24000) : fallbackTrucks;
+
+  // CÁLCULO INTELIGENTE Y RED DE SEGURIDAD:
+  // Si el valor rawCost ya es inmenso (ej. > 20000), la BD nos ha devuelto el total ya multiplicado. Se queda intacto.
+  // Si es un coste operativo base (ej. < 5000), es el coste de un solo camión y debemos multiplicarlo por la flota.
+  const finalFooterCost = rawCost > 20000 ? rawCost : (rawCost * camionesReales * exchangeRate);
+  const finalFooterSale = rawSale > 20000 ? rawSale : (rawSale * camionesReales * exchangeRate);
+
+  // Variables complementarias para compatibilidad y flete unitario
+  const footerTotalCost = finalFooterCost;
+  const footerTotalSale = finalFooterSale;
+  const finalTotalCost = finalFooterCost;
+  const finalTotalSale = finalFooterSale;
+  const currentCurrency = displayCurrency;
+
+  const totalWeightTons = totals.weight > 0 ? (totals.weight / 1000) : (Number(activeProject?.cargoQuantity) || 0);
+  const tonelajeReal = Number(totalWeightTons) || 1;
+  const realUnitFreight = finalFooterSale / tonelajeReal;
+  // --------------------------------------------------
 
   return (
     <>
@@ -6949,15 +7036,12 @@ function ForwarderWorkspaceInner() {
                       const safeLoadHours = Number(loadingRate || 2) > 24 ? 2 : Number(loadingRate || 2);
                       const safeDischHours = Number(dischargingRate || 2) > 24 ? 2 : Number(dischargingRate || 2);
                       const waitPenalty = (isCommodityTariffActive && currentTariff) ? 0 : (warehouseWaitPenaltyEur || Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40));
-                      const projectCost = activeProject?.land_freight_cost || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.cost_eur || 0), 0);
-                      const projectSale = activeProject?.land_freight_sale || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.sale_price_eur || 0), 0);
+                      const cost = (runningCost + displayTolls + displayDiets + waitPenalty);
                       const wTons = (totals.weight || 0) / 1000;
                       const totalRoadCost = (isCommodityTariffActive && currentTariff)
                         ? Math.round(wTons * currentTariff.inlandUsdMt)
-                        : (Number(projectCost) || (runningCost + displayTolls + displayDiets + waitPenalty));
-                      const roadSale = (isCommodityTariffActive && currentTariff)
-                        ? Math.round(totalRoadCost * 1.18)
-                        : (Number(projectSale) || Math.round(totalRoadCost * 1.18));
+                        : (Number(cost || 0) * (camionesReales || 1));
+                      const roadSale = Math.round(totalRoadCost * 1.18);
                       const roadSalePerKm = distKm > 0 ? (roadSale / distKm).toFixed(2) : '0.00';
                       return (
                         <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-slate-800">
@@ -6995,7 +7079,7 @@ function ForwarderWorkspaceInner() {
                           <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200">
                             <div>
                               <span className="text-[11px] font-mono text-slate-500">Coste Operativo Total Carretera:</span>
-                              <strong className="text-base font-mono font-bold text-slate-800 ml-2">{totalRoadCost.toLocaleString('es-ES')} €</strong>
+                              <strong className="text-base font-mono font-bold text-slate-800 ml-2">{(Number(cost || 0) * (camionesReales || 1)).toLocaleString()} €</strong>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] font-mono text-emerald-700 font-bold">Precio de Venta Sugerido (18% margen):</span>
@@ -7016,9 +7100,9 @@ function ForwarderWorkspaceInner() {
                           </div>
                           <div className="flex items-baseline gap-1 font-mono">
                             <span className="text-lg font-black text-slate-900">
-                              {Number(activeReport?.flete_unitario_usd_mt ?? financialBreakdown?.flete_unitario_usd_mt ?? 0).toFixed(2)}
+                              {realUnitFreight > 0 ? realUnitFreight.toFixed(2) : '0.00'}
                             </span>
-                            <span className="text-[11px] font-bold text-sky-700">USD/MT</span>
+                            <span className="text-[11px] font-bold text-sky-700">{displayCurrency}/MT</span>
                           </div>
                         </div>
                         <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-center justify-between transition-all hover:border-emerald-300">
@@ -7178,19 +7262,21 @@ function ForwarderWorkspaceInner() {
               <div className="bg-slate-50 p-6 border-t border-slate-200 flex justify-between items-end shrink-0">
                 <div className="flex gap-6 w-1/2">
                   <div className="w-full relative">
-                    <label htmlFor="input-estimated-cost" className="block text-slate-500 font-bold text-[10px] uppercase mb-1">Coste Total Estimado (€)</label>
+                    <label htmlFor="input-estimated-cost" className="block text-slate-500 font-bold text-[10px] uppercase mb-1">Coste Total Estimado ({displayCurrency === 'EUR' ? '€' : '$'})</label>
                     <div className="relative flex items-center">
-                      <span className="absolute left-3.5 text-slate-400 font-mono font-bold text-xl select-none">€</span>
-                      <input id="input-estimated-cost" type="number" readOnly value={estimatedCost} className="w-full bg-slate-800 text-white font-bold text-2xl text-right p-3 pr-14 rounded border border-slate-600 outline-none focus:border-cyan-500 shadow-inner" />
-                      <span className="absolute right-3.5 text-xs text-slate-400 font-mono font-semibold">EUR</span>
+                      <span className="absolute left-3.5 text-slate-400 font-mono font-bold text-xl select-none">{displayCurrency === 'EUR' ? '€' : '$'}</span>
+                      <input id="input-estimated-cost" type="number" readOnly value={finalFooterCost > 0 ? finalFooterCost.toFixed(2) : ''} className="w-full bg-slate-800 text-white font-bold text-2xl text-right p-3 pr-14 rounded border border-slate-600 outline-none focus:border-cyan-500 shadow-inner" />
+                      <span className="hidden text-slate-400">EUR</span>
+                      <span className="absolute right-3.5 text-xs text-slate-400 font-mono font-semibold">{displayCurrency}</span>
                     </div>
                   </div>
                   <div className="w-full relative">
-                    <label htmlFor="input-sale-price" className="block text-blue-600 font-bold text-[10px] uppercase mb-1">Precio Venta a Cliente (€)</label>
+                    <label htmlFor="input-sale-price" className="block text-blue-600 font-bold text-[10px] uppercase mb-1">Precio Venta a Cliente ({displayCurrency === 'EUR' ? '€' : '$'})</label>
                     <div className="relative flex items-center">
-                      <span className="absolute left-3.5 text-blue-400 font-mono font-bold text-xl select-none">€</span>
-                      <input id="input-sale-price" type="number" readOnly value={salePrice} className="w-full bg-slate-800 text-white font-bold text-2xl text-right p-3 pr-14 rounded border border-slate-600 outline-none focus:border-cyan-500 shadow-inner" />
-                      <span className="absolute right-3.5 text-xs text-slate-400 font-mono font-semibold">EUR</span>
+                      <span className="absolute left-3.5 text-blue-400 font-mono font-bold text-xl select-none">{displayCurrency === 'EUR' ? '€' : '$'}</span>
+                      <input id="input-sale-price" type="number" readOnly value={finalFooterSale > 0 ? finalFooterSale.toFixed(2) : ''} className="w-full bg-slate-800 text-white font-bold text-2xl text-right p-3 pr-14 rounded border border-slate-600 outline-none focus:border-cyan-500 shadow-inner" />
+                      <span className="hidden text-slate-400">EUR</span>
+                      <span className="absolute right-3.5 text-xs text-slate-400 font-mono font-semibold">{displayCurrency}</span>
                     </div>
                   </div>
                 </div>
