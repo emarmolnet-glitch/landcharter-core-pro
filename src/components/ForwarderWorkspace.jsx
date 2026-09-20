@@ -1689,6 +1689,139 @@ export function isProjectMatchingActiveDossier(project, activeDossierRef) {
   return false;
 }
 
+/**
+ * Adaptador de Datos (Mapper):
+ * Toma un expediente marítimo de Core PRO (charter_dossiers, UUID, payload JSONB)
+ * y lo traduce al vuelo a la estructura de datos que espera Land Charter (forwarder_projects).
+ *
+ * - Mapea reference a project_ref
+ * - Mapea el ID (asegurando compatibilidad aunque sea UUID)
+ * - Extrae el puerto de carga/descarga del sessionPayload marítimo a pol / pod en la vista terrestre
+ */
+export function mapMaritimeDossierToLandCharter(dossier) {
+  if (!dossier) return null;
+
+  const sessionPayload = (dossier.sessionPayload && typeof dossier.sessionPayload === 'object')
+    ? dossier.sessionPayload
+    : {};
+  const calcState = (sessionPayload.calculatorState && typeof sessionPayload.calculatorState === 'object')
+    ? sessionPayload.calculatorState
+    : {};
+  const fields = (sessionPayload.fields && typeof sessionPayload.fields === 'object')
+    ? sessionPayload.fields
+    : {};
+
+  // 1. Mapea reference a project_ref
+  const projectRef = String(dossier.reference || dossier.project_ref || calcState.activeReference || '').trim();
+
+  // 2. Mapea el ID (asegurando compatibilidad aunque sea UUID)
+  const dossierId = dossier.id || null;
+
+  // 3. Extrae el puerto de carga/descarga del sessionPayload marítimo a pol / pod en la vista terrestre
+  const extractedPol = String(
+    calcState.pol ||
+    fields['port-pol'] ||
+    fields['map-port-pol'] ||
+    fields.pol ||
+    sessionPayload.pol ||
+    dossier.pol ||
+    ''
+  ).trim();
+
+  const extractedPod = String(
+    calcState.pod ||
+    fields['port-pod'] ||
+    fields['map-port-pod'] ||
+    fields.pod ||
+    sessionPayload.pod ||
+    dossier.pod ||
+    ''
+  ).trim();
+
+  const cargoName = String(
+    dossier.cargoName ||
+    calcState.cargoType ||
+    calcState.cargoTypeCode ||
+    fields['cargo-type'] ||
+    fields['cargo-type-manual'] ||
+    'Carga General / Proyecto'
+  ).trim();
+
+  const cargoVolume = Number(
+    dossier.cargoVolume ||
+    calcState.cargo ||
+    fields['cargo-qty'] ||
+    0
+  );
+
+  const clientName = String(
+    dossier.charterer ||
+    sessionPayload.clientName ||
+    fields.clientName ||
+    'Cliente Core PRO'
+  ).trim();
+
+  const mappedCat = mapCargoCategoryAndType(cargoName);
+  const weightKg = cargoVolume > 0 ? (cargoVolume * 1000) : 24000;
+
+  const initialItems = cargoVolume > 0 || cargoName !== 'Carga General / Proyecto'
+    ? [{
+        id: `item-maritime-${Date.now()}-0`,
+        type: mappedCat.type || cargoName,
+        description: cargoName,
+        category: mappedCat.category || 'Carga Unitizada / Envasada',
+        quantity: 1,
+        weight: weightKg,
+        unit_weight_kg: weightKg,
+        shipping_mode_supported: mappedCat.shipping_mode_supported || 'Tráiler Lona (13.6m)',
+      }]
+    : [];
+
+  return {
+    id: dossierId,
+    uuid: dossierId,
+    dossier_id: dossierId,
+    dossierId: dossierId,
+    project_ref: projectRef,
+    reference: projectRef,
+    client_name: clientName,
+    status: dossier.status || 'BORRADOR',
+    global_margin_percentage: '0',
+    pol: extractedPol,
+    pod: extractedPod,
+    land_origin: extractedPol,
+    land_destination: extractedPod,
+    land_distance: 0,
+    land_freight_cost: 0,
+    land_freight_sale: 0,
+    valor_total_mercancia_usd: 0,
+    total_trucks: 1,
+    road_transit_days: 1,
+    road_net_margin: 0,
+    documents: [],
+    items: initialItems,
+    cargo_items: initialItems,
+    services: [],
+    line_items: [],
+    dossier_ref: projectRef,
+    parent_ref: projectRef,
+    referenciaPadre: projectRef,
+    is_maritime_dossier: true,
+    isAdaptedDossier: true,
+    from_maritime: true,
+    source: 'core_pro',
+    sessionPayload: sessionPayload,
+    data: {
+      source: 'core_pro_dossier',
+      maritime_id: dossierId,
+      maritime_reference: projectRef,
+      sessionPayload: sessionPayload,
+    },
+    created_at: dossier.createdAt || new Date().toISOString(),
+    updated_at: dossier.updatedAt || new Date().toISOString(),
+  };
+}
+
 function ForwarderWorkspaceInner() {
 
   const [projects, setProjects] = useState([]);
@@ -2135,16 +2268,79 @@ function ForwarderWorkspaceInner() {
     };
   }, []);
 
-  const fetchProjects = async () => {
+  const lastFetchedRef = useRef(null);
+
+  const fetchProjects = async (searchRefOverride = null) => {
     setIsLoading(true); setError(null);
     try {
+      const activeRef = (typeof searchRefOverride === 'string' && searchRefOverride.trim())
+        ? searchRefOverride.trim()
+        : (referenciaActivaGlobal || getActiveGlobalReference() || (typeof window !== 'undefined' && window.location?.search ? new URLSearchParams(window.location.search).get('ref') : '') || '').trim();
+
       const res = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), { method: 'GET', headers: { Accept: 'application/json' } });
       if (!res.ok) {
         console.warn(`[ForwarderWorkspace] HTTP ${res.status} al cargar proyectos, preservando estado local.`);
         return;
       }
       const data = await res.json();
-      const list = Array.isArray(data) ? data : (data?.projects || []);
+      let list = Array.isArray(data) ? data : (data?.projects || []);
+
+      // Fallback a expedientes marítimos de Core PRO (charter_dossiers):
+      // Cuando el usuario busque una referencia específica (ej. RDM/...) y la API de forwarder-projects
+      // devuelva vacío o ningún proyecto coincidente, se dispara una segunda consulta automática
+      // al endpoint marítimo (/.netlify/functions/dossiers) buscando esa misma referencia y adaptando los datos.
+      const hasMatchingLandProject = activeRef
+        ? list.some((p) => isProjectMatchingActiveDossier(p, activeRef) || String(p?.project_ref || '').toUpperCase() === activeRef.toUpperCase())
+        : false;
+
+      if (activeRef && (!hasMatchingLandProject || list.length === 0)) {
+        try {
+          const dossierUrl = getApiUrl(`/.netlify/functions/dossiers?q=${encodeURIComponent(activeRef)}&includePayload=true`);
+          const dossierRes = await fetch(dossierUrl, {
+            method: 'GET',
+            headers: { Accept: 'application/json' },
+          });
+
+          if (dossierRes.ok) {
+            const dossierData = await dossierRes.json();
+            const rawDossiers = Array.isArray(dossierData?.dossiers)
+              ? dossierData.dossiers
+              : (Array.isArray(dossierData) ? dossierData : (dossierData?.dossier ? [dossierData.dossier] : []));
+
+            const matchedDossier = rawDossiers.find((d) => String(d?.reference || '').toUpperCase() === activeRef.toUpperCase())
+              || rawDossiers.find((d) => isProjectMatchingActiveDossier(d, activeRef))
+              || (rawDossiers.length > 0 ? rawDossiers[0] : null);
+
+            if (matchedDossier) {
+              if (!matchedDossier.sessionPayload && matchedDossier.id) {
+                try {
+                  const detailRes = await fetch(getApiUrl(`/.netlify/functions/dossiers/${matchedDossier.id}`), {
+                    method: 'GET',
+                    headers: { Accept: 'application/json' },
+                  });
+                  if (detailRes.ok) {
+                    const detailData = await detailRes.json();
+                    if (detailData?.dossier?.sessionPayload) {
+                      matchedDossier.sessionPayload = detailData.dossier.sessionPayload;
+                    }
+                  }
+                } catch (_errDetail) {}
+              }
+
+              const adaptedProject = mapMaritimeDossierToLandCharter(matchedDossier);
+              if (adaptedProject) {
+                const existsInList = list.some((p) => p?.project_ref === adaptedProject.project_ref || (p?.id && p.id === adaptedProject.id));
+                if (!existsInList) {
+                  list = [adaptedProject, ...list];
+                }
+              }
+            }
+          }
+        } catch (dossierFallbackErr) {
+          console.warn('[ForwarderWorkspace] Fallback a dossiers marítimos no bloqueante:', dossierFallbackErr?.message || dossierFallbackErr);
+        }
+      }
+
       if (list.length > 0 || !activeProject) {
         setProjects(list);
       } else {
@@ -2153,6 +2349,8 @@ function ForwarderWorkspaceInner() {
       const urlRef = typeof window !== 'undefined' && window.location?.search
         ? new URLSearchParams(window.location.search).get('ref')
         : null;
+
+      const targetRef = activeRef || urlRef;
 
       if (activeProject) {
         const updated = list.find((p) => p?.id === activeProject?.id || p?.project_ref === activeProject?.project_ref);
@@ -2171,8 +2369,8 @@ function ForwarderWorkspaceInner() {
           setActiveProject(withSrvs);
           setprojectDocuments(withSrvs.documents || withSrvs.files || []);
         }
-      } else if (urlRef) {
-        const matching = list.find((p) => String(p?.project_ref || '').toUpperCase() === urlRef.toUpperCase());
+      } else if (targetRef) {
+        const matching = list.find((p) => String(p?.project_ref || '').toUpperCase() === targetRef.toUpperCase() || isProjectMatchingActiveDossier(p, targetRef));
         if (matching) {
           const srvs = (Array.isArray(matching.services) && matching.services.length > 0)
             ? matching.services
@@ -2196,7 +2394,8 @@ function ForwarderWorkspaceInner() {
   const handleRefreshProjects = async () => {
     setIsRefreshing(true);
     try {
-      await fetchProjects();
+      lastFetchedRef.current = null;
+      await fetchProjects(referenciaActivaGlobal || null);
       setSaveSuccessMessage('Listado general de proyectos actualizado correctamente');
       setTimeout(() => setSaveSuccessMessage(null), 3000);
     } catch (err) {
@@ -2205,6 +2404,14 @@ function ForwarderWorkspaceInner() {
       setIsRefreshing(false);
     }
   };
+
+  useEffect(() => {
+    const curRef = (referenciaActivaGlobal || '').trim();
+    if (lastFetchedRef.current !== curRef) {
+      lastFetchedRef.current = curRef;
+      fetchProjects(curRef || null);
+    }
+  }, [referenciaActivaGlobal]);
 
   const handleSyncDataBridge = async () => {
     if (!activeProject) return;
@@ -2834,6 +3041,18 @@ function ForwarderWorkspaceInner() {
 
   const persistProjectToDatabase = async (projectToSave) => {
     try {
+      const isAdaptedFromCorePro = Boolean(
+        projectToSave?.is_maritime_dossier ||
+        projectToSave?.isAdaptedDossier ||
+        projectToSave?.from_maritime ||
+        projectToSave?.source === 'core_pro' ||
+        activeProject?.is_maritime_dossier ||
+        activeProject?.isAdaptedDossier ||
+        activeProject?.from_maritime ||
+        activeProject?.source === 'core_pro' ||
+        (typeof projectToSave?.id === 'string' && projectToSave.id.includes('-') && isNaN(Number(projectToSave.id)))
+      );
+
       const servicesList = (Array.isArray(projectToSave?.services) && projectToSave.services.length > 0)
         ? projectToSave.services
         : (Array.isArray(projectToSave?.line_items) ? projectToSave.line_items : []);
@@ -2891,9 +3110,12 @@ function ForwarderWorkspaceInner() {
           ? Number(projectToSave.land_freight_sale || projectToSave.targetSalePrice || projectToSave.sale)
           : (finalTotalLandSale > 0 ? finalTotalLandSale : Number(salePrice || activeProject?.land_freight_sale || 0)));
 
+      const effectiveProjectRef = projectToSave?.project_ref || activeProject?.project_ref || projectToSave?.reference || referenciaActivaGlobal || getActiveGlobalReference() || `EXP-${Date.now().toString().slice(-6)}`;
+
       const payload = {
         ...activeProject, // Heredar todo por defecto
         ...(projectToSave || {}),
+        project_ref: effectiveProjectRef,
         items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.items || projectToSave?.items || []),
         cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || projectToSave?.cargo_items || []),
         packing_list: activeProject?.packing_list || projectToSave?.packing_list || null,
@@ -2906,8 +3128,8 @@ function ForwarderWorkspaceInner() {
         discharge_method: dischargeMethod || projectToSave?.discharge_method || activeProject?.discharge_method,
         services: servicesList,
         line_items: servicesList,
-        land_freight_cost: (!distanceKm || Number(distanceKm) <= 0) ? 0 : (Number(projectToSave.land_freight_cost) || Number(tuVariableDeCosteTotalTerrestre || 0)),
-        land_freight_sale: (!distanceKm || Number(distanceKm) <= 0) ? 0 : (Number(projectToSave.land_freight_sale || projectToSave.targetSalePrice || projectToSave.sale) || Number(tuVariableDePrecioVentaTerrestre || 0)),
+        land_freight_cost: Number(projectToSave.land_freight_cost) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDeCosteTotalTerrestre || 0)),
+        land_freight_sale: Number(projectToSave.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDePrecioVentaTerrestre || 0)),
         valor_total_mercancia_usd: Number(projectToSave.valor_total_mercancia_usd) || Number(activeProject?.valor_total_mercancia_usd) || 0,
         land_origin: pol || origin || projectToSave.land_origin || projectToSave.pol || activeProject?.land_origin || activeProject?.pol || landOrigin,
         land_destination: pod || destination || projectToSave.land_destination || projectToSave.pod || activeProject?.land_destination || activeProject?.pod || landDestination,
@@ -2915,33 +3137,79 @@ function ForwarderWorkspaceInner() {
         total_trucks: Number(projectToSave?.total_trucks) > 0 ? Number(projectToSave.total_trucks) : (trucksNeeded || activeProject?.total_trucks),
         road_transit_days: projectToSave?.road_transit_days || activeProject?.road_transit_days,
         road_net_margin: projectToSave?.road_net_margin || activeProject?.road_net_margin,
-        dossier_ref: projectToSave?.dossier_ref || projectToSave?.parent_ref || projectToSave?.referenciaPadre || referenciaActivaGlobal || activeProject?.dossier_ref || null,
-        parent_ref: projectToSave?.parent_ref || projectToSave?.dossier_ref || projectToSave?.referenciaPadre || referenciaActivaGlobal || activeProject?.parent_ref || null,
-        referenciaPadre: projectToSave?.referenciaPadre || projectToSave?.dossier_ref || projectToSave?.parent_ref || referenciaActivaGlobal || activeProject?.referenciaPadre || null,
+        dossier_ref: projectToSave?.dossier_ref || projectToSave?.parent_ref || projectToSave?.referenciaPadre || referenciaActivaGlobal || activeProject?.dossier_ref || effectiveProjectRef,
+        parent_ref: projectToSave?.parent_ref || projectToSave?.dossier_ref || projectToSave?.referenciaPadre || referenciaActivaGlobal || activeProject?.parent_ref || effectiveProjectRef,
+        referenciaPadre: projectToSave?.referenciaPadre || projectToSave?.dossier_ref || projectToSave?.parent_ref || referenciaActivaGlobal || activeProject?.referenciaPadre || effectiveProjectRef,
         data: projectToSave?.data || activeProject?.data || {},
       };
 
-      const res = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) {
-        await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
+      // Si el proyecto proviene de Core PRO (dossier adaptado con UUID o sin ID numérico en forwarder_projects),
+      // al guardar flete en Land Charter, el backend debe hacer un INSERT creando un nuevo registro
+      // terrestre con el mismo project_ref (vinculándolos comercialmente) en lugar de un UPDATE.
+      let savedProject = null;
+
+      if (isAdaptedFromCorePro) {
+        const insertPayload = {
+          ...payload,
+          is_maritime_dossier: true,
+          is_new_insert: true,
+          from_maritime: true,
+          id: null, // Evitar incompatibilidad de tipo integer en Postgres
+          dossier_id: projectToSave?.id || activeProject?.id || null,
+          project_ref: effectiveProjectRef,
+          parent_ref: effectiveProjectRef,
+          dossier_ref: effectiveProjectRef,
+        };
+
+        const postRes = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(insertPayload),
         });
+
+        if (postRes.ok) {
+          const postData = await postRes.json();
+          savedProject = postData?.project || null;
+        }
+      } else {
+        const res = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          const putData = await res.json();
+          savedProject = putData?.project || null;
+        } else {
+          const postRes = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (postRes.ok) {
+            const postData = await postRes.json();
+            savedProject = postData?.project || null;
+          }
+        }
       }
-      setActiveProject((prev) => (prev && (prev.id === payload.id || prev.project_ref === payload.project_ref) ? { ...prev, ...payload } : (prev || payload)));
+
+      const finalSaved = savedProject ? {
+        ...payload,
+        ...savedProject,
+        is_maritime_dossier: false,
+      } : payload;
+
+      setActiveProject((prev) => (prev && (prev.id === finalSaved.id || prev.project_ref === finalSaved.project_ref) ? { ...prev, ...finalSaved } : (prev || finalSaved)));
       setProjects((prev) => {
         const list = Array.isArray(prev) ? prev : [];
-        const exists = list.some((p) => p?.id === payload.id || p?.project_ref === payload.project_ref);
+        const exists = list.some((p) => (p?.id && p.id === finalSaved.id) || (p?.project_ref && p.project_ref === finalSaved.project_ref));
         if (exists) {
-          return list.map((p) => (p?.id === payload.id || p?.project_ref === payload.project_ref ? { ...p, ...payload } : p));
+          return list.map((p) => ((p?.id && p.id === finalSaved.id) || (p?.project_ref && p.project_ref === finalSaved.project_ref) ? { ...p, ...finalSaved } : p));
         }
-        return [payload, ...list];
+        return [finalSaved, ...list];
       });
+
+      return finalSaved;
     } catch (err) {
       console.error('Error al guardar en base de datos:', err);
     }
@@ -3004,9 +3272,10 @@ function ForwarderWorkspaceInner() {
       // 2. CONSTRUIR PAYLOAD PURAMENTE TERRESTRE
       const payload = {
         ...cleanProject,
+        route_and_chartering: activeProject?.route_and_chartering || null,
         // Blindaje de mercancía
-        items: cleanProject.items || [],
-        cargo_items: (typeof cargoItems !== 'undefined' && cargoItems.length > 0) ? cargoItems : (cleanProject.cargo_items || []),
+        items: activeProject?.items || [],
+        cargo_items: activeProject?.cargo_items || [],
         
         // Actualización exclusiva del camión
         land_route: {
@@ -3027,10 +3296,9 @@ function ForwarderWorkspaceInner() {
       setActiveProject(payload);
       setProjects((prev) => (prev || []).map((p) => (p?.id === payload.id || p?.project_ref === payload.project_ref ? payload : p)));
       
-      const res = await persistProjectToDatabase(payload);
       setSaveSuccessMessage('¡Expediente guardado correctamente!');
       setTimeout(() => setSaveSuccessMessage(null), 3500);
-      return res;
+      return persistProjectToDatabase(payload);
     } catch (err) {
       console.error('[ForwarderWorkspace] Error en handleSaveProject:', err);
       setError('Error al guardar el proyecto: ' + (err?.message || 'Error desconocido'));
@@ -3402,7 +3670,18 @@ function ForwarderWorkspaceInner() {
       }
     }
 
-    setIsCommodityTariffActive(false);
+    if (appliedTariff) {
+      setIsCommodityTariffActive(true);
+      // Purgar sumandos residuales en Tarifa FSPE (fuerza explícitamente a cero estados locales)
+      setTollCost(0);
+      setDriverDiets(0);
+      setWarehouseWaitPenaltyEur(0);
+      const inlandCost = Math.round(totalWeightTons * appliedTariff.inlandUsdMt * 100) / 100;
+      setInlandCost(inlandCost);
+      const localEstimatedCost = inlandCost;
+    } else {
+      setIsCommodityTariffActive(false);
+    }
 
     // Detección de Carga Envasada vs Granel para selección de vehículo y métodos en cálculo no tarifario
     const isBigBagInNonTariff = /big\s*bag|sac|pallet|envasad/i.test([
