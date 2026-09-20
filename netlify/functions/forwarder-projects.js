@@ -656,33 +656,42 @@ exports.handler = async (event) => {
       };
     }
 
-    // 3. LISTAR TODOS LOS EXPEDIENTES (GET)
+    // 3. CONSULTAR EXPEDIENTES (GET) - SEPARACIÓN DE LISTADO Y DETALLE (Anti-502 ResponseSizeTooLarge)
     if (httpMethod === 'GET') {
       const qParams = event.queryStringParameters || {};
-      const refFilter = (qParams.ref || qParams.project_ref || qParams.contractRef || '').trim();
-      let query;
-      let values = [];
-      if (refFilter) {
-        query = `
+      const idParam = (qParams.id || qParams.projectId || '').trim();
+      const parsedId = idParam && !isNaN(parseInt(idParam, 10)) ? parseInt(idParam, 10) : null;
+      const refFilter = (qParams.ref || qParams.project_ref || qParams.contractRef || (parsedId === null ? idParam : '')).trim();
+
+      // CASO A: DETALLE DE UN PROYECTO ESPECÍFICO (?ref=... o ?id=...)
+      // Si la petición incluye un parámetro para un registro específico, usa SELECT * ... LIMIT 1
+      // para devolver el objeto completo (con todos sus arrays pesados y documents).
+      if (parsedId !== null || refFilter) {
+        const detailQuery = `
           SELECT *, TO_CHAR(created_at, 'DD/MM/YYYY') as date 
           FROM forwarder_projects 
-          WHERE UPPER(project_ref) = UPPER($1)
-          ORDER BY created_at DESC;
+          WHERE ($1::integer IS NOT NULL AND id = $1)
+             OR ($2::text IS NOT NULL AND UPPER(project_ref) = UPPER($2))
+          ORDER BY created_at DESC 
+          LIMIT 1;
         `;
-        values = [refFilter];
-      } else {
-        query = `
-          SELECT *, TO_CHAR(created_at, 'DD/MM/YYYY') as date 
-          FROM forwarder_projects 
-          ORDER BY created_at DESC;
-        `;
-      }
-      const result = await dbPool.query(query, values);
-      const mappedRows = result.rows.map((row) => {
+        const detailValues = [parsedId, refFilter || null];
+        const detailResult = await dbPool.query(detailQuery, detailValues);
+
+        if (detailResult.rows.length === 0) {
+          return {
+            statusCode: 404,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ error: 'Expediente no encontrado', project: null }),
+          };
+        }
+
+        const row = detailResult.rows[0];
         const srvs = Array.isArray(row.services) && row.services.length > 0
           ? row.services
           : (Array.isArray(row.line_items) ? row.line_items : []);
-        return {
+
+        const formattedProject = {
           ...row,
           services: srvs,
           line_items: srvs,
@@ -690,7 +699,56 @@ exports.handler = async (event) => {
           land_freight_sale: Number(row.land_freight_sale) || 0,
           valor_total_mercancia_usd: Number(row.valor_total_mercancia_usd) || 0,
         };
-      });
+
+        return {
+          statusCode: 200,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          body: JSON.stringify(formattedProject),
+        };
+      }
+
+      // CASO B: LISTADO GENERAL PARA BARRA LATERAL (Carga masiva ligera)
+      // SELECT explícito SOLO de columnas ligeras: id, project_ref, client_name, status, land_origin,
+      // land_destination, land_distance, land_freight_cost, land_freight_sale, global_margin_percentage,
+      // created_at, updated_at.
+      // EXCLUYE categóricamente documents, data, route_and_chartering, items, services y line_items.
+      // Añade LIMIT 50 para blindar la memoria y evitar error 502 Function.ResponseSizeTooLarge (6MB).
+      const listQuery = `
+        SELECT 
+          id, 
+          project_ref, 
+          client_name, 
+          status, 
+          land_origin, 
+          land_destination, 
+          land_distance, 
+          land_freight_cost, 
+          land_freight_sale, 
+          global_margin_percentage, 
+          created_at, 
+          updated_at,
+          TO_CHAR(created_at, 'DD/MM/YYYY') as date 
+        FROM forwarder_projects 
+        ORDER BY created_at DESC 
+        LIMIT 50;
+      `;
+      const listResult = await dbPool.query(listQuery);
+
+      const mappedRows = listResult.rows.map((row) => ({
+        id: row.id,
+        project_ref: row.project_ref,
+        client_name: row.client_name,
+        status: row.status,
+        land_origin: row.land_origin,
+        land_destination: row.land_destination,
+        land_distance: Number(row.land_distance) || 0,
+        land_freight_cost: Number(row.land_freight_cost) || 0,
+        land_freight_sale: Number(row.land_freight_sale) || 0,
+        global_margin_percentage: row.global_margin_percentage,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        date: row.date,
+      }));
 
       return {
         statusCode: 200,
