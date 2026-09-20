@@ -5476,17 +5476,16 @@ function ForwarderWorkspaceInner() {
       setActiveReport(currentReportSnapshot);
       setReportData(currentReportSnapshot);
 
-      const calculatedLandFreightCost = parseFloat(estimatedCost)
-        || currentReportSnapshot?.finalTotalCost
-        || currentReportSnapshot?.fleteCostNum
-        || (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0)
-        || 0;
+      const safeDist = Number(distanceKm) || Number(activeProject?.land_route?.distance_km) || 0;
+      const safeTrucks = Number(camionesReales) || Number(activeProject?.total_trucks) || 1;
+      const safeExchange = Number(exchangeRate) || 1;
 
-      const calculatedLandFreightSale = parseFloat(salePrice)
-        || currentReportSnapshot?.finalTotalSale
-        || currentReportSnapshot?.fleteSaleNum
-        || (Number(activeProject?.land_freight_sale) > 0 ? Number(activeProject.land_freight_sale) : 0)
-        || (calculatedLandFreightCost > 0 ? Math.round(calculatedLandFreightCost * 1.18) : 0);
+      // Matemáticas puras en el momento de guardar. Inmune a estados corrompidos.
+      const absoluteLandCost = ((safeDist * 1.57) + (safeDist * 0.18) + 75) * safeTrucks * safeExchange;
+      const absoluteLandSale = absoluteLandCost * 1.18; // 18% de margen comercial
+
+      const calculatedLandFreightCost = absoluteLandCost;
+      const calculatedLandFreightSale = absoluteLandSale;
 
       const merchandiseValueUsd = Number(
         (mercanciaCost > 0 ? mercanciaCost : null)
@@ -5500,14 +5499,6 @@ function ForwarderWorkspaceInner() {
 
       const tuVariableDeCosteTotalTerrestre = calculatedLandFreightCost;
       const tuVariableDePrecioVentaTerrestre = calculatedLandFreightSale;
-
-      const safeDist = Number(distanceKm) || Number(activeProject?.land_route?.distance_km) || 0;
-      const safeTrucks = Number(camionesReales) || Number(activeProject?.total_trucks) || 1;
-      const safeExchange = Number(exchangeRate) || 1;
-
-      // Matemáticas puras en el momento de guardar. Inmune a estados corrompidos.
-      const absoluteLandCost = ((safeDist * 1.57) + (safeDist * 0.18) + 75) * safeTrucks * safeExchange;
-      const absoluteLandSale = absoluteLandCost * 1.18; // 18% de margen comercial
 
       const inheritedCargoItems = (cargoItems && cargoItems.length > 0)
         ? cargoItems
@@ -5620,17 +5611,17 @@ function ForwarderWorkspaceInner() {
         flete_total_usd: currentReportSnapshot?.flete_total_usd || 0,
         costes_fob_totales_usd: currentReportSnapshot?.costes_fob_totales_usd || 0,
         valor_total_mercancia_usd: merchandiseValueUsd,
-        land_freight_cost: calculatedLandFreightCost,
-        land_freight_sale: calculatedLandFreightSale,
       };
 
-      const lineItemCost = parseFloat(estimatedCost) || currentReportSnapshot?.finalTotalCost || 0;
-      const lineItemPrice = parseFloat(salePrice) || currentReportSnapshot?.finalTotalSale || 0;
+      const lineItemCost = absoluteLandCost;
+      const lineItemPrice = absoluteLandSale;
       const totalPiecesCount = totals?.quantity || currentReportSnapshot?.totals?.quantity || safeCargoItems.length || 1;
       const totalWeightKg = totals?.weight || currentReportSnapshot?.totals?.weight || 0;
 
+      const savedServiceName = `Flete Terrestre (${safeTrucks} Camiones: ${landOrigin || 'Origen'} ➔ ${landDestination || 'Destino'})`;
       const savedLineItem = {
         id: editingLineItemId || `item-${Date.now()}`,
+        service_name: savedServiceName,
         description: `Flete y Estiba Project Cargo (${totalPiecesCount} piezas, ${totalWeightKg.toLocaleString('es-ES')} kg)`,
         cost_eur: lineItemCost,
         sale_price_eur: lineItemPrice,
@@ -5647,10 +5638,16 @@ function ForwarderWorkspaceInner() {
           : (Array.isArray(activeProject.services) ? activeProject.services : []);
         const updatedLineItems = editingLineItemId
           ? existingItems.map((li) => (li.id === editingLineItemId ? savedLineItem : li))
-          : [...existingItems, savedLineItem];
+          : [...existingItems.filter(item => item.service_name !== savedLineItem.service_name && !item.service_name?.toLowerCase().includes('terrestre')), savedLineItem];
 
-        const totalServicesCost = updatedLineItems.reduce((acc, it) => acc + (Number(it.cost_eur) || 0), 0) || absoluteLandCost;
-        const totalServicesSale = updatedLineItems.reduce((acc, it) => acc + (Number(it.sale_price_eur) || 0), 0) || lineItemPrice || absoluteLandSale;
+        const totalServicesCost = updatedLineItems.reduce((acc, it) => {
+          if (it.id === savedLineItem.id || it.service_name?.toLowerCase().includes('terrestre')) return acc;
+          return acc + (Number(it.cost_eur) || 0);
+        }, absoluteLandCost);
+        const totalServicesSale = updatedLineItems.reduce((acc, it) => {
+          if (it.id === savedLineItem.id || it.service_name?.toLowerCase().includes('terrestre')) return acc;
+          return acc + (Number(it.sale_price_eur) || 0);
+        }, absoluteLandSale);
 
         const updatedProject = {
           ...activeProject,
@@ -5734,6 +5731,7 @@ function ForwarderWorkspaceInner() {
       setError('Error al guardar flete y estiba: ' + (err?.message || 'Error desconocido'));
       setTimeout(() => setError(null), 4000);
     } finally {
+      setCargoItems([]);
       setIsCargoModalOpen(false);
       setSaveSuccessMessage('¡Flete y estiba guardados correctamente!');
       setTimeout(() => setSaveSuccessMessage(null), 3500);
@@ -5764,7 +5762,7 @@ function ForwarderWorkspaceInner() {
   const waitPenaltyUpper = Number(warehouseWaitPenaltyEur || 0);
   const calculatedTerrestrialUnit = runningCostUpper + tollsUpper + dietsUpper + waitPenaltyUpper;
 
-  const terrestrialUnitCost = Number(typeof totalRoadCost !== 'undefined' ? totalRoadCost : (typeof cost !== 'undefined' && cost > 0 ? cost : (calculatedTerrestrialUnit > 0 ? calculatedTerrestrialUnit : (((distanceKm || 0) * 1.5) + 50))));
+  const terrestrialUnitCost = Number(calculatedTerrestrialUnit > 0 ? calculatedTerrestrialUnit : (((distKmUpper || distanceKm || 0) * 1.57) + ((distKmUpper || distanceKm || 0) * 0.18) + 75));
   const rawCost = Number(activeProject?.land_freight_cost) || terrestrialUnitCost || 0;
   const rawSale = Number(activeProject?.land_freight_sale) || (terrestrialUnitCost * 1.18) || 0;
 
@@ -5772,11 +5770,10 @@ function ForwarderWorkspaceInner() {
   const pesoTotalMercanciaKg = typeof totals !== 'undefined' && totals?.weight ? totals.weight : (activeProject?.items || []).reduce((sum, it) => sum + (Number(it.weight) || (Number(it.cantidad) * Number(it.peso_unitario)) || 0), 0);
   const camionesReales = pesoTotalMercanciaKg > 0 ? Math.ceil(pesoTotalMercanciaKg / 24000) : fallbackTrucks;
 
-  // CÁLCULO INTELIGENTE Y RED DE SEGURIDAD:
-  // Si el valor rawCost ya es inmenso (ej. > 20000), la BD nos ha devuelto el total ya multiplicado. Se queda intacto.
-  // Si es un coste operativo base (ej. < 5000), es el coste de un solo camión y debemos multiplicarlo por la flota.
-  const finalFooterCost = rawCost > 20000 ? rawCost : (rawCost * camionesReales * exchangeRate);
-  const finalFooterSale = rawSale > 20000 ? rawSale : (rawSale * camionesReales * exchangeRate);
+  // CÁLCULO DECLARATIVO E INMUTABLE DEL TOTAL DE LA FLOTA TERRESTRE
+  // terrestrialUnitCost es el coste puro calculado de 1 camión (km, peajes, dietas). NUNCA contiene totales de BD.
+  const finalFooterCost = terrestrialUnitCost * camionesReales * exchangeRate;
+  const finalFooterSale = (terrestrialUnitCost * 1.18) * camionesReales * exchangeRate;
 
   // Variables complementarias para compatibilidad y flete unitario
   const footerTotalCost = finalFooterCost;
