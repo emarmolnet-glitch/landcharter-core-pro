@@ -66,7 +66,7 @@ test('3. extractActiveSessionReference extracts from window.location.search or f
 test('4. resolveDataBridgeBaseUrl resolves base URL from options, window or default', () => {
     assert.equal(resolveDataBridgeBaseUrl('https://custom-bridge.app/'), 'https://custom-bridge.app');
     assert.equal(resolveDataBridgeBaseUrl(''), DEFAULT_DATA_BRIDGE_BASE_URL);
-    assert.equal(DEFAULT_DATA_BRIDGE_BASE_URL, 'https://calm-shortbread-55bcfc.netlify.app');
+    assert.equal(DEFAULT_DATA_BRIDGE_BASE_URL, typeof window !== 'undefined' ? window.location.origin : '');
 });
 
 test('5. syncRoadMetricsToBridge sends POST request to [URL_BASE_DATABRIDGE]/api/projects/sync-road', async () => {

@@ -104,7 +104,7 @@ export async function syncDualTradingChartering(rawData = {}, options = {}) {
     }
 }
 
-export const DEFAULT_DATA_BRIDGE_BASE_URL = 'https://calm-shortbread-55bcfc.netlify.app';
+export const DEFAULT_DATA_BRIDGE_BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
 
 function sanitizeBaseUrl(candidate) {
     if (!candidate || typeof candidate !== 'string') return '';
@@ -126,16 +126,6 @@ export function resolveDataBridgeBaseUrl(overrideUrl = '') {
         const win = window;
         const candidate = win.URL_BASE_DATABRIDGE || win.DATA_BRIDGE_FRONTEND_URL || win.DATA_BRIDGE_BASE_URL || win.DATA_BRIDGE_URL;
         const sanitized = sanitizeBaseUrl(candidate);
-        if (sanitized) return sanitized;
-    }
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-        const envCandidate = import.meta.env.URL_BASE_DATABRIDGE || import.meta.env.VITE_DATA_BRIDGE_URL || import.meta.env.VITE_DATA_BRIDGE_FRONTEND_URL;
-        const sanitized = sanitizeBaseUrl(envCandidate);
-        if (sanitized) return sanitized;
-    }
-    if (typeof process !== 'undefined' && process.env) {
-        const procCandidate = process.env.URL_BASE_DATABRIDGE || process.env.VITE_DATA_BRIDGE_URL || process.env.DATA_BRIDGE_URL;
-        const sanitized = sanitizeBaseUrl(procCandidate);
         if (sanitized) return sanitized;
     }
     return DEFAULT_DATA_BRIDGE_BASE_URL;
