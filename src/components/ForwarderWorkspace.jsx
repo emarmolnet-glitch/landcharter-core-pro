@@ -3054,8 +3054,8 @@ function ForwarderWorkspaceInner() {
       );
 
       const servicesList = (Array.isArray(projectToSave?.services) && projectToSave.services.length > 0)
-        ? projectToSave.services
-        : (Array.isArray(projectToSave?.line_items) ? projectToSave.line_items : []);
+        ? [...projectToSave.services]
+        : (Array.isArray(projectToSave?.line_items) && projectToSave.line_items.length > 0 ? [...projectToSave.line_items] : []);
 
       const landOrigin = origin || pol || projectToSave?.land_origin || projectToSave?.pol || activeProject?.land_origin || activeProject?.pol || '';
       const landDestination = destination || pod || projectToSave?.land_destination || projectToSave?.pod || activeProject?.land_destination || activeProject?.pod || '';
@@ -3112,6 +3112,30 @@ function ForwarderWorkspaceInner() {
 
       const effectiveProjectRef = projectToSave?.project_ref || activeProject?.project_ref || projectToSave?.reference || referenciaActivaGlobal || getActiveGlobalReference() || `EXP-${Date.now().toString().slice(-6)}`;
 
+      // Autogeneración de servicios por defecto si servicesList está vacío y hay coste terrestre válido
+      const costeCalculado = Number(projectToSave?.land_freight_cost) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDeCosteTotalTerrestre || 0));
+      const ventaCalculada = Number(projectToSave?.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDePrecioVentaTerrestre || 0));
+      const autoTotalTrucks = Number(projectToSave?.total_trucks) > 0 ? Number(projectToSave.total_trucks) : (trucksNeeded || activeProject?.total_trucks || 1);
+      const autoLandOrigin = pol || origin || projectToSave?.land_origin || projectToSave?.pol || activeProject?.land_origin || activeProject?.pol || landOrigin || 'Origen';
+      const autoLandDestination = pod || destination || projectToSave?.land_destination || projectToSave?.pod || activeProject?.land_destination || activeProject?.pod || landDestination || 'Destino';
+
+      if (servicesList.length === 0 && !projectToSave?.is_delete_action && (Number(tuVariableDeCosteTotalTerrestre) > 0 || costeCalculado > 0)) {
+        const autoServiceName = 'Flete y Operaciones Terrestres (' + (autoTotalTrucks || 1) + ' Camiones: ' + (autoLandOrigin || 'Origen') + ' ➔ ' + (autoLandDestination || 'Destino') + ')';
+        const defaultService = {
+          id: 'srv-auto-' + Date.now(),
+          name: autoServiceName,
+          description: autoServiceName,
+          cost: costeCalculado,
+          sale: ventaCalculada,
+          cost_eur: costeCalculado,
+          sale_price_eur: ventaCalculada,
+          margin_eur: Number((ventaCalculada - costeCalculado).toFixed(2)),
+          land_freight_cost: costeCalculado,
+          land_freight_sale: ventaCalculada,
+        };
+        servicesList.push(defaultService);
+      }
+
       const payload = {
         ...activeProject, // Heredar todo por defecto
         ...(projectToSave || {}),
@@ -3142,6 +3166,30 @@ function ForwarderWorkspaceInner() {
         referenciaPadre: projectToSave?.referenciaPadre || projectToSave?.dossier_ref || projectToSave?.parent_ref || referenciaActivaGlobal || activeProject?.referenciaPadre || effectiveProjectRef,
         data: projectToSave?.data || activeProject?.data || {},
       };
+
+      // Si servicesList o payload.services quedó vacío y hay coste terrestre, asegurar inyección en payload
+      if ((!payload.services || payload.services.length === 0) && !projectToSave?.is_delete_action && (Number(tuVariableDeCosteTotalTerrestre) > 0 || Number(payload.land_freight_cost) > 0 || costeCalculado > 0)) {
+        const finalAutoCost = Number(payload.land_freight_cost) || costeCalculado || Number(tuVariableDeCosteTotalTerrestre) || 0;
+        const finalAutoSale = Number(payload.land_freight_sale) || ventaCalculada || Number(tuVariableDePrecioVentaTerrestre) || 0;
+        const finalAutoName = 'Flete y Operaciones Terrestres (' + (payload.total_trucks || 1) + ' Camiones: ' + (payload.land_origin || 'Origen') + ' ➔ ' + (payload.land_destination || 'Destino') + ')';
+        const defaultService = {
+          id: 'srv-auto-' + Date.now(),
+          name: finalAutoName,
+          description: finalAutoName,
+          cost: finalAutoCost,
+          sale: finalAutoSale,
+          cost_eur: finalAutoCost,
+          sale_price_eur: finalAutoSale,
+          margin_eur: Number((finalAutoSale - finalAutoCost).toFixed(2)),
+          land_freight_cost: finalAutoCost,
+          land_freight_sale: finalAutoSale,
+        };
+        payload.services = [defaultService];
+        payload.line_items = [defaultService];
+        if (Array.isArray(servicesList) && servicesList.length === 0) {
+          servicesList.push(defaultService);
+        }
+      }
 
       // Si el proyecto proviene de Core PRO (dossier adaptado con UUID o sin ID numérico en forwarder_projects),
       // al guardar flete en Land Charter, el backend debe hacer un INSERT creando un nuevo registro
@@ -5239,6 +5287,7 @@ function ForwarderWorkspaceInner() {
       const updatedSale = (updatedLineItems || []).reduce((acc, it) => acc + (Number(it?.sale_price_eur) || 0), 0);
       const updatedProject = {
         ...activeProject,
+        is_delete_action: true,
         line_items: updatedLineItems,
         services: updatedLineItems,
         land_freight_cost: updatedCost,
@@ -6134,9 +6183,9 @@ function ForwarderWorkspaceInner() {
                       <tbody className="divide-y divide-slate-100 text-slate-800">
                         {((activeProject?.line_items?.length > 0 ? activeProject.line_items : activeProject?.services) || []).map((item) => (
                           <tr key={item?.id || Math.random()} className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
-                            <td className="px-4 py-3 font-semibold">{item?.description || 'Servicio'}</td>
-                            <td className="px-4 py-3 text-right text-rose-600 font-bold font-mono">{Number(item?.cost_eur || 0).toLocaleString('es-ES')} €</td>
-                            <td className="px-4 py-3 text-right text-emerald-600 font-bold font-mono">{Number(item?.sale_price_eur || 0).toLocaleString('es-ES')} €</td>
+                            <td className="px-4 py-3 font-semibold">{item?.description || item?.name || 'Servicio'}</td>
+                            <td className="px-4 py-3 text-right text-rose-600 font-bold font-mono">{Number(item?.cost_eur ?? item?.cost ?? 0).toLocaleString('es-ES')} €</td>
+                            <td className="px-4 py-3 text-right text-emerald-600 font-bold font-mono">{Number(item?.sale_price_eur ?? item?.sale ?? 0).toLocaleString('es-ES')} €</td>
                             <td className="px-4 py-3 text-center">
                               <button type="button" onClick={() => handleOpenExecutiveReport(item)} className="mx-1 cursor-pointer hover:scale-110 transition-transform" title="Generar Reporte Ejecutivo">📄</button>
                               <button onClick={() => handleEditService(item)} className="mx-1 cursor-pointer" title="Editar">✏️</button>
