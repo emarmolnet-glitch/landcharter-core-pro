@@ -44,7 +44,7 @@ test('4. handleSaveProjectCargo explicitly injects land_freight_cost and valor_t
   const saveFn = saveCargoMatch[0];
 
   // In payload
-  assert.match(saveFn, /land_freight_cost:\s*calculatedLandFreightCost/);
+  assert.match(saveFn, /land_freight_cost:\s*(?:absoluteLandCost|calculatedLandFreightCost)/);
   assert.match(saveFn, /valor_total_mercancia_usd:\s*merchandiseValueUsd/);
 
   // In savedLineItem
