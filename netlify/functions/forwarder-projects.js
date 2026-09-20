@@ -219,9 +219,130 @@ exports.handler = async (event) => {
     // 1. CREAR O ACTUALIZAR UN EXPEDIENTE (POST)
     if (httpMethod === 'POST') {
       const data = JSON.parse(body || '{}');
-      
-      // MODO ACTUALIZACIÓN (Si ya existe ID o REF)
-      if (data.id || data.project_ref) {
+
+      const isIntegerId = data.id !== undefined && data.id !== null && !isNaN(parseInt(data.id, 10)) && String(parseInt(data.id, 10)) === String(data.id).trim();
+      const parsedId = isIntegerId ? parseInt(data.id, 10) : null;
+      const isAdaptedDossier = Boolean(data.is_maritime_dossier || data.from_maritime || data.is_new_insert || data.source === 'core_pro');
+
+      // Comprobar si ya existe un registro previo en forwarder_projects por ID o project_ref
+      let existingRecord = null;
+      if (parsedId || data.project_ref) {
+        try {
+          const checkQuery = `
+            SELECT id, project_ref FROM forwarder_projects 
+            WHERE ($1::integer IS NOT NULL AND id = $1)
+               OR ($2::text IS NOT NULL AND UPPER(project_ref) = UPPER($2))
+            LIMIT 1;
+          `;
+          const checkRes = await dbPool.query(checkQuery, [parsedId, data.project_ref ? String(data.project_ref).trim() : null]);
+          if (checkRes.rows.length > 0) {
+            existingRecord = checkRes.rows[0];
+          }
+        } catch (_checkErr) {
+          console.warn('[forwarder-projects] Advertencia al comprobar existencia de proyecto:', _checkErr?.message);
+        }
+      }
+
+      // CASO A: MODO INSERT PARA DOSSIER ADAPTADO DE CORE PRO
+      // Si el proyecto proviene de Core PRO (dossier marítimo adaptado) y no existe previamente en forwarder_projects,
+      // realizar un INSERT creando un nuevo registro terrestre con el mismo project_ref (vinculándolos comercialmente)
+      // en lugar de intentar un UPDATE que fallaría por incompatibilidad de ID (UUID vs Serial).
+      if (isAdaptedDossier && !existingRecord) {
+        const statusValue = (data.status !== undefined && data.status !== null && String(data.status).trim())
+          ? String(data.status).trim()
+          : 'BORRADOR';
+        const marginValue = (data.global_margin_percentage !== undefined && data.global_margin_percentage !== null)
+          ? String(data.global_margin_percentage)
+          : '0';
+
+        const incomingItems = data.items || data.cargo_items || [];
+        const incomingServices = (Array.isArray(data.services) && data.services.length > 0)
+          ? data.services
+          : (Array.isArray(data.line_items) && data.line_items.length > 0 ? data.line_items : []);
+        const servicesJson = incomingServices && incomingServices.length > 0
+          ? JSON.stringify(incomingServices)
+          : '[]';
+        const landFreightCost = Number(data.land_freight_cost ?? data.freight_cost ?? data.totalTripCost ?? data.cost) || null;
+        const landFreightSale = Number(data.land_freight_sale ?? data.salePrice ?? data.sale ?? data.targetSalePrice) || null;
+        const goodsValueUsd = Number(data.valor_total_mercancia_usd ?? data.goodsValue ?? data.merchandiseValue) || null;
+        const totalTrucks = Number(data.total_trucks ?? data.trucks ?? data.totalTrucks) || null;
+        const landOrigin = (data.land_origin || data.pol || '').trim() || null;
+        const landDestination = (data.land_destination || data.pod || '').trim() || null;
+        const landDistance = Number(data.land_distance ?? data.totalKilometers ?? data.distance) || null;
+        const dataJson = data.data !== undefined ? JSON.stringify(data.data) : '{}';
+        const routeCharteringJson = data.route_and_chartering !== undefined ? JSON.stringify(data.route_and_chartering) : null;
+        const effectiveProjectRef = (data.project_ref && String(data.project_ref).trim())
+          ? String(data.project_ref).trim()
+          : (data.reference || `EXP-${Date.now().toString().slice(-6)}`);
+        const effectiveDossierRef = data.dossier_ref || data.parent_ref || data.referenciaPadre || effectiveProjectRef;
+
+        const insertAdaptedQuery = `
+          INSERT INTO forwarder_projects (
+            project_ref, client_name, status, global_margin_percentage,
+            documents, items, services,
+            land_origin, land_destination, land_distance,
+            land_freight_cost, land_freight_sale, valor_total_mercancia_usd,
+            total_trucks, road_transit_days, road_net_margin,
+            route_and_chartering, data, dossier_ref, parent_ref
+          ) VALUES (
+            $1, $2, $3, $4,
+            $5::jsonb, $6::jsonb, $7::jsonb,
+            $8, $9, $10,
+            $11, $12, $13,
+            $14, $15, $16,
+            $17::jsonb, $18::jsonb, $19, $20
+          )
+          RETURNING *;
+        `;
+        const insertAdaptedValues = [
+          effectiveProjectRef,
+          data.client_name || 'Cliente Core PRO',
+          statusValue,
+          marginValue,
+          JSON.stringify(data.documents || []),
+          JSON.stringify(adaptProjectItems(incomingItems)),
+          servicesJson,
+          landOrigin,
+          landDestination,
+          landDistance,
+          landFreightCost,
+          landFreightSale,
+          goodsValueUsd,
+          totalTrucks,
+          Number(data.road_transit_days) || null,
+          Number(data.road_net_margin) || null,
+          routeCharteringJson,
+          dataJson,
+          effectiveDossierRef,
+          effectiveDossierRef
+        ];
+
+        const insertAdaptedResult = await dbPool.query(insertAdaptedQuery, insertAdaptedValues);
+        const row = insertAdaptedResult.rows[0];
+        const srvs = Array.isArray(row?.services) && row.services.length > 0
+          ? row.services
+          : (Array.isArray(row?.line_items) ? row.line_items : []);
+        const formattedProject = row ? {
+          ...row,
+          services: srvs,
+          line_items: srvs,
+          land_freight_cost: Number(row.land_freight_cost) || 0,
+          land_freight_sale: Number(row.land_freight_sale) || 0,
+          valor_total_mercancia_usd: Number(row.valor_total_mercancia_usd) || 0,
+        } : null;
+
+        return {
+          statusCode: 201,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: 'Expediente terrestre creado con éxito y vinculado comercialmente',
+            project: formattedProject
+          })
+        };
+      }
+
+      // MODO ACTUALIZACIÓN (Si ya existe ID o REF en forwarder_projects)
+      if (existingRecord || (!isAdaptedDossier && (parsedId || data.project_ref))) {
         const statusValue = (data.status !== undefined && data.status !== null && String(data.status).trim())
           ? String(data.status).trim()
           : null;
@@ -264,7 +385,7 @@ exports.handler = async (event) => {
               route_and_chartering = COALESCE($16::jsonb, route_and_chartering),
               data = COALESCE($17::jsonb, data),
               updated_at = CURRENT_TIMESTAMP
-          WHERE id = $4 OR project_ref = $5
+          WHERE ($4::integer IS NOT NULL AND id = $4) OR ($5::text IS NOT NULL AND UPPER(project_ref) = UPPER($5))
           RETURNING *;
         `;
         const updateValues = [
@@ -273,8 +394,8 @@ exports.handler = async (event) => {
             ? JSON.stringify(adaptProjectItems(incomingUpdateItems))
             : null,
           data.client_name || null,
-          data.id ? parseInt(data.id, 10) : null,
-          data.project_ref || null,
+          parsedId,
+          data.project_ref ? String(data.project_ref).trim() : null,
           statusValue,
           marginValue,
           servicesJson,
@@ -290,6 +411,67 @@ exports.handler = async (event) => {
         ];
         const updateResult = await dbPool.query(updateQuery, updateValues);
         const row = updateResult.rows[0];
+
+        // Si no encontró fila a actualizar y se proveyó project_ref, hacer INSERT de recuperación
+        if (!row && data.project_ref) {
+          const fallbackInsertQuery = `
+            INSERT INTO forwarder_projects (
+              project_ref, client_name, status, global_margin_percentage,
+              documents, items, services,
+              land_origin, land_destination, land_distance,
+              land_freight_cost, land_freight_sale, valor_total_mercancia_usd,
+              total_trucks, route_and_chartering, data, dossier_ref, parent_ref
+            ) VALUES (
+              $1, $2, $3, $4,
+              $5::jsonb, $6::jsonb, $7::jsonb,
+              $8, $9, $10,
+              $11, $12, $13,
+              $14, $15::jsonb, $16::jsonb, $17, $18
+            )
+            RETURNING *;
+          `;
+          const fallbackValues = [
+            String(data.project_ref).trim(),
+            data.client_name || 'Nuevo Cliente',
+            statusValue || 'BORRADOR',
+            marginValue || '0',
+            JSON.stringify(data.documents || []),
+            JSON.stringify(adaptProjectItems(incomingUpdateItems || [])),
+            servicesJson || '[]',
+            landOrigin,
+            landDestination,
+            landDistance,
+            landFreightCost,
+            landFreightSale,
+            goodsValueUsd,
+            totalTrucks,
+            routeCharteringJson,
+            dataJson || '{}',
+            data.dossier_ref || data.project_ref,
+            data.parent_ref || data.project_ref
+          ];
+          const fallbackRes = await dbPool.query(fallbackInsertQuery, fallbackValues);
+          const fbRow = fallbackRes.rows[0];
+          const fbSrvs = Array.isArray(fbRow?.services) && fbRow.services.length > 0
+            ? fbRow.services
+            : (Array.isArray(fbRow?.line_items) ? fbRow.line_items : []);
+          return {
+            statusCode: 201,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: 'Expediente terrestre creado con éxito',
+              project: fbRow ? {
+                ...fbRow,
+                services: fbSrvs,
+                line_items: fbSrvs,
+                land_freight_cost: Number(fbRow.land_freight_cost) || 0,
+                land_freight_sale: Number(fbRow.land_freight_sale) || 0,
+                valor_total_mercancia_usd: Number(fbRow.valor_total_mercancia_usd) || 0,
+              } : null
+            })
+          };
+        }
+
         const srvs = Array.isArray(row?.services) && row.services.length > 0
           ? row.services
           : (Array.isArray(row?.line_items) ? row.line_items : []);
@@ -371,6 +553,9 @@ exports.handler = async (event) => {
     if (httpMethod === 'PUT') {
       const data = JSON.parse(body || '{}');
       
+      const isIntegerId = data.id !== undefined && data.id !== null && !isNaN(parseInt(data.id, 10)) && String(parseInt(data.id, 10)) === String(data.id).trim();
+      const parsedId = isIntegerId ? parseInt(data.id, 10) : null;
+
       const statusValue = (data.status !== undefined && data.status !== null && String(data.status).trim())
         ? String(data.status).trim()
         : null;
@@ -415,15 +600,15 @@ exports.handler = async (event) => {
             route_and_chartering = COALESCE($16::jsonb, route_and_chartering),
             data = COALESCE($17::jsonb, data),
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = $4 OR project_ref = $5
+        WHERE ($4::integer IS NOT NULL AND id = $4) OR ($5::text IS NOT NULL AND UPPER(project_ref) = UPPER($5))
         RETURNING *;
       `;
       const values = [
         data.documents !== undefined ? JSON.stringify(data.documents) : null,
         incomingCargoItems !== null ? JSON.stringify(adaptProjectItems(incomingCargoItems)) : null,
         data.client_name || null,
-        data.id ? parseInt(data.id, 10) : null,
-        data.project_ref || null,
+        parsedId,
+        data.project_ref ? String(data.project_ref).trim() : null,
         statusValue,
         marginValue,
         servicesJson,

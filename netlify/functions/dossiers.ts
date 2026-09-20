@@ -66,6 +66,7 @@ export default async (req: Request) => {
       const key = accountKey(req);
       const query = cleanText(url.searchParams.get("q"), 120);
       const filters = [eq(charterDossiers.accountKey, key)];
+      const includePayload = url.searchParams.get("includePayload") === "true" || url.searchParams.get("include_payload") === "true";
       if (query) {
         filters.push(or(
           ilike(charterDossiers.reference, `%${query}%`),
@@ -77,7 +78,7 @@ export default async (req: Request) => {
       }
       const rows = await db.select().from(charterDossiers)
         .where(and(...filters)).orderBy(desc(charterDossiers.updatedAt)).limit(250);
-      return Response.json({ success: true, dossiers: rows.map((row) => serialize(row)) });
+      return Response.json({ success: true, dossiers: rows.map((row) => serialize(row, includePayload)) });
     }
 
     if (!["POST", "PUT", "PATCH"].includes(req.method)) {
