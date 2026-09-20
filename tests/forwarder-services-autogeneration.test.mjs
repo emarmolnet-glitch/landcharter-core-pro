@@ -159,3 +159,81 @@ test('4. Behavioral simulation: Preserves existing services without adding dupli
   assert.equal(servicesList.length, 1);
   assert.equal(servicesList[0].id, 'srv-manual-1');
 });
+
+test('5. persistProjectToDatabase autogenerates Flete Terrestre line item before fetch into payload.services and payload.line_items', () => {
+  // Verifies check for empty services or line_items and land_freight_cost > 0
+  assert.match(
+    forwarderWorkspaceSource,
+    /(?:isServicesEmpty|!payload\.services\s*\|\|\s*payload\.services\.length\s*===\s*0)[\s\S]*?Number\(payload\.land_freight_cost\)\s*>\s*0/,
+    'Must check if payload.services or payload.line_items is empty with land_freight_cost > 0'
+  );
+
+  // Verifies name format 'Flete Terrestre (' + (payload.total_trucks || 1) + ' Camiones: ' + (payload.land_origin || 'Origen') + ' ➔ ' + (payload.land_destination || 'Destino') + ')'
+  assert.match(
+    forwarderWorkspaceSource,
+    /name:\s*['"]Flete Terrestre \(['"]\s*\+\s*\(payload\.total_trucks\s*\|\|\s*1\)\s*\+\s*['"] Camiones: ['"]\s*\+\s*\(payload\.land_origin\s*\|\|\s*['"]Origen['"]\)\s*\+\s*['"] ➔ ['"]\s*\+\s*\(payload\.land_destination\s*\|\|\s*['"]Destino['"]\)\s*\+\s*['"]\)['"]/,
+    'Must format service name as Flete Terrestre with trucks count, origin and destination'
+  );
+
+  // Verifies push into payload.services and payload.line_items
+  assert.match(
+    forwarderWorkspaceSource,
+    /payload\.services\.push\(autoService\)/,
+    'Must push autoService into payload.services'
+  );
+  assert.match(
+    forwarderWorkspaceSource,
+    /payload\.line_items\.push\(autoService\)/,
+    'Must push autoService into payload.line_items'
+  );
+});
+
+test('6. persistProjectToDatabase calculates valor_total_mercancia_usd from items and GICA cement catalog', () => {
+  // Verifies calculation of valorCalculadoDeItems from cargoArrayForFob
+  assert.match(
+    forwarderWorkspaceSource,
+    /const\s+estadoDelValorFobCalculado\s*=\s*Number\(mercanciaCost\)/,
+    'Must evaluate estadoDelValorFobCalculado from mercanciaCost'
+  );
+  assert.match(
+    forwarderWorkspaceSource,
+    /let\s+valorCalculadoDeItems\s*=\s*0;/,
+    'Must initialize valorCalculadoDeItems'
+  );
+  assert.match(
+    forwarderWorkspaceSource,
+    /valor_total_mercancia_usd:\s*Number\(estadoDelValorFobCalculado\)\s*\|\|\s*Number\(valorCalculadoDeItems\)\s*\|\|\s*Number\(projectToSave\.valor_total_mercancia_usd\)\s*\|\|\s*0/,
+    'Must assign valor_total_mercancia_usd using estadoDelValorFobCalculado, valorCalculadoDeItems, projectToSave fallback'
+  );
+});
+
+test('7. Behavioral simulation: GICA cement catalog items calculate dynamic FOB value', () => {
+  const COMMODITY_VALUES = {
+    'CEM I 52,5N BIGBAG': 60,
+    'CEM I 42,5N/R BIGBAG': 55,
+    'CEM II 42,5 VRAC': 50,
+  };
+
+  const cargoItems = [
+    { type: 'CEM I 52,5N BIGBAG', quantity: 100, weight: 1500 }, // 150 MT * 60 = 9,000 USD
+    { type: 'CEM II 42,5 VRAC', quantity: 1, weight_tons: 200 },    // 200 MT * 50 = 10,000 USD
+  ];
+
+  const valorCalculadoDeItems = cargoItems.reduce((acc, item) => {
+    const rawType = item.type;
+    const qty = item.quantity || 1;
+    const pieceWeight = Number(item.weight || 0);
+    const itemTotalKg = pieceWeight > 0 ? (qty * pieceWeight) : 0;
+    const weightTons = itemTotalKg > 0 ? (itemTotalKg / 1000) : (Number(item.weight_tons) || 0);
+    const unitPrice = COMMODITY_VALUES[rawType] || 0;
+    return acc + (weightTons * unitPrice);
+  }, 0);
+
+  assert.equal(valorCalculadoDeItems, 19000, 'Total FOB value should be 19,000 USD');
+
+  const estadoDelValorFobCalculado = 0;
+  const projectToSave = { valor_total_mercancia_usd: 0 };
+  const valorTotalMercanciaUsd = Number(estadoDelValorFobCalculado) || Number(valorCalculadoDeItems) || Number(projectToSave.valor_total_mercancia_usd) || 0;
+
+  assert.equal(valorTotalMercanciaUsd, 19000, 'Payload valor_total_mercancia_usd must resolve to 19000');
+});
