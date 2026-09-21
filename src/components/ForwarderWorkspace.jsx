@@ -12,6 +12,17 @@ import {
   CBAM_FACTORS,
   PRICE_2026,
 } from '../../cbam-module.js';
+import {
+  isNonEURoute,
+  getDssOptimalTrucksPerDay,
+  calculateFleetCampaignDimensioning,
+} from '../../shared/land-project-policy.mjs';
+
+export {
+  isNonEURoute,
+  getDssOptimalTrucksPerDay,
+  calculateFleetCampaignDimensioning,
+};
 
 const COMMODITY_TARIFFS = {
   "CEM I 52,5N BIGBAG": { inlandUsdMt: 3.00, portDuesUsdMt: 2.00, customsUsdMt: 0.25, packagingUsdMt: 3.50 },
@@ -2637,7 +2648,8 @@ function ForwarderWorkspaceInner() {
         setFreightSaleState(saleEur);
 
         const sTolls = Number(updated.tollCost || updated.tollsCost || updated.peajes || pFinancials.tollCost || (sDist > 0 ? Math.round(sDist * 0.18) : 0));
-        const sDiets = Number(updated.driverDiets || updated.dietas || pFinancials.driverDiets || (sDist > 0 ? Math.round(Math.max(1, Math.ceil(sDist / 650)) * 75) : 0));
+        const isSyncOutsideEU = isNonEURoute(updated.land_origin || updated.pol || withSrvs.land_origin, updated.land_destination || updated.pod || withSrvs.land_destination, updated);
+        const sDiets = isSyncOutsideEU ? 0 : Number(updated.driverDiets || updated.dietas || pFinancials.driverDiets || (sDist > 0 ? Math.round(Math.max(1, Math.ceil(sDist / 650)) * 75) : 0));
         setTollsState(sTolls);
         setDietsState(sDiets);
 
@@ -2888,7 +2900,8 @@ function ForwarderWorkspaceInner() {
       const newDistanceKm = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || (typeof window !== 'undefined' ? (window.State?.land_distance || window.State?.distanceKm || window.State?.distance) : 0) || 0);
       
       const newTolls = Number(activeProject.tollCost || activeProject.tollsCost || activeProject.peajes || activeProject.data?.financials?.tollCost || (typeof window !== 'undefined' ? (window.State?.tollCost || window.State?.peajes) : 0) || (newDistanceKm > 0 ? Math.round(newDistanceKm * 0.18) : 0));
-      const newDiets = Number(activeProject.driverDiets || activeProject.dietas || activeProject.data?.financials?.driverDiets || (typeof window !== 'undefined' ? (window.State?.driverDiets || window.State?.dietas) : 0) || (newDistanceKm > 0 ? Math.round(Math.max(1, Math.ceil(newDistanceKm / 650)) * 75) : 0));
+      const isInitOutsideEU = isNonEURoute(newLandOrigin || newOrigin, newLandDestination || newDestination, activeProject);
+      const newDiets = isInitOutsideEU ? 0 : Number(activeProject.driverDiets || activeProject.dietas || activeProject.data?.financials?.driverDiets || (typeof window !== 'undefined' ? (window.State?.driverDiets || window.State?.dietas) : 0) || (newDistanceKm > 0 ? Math.round(Math.max(1, Math.ceil(newDistanceKm / 650)) * 75) : 0));
 
       setOriginState(newOrigin);
       setDestinationState(newDestination);
@@ -3095,15 +3108,20 @@ function ForwarderWorkspaceInner() {
         ? Number(projectToSave.total_trucks)
         : (totalKg > 0 ? Math.ceil(totalKg / payloadPerTruck) : 1);
 
-      // Coste y Venta por camión
+      // Coste y Venta por camión (Exclusión de dietas en rutas fuera de la UE)
+      const isOutsideEU = isNonEURoute(landOrigin, landDestination, activeProject || projectToSave);
       const runningCost = Math.round(distanceKm * 1.57);
       const tolls = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollCost || (distanceKm > 0 ? distanceKm * 0.18 : 0)));
       const transitDays = distanceKm > 0 ? Math.max(1, Math.ceil(distanceKm / 650)) : 1;
-      const diets = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
+      const diets = isOutsideEU ? 0 : Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
       const safeLoadHours = Number(loadingRate || 2) > 24 ? 2 : Number(loadingRate || 2);
       const safeDischHours = Number(dischargingRate || 2) > 24 ? 2 : Number(dischargingRate || 2);
       const waitPenalty = Number(warehouseWaitPenaltyEur || 0) || (Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40));
       const baseTruckOperatingCost = runningCost + tolls + diets + waitPenalty;
+
+      // Cadencia de Flota y Dimensionamiento (DSS Escenario Óptimo)
+      const dssOptimalTrucksPerDay = getDssOptimalTrucksPerDay(activeProject || projectToSave, { origin: landOrigin, destination: landDestination, loadingRate });
+      const campaignDimensioning = calculateFleetCampaignDimensioning(trucksNeeded, dssOptimalTrucksPerDay);
 
       const costeOperativoPorCamion = (!distanceKm || Number(distanceKm) <= 0)
         ? 0
@@ -3261,6 +3279,11 @@ function ForwarderWorkspaceInner() {
         land_destination: pod || destination || projectToSave.land_destination || projectToSave.pod || activeProject?.land_destination || activeProject?.pod || landDestination,
         land_distance: distanceKm,
         total_trucks: Number(projectToSave?.total_trucks) > 0 ? Number(projectToSave.total_trucks) : (trucksNeeded || activeProject?.total_trucks),
+        dss_optimal_cadence: dssOptimalTrucksPerDay,
+        campaign_days: campaignDimensioning.plazoCampanaDias,
+        daily_truck_rotation: dssOptimalTrucksPerDay,
+        fleet_distribution: campaignDimensioning.distribucionFlota,
+        is_outside_eu: isOutsideEU,
         road_transit_days: projectToSave?.road_transit_days || activeProject?.road_transit_days,
         road_net_margin: projectToSave?.road_net_margin || activeProject?.road_net_margin,
         dossier_ref: projectToSave?.dossier_ref || projectToSave?.parent_ref || projectToSave?.referenciaPadre || referenciaActivaGlobal || activeProject?.dossier_ref || effectiveProjectRef,
@@ -3413,15 +3436,20 @@ function ForwarderWorkspaceInner() {
       const payloadPerTruck = getVehiclePayloadKg(truckType) || 24000;
       const trucksNeeded = totalKg > 0 ? Math.ceil(totalKg / payloadPerTruck) : 1;
 
-      // Coste y Venta por camión
+      // Coste y Venta por camión (Exclusión de dietas en rutas fuera de la UE)
+      const isOutsideEU = isNonEURoute(landOrigin, landDestination, activeProject);
       const runningCost = Math.round(distanceKm * 1.57);
       const tolls = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollCost || (distanceKm > 0 ? distanceKm * 0.18 : 0)));
       const transitDays = distanceKm > 0 ? Math.max(1, Math.ceil(distanceKm / 650)) : 1;
-      const diets = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
+      const diets = isOutsideEU ? 0 : Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
       const safeLoadHours = Number(loadingRate || 2) > 24 ? 2 : Number(loadingRate || 2);
       const safeDischHours = Number(dischargingRate || 2) > 24 ? 2 : Number(dischargingRate || 2);
       const waitPenalty = Number(warehouseWaitPenaltyEur || 0) || (Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40));
       const baseTruckOperatingCost = runningCost + tolls + diets + waitPenalty;
+
+      // Cadencia de Flota y Dimensionamiento (DSS Escenario Óptimo)
+      const dssOptimalTrucksPerDay = getDssOptimalTrucksPerDay(activeProject, { origin: landOrigin, destination: landDestination, loadingRate });
+      const campaignDimensioning = calculateFleetCampaignDimensioning(trucksNeeded, dssOptimalTrucksPerDay);
 
       const costeOperativoPorCamion = (!distanceKm || Number(distanceKm) <= 0)
         ? 0
@@ -3467,6 +3495,11 @@ function ForwarderWorkspaceInner() {
         land_freight_cost: finalTotalLandCost,
         land_freight_sale: finalTotalLandSale,
         total_trucks: trucksNeeded,
+        dss_optimal_cadence: dssOptimalTrucksPerDay,
+        campaign_days: campaignDimensioning.plazoCampanaDias,
+        daily_truck_rotation: dssOptimalTrucksPerDay,
+        fleet_distribution: campaignDimensioning.distribucionFlota,
+        is_outside_eu: isOutsideEU,
         safe_load_hours: typeof safeLoadHours !== 'undefined' ? safeLoadHours : (activeProject?.safe_load_hours || 2),
         safe_disch_hours: typeof safeDischHours !== 'undefined' ? safeDischHours : (activeProject?.safe_disch_hours || 2)
       };
@@ -5139,6 +5172,10 @@ function ForwarderWorkspaceInner() {
       );
     }
 
+    const isOutsideEU = isNonEURoute(reportPol || sourcePayload?.land_origin || landOrigin, reportPod || sourcePayload?.land_destination || landDestination, activeProject);
+    const dssOptimalTrucksPerDay = getDssOptimalTrucksPerDay(activeProject, { origin: reportPol || landOrigin, destination: reportPod || landDestination, loadingRate: reportLoadRate });
+    const campaignDimensioning = calculateFleetCampaignDimensioning(Math.max(1, Math.ceil(wTotalKg / 24000)), dssOptimalTrucksPerDay);
+
     return {
       totals: { quantity: qTotal, weight: wTotalKg, m2: m2Total, m3: m3Total },
       totalWeightTons,
@@ -5211,7 +5248,15 @@ function ForwarderWorkspaceInner() {
       payloadTons: getVehiclePayloadKg(vehicleType || activeProject?.truck_type || (isBigBags ? 'Camión Plataforma con Grúa Autocarga' : 'Tráiler Tauliner (13.6m)')) / 1000,
       inlandCost: isTariffActive ? officialInlandCost : inlCost,
       tollCost: isTariffActive ? 0 : (Number(activeProject?.tollCost || activeProject?.peajes) || 0),
-      driverDiets: isTariffActive ? 0 : (Number(activeProject?.driverDiets || activeProject?.dietas) || 0),
+      driverDiets: (isTariffActive || isOutsideEU) ? 0 : (Number(activeProject?.driverDiets || activeProject?.dietas) || 0),
+      isOutsideEU,
+      is_outside_eu: isOutsideEU,
+      dssOptimalCadence: dssOptimalTrucksPerDay,
+      dss_optimal_cadence: dssOptimalTrucksPerDay,
+      campaignDays: campaignDimensioning.plazoCampanaDias,
+      campaign_days: campaignDimensioning.plazoCampanaDias,
+      fleetDistribution: campaignDimensioning.distribucionFlota,
+      fleet_distribution: campaignDimensioning.distribucionFlota,
       warehouseWaitPenaltyEur: 0,
       totalRoadCost: isTariffActive ? officialInlandCost : finalTotalCost,
       finalSalePrice: isTariffActive ? officialSalePrice : finalTotalSale,
@@ -5481,7 +5526,9 @@ function ForwarderWorkspaceInner() {
       const safeExchange = Number(exchangeRate) || 1;
 
       // Matemáticas puras en el momento de guardar. Inmune a estados corrompidos.
-      const absoluteLandCost = ((safeDist * 1.57) + (safeDist * 0.18) + 75) * safeTrucks * safeExchange;
+      const isSaveOutsideEU = isNonEURoute(landOrigin || activeProject?.land_origin, landDestination || activeProject?.land_destination, activeProject);
+      const dietsPerTruck = isSaveOutsideEU ? 0 : 75;
+      const absoluteLandCost = ((safeDist * 1.57) + (safeDist * 0.18) + dietsPerTruck) * safeTrucks * safeExchange;
       const absoluteLandSale = absoluteLandCost * 1.18; // 18% de margen comercial
 
       const calculatedLandFreightCost = absoluteLandCost;
@@ -5751,18 +5798,20 @@ function ForwarderWorkspaceInner() {
 
   // --- LÓGICA DE DIVISA GLOBAL Y CÁLCULO DE FLOTA ---
   const isEurope = /(ES|PT|FR|DE|IT|BE|NL|PL|España|Francia)/i.test(activeProject?.land_origin || landOrigin || '');
-  const displayCurrency = isEurope ? 'EUR' : 'USD';
+  const isOutsideEU = isNonEURoute(activeProject?.land_origin || landOrigin, activeProject?.land_destination || landDestination, activeProject);
+  const displayCurrency = (isEurope && !isOutsideEU) ? 'EUR' : (isOutsideEU ? 'EUR' : 'USD');
   const exchangeRate = isEurope ? 1 : (typeof window !== 'undefined' && window.State?.exchangeRate ? window.State.exchangeRate : 1.10);
 
   // Usamos la variable de coste terrestre extraída (ej. totalRoadCost o cost), NUNCA el estimatedCost marítimo.
   const distKmUpper = Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : (distanceKm || 0))));
   const runningCostUpper = Math.round(distKmUpper * (1.35 + 0.22));
   const tollsUpper = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollsCost || (distKmUpper * 0.18)));
-  const dietsUpper = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (Math.max(1, Math.ceil(distKmUpper / 650)) * 75)));
+  const dietsUpper = isOutsideEU ? 0 : Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (Math.max(1, Math.ceil(distKmUpper / 650)) * 75)));
   const waitPenaltyUpper = Number(warehouseWaitPenaltyEur || 0);
   const calculatedTerrestrialUnit = runningCostUpper + tollsUpper + dietsUpper + waitPenaltyUpper;
 
-  const terrestrialUnitCost = Number(calculatedTerrestrialUnit > 0 ? calculatedTerrestrialUnit : (((distKmUpper || distanceKm || 0) * 1.57) + ((distKmUpper || distanceKm || 0) * 0.18) + 75));
+  const fallbackUpperDiets = isOutsideEU ? 0 : 75;
+  const terrestrialUnitCost = Number(calculatedTerrestrialUnit > 0 ? calculatedTerrestrialUnit : (((distKmUpper || distanceKm || 0) * 1.57) + ((distKmUpper || distanceKm || 0) * 0.18) + fallbackUpperDiets));
   const rawCost = Number(activeProject?.land_freight_cost) || terrestrialUnitCost || 0;
   const rawSale = Number(activeProject?.land_freight_sale) || (terrestrialUnitCost * 1.18) || 0;
 
@@ -6003,7 +6052,9 @@ function ForwarderWorkspaceInner() {
                 const isZeroDist = !rDistKm || Number(rDistKm) <= 0;
                 const projectCost = activeProject?.land_freight_cost || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.cost_eur || 0), 0);
                 const projectSale = activeProject?.land_freight_sale || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.sale_price_eur || 0), 0);
-                const rCostEur = isZeroDist ? 0 : (Number(projectCost) || Math.round(rDistKm * 1.57 + 75));
+                const isRRowOutsideEU = isNonEURoute(rOrigin, rDestination, activeProject);
+                const rDietsFallback = isRRowOutsideEU ? 0 : 75;
+                const rCostEur = isZeroDist ? 0 : (Number(projectCost) || Math.round(rDistKm * 1.57 + rDietsFallback));
                 const rSaleEur = isZeroDist ? 0 : (Number(projectSale) || (rCostEur > 0 ? Math.round(rCostEur * 1.18) : 0));
                 const rMargin = rSaleEur - rCostEur;
                 const rMarginPct = rCostEur > 0 ? Math.round((rMargin / rSaleEur) * 100) : 0;
@@ -7025,9 +7076,10 @@ function ForwarderWorkspaceInner() {
                       const runningCost = Math.round(distKm * totalCostKm);
                       const rawType = String(cargoItems[0]?.type || '').toUpperCase().trim();
                       const currentTariff = COMMODITY_TARIFFS[rawType] || null;
+                      const isFinancialOutsideEU = isNonEURoute(landOrigin || origin || pol, landDestination || destination || pod, activeProject);
                       const displayTolls = (isCommodityTariffActive && currentTariff) ? 0 : Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollsCost || (distKm * 0.18)));
                       const transitDays = distKm > 0 ? Math.max(1, Math.ceil(distKm / 650)) : 1;
-                      const displayDiets = (isCommodityTariffActive && currentTariff) ? 0 : Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
+                      const displayDiets = (isCommodityTariffActive && currentTariff) || isFinancialOutsideEU ? 0 : Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
                       
                       // Freno a las horas marítimas: Si viene > 24 (ej. 1500 MT/día), lo forzamos a 2 horas de camión para evitar multas millonarias
                       const safeLoadHours = Number(loadingRate || 2) > 24 ? 2 : Number(loadingRate || 2);
@@ -7065,7 +7117,9 @@ function ForwarderWorkspaceInner() {
                             <div className="bg-white p-2.5 rounded border border-slate-200 shadow-xs">
                               <span className="block text-[10px] uppercase font-bold text-slate-500">Dieta / Jornada Chófer</span>
                               <span className="text-sm font-mono font-bold text-blue-700">{displayDiets} €</span>
-                              <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">75 €/día (tacógrafo UE)</span>
+                              <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">
+                                {isFinancialOutsideEU ? '0 € (Exclusión fuera de la UE - Tracción pura)' : '75 €/día (tacógrafo UE)'}
+                              </span>
                             </div>
                             <div className="bg-white p-2.5 rounded border border-slate-200 shadow-xs">
                               <span className="block text-[10px] uppercase font-bold text-slate-500">Penalización Paralización</span>
@@ -7515,6 +7569,12 @@ function ForwarderWorkspaceInner() {
                 let totalRoadCost;
                 let finalSalePrice;
 
+                const isReportOutsideEU = isNonEURoute(
+                  activeReport?.pol || activeReport?.landOrigin || landOrigin || origin,
+                  activeReport?.pod || activeReport?.landDestination || landDestination || destination,
+                  activeProject || activeReport
+                );
+
                 if (isTariffActive) {
                   // Herencia de Datos FSPE en el Reporte (Blindaje Financiero):
                   // Forzar peajes, dietas y penalizaciones a 0 €
@@ -7530,6 +7590,16 @@ function ForwarderWorkspaceInner() {
 
                   // Aplicando el margen comercial correspondiente (18%) para que coincida exactamente con el precio de venta web (ej. 35.396,46 €)
                   finalSalePrice = Math.round(totalRoadCost * 1.18 * 100) / 100;
+                } else if (isReportOutsideEU) {
+                  // Exclusión geográfica fuera de la UE (Argelia, Sétif ➔ Bugía, etc.): Tracción pura + Peajes sin dietas
+                  runningCost = Math.round(distKm * 1.57);
+                  tollsCost = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || (distKm * 0.18)));
+                  driverDiets = 0;
+                  waitPenalty = Math.max(0, (Number(loadingRate || 2) - 2) * 40) + Math.max(0, (Number(dischargingRate || 2) - 2) * 40);
+                  const projectCost = activeProject?.land_freight_cost || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.cost_eur || 0), 0);
+                  const projectSale = activeProject?.land_freight_sale || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.sale_price_eur || 0), 0);
+                  totalRoadCost = Number(projectCost) || (runningCost + tollsCost + waitPenalty);
+                  finalSalePrice = Number(projectSale) || Math.round(totalRoadCost * 1.18 * 100) / 100;
                 } else {
                   runningCost = Math.round(distKm * 1.57);
                   tollsCost = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || (distKm * 0.18)));
@@ -7595,12 +7665,14 @@ function ForwarderWorkspaceInner() {
                           <td className="py-2.5 px-3 text-slate-600">
                             {isTariffActive
                               ? 'Blindaje FSPE: Dietas incluidas en tarifa plana de commodity (0,00 €)'
-                              : `${transitDays} jornada(s) según normativa de tacógrafo UE (75 €/día)`
+                              : isReportOutsideEU
+                                ? 'Exclusión geográfica (fuera de la UE): Operativa limitada estrictamente a tracción pura y peajes sin compensación de personal UE (0,00 €)'
+                                : `${transitDays} jornada(s) según normativa de tacógrafo UE (75 €/día)`
                             }
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono text-slate-800">{driverDiets.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{(isTariffActive ? 0 : Math.round(driverDiets * 1.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{(isTariffActive ? 0 : Math.round(driverDiets * 0.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{(isTariffActive || isReportOutsideEU ? 0 : Math.round(driverDiets * 1.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{(isTariffActive || isReportOutsideEU ? 0 : Math.round(driverDiets * 0.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
                         </tr>
                         {waitPenalty > 0 && (
                           <tr className="hover:bg-amber-50 bg-amber-50/60 font-semibold">
@@ -7648,6 +7720,11 @@ function ForwarderWorkspaceInner() {
                 const rawType = String(cargoItems[0]?.type || activeReport?.cargo_items?.[0]?.type || activeProject?.cargo_type || '').toUpperCase().trim();
                 const appliedTariff = COMMODITY_TARIFFS[rawType] || activeReport?.appliedTariff || null;
                 const isTariffActive = Boolean(isCommodityTariffActive || appliedTariff || activeReport?.isCommodityTariffActive);
+                const isReportOutsideEU = isNonEURoute(
+                  activeReport?.pol || activeReport?.landOrigin || landOrigin || origin,
+                  activeReport?.pod || activeReport?.landDestination || landDestination || destination,
+                  activeProject || activeReport
+                );
 
                 let projectTotalCost;
                 let projectTotalSale;
@@ -7666,7 +7743,7 @@ function ForwarderWorkspaceInner() {
                   const runningCost = Math.round(distKm * 1.57);
                   const tolls = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollsCost || (distKm > 0 ? distKm * 0.18 : 0)));
                   const transitDays = distKm > 0 ? Math.max(1, Math.ceil(distKm / 650)) : 1;
-                  const diets = Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
+                  const diets = isReportOutsideEU ? 0 : Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
                   singleTruckCost = runningCost + tolls + diets;
                   singleTruckSale = Math.round(singleTruckCost * 1.18 * 100) / 100;
                   projectTotalCost = singleTruckCost * trucksRequired;
@@ -7814,6 +7891,14 @@ function ForwarderWorkspaceInner() {
                   const axle3 = Math.min(24000, Math.round(7000 + wtPerTruckKg * 0.50));
                   const mmaTotal = axle1 + axle2 + axle3;
 
+                  // Cadencia de Flota - Escenario Óptimo (DSS)
+                  const dssOptimalCadence = getDssOptimalTrucksPerDay(activeProject, {
+                    origin: landOrigin || origin || pol,
+                    destination: landDestination || destination || pod,
+                    loadingRate
+                  });
+                  const campaignDim = calculateFleetCampaignDimensioning(trucksReq, dssOptimalCadence);
+
                   return (
                     <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-800 shadow-xs space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
@@ -7829,12 +7914,54 @@ function ForwarderWorkspaceInner() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 text-[11px] font-mono">
+                          <span id="badge-cadencia-optima-dss" className="bg-indigo-50 text-indigo-800 px-2 py-0.5 rounded border border-indigo-200 font-bold flex items-center gap-1">
+                            <span>🟢 DSS Óptimo:</span>
+                            <span id="val-dss-cadencia-badge">{dssOptimalCadence} camiones/día</span>
+                          </span>
+                          <span id="badge-plazo-campana-dss" className="bg-amber-50 text-amber-800 px-2 py-0.5 rounded border border-amber-200 font-bold flex items-center gap-1">
+                            <span>⏱️ Plazo:</span>
+                            <span id="val-dss-plazo-badge">{campaignDim.plazoCampanaDias} {campaignDim.plazoCampanaDias === 1 ? 'día' : 'días'}</span>
+                          </span>
                           <span className="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 font-bold">
                             Flota: {trucksReq} Camión{trucksReq > 1 ? 'es' : ''} Tráiler
                           </span>
                           <span className="bg-blue-50 text-blue-800 px-2 py-0.5 rounded border border-blue-200 font-bold">
                             {calcLdm.toFixed(1)} LDM Totales
                           </span>
+                        </div>
+                      </div>
+
+                      {/* Panel Prioritario: Cadencia de Flota y Distribución (DSS Escenario Óptimo) */}
+                      <div id="card-dss-cadencia-flota" className="bg-white p-3 rounded-lg border border-indigo-200 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-xl">🟢</span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] uppercase font-black text-indigo-900 tracking-wide">
+                                Cadencia de Flota y Dimensionamiento (DSS Escenario Óptimo)
+                              </span>
+                              <span className="text-[9.5px] font-mono bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded font-bold border border-indigo-200">
+                                Prioridad Absoluta
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-0.5">
+                              {campaignDim.distribucionFlota.descripcion} · Basado en Escenario Óptimo DSS ({dssOptimalCadence} camiones/día)
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 font-mono">
+                          <div className="bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-lg text-center">
+                            <span className="block text-[9px] uppercase font-bold text-indigo-600">Cadencia Diaria</span>
+                            <strong id="val-dss-cadencia-camiones-dia" className="text-indigo-950 text-sm font-black">{dssOptimalCadence} camiones/día</strong>
+                          </div>
+                          <div className="bg-amber-50 border border-amber-200 px-3 py-1 rounded-lg text-center">
+                            <span className="block text-[9px] uppercase font-bold text-amber-700">Plazo Campaña</span>
+                            <strong id="val-dss-plazo-campana" className="text-amber-950 text-sm font-black">{campaignDim.plazoCampanaDias} {campaignDim.plazoCampanaDias === 1 ? 'jornada' : 'jornadas'}</strong>
+                          </div>
+                          <div className="bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-lg text-center">
+                            <span className="block text-[9px] uppercase font-bold text-emerald-700">Rotación Activa</span>
+                            <strong id="val-dss-rotacion-activa" className="text-emerald-950 text-sm font-black">{campaignDim.flotaActivaDiaria} camiones/día</strong>
+                          </div>
                         </div>
                       </div>
 
