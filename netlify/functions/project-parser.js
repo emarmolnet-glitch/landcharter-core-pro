@@ -2828,6 +2828,14 @@ function calculateFinancialBreakdown(items = [], orderTotals, charteringAssessme
   const formatCurrency = (val) => `${currency === 'USD' ? '$' : ''}${Number(val || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 
   // Desglose Financiero de Transporte por Carretera (Land Charter Core PRO)
+  const routeOriginStr = String(options.origin || options.pol || options.land_origin || options.port_of_loading || '').toLowerCase();
+  const routeDestStr = String(options.destination || options.pod || options.land_destination || options.port_of_discharge || '').toLowerCase();
+  const isNonEURouteDetected = (
+    /\b(argelia|algeria|algerie|dz|dza|setif|sétif|bugia|bugía|bejaia|béjaïa|argel|algiers|oran|annaba|skikda|constantine|marruecos|morocco|maroc|ma|tunez|tunisia|egipto|egypt|turquia|turkey|reino unido|uk|suiza|noruega)\b/i.test(`${routeOriginStr} ${routeDestStr}`) ||
+    (/setif/i.test(routeOriginStr) && /bugia|bejaia/i.test(routeDestStr)) ||
+    (/setif/i.test(routeDestStr) && /bugia|bejaia/i.test(routeOriginStr))
+  );
+
   const distRoadKm = Math.round(Number(options.distanceKm || (options.distanceNm ? options.distanceNm * 1.852 : 850)) || 850);
   const costPerKmBase = 1.35;
   const fuelSurchargePerKm = 0.22;
@@ -2835,13 +2843,19 @@ function calculateFinancialBreakdown(items = [], orderTotals, charteringAssessme
   const kmRunningCostEur = Math.round(distRoadKm * costPerKmTotal);
   const highwayTollsEur = Math.round(distRoadKm * 0.18);
   const roadTransitDays = Math.max(1, Math.ceil(distRoadKm / 650));
-  const driverDietCostEur = roadTransitDays * 75;
+  const driverDietCostEur = isNonEURouteDetected ? 0 : roadTransitDays * 75;
   const loadWaitHours = Number(options.loadingRate) || 2;
   const dischWaitHours = Number(options.dischargingRate) || 2;
   const warehouseDetentionPenaltyEur = Math.max(0, (loadWaitHours - 2) * 40) + Math.max(0, (dischWaitHours - 2) * 40);
   const roadOperationalCostEur = kmRunningCostEur + highwayTollsEur + driverDietCostEur + warehouseDetentionPenaltyEur;
   const roadMarginPercentage = Number(marginPercentage || 18);
   const roadFreightSalePriceEur = Math.round(roadOperationalCostEur * (1 + roadMarginPercentage / 100));
+
+  // Cadencia de Flota (DSS Escenario Óptimo)
+  const isSetifRoute = (/setif/i.test(routeOriginStr) && /bugia|bejaia/i.test(routeDestStr)) || (/setif/i.test(routeDestStr) && /bugia|bejaia/i.test(routeOriginStr));
+  const dssOptimalTrucksPerDay = isSetifRoute ? 72 : Math.max(1, Math.ceil((Math.max(1, Number(options.loadingRate || 25)) * 1.30 * 8) / 24));
+  const estimatedTrucks = Math.max(1, Math.ceil((toneladas || 24) / 24));
+  const campaignDays = Math.max(1, Math.ceil(estimatedTrucks / dssOptimalTrucksPerDay));
 
   const roadTransportBreakdown = {
     distanceKm: distRoadKm,
@@ -2852,6 +2866,9 @@ function calculateFinancialBreakdown(items = [], orderTotals, charteringAssessme
     tollCostsEur: highwayTollsEur,
     transitDays: roadTransitDays,
     driverDietEur: driverDietCostEur,
+    isOutsideEU: isNonEURouteDetected,
+    dssOptimalCadence: dssOptimalTrucksPerDay,
+    campaignDays,
     warehouseWaitPenaltyEur: warehouseDetentionPenaltyEur,
     totalCostRoadEur: roadOperationalCostEur,
     marginPercentage: roadMarginPercentage,
@@ -2861,7 +2878,7 @@ function calculateFinancialBreakdown(items = [], orderTotals, charteringAssessme
 
   const summaryLines = [
     `📊 DESGLOSE FINANCIERO SEPARADO (LAND CHARTER CORE PRO):`,
-    `🚚 Transporte por Carretera: ${formatCurrency(roadOperationalCostEur)} (${distRoadKm} km @ ${costPerKmTotal.toFixed(2)} €/km + Peajes: ${highwayTollsEur} € + Dietas: ${driverDietCostEur} €) · Venta: ${formatCurrency(roadFreightSalePriceEur)} (${roadTransportBreakdown.salesPricePerKm.toFixed(2)} €/km)`,
+    `🚚 Transporte por Carretera: ${formatCurrency(roadOperationalCostEur)} (${distRoadKm} km @ ${costPerKmTotal.toFixed(2)} €/km + Peajes: ${highwayTollsEur} € + Dietas: ${isNonEURouteDetected ? '0 € [Exclusión geográfica fuera de la UE]' : `${driverDietCostEur} €`}) · Venta: ${formatCurrency(roadFreightSalePriceEur)} (${roadTransportBreakdown.salesPricePerKm.toFixed(2)} €/km) · Cadencia Óptima DSS: ${dssOptimalTrucksPerDay} camiones/día`,
     `🌊 Subtotal Flete Marítimo / TCE: ${formatCurrency(oceanFreightSubtotal)} (${isUnderThreshold ? 'Grupaje LCL' : 'Fletamento Completo'}) · ${flete_unitario_usd_mt.toFixed(2)} USD/MT`,
     `🏗️ Subtotal Costes FOB y Operativa Portuaria: ${formatCurrency(fobPortOperationsSubtotal)} (Manipulación muelle, estiba/trincaje, tasas, seguro y servicios asociados)`,
     `💵 Ratios Unitarios Operativos (USD/MT):`,
