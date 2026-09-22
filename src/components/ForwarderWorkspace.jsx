@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getApiUrl } from '../utils/apiConfig.js';
 import { parsePackingList } from '../utils/packingListParser.js';
 import AgenteProyectosWidget from './AgenteProyectosWidget';
+import CalculadoraTarifasWidget from './CalculadoraTarifasWidget.jsx';
 import '../../dual-trading-chartering-view.js';
 import {
   buildCBAMCommercialAnalysis,
@@ -1842,6 +1843,30 @@ function ForwarderWorkspaceInner() {
   const [error, setError] = useState(null);
   const [activeProject, setActiveProject] = useState(null);
   const [isAgentVisible, setIsAgentVisible] = useState(true);
+  const [isTariffCalculatorOpen, setIsTariffCalculatorOpen] = useState(false);
+
+  const handleApplyTarifasCalculadora = (totalConvertido) => {
+    const safeTotal = Number(totalConvertido) || 0;
+    setInlandCost(safeTotal);
+    setActiveProject((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        inlandCost: safeTotal,
+        inland_cost: safeTotal,
+        peripheral_services: {
+          ...(prev.peripheral_services || {}),
+          inland_cost: safeTotal,
+        },
+      };
+    });
+    if (typeof window !== 'undefined') {
+      window.State = window.State || {};
+      window.State.inlandCost = safeTotal;
+      window.State.inland_cost = safeTotal;
+    }
+    setSaveSuccessMessage(`Costes terrestres inyectados desde la Calculadora Universal: ${safeTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${displayCurrency}`);
+  };
 
   const [isCargoModalOpen, setIsCargoModalOpen] = useState(false);
   const [editingLineItemId, setEditingLineItemId] = useState(null);
@@ -1869,6 +1894,12 @@ function ForwarderWorkspaceInner() {
   const feedbackTimeoutRef = useRef(null);
 
   const [cargoItems, setCargoItems] = useState([]);
+  const [totalProjectTons, setTotalProjectTons] = useState(0);
+  const [requiredTrucksCount, setRequiredTrucksCount] = useState(0);
+  const setProjectWeightTons = setTotalProjectTons;
+  const setTotalQuantity = setTotalProjectTons;
+  const setTrucksCount = setRequiredTrucksCount;
+  const setVehicleCount = setRequiredTrucksCount;
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [recalculateFeedback, setRecalculateFeedback] = useState(null);
   const [capacityWarning, setCapacityWarning] = useState(null);
@@ -1941,6 +1972,7 @@ function ForwarderWorkspaceInner() {
   const userEditedMercanciaCost = useRef(false);
   const lastDetectedCargoTypeRef = useRef(null);
   const lastCalculatedItemsRef = useRef('');
+  const lastSyncPayloadRef = useRef(null);
   const lastRoadSyncPayloadRef = useRef('');
   const lastSyncDataBridgeRef = useRef('');
   const mapContainerRef = useRef(null);
@@ -2015,7 +2047,7 @@ function ForwarderWorkspaceInner() {
     const l = Math.max(0, parseFloat(item.length) || 0);
     const w = Math.max(0, parseFloat(item.width) || 0);
     const h = Math.max(0, parseFloat(item.height) || 0);
-    const wt = Math.max(0, parseFloat(item.weight) || 0);
+    const wt = Math.max(0, parseFloat(item.weight ?? item.unit_weight_kg ?? 0) || 0);
     acc.quantity += qty;
     acc.m2 += qty * (l * w);
     acc.m3 += qty * (l * w * h);
@@ -2187,7 +2219,7 @@ function ForwarderWorkspaceInner() {
     // El vigilante comprueba la memoria cada segundo sin ralentizar la app
     const intervalId = setInterval(rescatarDatosCalculadora, 1000);
     return () => clearInterval(intervalId);
-  }, [landOrigin, landDestination, distanceKm, activeProject]);
+  }, [landOrigin, landDestination, distanceKm]);
 
   // Recálculo automático de horas previstas de carga/descarga según ratio operativo
   useEffect(() => {
@@ -2656,6 +2688,79 @@ function ForwarderWorkspaceInner() {
         if (updated.charteringAssessment || updated.chartering_assessment) {
           setCharteringAssessment(updated.charteringAssessment || updated.chartering_assessment);
         }
+
+        // =========================================================================
+        // CAPTURA SEGURA DEL TONELAJE Y CÁLCULO DINÁMICO DE FLOTA (DATABRIDGE SYNC)
+        // =========================================================================
+        const packingListItemsWeight = (currentEffectiveItems || []).reduce((sum, it) => {
+          const qty = Math.max(1, Number(it.quantity) || 1);
+          const wt = Math.max(0, parseFloat(String(it.weight ?? it.unit_weight_kg ?? 0).replace(',', '.')) || 0);
+          return sum + (qty * wt);
+        }, 0);
+
+        const packingListWeightTons = packingListItemsWeight > 0 ? (packingListItemsWeight / 1000) : 0;
+        const totalTons = Number(
+          packingListWeightTons ||
+          withSrvs.totalWeightMT ||
+          withSrvs.total_weight_tons ||
+          withSrvs.cargoQuantity ||
+          (typeof window !== 'undefined' && (window.__ACTIVE_FORWARDER_TOTAL_WEIGHT_TONS__ || window.State?.cargo)) ||
+          (typeof localStorage !== 'undefined' && (localStorage.getItem('seacharter_active_project_weight_tons') || localStorage.getItem('active_project_weight_tons'))) ||
+          syncQuickTonnage ||
+          0
+        );
+
+        const truckPayloadMT = Number(
+          getVehiclePayloadKg(effectiveVehicle || vehicleType) / 1000 ||
+          (typeof window !== 'undefined' && (window.State?.truckPayloadCapacity || window.State?.cargaUtil)) ||
+          24
+        );
+
+        const requiredTrucks = totalTons > 0 ? Math.ceil(totalTons / truckPayloadMT) : 0;
+
+        // Inyección reactiva en estados locales y globales
+        setTotalProjectTons(totalTons);
+        setRequiredTrucksCount(requiredTrucks);
+        if (typeof setProjectWeightTons === 'function') setProjectWeightTons(totalTons);
+        if (typeof setTotalQuantity === 'function') setTotalQuantity(totalTons);
+        if (typeof setTrucksCount === 'function') setTrucksCount(requiredTrucks);
+        if (typeof setVehicleCount === 'function') setVehicleCount(requiredTrucks);
+
+        // Actualización explícita y blindada de la tabla visual (Packing List)
+        setCargoItems(prev => {
+          const newPayloadKg = truckPayloadMT * 1000;
+
+          // 1. Prevención del bucle: Si los datos son exactamente los mismos, aborta el re-render.
+          if (prev && prev.length === 1 && prev[0].quantity === requiredTrucks && prev[0].unit_weight_kg === newPayloadKg) {
+            return prev;
+          }
+
+          // 2. ID estática para no disparar los useEffects de autoguardado sin fin.
+          return [{
+            id: 'sync-land-charter-fixed-row',
+            category: 'Carga Unificada / Envasada',
+            type: `Flete Terrestre (${requiredTrucks} Camiones de ${truckPayloadMT} MT)`,
+            quantity: requiredTrucks,
+            unit_weight_kg: newPayloadKg,
+            weight: newPayloadKg
+          }];
+        });
+
+        if (typeof window !== 'undefined') {
+          window.__ACTIVE_FORWARDER_TOTAL_WEIGHT_TONS__ = totalTons;
+          window.State = window.State || {};
+          window.State.cargo = totalTons;
+          window.State.total_trucks = requiredTrucks;
+          window.State.camionesReales = requiredTrucks;
+        }
+
+        withSrvs.total_trucks = requiredTrucks;
+        withSrvs.total_weight_tons = totalTons;
+        withSrvs.cargoQuantity = totalTons;
+        // Evitar que el hook de hidratación traiga el payload viejo de la BD y destruya la fila recién calculada
+        // setActiveProject({ ...withSrvs });
+
+        console.log(`Sync DataBridge: ${totalTons} MT -> ${requiredTrucks} camiones requeridos (Payload: ${truckPayloadMT} MT)`);
       } else {
         await fetchProjects();
       }
@@ -5725,7 +5830,6 @@ function ForwarderWorkspaceInner() {
           cost: activeProject?.cost || null,
           sale: activeProject?.sale || null,
           items: activeProject?.items || [],
-          services: activeProject?.services || [],
           cargoQuantity: activeProject?.cargoQuantity || null,
           targetSalePrice: totalServicesSale,
           totalTripCost: totalServicesCost
@@ -5739,34 +5843,37 @@ function ForwarderWorkspaceInner() {
           if (typeof window !== 'undefined') {
             const roadSyncFn = typeof window.syncRoadMetricsToBridge === 'function' ? window.syncRoadMetricsToBridge : null;
             if (typeof roadSyncFn === 'function') {
-              const currentRoadSyncKey = JSON.stringify({
-                ref: activeProject?.project_ref,
+              const dataBridgePayloadObject = {
+                reference: activeProject?.project_ref,
+                project_ref: activeProject?.project_ref,
                 total_trucks: updatedProject.total_trucks,
-                cost: totalServicesCost,
-                sale: totalServicesSale,
-                mercancia: merchandiseValueUsd,
-                items: updatedLineItems,
-              });
+                land_freight_cost: totalServicesCost,
+                land_freight_sale: totalServicesSale,
+                valor_total_mercancia_usd: merchandiseValueUsd,
+                freight_cost: totalServicesCost,
+                services: updatedLineItems,
+                line_items: updatedLineItems,
+                items: (cargoItems && cargoItems.length > 0) ? cargoItems : activeProject?.items,
+                cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : activeProject?.cargo_items,
+                packing_list: updatedProject.packing_list,
+                land_route: updatedProject.land_route,
+              };
+
+              const currentPayloadString = JSON.stringify(dataBridgePayloadObject);
+              const currentRoadSyncKey = currentPayloadString;
+
+              if (lastSyncPayloadRef.current === currentPayloadString || lastRoadSyncPayloadRef.current === currentRoadSyncKey) {
+                // El payload es matemáticamente idéntico al anterior. CORTAFUEGOS ACTIVO.
+                console.log('[Data Bridge] Envío a sync-road omitido por carga idéntica (Deep Compare Cortafuegos)');
+                return;
+              }
+
+              // Si los datos son genuinamente nuevos, actualiza la memoria y llama a la API:
               if (lastRoadSyncPayloadRef.current !== currentRoadSyncKey) {
                 lastRoadSyncPayloadRef.current = currentRoadSyncKey;
-                await roadSyncFn({
-                  reference: activeProject?.project_ref,
-                  project_ref: activeProject?.project_ref,
-                  total_trucks: updatedProject.total_trucks,
-                  land_freight_cost: totalServicesCost,
-                  land_freight_sale: totalServicesSale,
-                  valor_total_mercancia_usd: merchandiseValueUsd,
-                  freight_cost: totalServicesCost,
-                  services: updatedLineItems,
-                  line_items: updatedLineItems,
-                  items: updatedProject.items,
-                  cargo_items: updatedProject.cargo_items,
-                  packing_list: updatedProject.packing_list,
-                  land_route: updatedProject.land_route,
-                });
-              } else {
-                console.log('[Data Bridge] Envío a sync-road omitido por carga idéntica (Deep Compare)');
               }
+              lastSyncPayloadRef.current = currentPayloadString;
+              await roadSyncFn(dataBridgePayloadObject);
             }
           }
         } catch (syncBridgeErr) {
@@ -5835,6 +5942,10 @@ function ForwarderWorkspaceInner() {
   const tonelajeReal = Number(totalWeightTons) || 1;
   const realUnitFreight = finalFooterSale / tonelajeReal;
   // --------------------------------------------------
+
+  const itemsToRender = (cargoItems && cargoItems.length > 0) 
+    ? cargoItems 
+    : (activeProject?.cargo_items || activeProject?.items || []);
 
   return (
     <>
@@ -5982,6 +6093,18 @@ function ForwarderWorkspaceInner() {
                   >
                     <span className={`text-sm ${isSyncingDataBridge ? 'animate-spin' : ''}`}>⚡</span>
                     <span>{isSyncingDataBridge ? 'Sincronizando...' : 'Sincronizar (DataBridge)'}</span>
+                  </button>
+
+                  {/* BOTÓN CALCULADORA UNIVERSAL DE TARIFAS TERRESTRES */}
+                  <button
+                    type="button"
+                    id="btn-open-tariff-calculator"
+                    onClick={() => setIsTariffCalculatorOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white rounded-lg text-xs font-black shadow-xs transition-colors cursor-pointer ml-2"
+                    title="Abrir Calculadora Universal de Tarifas Terrestres (Widget Flotante)"
+                  >
+                    <span>🧮</span>
+                    <span>Calculadora de Tarifas</span>
                   </button>
                 </div>
 
@@ -6599,23 +6722,26 @@ function ForwarderWorkspaceInner() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {(cargoItems || []).map((item) => {
+                        {itemsToRender.map((item, index) => {
                           const qty = Math.max(1, Number(item?.quantity) || 1);
                           const l = Math.max(0, parseFloat(item?.length) || 0);
                           const w = Math.max(0, parseFloat(item?.width) || 0);
                           const h = Math.max(0, parseFloat(item?.height) || 0);
                           const itemM2 = qty * (l * w);
                           const itemM3 = qty * (l * w * h);
+                          const unitWeightValue = (item?.weight !== undefined && item?.weight !== null && item?.weight !== '') 
+                            ? item.weight 
+                            : (item?.unit_weight_kg ?? '');
 
                           return (
-                            <tr key={item?.id || Math.random()} className="hover:bg-slate-50/80">
+                            <tr key={item?.id || index} className="hover:bg-slate-50/80">
                               <td className="p-1"><input type="text" value={item?.category || ''} onChange={(e) => handleUpdateCargoItem(item.id, 'category', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-slate-800 text-[11px]" placeholder="Ej: Equipos..." /></td>
                               <td className="p-1"><input type="text" list="commodity-list" value={item?.type || ''} onChange={(e) => handleUpdateCargoItem(item.id, 'type', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-slate-900 font-semibold text-[11px]" placeholder="Descripción de pieza..." /></td>
                               <td className="p-1"><input type="number" min={1} value={item?.quantity ?? 1} onChange={(e) => handleUpdateCargoItem(item.id, 'quantity', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-1 py-1.5 text-center text-slate-900 text-[11px]" /></td>
                               <td className="p-1"><input type="number" value={item?.length ?? ''} onChange={(e) => handleUpdateCargoItem(item.id, 'length', e.target.value)} className="w-full bg-white border border-slate-300 px-1 py-1.5 rounded text-center text-[11px]" placeholder="L" /></td>
                               <td className="p-1"><input type="number" value={item?.width ?? ''} onChange={(e) => handleUpdateCargoItem(item.id, 'width', e.target.value)} className="w-full bg-white border border-slate-300 px-1 py-1.5 rounded text-center text-[11px]" placeholder="W" /></td>
                               <td className="p-1"><input type="number" value={item?.height ?? ''} onChange={(e) => handleUpdateCargoItem(item.id, 'height', e.target.value)} className="w-full bg-white border border-slate-300 px-1 py-1.5 rounded text-center text-[11px]" placeholder="H" /></td>
-                              <td className="p-1"><input type="number" value={item?.weight ?? ''} onChange={(e) => handleUpdateCargoItem(item.id, 'weight', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-right font-mono text-[11px]" /></td>
+                              <td className="p-1"><input type="number" value={unitWeightValue} onChange={(e) => { handleUpdateCargoItem(item.id, 'weight', e.target.value); handleUpdateCargoItem(item.id, 'unit_weight_kg', e.target.value); }} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-right font-mono text-[11px]" /></td>
                               <td className="p-1 text-right font-mono text-[11px] text-slate-600">{itemM2.toFixed(2)}</td>
                               <td className="p-1 text-right font-mono text-[11px] text-slate-600">{itemM3.toFixed(2)}</td>
                               <td className="p-1"><input type="text" value={item?.shipping_mode_supported || ''} onChange={(e) => handleUpdateCargoItem(item.id, 'shipping_mode_supported', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-slate-600 text-[10px]" placeholder="Modo..." /></td>
@@ -7274,6 +7400,18 @@ function ForwarderWorkspaceInner() {
                       >
                         <span className="text-sm" aria-hidden="true">⚖️</span>
                         <span>Abrir Simulador Dual Trading</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        id="btn-open-tariff-calculator-section"
+                        onClick={() => setIsTariffCalculatorOpen(true)}
+                        className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-sky-700 hover:bg-sky-800 active:bg-sky-900 text-white text-xs font-bold shadow-sm transition-all duration-150 cursor-pointer"
+                        title="Abrir Calculadora Universal de Tarifas Terrestres"
+                        aria-label="Abrir Calculadora Universal de Tarifas Terrestres"
+                      >
+                        <span className="text-sm" aria-hidden="true">🧮</span>
+                        <span>Calculadora de Tarifas Terrestres</span>
                       </button>
                     </div>
                   </div>
@@ -8442,6 +8580,28 @@ function ForwarderWorkspaceInner() {
         financialBreakdown={financialBreakdown}
         stowagePlan={activeReport?.stowagePlan || reportData?.stowagePlan || calculateUniversalStowagePlan(cargoItems, totals, { shippingMode, pol, pod })}
       />
+
+      {/* Botón flotante para restaurar/abrir la Calculadora Universal de Tarifas */}
+      {!isTariffCalculatorOpen && (
+        <button
+          type="button"
+          id="floating-open-tariff-calc"
+          className="tariff-calc-launcher-btn"
+          onClick={() => setIsTariffCalculatorOpen(true)}
+          title="Abrir Calculadora Universal de Tarifas Terrestres"
+        >
+          <span>🧮</span>
+          <span>Calculadora de Tarifas</span>
+        </button>
+      )}
+
+      {/* Widget Flotante de Calculadora Universal de Tarifas Terrestres (Exclusivo en Proyectos) */}
+      <CalculadoraTarifasWidget
+        isOpen={isTariffCalculatorOpen}
+        onClose={() => setIsTariffCalculatorOpen(false)}
+        onApply={handleApplyTarifasCalculadora}
+        targetCurrency={displayCurrency}
+      />
     </>
   );
 }
@@ -8456,13 +8616,31 @@ export function LandCharterMap({ containerId = 'map-container', className = '' }
   const localInstanceRef = useRef(null);
 
   useEffect(() => {
-    // FIX ANTICRASH LEAFLET CANVAS (Evita el error 'clearRect' al renderizar doble)
+    // FIX ANTICRASH LEAFLET CANVAS (Evita el error 'clearRect' al renderizar doble o en desmontaje asíncrono)
     if (typeof L !== 'undefined' && L.Canvas) {
-      const originalClear = L.Canvas.prototype._clear;
-      L.Canvas.prototype._clear = function() {
-        if (!this._ctx) return;
-        originalClear.call(this);
-      };
+      if (!L.Canvas.prototype._anticrashPatched) {
+        L.Canvas.prototype._anticrashPatched = true;
+        const originalClear = L.Canvas.prototype._clear;
+        L.Canvas.prototype._clear = function() {
+          if (!this._ctx || typeof this._ctx.clearRect !== 'function') return;
+          try {
+            originalClear.call(this);
+          } catch (cErr) {
+            console.warn('[Leaflet Canvas] Prevención de crash en _clear:', cErr);
+          }
+        };
+        const originalDraw = L.Canvas.prototype._draw;
+        if (typeof originalDraw === 'function') {
+          L.Canvas.prototype._draw = function() {
+            if (!this._ctx) return;
+            try {
+              originalDraw.call(this);
+            } catch (dErr) {
+              console.warn('[Leaflet Canvas] Prevención de crash en _draw:', dErr);
+            }
+          };
+        }
+      }
     }
     // Si el contenedor del mapa (el div o el ref) no existe, haz un return temprano para evitar el error appendChild
     const container = localContainerRef.current || (typeof document !== 'undefined' ? document.getElementById(containerId) : null);

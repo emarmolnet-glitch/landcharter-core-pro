@@ -379,6 +379,15 @@ export async function syncRoadMetricsToBridge(options = {}) {
 
     const payload = buildRoadSyncPayload(options);
 
+    if (typeof window !== 'undefined') {
+        window.lastDataBridgePayloadStr = window.lastDataBridgePayloadStr || '';
+        const currentStr = JSON.stringify(payload);
+        if (window.lastDataBridgePayloadStr === currentStr) {
+            return { success: true, cached: true, payload };
+        }
+        window.lastDataBridgePayloadStr = currentStr;
+    }
+
     try {
         if (typeof fetchImpl !== 'function') {
             logger.warn('[Data Bridge] fetch no disponible para sincronización inversa.');
