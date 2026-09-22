@@ -2726,25 +2726,18 @@ function ForwarderWorkspaceInner() {
         if (typeof setTrucksCount === 'function') setTrucksCount(requiredTrucks);
         if (typeof setVehicleCount === 'function') setVehicleCount(requiredTrucks);
 
-        // Actualización explícita y blindada de la tabla visual (Packing List)
-        setCargoItems(prev => {
-          const newPayloadKg = truckPayloadMT * 1000;
+        // 1. Creas la constante con el cálculo final:
+        const finalCargoItems = [{
+          id: 'sync-land-charter-fixed-row',
+          category: 'Carga Unificada / Envasada',
+          type: `Flete Terrestre (${requiredTrucks} Camiones)`,
+          quantity: requiredTrucks,
+          unit_weight_kg: truckPayloadMT * 1000,
+          weight: truckPayloadMT * 1000
+        }];
 
-          // 1. Prevención del bucle: Si los datos son exactamente los mismos, aborta el re-render.
-          if (prev && prev.length === 1 && prev[0].quantity === requiredTrucks && prev[0].unit_weight_kg === newPayloadKg) {
-            return prev;
-          }
-
-          // 2. ID estática para no disparar los useEffects de autoguardado sin fin.
-          return [{
-            id: 'sync-land-charter-fixed-row',
-            category: 'Carga Unificada / Envasada',
-            type: `Flete Terrestre (${requiredTrucks} Camiones de ${truckPayloadMT} MT)`,
-            quantity: requiredTrucks,
-            unit_weight_kg: newPayloadKg,
-            weight: newPayloadKg
-          }];
-        });
+        // 2. Actualizas la interfaz:
+        setCargoItems(finalCargoItems);
 
         if (typeof window !== 'undefined') {
           window.__ACTIVE_FORWARDER_TOTAL_WEIGHT_TONS__ = totalTons;
@@ -2757,8 +2750,49 @@ function ForwarderWorkspaceInner() {
         withSrvs.total_trucks = requiredTrucks;
         withSrvs.total_weight_tons = totalTons;
         withSrvs.cargoQuantity = totalTons;
-        // Evitar que el hook de hidratación traiga el payload viejo de la BD y destruya la fila recién calculada
-        // setActiveProject({ ...withSrvs });
+        withSrvs.items = finalCargoItems;
+        withSrvs.cargo_items = finalCargoItems;
+
+        // 3. EN LA MISMA FUNCIÓN, cuando construyas 'dataBridgePayloadObject', usa la constante directamente:
+        const dataBridgePayloadObject = {
+          reference: activeProject?.project_ref || withSrvs?.project_ref || ref,
+          project_ref: activeProject?.project_ref || withSrvs?.project_ref || ref,
+          id: activeProject?.id || withSrvs?.id,
+          total_trucks: requiredTrucks,
+          land_origin: sOrigin || effectiveLandOrigin,
+          land_destination: sDestination || effectiveLandDest,
+          land_distance: sDist || effectiveLandDist,
+          land_freight_cost: costEur || effectiveLandCost,
+          land_freight_sale: saleEur || withSrvs?.land_freight_sale || 0,
+          valor_total_mercancia_usd: withSrvs?.valor_total_mercancia_usd || 0,
+          freight_cost: costEur || effectiveLandCost,
+          services: withSrvs?.services || withSrvs?.line_items || [],
+          line_items: withSrvs?.line_items || withSrvs?.services || [],
+          items: finalCargoItems,
+          cargo_items: finalCargoItems,
+          packing_list: withSrvs?.packing_list || null,
+          land_route: withSrvs?.land_route || {
+            origin: sOrigin || effectiveLandOrigin,
+            destination: sDestination || effectiveLandDest,
+            distance_km: sDist || effectiveLandDist,
+          },
+        };
+
+        try {
+          if (typeof window !== 'undefined') {
+            const roadSyncFn = typeof window.syncRoadMetricsToBridge === 'function' ? window.syncRoadMetricsToBridge : null;
+            if (typeof roadSyncFn === 'function') {
+              await roadSyncFn(dataBridgePayloadObject);
+            }
+          }
+          await fetch(getApiUrl('/api/projects/sync-road'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify(dataBridgePayloadObject),
+          }).catch(() => null);
+        } catch (syncBridgeErr) {
+          console.warn('[Data Bridge] Error al enviar dataBridgePayloadObject en handleSyncDataBridge:', syncBridgeErr);
+        }
 
         console.log(`Sync DataBridge: ${totalTons} MT -> ${requiredTrucks} camiones requeridos (Payload: ${truckPayloadMT} MT)`);
       } else {
@@ -5904,10 +5938,18 @@ function ForwarderWorkspaceInner() {
     : projects.filter((p) => isProjectMatchingActiveDossier(p, referenciaActivaGlobal));
 
   // --- LÓGICA DE DIVISA GLOBAL Y CÁLCULO DE FLOTA ---
-  const isEurope = /(ES|PT|FR|DE|IT|BE|NL|PL|España|Francia)/i.test(activeProject?.land_origin || landOrigin || '');
-  const isOutsideEU = isNonEURoute(activeProject?.land_origin || landOrigin, activeProject?.land_destination || landDestination, activeProject);
-  const displayCurrency = (isEurope && !isOutsideEU) ? 'EUR' : (isOutsideEU ? 'EUR' : 'USD');
-  const exchangeRate = isEurope ? 1 : (typeof window !== 'undefined' && window.State?.exchangeRate ? window.State.exchangeRate : 1.10);
+  const isEurope = (locationStr) => {
+    if (!locationStr) return true; // fallback
+    const euCountries = ['españa', 'spain', 'francia', 'france', 'portugal', 'alemania', 'germany', 'italia', 'italy', 'bélgica', 'belgium', 'holanda', 'netherlands', 'polonia', 'poland'];
+    return euCountries.some(eu => String(locationStr).toLowerCase().includes(eu));
+  };
+
+  const routeIsStrictlyEU = isEurope(landOrigin) && isEurope(landDestination);
+  const currentGeographicCurrency = routeIsStrictlyEU ? 'EUR' : 'USD';
+  const displayCurrency = currentGeographicCurrency;
+  const currencySymbol = currentGeographicCurrency === 'EUR' ? '€' : '$';
+  const isOutsideEU = !routeIsStrictlyEU;
+  const exchangeRate = routeIsStrictlyEU ? 1 : (typeof window !== 'undefined' && window.State?.exchangeRate ? window.State.exchangeRate : 1.10);
 
   // Usamos la variable de coste terrestre extraída (ej. totalRoadCost o cost), NUNCA el estimatedCost marítimo.
   const distKmUpper = Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : (distanceKm || 0))));
@@ -6425,15 +6467,15 @@ function ForwarderWorkspaceInner() {
                             <span className="text-base">💶</span>
                           </div>
                           <div className="flex items-baseline gap-1 text-slate-900">
-                            <span className="text-xl font-mono font-black text-emerald-600">{rSaleEur.toLocaleString('es-ES')} €</span>
+                            <span className="text-xl font-mono font-black text-emerald-600">{rSaleEur.toLocaleString('es-ES')} {currencySymbol}</span>
                             <span className="text-[10px] font-mono text-slate-400">venta</span>
                           </div>
                         </div>
                         <div className="text-[11px] text-slate-600 mt-3 pt-2 border-t border-slate-100 font-mono truncate">
                           {rCostEur > 0 ? (
-                            <>Coste: {rCostEur.toLocaleString('es-ES')} € · <span className="text-emerald-600 font-bold">+{rMargin.toLocaleString('es-ES')} € ({rMarginPct}%)</span></>
+                            <>Coste: {rCostEur.toLocaleString('es-ES')} {currencySymbol} · <span className="text-emerald-600 font-bold">+{rMargin.toLocaleString('es-ES')} {currencySymbol} ({rMarginPct}%)</span></>
                           ) : (
-                            <span className="text-slate-400 italic">Coste: 0 € · Requiere distancia para cálculo</span>
+                            <span className="text-slate-400 italic">Coste: 0 {currencySymbol} · Requiere distancia para cálculo</span>
                           )}
                         </div>
                       </div>
@@ -6542,8 +6584,8 @@ function ForwarderWorkspaceInner() {
                       <thead className="bg-slate-100 font-bold border-b border-slate-200 text-slate-700">
                         <tr>
                           <th className="px-4 py-3 text-left">Servicio</th>
-                          <th className="px-4 py-3 text-right">Coste (€)</th>
-                          <th className="px-4 py-3 text-right">Venta (€)</th>
+                          <th className="px-4 py-3 text-right">Coste ({currencySymbol})</th>
+                          <th className="px-4 py-3 text-right">Venta ({currencySymbol})</th>
                           <th className="px-4 py-3 text-center">Acciones</th>
                         </tr>
                       </thead>
@@ -6551,8 +6593,8 @@ function ForwarderWorkspaceInner() {
                         {((activeProject?.line_items?.length > 0 ? activeProject.line_items : activeProject?.services) || []).map((item) => (
                           <tr key={item?.id || Math.random()} className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
                             <td className="px-4 py-3 font-semibold">{item?.description || item?.name || 'Servicio'}</td>
-                            <td className="px-4 py-3 text-right text-rose-600 font-bold font-mono">{Number(item?.cost_eur ?? item?.cost ?? 0).toLocaleString('es-ES')} €</td>
-                            <td className="px-4 py-3 text-right text-emerald-600 font-bold font-mono">{Number(item?.sale_price_eur ?? item?.sale ?? 0).toLocaleString('es-ES')} €</td>
+                            <td className="px-4 py-3 text-right text-rose-600 font-bold font-mono">{Number(item?.cost_eur ?? item?.cost ?? 0).toLocaleString('es-ES')} {currencySymbol}</td>
+                            <td className="px-4 py-3 text-right text-emerald-600 font-bold font-mono">{Number(item?.sale_price_eur ?? item?.sale ?? 0).toLocaleString('es-ES')} {currencySymbol}</td>
                             <td className="px-4 py-3 text-center">
                               <button type="button" onClick={() => handleOpenExecutiveReport(item)} className="mx-1 cursor-pointer hover:scale-110 transition-transform" title="Generar Reporte Ejecutivo">📄</button>
                               <button onClick={() => handleEditService(item)} className="mx-1 cursor-pointer" title="Editar">✏️</button>
@@ -7232,36 +7274,36 @@ function ForwarderWorkspaceInner() {
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-3">
                             <div className="bg-white p-2.5 rounded border border-slate-200 shadow-xs">
                               <span className="block text-[10px] uppercase font-bold text-slate-500">Coste / km (Base + Fuel)</span>
-                              <span className="text-sm font-mono font-bold text-slate-900">{totalCostKm.toFixed(2)} €/km</span>
-                              <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">{runningCost.toLocaleString('es-ES')} € total</span>
+                              <span className="text-sm font-mono font-bold text-slate-900">{totalCostKm.toFixed(2)} {currencySymbol}/km</span>
+                              <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">{runningCost.toLocaleString('es-ES')} {currencySymbol} total</span>
                             </div>
                             <div className="bg-white p-2.5 rounded border border-slate-200 shadow-xs">
                               <span className="block text-[10px] uppercase font-bold text-slate-500">Peajes de Autopista</span>
-                              <span className="text-sm font-mono font-bold text-amber-700">{displayTolls.toLocaleString('es-ES')} €</span>
-                              <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">~0.18 €/km medio</span>
+                              <span className="text-sm font-mono font-bold text-amber-700">{displayTolls.toLocaleString('es-ES')} {currencySymbol}</span>
+                              <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">~0.18 {currencySymbol}/km medio</span>
                             </div>
                             <div className="bg-white p-2.5 rounded border border-slate-200 shadow-xs">
                               <span className="block text-[10px] uppercase font-bold text-slate-500">Dieta / Jornada Chófer</span>
-                              <span className="text-sm font-mono font-bold text-blue-700">{displayDiets} €</span>
+                              <span className="text-sm font-mono font-bold text-blue-700">{displayDiets} {currencySymbol}</span>
                               <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">
-                                {isFinancialOutsideEU ? '0 € (Exclusión fuera de la UE - Tracción pura)' : '75 €/día (tacógrafo UE)'}
+                                {isFinancialOutsideEU ? `0 ${currencySymbol} (Exclusión fuera de la UE - Tracción pura)` : `75 ${currencySymbol}/día (tacógrafo UE)`}
                               </span>
                             </div>
                             <div className="bg-white p-2.5 rounded border border-slate-200 shadow-xs">
                               <span className="block text-[10px] uppercase font-bold text-slate-500">Penalización Paralización</span>
-                              <span className={`text-sm font-mono font-bold ${waitPenalty > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{waitPenalty} €</span>
-                              <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">40 €/h tras 2h franquicia</span>
+                              <span className={`text-sm font-mono font-bold ${waitPenalty > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{waitPenalty} {currencySymbol}</span>
+                              <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">40 {currencySymbol}/h tras 2h franquicia</span>
                             </div>
                           </div>
                           <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200">
                             <div>
                               <span className="text-[11px] font-mono text-slate-500">Coste Operativo Total Carretera:</span>
-                              <strong className="text-base font-mono font-bold text-slate-800 ml-2">{(Number(cost || 0) * (camionesReales || 1)).toLocaleString()} €</strong>
+                              <strong className="text-base font-mono font-bold text-slate-800 ml-2">{(Number(cost || 0) * (camionesReales || 1)).toLocaleString()} {currencySymbol}</strong>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] font-mono text-emerald-700 font-bold">Precio de Venta Sugerido (18% margen):</span>
-                              <strong className="text-xl font-mono font-black text-emerald-600">{roadSale.toLocaleString('es-ES')} €</strong>
-                              <span className="text-[11px] font-mono font-bold text-emerald-700">({roadSalePerKm} €/km)</span>
+                              <strong className="text-xl font-mono font-black text-emerald-600">{roadSale.toLocaleString('es-ES')} {currencySymbol}</strong>
+                              <span className="text-[11px] font-mono font-bold text-emerald-700">({roadSalePerKm} {currencySymbol}/km)</span>
                             </div>
                           </div>
                         </div>
@@ -7451,20 +7493,26 @@ function ForwarderWorkspaceInner() {
               <div className="bg-slate-50 p-6 border-t border-slate-200 flex justify-between items-end shrink-0">
                 <div className="flex gap-6 w-1/2">
                   <div className="w-full relative">
-                    <label htmlFor="input-estimated-cost" className="block text-slate-500 font-bold text-[10px] uppercase mb-1">Coste Total Estimado ({displayCurrency === 'EUR' ? '€' : '$'})</label>
+                    <label htmlFor="input-estimated-cost" className="block text-slate-500 font-bold text-[10px] uppercase mb-1">
+                      Coste Total Estimado ({currencySymbol})
+                      {/* Coste Total Estimado (€) */}
+                    </label>
                     <div className="relative flex items-center">
-                      <span className="absolute left-3.5 text-slate-400 font-mono font-bold text-xl select-none">{displayCurrency === 'EUR' ? '€' : '$'}</span>
+                      <span className="absolute left-3.5 text-slate-400 font-mono font-bold text-xl select-none">{currencySymbol}</span>
                       <input id="input-estimated-cost" type="number" readOnly value={finalFooterCost > 0 ? finalFooterCost.toFixed(2) : ''} className="w-full bg-slate-800 text-white font-bold text-2xl text-right p-3 pr-14 rounded border border-slate-600 outline-none focus:border-cyan-500 shadow-inner" />
-                      <span className="hidden text-slate-400">EUR</span>
+                      <span className="hidden text-slate-400">{displayCurrency}</span>
                       <span className="absolute right-3.5 text-xs text-slate-400 font-mono font-semibold">{displayCurrency}</span>
                     </div>
                   </div>
                   <div className="w-full relative">
-                    <label htmlFor="input-sale-price" className="block text-blue-600 font-bold text-[10px] uppercase mb-1">Precio Venta a Cliente ({displayCurrency === 'EUR' ? '€' : '$'})</label>
+                    <label htmlFor="input-sale-price" className="block text-blue-600 font-bold text-[10px] uppercase mb-1">
+                      Precio Venta a Cliente ({currencySymbol})
+                      {/* Precio Venta a Cliente (€) */}
+                    </label>
                     <div className="relative flex items-center">
-                      <span className="absolute left-3.5 text-blue-400 font-mono font-bold text-xl select-none">{displayCurrency === 'EUR' ? '€' : '$'}</span>
+                      <span className="absolute left-3.5 text-blue-400 font-mono font-bold text-xl select-none">{currencySymbol}</span>
                       <input id="input-sale-price" type="number" readOnly value={finalFooterSale > 0 ? finalFooterSale.toFixed(2) : ''} className="w-full bg-slate-800 text-white font-bold text-2xl text-right p-3 pr-14 rounded border border-slate-600 outline-none focus:border-cyan-500 shadow-inner" />
-                      <span className="hidden text-slate-400">EUR</span>
+                      <span className="hidden text-slate-400">{displayCurrency}</span>
                       <span className="absolute right-3.5 text-xs text-slate-400 font-mono font-semibold">{displayCurrency}</span>
                     </div>
                   </div>
@@ -7507,7 +7555,7 @@ function ForwarderWorkspaceInner() {
         const finalTotalCost = activeReport.finalTotalCost;
         const finalTotalSale = activeReport.finalTotalSale;
         const finalTotalMargin = activeReport.finalTotalMargin;
-        const formatCurrency = (val) => Number(val || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        const formatCurrency = (val) => Number(val || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ` ${currencySymbol}`;
 
         const unitRateSale = activeReport.unitRateSale;
         const fleteCostNum = activeReport.fleteCostNum;
@@ -7766,9 +7814,9 @@ function ForwarderWorkspaceInner() {
                         <tr className="bg-slate-100 text-slate-700 uppercase font-bold border-y-2 border-slate-300">
                           <th className="py-2.5 px-3 text-left">Concepto</th>
                           <th className="py-2.5 px-3 text-left">Descripción Operativa</th>
-                          <th className="py-2.5 px-3 text-right">Coste (€)</th>
-                          <th className="py-2.5 px-3 text-right">Venta (€)</th>
-                          <th className="py-2.5 px-3 text-right">Margen (€)</th>
+                          <th className="py-2.5 px-3 text-right">Coste ({currencySymbol})</th>
+                          <th className="py-2.5 px-3 text-right">Venta ({currencySymbol})</th>
+                          <th className="py-2.5 px-3 text-right">Margen ({currencySymbol})</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
@@ -7782,9 +7830,9 @@ function ForwarderWorkspaceInner() {
                               : `Tracción de camión y gasóleo profesional (${distKm} km a 1.57 €/km)`
                             }
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono text-slate-800">{runningCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{finalSalePrice.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{agencyMargin.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-slate-800">{runningCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{finalSalePrice.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{agencyMargin.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
                         </tr>
                         <tr className="hover:bg-slate-50">
                           <td className="py-2.5 px-3 font-bold text-slate-900">Peajes y Euroviñetas</td>
@@ -7794,9 +7842,9 @@ function ForwarderWorkspaceInner() {
                               : 'Autopistas de peaje y tasas de tránsito en corredores europeos (~0.18 €/km)'
                             }
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono text-slate-800">{tollsCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{(isTariffActive ? 0 : Math.round(tollsCost * 1.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{(isTariffActive ? 0 : Math.round(tollsCost * 0.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-slate-800">{tollsCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{(isTariffActive ? 0 : Math.round(tollsCost * 1.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{(isTariffActive ? 0 : Math.round(tollsCost * 0.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
                         </tr>
                         <tr className="hover:bg-slate-50">
                           <td className="py-2.5 px-3 font-bold text-slate-900">Dietas y Pernoctas de Chófer</td>
@@ -7808,17 +7856,17 @@ function ForwarderWorkspaceInner() {
                                 : `${transitDays} jornada(s) según normativa de tacógrafo UE (75 €/día)`
                             }
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono text-slate-800">{driverDiets.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{(isTariffActive || isReportOutsideEU ? 0 : Math.round(driverDiets * 1.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{(isTariffActive || isReportOutsideEU ? 0 : Math.round(driverDiets * 0.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-slate-800">{driverDiets.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{(isTariffActive || isReportOutsideEU ? 0 : Math.round(driverDiets * 1.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{(isTariffActive || isReportOutsideEU ? 0 : Math.round(driverDiets * 0.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
                         </tr>
                         {waitPenalty > 0 && (
                           <tr className="hover:bg-amber-50 bg-amber-50/60 font-semibold">
                             <td className="py-2.5 px-3 font-bold text-amber-950">Penalización Paralización de Carga/Descarga</td>
                             <td className="py-2.5 px-3 text-amber-900">Sobrecoste por demora de carga ({loadingRate}h) y descarga ({dischargingRate}h) a 40 €/h tras 2h franquicia</td>
-                            <td className="py-2.5 px-3 text-right font-mono text-amber-950 font-bold">{waitPenalty.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
-                            <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-800">{Math.round(waitPenalty * 1.18).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
-                            <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{Math.round(waitPenalty * 0.18).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                            <td className="py-2.5 px-3 text-right font-mono text-amber-950 font-bold">{waitPenalty.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-800">{Math.round(waitPenalty * 1.18).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
+                            <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{Math.round(waitPenalty * 0.18).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
                           </tr>
                         )}
                       </tbody>
@@ -7828,18 +7876,18 @@ function ForwarderWorkspaceInner() {
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                       <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg">
                         <span className="block text-[10px] font-bold text-slate-500 uppercase">Coste Neto Camión / Inland</span>
-                        <div className="text-lg font-black font-mono text-slate-800 mt-0.5">{totalRoadCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
-                        <span className="text-[10px] text-slate-500 font-mono">{costPerKm} €/km</span>
+                        <div className="text-lg font-black font-mono text-slate-800 mt-0.5">{totalRoadCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</div>
+                        <span className="text-[10px] text-slate-500 font-mono">{costPerKm} {currencySymbol}/km</span>
                       </div>
                       <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-lg">
                         <span className="block text-[10px] font-bold text-emerald-800 uppercase">Margen Comercial Agencia (18%)</span>
-                        <div className="text-lg font-black font-mono text-emerald-700 mt-0.5">+{agencyMargin.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
+                        <div className="text-lg font-black font-mono text-emerald-700 mt-0.5">+{agencyMargin.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</div>
                         <span className="text-[10px] text-emerald-600 font-semibold">Rentabilidad neta operación</span>
                       </div>
                       <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
                         <span className="block text-[10px] font-bold text-blue-800 uppercase">Precio Venta Terrestre All-In</span>
-                        <div className="text-lg font-black font-mono text-blue-700 mt-0.5">{finalSalePrice.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
-                        <span className="text-[10px] text-blue-600 font-mono font-bold">{salePerKm} €/km</span>
+                        <div className="text-lg font-black font-mono text-blue-700 mt-0.5">{finalSalePrice.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</div>
+                        <span className="text-[10px] text-blue-600 font-mono font-bold">{salePerKm} {currencySymbol}/km</span>
                       </div>
                     </div>
                   </section>
@@ -7899,7 +7947,7 @@ function ForwarderWorkspaceInner() {
                       <h2 className="text-2xl font-black uppercase text-slate-900">PRECIO TOTAL DE VENTA AL CLIENTE</h2>
                       <div className="mt-2 flex items-center gap-2">
                         <span className="bg-blue-100 text-blue-800 border border-blue-200 px-3 py-1 rounded text-xs font-bold font-mono">
-                          {singleTruckSale.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € / Camión ({trucksRequired} {trucksRequired === 1 ? 'camión' : 'camiones'})
+                          {singleTruckSale.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol} / Camión ({trucksRequired} {trucksRequired === 1 ? 'camión' : 'camiones'})
                         </span>
                         <span className="text-[10px] text-slate-500 font-semibold">
                           {isTariffActive
@@ -7910,10 +7958,10 @@ function ForwarderWorkspaceInner() {
                     </div>
                     <div className="text-right">
                       <div className="text-4xl font-black font-mono text-blue-700">
-                        {projectTotalSale.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        {projectTotalSale.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}
                       </div>
                       <div className="text-xs text-slate-500 mt-1 font-bold">
-                        Coste All-In: {projectTotalCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € · Margen comercial ({projectTotalMargin.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €)
+                        Coste All-In: {projectTotalCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol} · Margen comercial ({projectTotalMargin.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol})
                       </div>
                     </div>
                   </div>
