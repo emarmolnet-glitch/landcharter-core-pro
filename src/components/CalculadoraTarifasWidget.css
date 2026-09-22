@@ -1,0 +1,707 @@
+/* src/components/CalculadoraTarifasWidget.css */
+/* TEMA CLARO CORPORATIVO CORE PRO - POSICIONADO A LA IZQUIERDA */
+
+.tariff-calc-container {
+  width: 540px;
+  max-width: calc(100vw - 32px);
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12), 0 4px 12px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  z-index: 99990;
+  border: 1px solid #cbd5e1;
+  overflow: hidden;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #0f172a;
+  position: fixed;
+  transition: box-shadow 0.2s ease, width 0.2s ease;
+}
+
+.tariff-calc-container.is-minimized {
+  width: 380px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
+}
+
+/* Cabecera Tema Claro Corporativo */
+.tariff-calc-header {
+  background: #f8fafc;
+  color: #0f172a;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tariff-calc-header:active {
+  cursor: grabbing;
+}
+
+.tariff-calc-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tariff-calc-badge {
+  background: #e0f2fe;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+  padding: 4px 7px;
+  border-radius: 7px;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tariff-calc-title-text {
+  min-width: 0;
+}
+
+.tariff-calc-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tariff-calc-status {
+  font-size: 10.5px;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tariff-calc-status-dot {
+  color: #10b981;
+  font-size: 8px;
+}
+
+.tariff-calc-controls {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.tariff-calc-control-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.tariff-calc-control-btn:hover {
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+.tariff-calc-control-btn.close-btn:hover {
+  color: #ffffff;
+  background: #e11d48;
+}
+
+.tariff-calc-body {
+  padding: 14px;
+  overflow-y: auto;
+  max-height: 560px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+}
+
+/* 1. ZONA DE IMPORTACIÓN (DROPZONE / UPLOAD) */
+.tariff-calc-dropzone {
+  border: 2px dashed #93c5fd;
+  background: #f0f9ff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.tariff-calc-dropzone:hover,
+.tariff-calc-dropzone.is-dragging-file {
+  background: #e0f2fe;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+.tariff-calc-dropzone-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tariff-calc-dropzone-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.tariff-calc-dropzone-texts {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tariff-calc-dropzone-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0369a1;
+}
+
+.tariff-calc-dropzone-sub {
+  font-size: 10px;
+  color: #64748b;
+}
+
+.tariff-calc-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+  transition: all 0.15s ease;
+}
+
+.tariff-calc-upload-btn:hover {
+  background: #0369a1;
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.35);
+}
+
+/* BOTONERA SUPERIOR: TOGGLES FOB/EXW Y FSPE */
+.tariff-calc-toggles-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: #f8fafc;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.tariff-calc-toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tariff-calc-toggle-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tariff-calc-btn-group {
+  display: flex;
+  background: #e2e8f0;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.tariff-calc-toggle-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.tariff-calc-toggle-btn.is-active {
+  background: #ffffff;
+  color: #0284c7;
+  font-weight: 800;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tariff-calc-toggle-btn.is-active.fspe-active {
+  color: #059669;
+}
+
+/* OVERLAY DE CARGA (SPINNER) */
+.tariff-calc-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(2px);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border-radius: 0 0 12px 12px;
+}
+
+.tariff-calc-spinner {
+  width: 38px;
+  height: 38px;
+  border: 3.5px solid #e2e8f0;
+  border-top-color: #0284c7;
+  border-radius: 50%;
+  animation: spinTariff 0.8s linear infinite;
+}
+
+@keyframes spinTariff {
+  to { transform: rotate(360deg); }
+}
+
+.tariff-calc-loading-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.tariff-calc-loading-sub {
+  font-size: 10.5px;
+  color: #64748b;
+  font-mono: true;
+}
+
+/* Barra de Moneda y Tipo de Cambio */
+.tariff-calc-currency-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: #f8fafc;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.tariff-calc-discount-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.tariff-calc-discount-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tariff-calc-discount-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #166534;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tariff-calc-discount-desc {
+  font-size: 10px;
+  color: #15803d;
+  font-mono: true;
+}
+
+.tariff-calc-discount-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tariff-calc-discount-input {
+  width: 76px;
+  background: #ffffff;
+  border: 1px solid #86efac;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #14532d;
+  text-align: right;
+  outline: none;
+}
+
+.tariff-calc-discount-input:focus {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+.tariff-calc-discount-pct {
+  font-size: 11px;
+  font-weight: 700;
+  color: #15803d;
+  white-space: nowrap;
+}
+
+.tariff-calc-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tariff-calc-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.tariff-calc-select,
+.tariff-calc-input {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #0f172a;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tariff-calc-select:focus,
+.tariff-calc-input:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+}
+
+.tariff-calc-rows-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tariff-calc-row-header {
+  display: grid;
+  grid-template-columns: 1fr 120px 105px 32px;
+  gap: 8px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.tariff-calc-row {
+  display: grid;
+  grid-template-columns: 1fr 120px 105px 32px;
+  gap: 8px;
+  align-items: center;
+  background: #f8fafc;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tariff-calc-row:hover {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.tariff-calc-row.is-base-row {
+  border-left: 3px solid #0284c7;
+  background: #f0f9ff;
+}
+
+.tariff-calc-row.is-excluded-exw {
+  opacity: 0.45;
+  background: #f1f5f9;
+  border-style: dashed;
+}
+
+.tariff-calc-row-concepto {
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+}
+
+.tariff-calc-row-concepto:focus {
+  border-color: #0284c7;
+}
+
+.tariff-calc-row-input-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tariff-calc-row-currency-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.tariff-calc-row-valor {
+  width: 100%;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
+  text-align: right;
+  padding: 5px 6px;
+  border-radius: 5px;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+}
+
+.tariff-calc-row-valor:focus {
+  border-color: #0284c7;
+}
+
+.tariff-calc-row-converted {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+  text-align: right;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  color: #0369a1;
+  cursor: default;
+  user-select: text;
+}
+
+.tariff-calc-row-delete-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.tariff-calc-row-delete-btn:hover {
+  color: #e11d48;
+  background: #ffe4e6;
+}
+
+.tariff-calc-actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.tariff-calc-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #ffffff;
+  color: #0284c7;
+  border: 1px dashed #93c5fd;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tariff-calc-add-btn:hover {
+  background: #f0f9ff;
+  border-color: #38bdf8;
+  color: #0369a1;
+}
+
+.tariff-calc-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ffffff;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tariff-calc-reset-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.tariff-calc-summary-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.tariff-calc-summary-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.tariff-calc-summary-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.tariff-calc-summary-val-local {
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+  color: #334155;
+}
+
+.tariff-calc-summary-val-converted {
+  font-size: 18px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 900;
+  color: #059669;
+}
+
+.tariff-calc-footer {
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.tariff-calc-footer-info {
+  font-size: 11px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tariff-calc-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.2);
+  transition: all 0.15s ease;
+}
+
+.tariff-calc-submit-btn:hover {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.3);
+  transform: translateY(-1px);
+}
+
+.tariff-calc-submit-btn:active {
+  transform: translateY(0);
+}
+
+/* BOTÓN FLOTANTE SITUADO EN LA IZQUIERDA PARA EVITAR COLISIONES CON EL AGENTE */
+.tariff-calc-launcher-btn {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 99980;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  border-radius: 9999px;
+  padding: 9px 16px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  transition: all 0.2s ease;
+}
+
+.tariff-calc-launcher-btn:hover {
+  background: #f8fafc;
+  border-color: #0284c7;
+  color: #0284c7;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+}

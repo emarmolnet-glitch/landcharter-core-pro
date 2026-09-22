@@ -820,6 +820,17 @@
     <!-- Leaflet 2D Map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+      window.addEventListener('load', function() {
+        if (typeof L !== 'undefined' && L.Canvas) {
+          const originalClear = L.Canvas.prototype._clear;
+          L.Canvas.prototype._clear = function() {
+            if (!this._ctx) return; // Cortafuegos
+            try { originalClear.call(this); } catch(e) {}
+          };
+        }
+      });
+    </script>
     <!-- El renderer cartográfico se carga bajo demanda al abrir Mapa, Radar AIS o Tracking. -->
     <link rel="stylesheet" href="./assets/css/contextual-feedback.css?v=20260717-ui-hotfix">
     <link rel="stylesheet" href="./ais-market-reference-widget.css?v=20260721">
@@ -19130,9 +19141,13 @@ async function runOnDemandMapRouteWorkflow(button) {
                     polyline.redraw();
                 }
                 setTimeout(() => {
-                    if (polyline) {
-                        if (typeof polyline.bringToFront === 'function') polyline.bringToFront();
-                        if (typeof polyline.redraw === 'function') polyline.redraw();
+                    try {
+                        if (mapInstance && mapInstance._container && polyline && typeof polyline.redraw === 'function') {
+                            if (typeof polyline.bringToFront === 'function') polyline.bringToFront();
+                            polyline.redraw();
+                        }
+                    } catch(e) {
+                        console.warn('Evitado crash de Canvas en Leaflet', e);
                     }
                 }, 200);
             }
