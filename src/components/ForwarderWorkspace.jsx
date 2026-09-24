@@ -5081,8 +5081,9 @@ function ForwarderWorkspaceInner() {
     const isTariffActive = Boolean(isCommodityTariffActive || appliedTariff);
     const rawEffectiveTons = totalWeightTons > 0 ? totalWeightTons : (totals.weight > 0 ? totals.weight / 1000 : fallbackTons);
     const effectiveWeightTons = (!isTariffActive && rawEffectiveTons > 200) ? (rawEffectiveTons / 1000) : rawEffectiveTons;
+    const pesoFacturable = Math.max(parseFloat(effectiveWeightTons) || 0, 24);
     const tariffRate = appliedTariff?.inlandUsdMt || 3.00;
-    const officialInlandCost = Math.round(effectiveWeightTons * tariffRate * 100) / 100;
+    const officialInlandCost = Math.round(pesoFacturable * tariffRate * 100) / 100;
     const officialSalePrice = Math.round(officialInlandCost * 1.18 * 100) / 100;
     const officialMargin = Math.round((officialSalePrice - officialInlandCost) * 100) / 100;
 
@@ -7269,8 +7270,10 @@ function ForwarderWorkspaceInner() {
                       const waitPenalty = (isCommodityTariffActive && currentTariff) ? 0 : (warehouseWaitPenaltyEur || Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40));
                       const cost = (runningCost + displayTolls + displayDiets + waitPenalty);
                       const wTons = (totals.weight || 0) / 1000;
+                      const pesoFacturable = Math.max(parseFloat(wTons) || 0, 24);
+                      const isMinBillingApplied = (isCommodityTariffActive && currentTariff) && (parseFloat(wTons) || 0) < 24;
                       const totalRoadCost = (isCommodityTariffActive && currentTariff)
-                        ? Math.round(wTons * currentTariff.inlandUsdMt)
+                        ? Math.round(pesoFacturable * currentTariff.inlandUsdMt)
                         : (Number(cost || 0) * (camionesReales || 1));
                       const roadSale = Math.round(totalRoadCost * 1.18);
                       const roadSalePerKm = distKm > 0 ? (roadSale / distKm).toFixed(2) : '0.00';
@@ -7312,7 +7315,12 @@ function ForwarderWorkspaceInner() {
                           <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200">
                             <div>
                               <span className="text-[11px] font-mono text-slate-500">Coste Operativo Total Carretera:</span>
-                              <strong className="text-base font-mono font-bold text-slate-800 ml-2">{(Number(cost || 0) * (camionesReales || 1)).toLocaleString()} {currencySymbol}</strong>
+                              <strong className="text-base font-mono font-bold text-slate-800 ml-2">{totalRoadCost.toLocaleString()} {currencySymbol}</strong>
+                              {isMinBillingApplied && (
+                                <span className="block text-[10px] text-amber-700 italic font-semibold mt-0.5">
+                                  *Cálculo basado en facturación mínima FTL (24 t)*
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] font-mono text-emerald-700 font-bold">Precio de Venta Sugerido (18% margen):</span>
@@ -7786,8 +7794,9 @@ function ForwarderWorkspaceInner() {
                   waitPenalty = 0;
 
                   // Establecer el coste total de transporte en función del inlandCost oficial (toneladas * tarifa USD/MT)
+                  const pesoFacturable = Math.max(parseFloat(totalTons) || 0, 24);
                   const tariffRate = appliedTariff?.inlandUsdMt || 3.00;
-                  const officialInlandCost = Math.round(totalTons * tariffRate * 100) / 100;
+                  const officialInlandCost = Math.round(pesoFacturable * tariffRate * 100) / 100;
                   runningCost = officialInlandCost;
                   totalRoadCost = officialInlandCost;
 
@@ -7937,8 +7946,9 @@ function ForwarderWorkspaceInner() {
                 if (isTariffActive) {
                   // Herencia de Datos FSPE en el Reporte (Blindaje Financiero):
                   // Replicar exactamente la lógica de pantalla sin multiplicar km por camiones
+                  const pesoFacturable = Math.max(parseFloat(totalTons) || 0, 24);
                   const tariffRate = appliedTariff?.inlandUsdMt || 3.00;
-                  projectTotalCost = Math.round(totalTons * tariffRate * 100) / 100;
+                  projectTotalCost = Math.round(pesoFacturable * tariffRate * 100) / 100;
                   projectTotalSale = Math.round(projectTotalCost * 1.18 * 100) / 100;
                   singleTruckCost = trucksRequired > 0 ? Math.round((projectTotalCost / trucksRequired) * 100) / 100 : projectTotalCost;
                   singleTruckSale = trucksRequired > 0 ? Math.round((projectTotalSale / trucksRequired) * 100) / 100 : projectTotalSale;
