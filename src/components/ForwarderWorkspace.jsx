@@ -3,6 +3,7 @@ import { getApiUrl } from '../utils/apiConfig.js';
 import { parsePackingList } from '../utils/packingListParser.js';
 import AgenteProyectosWidget from './AgenteProyectosWidget';
 import CalculadoraTarifasWidget from './CalculadoraTarifasWidget.jsx';
+import VisualTruckPlan from './VisualTruckPlan.jsx';
 import '../../dual-trading-chartering-view.js';
 import {
   buildCBAMCommercialAnalysis,
@@ -355,9 +356,8 @@ export function hydrateCargoItem(it, defaultCategory = '', defaultType = '', ind
   // Forzar category a 'Carga Unitizada / Envasada'
   // Asignar el tipo oficial GICA correspondiente (ej. 'CEM I 52,5N BIGBAG')
   // Asignar dinámicamente el modo de envío coherente con el vehículo y tipo de carga
-  // RESPETO ABSOLUTO A DATA BRIDGE: Usamos el texto exacto que viene de Core PRO
-  let finalCategory = rawCategory || mapped.category;
-  let finalType = rawType || mapped.type;
+  let finalCategory = (isBigBagOrBogBag && mapped.category) ? mapped.category : (rawCategory || mapped.category);
+  let finalType = (isBigBagOrBogBag && mapped.type) ? mapped.type : (rawType || mapped.type);
   const isPlatformCraneVehicle = (typeof vehicleType !== 'undefined' && (vehicleType === 'Camión Plataforma con Grúa Autocarga' || String(vehicleType).includes('Grúa Autocarga'))) ||
     (typeof window !== 'undefined' && (window.State?.vehicleType === 'Camión Plataforma con Grúa Autocarga' || String(window.State?.vehicleType || '').includes('Grúa Autocarga')));
 
@@ -408,9 +408,18 @@ export function buildQuickTonnageCargoItem(tonnage, rawProduct = '', rawCategory
     `${product} ${rawCategory} ${mapped.type} ${mapped.category}`
   ) || mapped.category === 'Carga Unitizada / Envasada';
 
-  // Si el input viene en toneladas métricas (ej. 10.000 MT), convertir a kg (10.000.000 kg).
-  // Si el valor ya fuese excesivamente grande (> 100.000), interpretarlo defensivamente como kg.
-  const totalWeightKg = cleanTonnage > 100000 ? cleanTonnage : cleanTonnage * 1000;
+  // Si el input viene en kilos para una carga estándar (ej. 10017 kg), o en toneladas métricas (ej. 10.000 MT):
+  // Para cargas estándar (no contratos masivos de 10.000 MT), valores > 100 representan kilos reales (kg)
+  // y no deben multiplicarse por 1000 por error.
+  const isBulkFspeContract = (cleanTonnage >= 9000 && cleanTonnage <= 11000) && isBigBagOrPackaged;
+  let totalWeightKg;
+  if (isBulkFspeContract) {
+    totalWeightKg = cleanTonnage * 1000;
+  } else if (cleanTonnage > 100) {
+    totalWeightKg = cleanTonnage;
+  } else {
+    totalWeightKg = cleanTonnage * 1000;
+  }
 
   const isPlatformCrane = forcedVehicle === 'Camión Plataforma con Grúa Autocarga' ||
     String(forcedVehicle).includes('Grúa Autocarga') ||
@@ -5023,7 +5032,11 @@ function ForwarderWorkspaceInner() {
       m3Total = totals.m3;
     }
 
-    const totalWeightTons = wTotalKg / 1000;
+    const rawFallbackWeight = Number(activeProject?.cargoQuantity || activeProject?.total_weight_tons || activeProject?.cargo || 0);
+    const fallbackTons = (rawFallbackWeight > 200 && !(rawFallbackWeight >= 9000 && rawFallbackWeight <= 11000))
+      ? rawFallbackWeight / 1000
+      : rawFallbackWeight;
+    const totalWeightTons = wTotalKg > 0 ? (wTotalKg / 1000) : fallbackTons;
     const reportRT = Math.max(1, Math.max(totalWeightTons, m3Total));
 
     const isBigBags = items.some(it => {
@@ -5066,7 +5079,8 @@ function ForwarderWorkspaceInner() {
     ).toUpperCase().trim();
     const appliedTariff = COMMODITY_TARIFFS[rawType] || null;
     const isTariffActive = Boolean(isCommodityTariffActive || appliedTariff);
-    const effectiveWeightTons = totalWeightTons > 0 ? totalWeightTons : (totals.weight > 0 ? totals.weight / 1000 : (Number(activeProject?.cargoQuantity) || 0));
+    const rawEffectiveTons = totalWeightTons > 0 ? totalWeightTons : (totals.weight > 0 ? totals.weight / 1000 : fallbackTons);
+    const effectiveWeightTons = (!isTariffActive && rawEffectiveTons > 200) ? (rawEffectiveTons / 1000) : rawEffectiveTons;
     const tariffRate = appliedTariff?.inlandUsdMt || 3.00;
     const officialInlandCost = Math.round(effectiveWeightTons * tariffRate * 100) / 100;
     const officialSalePrice = Math.round(officialInlandCost * 1.18 * 100) / 100;
@@ -6181,7 +6195,7 @@ function ForwarderWorkspaceInner() {
                 const calculatedSeaItemsTons = Array.isArray(seaItemsList) && seaItemsList.length > 0
                   ? seaItemsList.reduce((acc, it) => acc + (Number(it.quantity || it.qty || 1) * Number(it.unit_weight_kg || it.weight || 0)), 0) / 1000
                   : 0;
-                const seaTons = Number(activeProject?.total_weight_tons) || (Number(activeProject?.items?.[0]?.payload_data?.totals?.weight) / 1000) || 0;
+                const seaTons = Number(activeProject?.total_weight_tons) || Number(activeProject?.items?.[0]?.payload_data?.totals?.weight / 1000) || 0;
 
                 // Flete Marítimo Venta: Identificación y normalización
                 const seaFreightSale = Number(activeProject?.items?.[0]?.payload_data?.financial_summary?.customer_sale_price_usd) || Number(activeProject?.financialBreakdown?.oceanFreight?.subtotal) || Number(activeProject?.ocean_freight_sale) || 0;
@@ -7549,7 +7563,10 @@ function ForwarderWorkspaceInner() {
 
       {showExecutiveReport && (() => {
         const activeReport = reportData || buildExecutiveReportData();
-        const totalWeightTons = activeReport.totalWeightTons;
+        const rawReportWeight = Number(activeReport?.totalWeightTons || 0);
+        const totalWeightTons = (rawReportWeight > 200 && !(rawReportWeight >= 9000 && rawReportWeight <= 11000 && activeReport?.isCommodityTariffActive))
+          ? (rawReportWeight / 1000)
+          : (rawReportWeight > 0 ? rawReportWeight : (totals.weight > 0 ? totals.weight / 1000 : 0));
         const totalVolumeM3 = activeReport.totalVolumeM3;
         const reportRT = activeReport.reportRT;
         const finalTotalCost = activeReport.finalTotalCost;
@@ -7636,7 +7653,7 @@ function ForwarderWorkspaceInner() {
               <header className="border-b-2 border-slate-200 pb-4 mb-6 flex justify-between items-end">
                 <div>
                   <h1 className="text-xl font-black uppercase tracking-tight text-slate-900">
-                    Universal Forwarding / B2B Module
+                    {activeProject?.name || activeProject?.project_name || activeProject?.title || activeProject?.client_name || (activeProject?.project_ref ? `Proyecto ${activeProject.project_ref}` : 'Proyecto Land Charter')}
                   </h1>
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
                     OFERTA COMERCIAL - PROJECT CARGO
@@ -7697,14 +7714,14 @@ function ForwarderWorkspaceInner() {
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Distancia por carretera</span>
                     <span className="text-sm font-black text-slate-900 mt-1 block font-mono">
-                      {Math.round(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0)).toLocaleString('es-ES')} km
+                      {Math.round(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0))).toLocaleString('es-ES')} KM
                     </span>
-                    <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">Corredor UE</span>
+                    <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">Kilómetros (Transporte Terrestre)</span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Jornadas de tacógrafo</span>
                     <span className="text-sm font-black text-blue-700 mt-1 block font-mono">
-                      ~{Math.max(1, Math.ceil(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0) / 650))} jornada(s)
+                      ~{Math.max(1, Math.ceil(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0)) / 650))} jornada(s)
                     </span>
                     <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">Reglamento CE 561/2006</span>
                   </div>
@@ -7713,7 +7730,7 @@ function ForwarderWorkspaceInner() {
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Ruta Terrestre</span>
                     <span className="text-xs font-black text-slate-900 mt-1 block">{activeProject?.land_route?.origin || activeProject?.land_origin || landOrigin || ''} ➔ {activeProject?.land_route?.destination || activeProject?.land_destination || landDestination || ''}</span>
-                    <span className="block text-[9px] text-slate-500 font-mono">{(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0)).toLocaleString('es-ES')} km (Corredor UE)</span>
+                    <span className="block text-[9px] text-slate-500 font-mono">{(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0))).toLocaleString('es-ES')} KM</span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Tiempos Carga / Descarga</span>
@@ -7722,7 +7739,7 @@ function ForwarderWorkspaceInner() {
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Tránsito & Tacógrafo</span>
-                    <span className="text-xs font-black text-blue-700 mt-1 block font-mono">~{Math.max(1, Math.ceil(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0) / 650))} jornada(s) chófer</span>
+                    <span className="text-xs font-black text-blue-700 mt-1 block font-mono">~{Math.max(1, Math.ceil(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0)) / 650))} jornada(s) chófer</span>
                     <span className="block text-[9px] text-slate-500">Reglamento CE 561/2006</span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
@@ -7742,7 +7759,7 @@ function ForwarderWorkspaceInner() {
                 const routeInfo = activeProject?.route_and_chartering || activeProject?.data?.route || activeProject?.data || {};
                 const distKm = Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || routeInfo.distance_km || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0)));
                 const transitDays = distKm > 0 ? Math.max(1, Math.ceil(distKm / 650)) : 1;
-                const totalTons = Number(totals.weight > 0 ? totals.weight / 1000 : (activeProject?.cargoQuantity || totalWeightTons || 0));
+                const totalTons = totalWeightTons > 0 ? totalWeightTons : Number(totals.weight > 0 ? totals.weight / 1000 : ((activeProject?.cargoQuantity > 200 ? activeProject.cargoQuantity / 1000 : activeProject?.cargoQuantity) || 0));
 
                 const rawType = String(cargoItems[0]?.type || activeReport?.cargo_items?.[0]?.type || activeProject?.cargo_type || '').toUpperCase().trim();
                 const appliedTariff = COMMODITY_TARIFFS[rawType] || activeReport?.appliedTariff || null;
@@ -7899,7 +7916,7 @@ function ForwarderWorkspaceInner() {
                 const currentVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
                 const currentPayloadKg = getVehiclePayloadKg(currentVT);
                 const currentPayloadTons = currentPayloadKg / 1000;
-                const totalTons = Number(totals.weight > 0 ? totals.weight / 1000 : (activeProject?.cargoQuantity || totalWeightTons || 0));
+                const totalTons = totalWeightTons > 0 ? totalWeightTons : Number(totals.weight > 0 ? totals.weight / 1000 : ((activeProject?.cargoQuantity > 200 ? activeProject.cargoQuantity / 1000 : activeProject?.cargoQuantity) || 0));
                 const trucksRequired = Math.max(1, Number(activeProject?.total_trucks || Math.ceil(totalTons > 0 ? totalTons / currentPayloadTons : 1)));
                 const distKm = Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || distanceNm || 0));
 
@@ -8056,7 +8073,10 @@ function ForwarderWorkspaceInner() {
                   const currentVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
                   const currentPayloadKg = getVehiclePayloadKg(currentVT);
                   const currentPayloadTons = currentPayloadKg / 1000;
-                  const totalWtTons = Number(activeReport?.totalWeightTons || totals?.totalWeightTons || 0);
+                  const rawTotalWtTons = Number(activeReport?.totalWeightTons || (totals.weight > 0 ? totals.weight / 1000 : 0));
+                  const totalWtTons = (rawTotalWtTons > 200 && !(rawTotalWtTons >= 9000 && rawTotalWtTons <= 11000))
+                    ? rawTotalWtTons / 1000
+                    : rawTotalWtTons;
                   const totalWtKg = Math.round(totalWtTons * 1000);
                   const totalVolM3 = Number(activeReport?.totalVolumeCbm || totals?.totalVolumeCbm || 0);
                   const calcLdm = Number(
@@ -8150,6 +8170,15 @@ function ForwarderWorkspaceInner() {
                           </div>
                         </div>
                       </div>
+
+                      {/* SILUETA TÉCNICA VECTORIAL CONDICIONAL (SVG) */}
+                      <VisualTruckPlan
+                        vehicleType={currentVT}
+                        ldm={Number(ldmPerTruck)}
+                        maxLdm={13.6}
+                        assignedWeightKg={wtPerTruckKg}
+                        maxPayloadKg={currentPayloadKg}
+                      />
 
                       {/* Comparador de Paletización y Medidores LDM / Carga */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
