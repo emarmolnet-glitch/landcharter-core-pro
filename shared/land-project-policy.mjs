@@ -262,3 +262,33 @@ export function calculateFleetCampaignDimensioning(totalTrucks = 1, optimalTruck
     }
   };
 }
+
+/**
+ * Parsea de forma segura cantidades numéricas y pesos que puedan venir con formato local (ej: separador de miles con puntos "3.003").
+ * Elimina los puntos de miles antes de parsear para evitar que "3.003" se interprete como 3 en lugar de 3003.
+ */
+export function parseSafeNumber(val, defaultVal = 0) {
+  if (typeof val === 'number') return Number.isFinite(val) ? val : defaultVal;
+  if (!val && val !== 0) return defaultVal;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed) return defaultVal;
+    // Si contiene formato de miles europeo/español con punto (ej. "3.003", "3.003,50", "12.345.678") o coma decimal
+    if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(trimmed) || trimmed.includes(',')) {
+      const cleaned = trimmed.replace(/\./g, '').replace(',', '.');
+      const parsed = parseFloat(cleaned);
+      return Number.isFinite(parsed) ? parsed : defaultVal;
+    }
+    // Si tiene formato de miles de 3 dígitos tras el punto (ej. "3.003")
+    if (/^\d{1,3}\.\d{3}$/.test(trimmed)) {
+      const cleaned = trimmed.replace(/\./g, '').replace(',', '.');
+      const parsed = parseFloat(cleaned);
+      return Number.isFinite(parsed) ? parsed : defaultVal;
+    }
+    const standard = parseFloat(trimmed);
+    return Number.isFinite(standard) ? standard : defaultVal;
+  }
+  const parsed = Number(val);
+  return Number.isFinite(parsed) ? parsed : defaultVal;
+}
+
