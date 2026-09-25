@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { HashRouter, HashRouter as BrowserRouter } from 'react-router-dom';
 import { ForwarderWorkspace } from './components/ForwarderWorkspace.jsx';
+import { parseSafeNumber } from './components/ForwarderWorkspace.jsx';
 import { getApiUrl } from './utils/apiConfig.js';
 
 /**
@@ -748,9 +749,10 @@ export function useLandDataBridgeSync() {
 
     const checkAndTriggerCalculation = () => {
       const searchParams = window.location?.search ? new URLSearchParams(window.location.search) : null;
-      const urlCargo = searchParams ? (parseFloat(searchParams.get('cargo') || searchParams.get('cargoQty') || searchParams.get('cargoVolume') || searchParams.get('tonnage') || searchParams.get('totalCargoTonnage') || '') || 0) : 0;
-      const domCargo = parseFloat(document.getElementById('cargo-qty')?.value || document.getElementById('cost-plus-cargo-volume')?.value || '0') || 0;
-      const stateCargo = window.State?.cargo || window.State?.cargoQuantity || 0;
+      const rawUrlCargo = searchParams ? (searchParams.get('cargo') || searchParams.get('cargoQty') || searchParams.get('cargoVolume') || searchParams.get('tonnage') || searchParams.get('totalCargoTonnage') || '') : '';
+      const urlCargo = parseSafeNumber(rawUrlCargo);
+      const domCargo = parseSafeNumber(document.getElementById('cargo-qty')?.value || document.getElementById('cost-plus-cargo-volume')?.value || '0');
+      const stateCargo = parseSafeNumber(window.State?.cargo || window.State?.cargoQuantity || 0);
       const totalCargoTonnage = urlCargo || domCargo || stateCargo || 0;
 
       const domTruckPayload = parseFloat(document.getElementById('truckPayloadCapacity')?.value || document.getElementById('vessel-dwt')?.value || '0') || 0;

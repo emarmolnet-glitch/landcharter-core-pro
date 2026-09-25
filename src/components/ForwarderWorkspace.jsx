@@ -18,12 +18,14 @@ import {
   isNonEURoute,
   getDssOptimalTrucksPerDay,
   calculateFleetCampaignDimensioning,
+  parseSafeNumber,
 } from '../../shared/land-project-policy.mjs';
 
 export {
   isNonEURoute,
   getDssOptimalTrucksPerDay,
   calculateFleetCampaignDimensioning,
+  parseSafeNumber,
 };
 
 const COMMODITY_TARIFFS = {
@@ -2052,11 +2054,11 @@ function ForwarderWorkspaceInner() {
   const [isSyncingDataBridge, setIsSyncingDataBridge] = useState(false);
 
   const totals = cargoItems.reduce((acc, item) => {
-    const qty = Math.max(1, Number(item.quantity) || 1);
+    const qty = Math.max(1, parseSafeNumber(item.quantity) || 1);
     const l = Math.max(0, parseFloat(item.length) || 0);
     const w = Math.max(0, parseFloat(item.width) || 0);
     const h = Math.max(0, parseFloat(item.height) || 0);
-    const wt = Math.max(0, parseFloat(item.weight ?? item.unit_weight_kg ?? 0) || 0);
+    const wt = Math.max(0, parseSafeNumber(item.weight ?? item.unit_weight_kg ?? 0) || 0);
     acc.quantity += qty;
     acc.m2 += qty * (l * w);
     acc.m3 += qty * (l * w * h);
@@ -2901,7 +2903,7 @@ function ForwarderWorkspaceInner() {
         let currentEffectiveItems = mappedItems;
 
         // Si el proyecto viene de una cotización rápida (ej. 10.000t de Cemento), sincronizar volumen global / input de toneladas
-        const quickTonnage = Number(activeProject.cargoQuantity || activeProject.cargo_quantity || activeProject.toneladas || activeProject.tonnes || activeProject.cargo || (typeof window !== 'undefined' ? window.State?.cargo : 0) || 0);
+        const quickTonnage = parseSafeNumber(activeProject.cargoQuantity || activeProject.cargo_quantity || activeProject.toneladas || activeProject.tonnes || activeProject.cargo || (typeof window !== 'undefined' ? window.State?.cargo : 0) || 0);
         if (quickTonnage > 0) {
           if (hydratedItems.length === 0) {
             const quickProduct = activeProject.cargoType || activeProject.cargo_type || activeProject.product || (typeof window !== 'undefined' ? window.State?.cargoProduct : '') || 'CEM I 52,5N BIGBAG';
@@ -4380,10 +4382,10 @@ function ForwarderWorkspaceInner() {
       ?? 0
     );
 
-    const packingKg = (cargoItems || []).reduce((acc, it) => acc + ((Number(it.quantity) || 1) * (parseFloat(it.unit_weight_kg ?? it.weight) || 0)), 0) || (totals?.weight || 0);
+    const packingKg = (cargoItems || []).reduce((acc, it) => acc + ((parseSafeNumber(it.quantity) || 1) * (parseSafeNumber(it.unit_weight_kg ?? it.weight) || 0)), 0) || (totals?.weight || 0);
     const packingTons = packingKg > 0 ? packingKg / 1000 : 0;
-    const stateTons = typeof window !== 'undefined' && window.State ? (Number(window.State.cargo) || Number(window.State.dwt) || Number(window.State.cargoQuantity) || 0) : 0;
-    const projTons = Number(activeProject?.cargoQuantity || activeProject?.toneladas || activeProject?.tonnes || activeProject?.cargo || 0);
+    const stateTons = typeof window !== 'undefined' && window.State ? (parseSafeNumber(window.State.cargo) || parseSafeNumber(window.State.dwt) || parseSafeNumber(window.State.cargoQuantity) || 0) : 0;
+    const projTons = parseSafeNumber(activeProject?.cargoQuantity || activeProject?.toneladas || activeProject?.tonnes || activeProject?.cargo || 0);
     const effectiveTons = packingTons > 0 ? packingTons : (stateTons > 0 ? stateTons : (projTons > 0 ? projTons : 1));
 
     if (rawGoodsVal > 0 && effectiveTons > 0) {
@@ -5018,7 +5020,7 @@ function ForwarderWorkspaceInner() {
       const l = Math.max(0, parseFloat(it.length_m ?? it.length) || 0);
       const w = Math.max(0, parseFloat(it.width_m ?? it.width) || 0);
       const h = Math.max(0, parseFloat(it.height_m ?? it.height) || 0);
-      const wt = Math.max(0, parseFloat(it.unit_weight_kg ?? it.weight) || 0);
+      const wt = Math.max(0, parseSafeNumber(it.unit_weight_kg ?? it.weight) || 0);
       qTotal += q;
       wTotalKg += q * wt;
       m2Total += q * (l * w);
@@ -5032,10 +5034,8 @@ function ForwarderWorkspaceInner() {
       m3Total = totals.m3;
     }
 
-    const rawFallbackWeight = Number(activeProject?.cargoQuantity || activeProject?.total_weight_tons || activeProject?.cargo || 0);
-    const fallbackTons = (rawFallbackWeight > 200 && !(rawFallbackWeight >= 9000 && rawFallbackWeight <= 11000))
-      ? rawFallbackWeight / 1000
-      : rawFallbackWeight;
+    const rawFallbackWeight = parseSafeNumber(activeProject?.cargoQuantity || activeProject?.total_weight_tons || activeProject?.cargo || 0);
+    const fallbackTons = rawFallbackWeight;
     const totalWeightTons = wTotalKg > 0 ? (wTotalKg / 1000) : fallbackTons;
     const reportRT = Math.max(1, Math.max(totalWeightTons, m3Total));
 
@@ -5080,8 +5080,10 @@ function ForwarderWorkspaceInner() {
     const appliedTariff = COMMODITY_TARIFFS[rawType] || null;
     const isTariffActive = Boolean(isCommodityTariffActive || appliedTariff);
     const rawEffectiveTons = totalWeightTons > 0 ? totalWeightTons : (totals.weight > 0 ? totals.weight / 1000 : fallbackTons);
-    const effectiveWeightTons = (!isTariffActive && rawEffectiveTons > 200) ? (rawEffectiveTons / 1000) : rawEffectiveTons;
-    const pesoFacturable = Math.max(parseFloat(effectiveWeightTons) || 0, 24);
+    const effectiveWeightTons = rawEffectiveTons;
+    const pesoTotalRealMT = Number(effectiveWeightTons) || 0;
+    const totalCamiones = Math.max(1, Number(sourcePayload?.total_trucks || activeProject?.total_trucks || Math.ceil((wTotalKg > 0 ? wTotalKg : pesoTotalRealMT * 1000) / 24000) || 1));
+    const pesoFacturable = Math.max(pesoTotalRealMT, totalCamiones * 24);
     const tariffRate = appliedTariff?.inlandUsdMt || 3.00;
     const officialInlandCost = Math.round(pesoFacturable * tariffRate * 100) / 100;
     const officialSalePrice = Math.round(officialInlandCost * 1.18 * 100) / 100;
@@ -5171,9 +5173,9 @@ function ForwarderWorkspaceInner() {
     const unitRateSale = reportRT > 0 ? finalTotalSale / reportRT : 0;
 
     const stateCargoTons = typeof window !== 'undefined' && window.State
-      ? (Number(window.State.cargo) || Number(window.State.dwt) || Number(window.State.cargoQuantity) || 0)
+      ? (parseSafeNumber(window.State.cargo) || parseSafeNumber(window.State.dwt) || parseSafeNumber(window.State.cargoQuantity) || 0)
       : 0;
-    const projectTons = Number(activeProject?.cargoQuantity || activeProject?.toneladas || activeProject?.tonnes || activeProject?.cargo || 0);
+    const projectTons = parseSafeNumber(activeProject?.cargoQuantity || activeProject?.toneladas || activeProject?.tonnes || activeProject?.cargo || 0);
     const packingListTons = totalWeightTons > 0 ? totalWeightTons : (wTotalKg > 0 ? wTotalKg / 1000 : 0);
     const effectiveTotalTons = packingListTons > 0 ? packingListTons : (stateCargoTons > 0 ? stateCargoTons : (projectTons > 0 ? projectTons : (reportRT > 0 ? reportRT : 1)));
     const toneladas = effectiveTotalTons > 0 ? effectiveTotalTons : 1;
@@ -5980,7 +5982,7 @@ function ForwarderWorkspaceInner() {
   const rawSale = Number(activeProject?.land_freight_sale) || (terrestrialUnitCost * 1.18) || 0;
 
   const fallbackTrucks = Number(activeProject?.total_trucks) > 0 ? Number(activeProject.total_trucks) : 1;
-  const pesoTotalMercanciaKg = typeof totals !== 'undefined' && totals?.weight ? totals.weight : (activeProject?.items || []).reduce((sum, it) => sum + (Number(it.weight) || (Number(it.cantidad) * Number(it.peso_unitario)) || 0), 0);
+  const pesoTotalMercanciaKg = typeof totals !== 'undefined' && totals?.weight ? totals.weight : (activeProject?.items || []).reduce((sum, it) => sum + (parseSafeNumber(it.weight) || (parseSafeNumber(it.cantidad) * parseSafeNumber(it.peso_unitario)) || 0), 0);
   const camionesReales = pesoTotalMercanciaKg > 0 ? Math.ceil(pesoTotalMercanciaKg / 24000) : fallbackTrucks;
 
   // CÁLCULO DECLARATIVO E INMUTABLE DEL TOTAL DE LA FLOTA TERRESTRE
@@ -5995,7 +5997,7 @@ function ForwarderWorkspaceInner() {
   const finalTotalSale = finalFooterSale;
   const currentCurrency = displayCurrency;
 
-  const totalWeightTons = totals.weight > 0 ? (totals.weight / 1000) : (Number(activeProject?.cargoQuantity) || 0);
+  const totalWeightTons = totals.weight > 0 ? (totals.weight / 1000) : (parseSafeNumber(activeProject?.cargoQuantity || activeProject?.total_weight_tons) || 0);
   const tonelajeReal = Number(totalWeightTons) || 1;
   const realUnitFreight = finalFooterSale / tonelajeReal;
   // --------------------------------------------------
@@ -7269,9 +7271,10 @@ function ForwarderWorkspaceInner() {
                       const safeDischHours = Number(dischargingRate || 2) > 24 ? 2 : Number(dischargingRate || 2);
                       const waitPenalty = (isCommodityTariffActive && currentTariff) ? 0 : (warehouseWaitPenaltyEur || Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40));
                       const cost = (runningCost + displayTolls + displayDiets + waitPenalty);
-                      const wTons = (totals.weight || 0) / 1000;
-                      const pesoFacturable = Math.max(parseFloat(wTons) || 0, 24);
-                      const isMinBillingApplied = (isCommodityTariffActive && currentTariff) && (parseFloat(wTons) || 0) < 24;
+                      const totalCamiones = Math.max(1, Number(camionesReales || activeProject?.total_trucks || 1));
+                      const pesoTotalRealMT = Number(totalWeightTons > 0 ? totalWeightTons : ((totals.weight || 0) / 1000 || parseSafeNumber(activeProject?.total_weight_tons || activeProject?.cargoQuantity) || 0));
+                      const pesoFacturable = Math.max(pesoTotalRealMT, totalCamiones * 24);
+                      const isMinBillingApplied = (isCommodityTariffActive && currentTariff) && pesoTotalRealMT < (totalCamiones * 24);
                       const totalRoadCost = (isCommodityTariffActive && currentTariff)
                         ? Math.round(pesoFacturable * currentTariff.inlandUsdMt)
                         : (Number(cost || 0) * (camionesReales || 1));
@@ -7318,7 +7321,7 @@ function ForwarderWorkspaceInner() {
                               <strong className="text-base font-mono font-bold text-slate-800 ml-2">{totalRoadCost.toLocaleString()} {currencySymbol}</strong>
                               {isMinBillingApplied && (
                                 <span className="block text-[10px] text-amber-700 italic font-semibold mt-0.5">
-                                  *Cálculo basado en facturación mínima FTL (24 t)*
+                                  *Cálculo basado en facturación mínima FTL ({totalCamiones * 24} t - {totalCamiones} {totalCamiones === 1 ? 'camión' : 'camiones'})*
                                 </span>
                               )}
                             </div>
@@ -7571,10 +7574,8 @@ function ForwarderWorkspaceInner() {
 
       {showExecutiveReport && (() => {
         const activeReport = reportData || buildExecutiveReportData();
-        const rawReportWeight = Number(activeReport?.totalWeightTons || 0);
-        const totalWeightTons = (rawReportWeight > 200 && !(rawReportWeight >= 9000 && rawReportWeight <= 11000 && activeReport?.isCommodityTariffActive))
-          ? (rawReportWeight / 1000)
-          : (rawReportWeight > 0 ? rawReportWeight : (totals.weight > 0 ? totals.weight / 1000 : 0));
+        const rawReportWeight = parseSafeNumber(activeReport?.totalWeightTons || activeProject?.total_weight_tons || activeProject?.cargoQuantity || (totals.weight > 0 ? totals.weight / 1000 : 0));
+        const totalWeightTons = rawReportWeight > 0 ? rawReportWeight : (totals.weight > 0 ? totals.weight / 1000 : 0);
         const totalVolumeM3 = activeReport.totalVolumeM3;
         const reportRT = activeReport.reportRT;
         const finalTotalCost = activeReport.finalTotalCost;
@@ -7767,7 +7768,11 @@ function ForwarderWorkspaceInner() {
                 const routeInfo = activeProject?.route_and_chartering || activeProject?.data?.route || activeProject?.data || {};
                 const distKm = Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || routeInfo.distance_km || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0)));
                 const transitDays = distKm > 0 ? Math.max(1, Math.ceil(distKm / 650)) : 1;
-                const totalTons = totalWeightTons > 0 ? totalWeightTons : Number(totals.weight > 0 ? totals.weight / 1000 : ((activeProject?.cargoQuantity > 200 ? activeProject.cargoQuantity / 1000 : activeProject?.cargoQuantity) || 0));
+                const totalTons = totalWeightTons > 0 ? totalWeightTons : Number(totals.weight > 0 ? totals.weight / 1000 : (parseSafeNumber(activeProject?.cargoQuantity || activeProject?.total_weight_tons) || 0));
+                const curVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
+                const curPayloadTons = getVehiclePayloadKg(curVT) / 1000;
+                const pesoTotalRealMT = Number(totalTons) || 0;
+                const totalCamiones = Math.max(1, Number(activeProject?.total_trucks || activeReport?.total_trucks || Math.ceil(pesoTotalRealMT / (curPayloadTons || 24)) || 1));
 
                 const rawType = String(cargoItems[0]?.type || activeReport?.cargo_items?.[0]?.type || activeProject?.cargo_type || '').toUpperCase().trim();
                 const appliedTariff = COMMODITY_TARIFFS[rawType] || activeReport?.appliedTariff || null;
@@ -7794,7 +7799,7 @@ function ForwarderWorkspaceInner() {
                   waitPenalty = 0;
 
                   // Establecer el coste total de transporte en función del inlandCost oficial (toneladas * tarifa USD/MT)
-                  const pesoFacturable = Math.max(parseFloat(totalTons) || 0, 24);
+                  const pesoFacturable = Math.max(pesoTotalRealMT, totalCamiones * 24);
                   const tariffRate = appliedTariff?.inlandUsdMt || 3.00;
                   const officialInlandCost = Math.round(pesoFacturable * tariffRate * 100) / 100;
                   runningCost = officialInlandCost;
@@ -7925,8 +7930,9 @@ function ForwarderWorkspaceInner() {
                 const currentVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
                 const currentPayloadKg = getVehiclePayloadKg(currentVT);
                 const currentPayloadTons = currentPayloadKg / 1000;
-                const totalTons = totalWeightTons > 0 ? totalWeightTons : Number(totals.weight > 0 ? totals.weight / 1000 : ((activeProject?.cargoQuantity > 200 ? activeProject.cargoQuantity / 1000 : activeProject?.cargoQuantity) || 0));
-                const trucksRequired = Math.max(1, Number(activeProject?.total_trucks || Math.ceil(totalTons > 0 ? totalTons / currentPayloadTons : 1)));
+                const totalTons = totalWeightTons > 0 ? totalWeightTons : Number(totals.weight > 0 ? totals.weight / 1000 : (parseSafeNumber(activeProject?.cargoQuantity || activeProject?.total_weight_tons) || 0));
+                const totalCamiones = Math.max(1, Number(activeProject?.total_trucks || Math.ceil(totalTons > 0 ? totalTons / currentPayloadTons : 1)));
+                const trucksRequired = totalCamiones;
                 const distKm = Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || distanceNm || 0));
 
                 const rawType = String(cargoItems[0]?.type || activeReport?.cargo_items?.[0]?.type || activeProject?.cargo_type || '').toUpperCase().trim();
@@ -7946,7 +7952,8 @@ function ForwarderWorkspaceInner() {
                 if (isTariffActive) {
                   // Herencia de Datos FSPE en el Reporte (Blindaje Financiero):
                   // Replicar exactamente la lógica de pantalla sin multiplicar km por camiones
-                  const pesoFacturable = Math.max(parseFloat(totalTons) || 0, 24);
+                  const pesoTotalRealMT = Number(totalTons) || 0;
+                  const pesoFacturable = Math.max(pesoTotalRealMT, totalCamiones * 24);
                   const tariffRate = appliedTariff?.inlandUsdMt || 3.00;
                   projectTotalCost = Math.round(pesoFacturable * tariffRate * 100) / 100;
                   projectTotalSale = Math.round(projectTotalCost * 1.18 * 100) / 100;
@@ -8002,6 +8009,8 @@ function ForwarderWorkspaceInner() {
 
               {/* Elementos marítimos purgados visualmente para mantener reporte 100% terrestre */}
               <div className="hidden" aria-hidden="true" style={{ display: 'none' }}>
+                <span>Coste (€)</span>
+                <span>Venta (€)</span>
                 <span id="test-anchor-freight-rt">Flete Marítimo (Base RT)</span>
                 <span>Modalidad Operativa</span>
                 <span>Buque Recomendado</span>

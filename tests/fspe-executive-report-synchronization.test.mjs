@@ -34,8 +34,8 @@ test('1. buildExecutiveReportData evalúa isCommodityTariffActive y appliedTarif
   // Flete / Transporte terrestre oficial
   assert.match(
     forwarderWorkspaceSource,
-    /const\s+officialInlandCost\s*=\s*Math\.round\(effectiveWeightTons\s*\*\s*tariffRate\s*\*\s*100\)\s*\/\s*100;/,
-    'officialInlandCost must be calculated based on effectiveWeightTons * tariffRate'
+    /const\s+officialInlandCost\s*=\s*Math\.round\((?:effectiveWeightTons|pesoFacturable)\s*\*\s*tariffRate\s*\*\s*100\)\s*\/\s*100;/,
+    'officialInlandCost must be calculated based on pesoFacturable or effectiveWeightTons * tariffRate'
   );
   assert.match(
     forwarderWorkspaceSource,
@@ -88,7 +88,7 @@ test('2. Tabla de costes del reporte ejecutivo replica lógica de pantalla y anu
   // Coste y venta oficial en tabla
   assert.match(
     forwarderWorkspaceSource,
-    /const\s+officialInlandCost\s*=\s*Math\.round\(totalTons\s*\*\s*tariffRate\s*\*\s*100\)\s*\/\s*100;[\s\S]*?runningCost\s*=\s*officialInlandCost;[\s\S]*?totalRoadCost\s*=\s*officialInlandCost;/,
+    /const\s+officialInlandCost\s*=\s*Math\.round\((?:totalTons|pesoFacturable)\s*\*\s*tariffRate\s*\*\s*100\)\s*\/\s*100;[\s\S]*?runningCost\s*=\s*officialInlandCost;[\s\S]*?totalRoadCost\s*=\s*officialInlandCost;/,
     'runningCost and totalRoadCost must equal officialInlandCost under FSPE'
   );
   assert.match(
@@ -100,7 +100,7 @@ test('2. Tabla de costes del reporte ejecutivo replica lógica de pantalla y anu
   // Totalizador All-In de venta evita multiplicación errónea de km por camiones
   assert.match(
     forwarderWorkspaceSource,
-    /if\s*\(isTariffActive\)\s*\{[\s\S]*?projectTotalCost\s*=\s*Math\.round\(totalTons\s*\*\s*tariffRate\s*\*\s*100\)\s*\/\s*100;[\s\S]*?projectTotalSale\s*=\s*Math\.round\(projectTotalCost\s*\*\s*1\.18\s*\*\s*100\)\s*\/\s*100;/,
+    /if\s*\(isTariffActive\)\s*\{[\s\S]*?projectTotalCost\s*=\s*Math\.round\((?:totalTons|pesoFacturable)\s*\*\s*tariffRate\s*\*\s*100\)\s*\/\s*100;[\s\S]*?projectTotalSale\s*=\s*Math\.round\(projectTotalCost\s*\*\s*1\.18\s*\*\s*100\)\s*\/\s*100;/,
     'Project total sale in executive report must be computed directly from flat FSPE inland cost, avoiding km multiplication'
   );
 });
