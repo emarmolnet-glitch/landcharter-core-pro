@@ -8826,6 +8826,197 @@
             display: none !important;
         }
 
+        /* ======================================================== */
+        /* LAYOUT & SIDEBAR LATERAL IZQUIERDA COLAPSABLE            */
+        /* ======================================================== */
+        .app-layout-wrapper {
+            flex: 1 1 0%;
+            display: flex;
+            overflow: hidden;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-height: 0;
+        }
+
+        .app-workspace-flow {
+            flex: 1 1 0%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            min-width: 0;
+            height: 100%;
+            min-height: 0;
+        }
+
+        .app-sidebar {
+            width: 220px;
+            min-width: 220px;
+            max-width: 220px;
+            height: 100%;
+            background-color: #ffffff;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1), min-width 200ms cubic-bezier(0.4, 0, 0.2, 1), max-width 200ms cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 40;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .app-sidebar.is-compact,
+        .app-sidebar.is-collapsed {
+            width: 56px !important;
+            min-width: 56px !important;
+            max-width: 56px !important;
+        }
+
+        .app-sidebar .sidebar-nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 9px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569; /* slate-600 inactivo */
+            background: transparent;
+            border: 1px solid transparent;
+            cursor: pointer;
+            text-align: left;
+            text-decoration: none;
+            transition: all 150ms ease;
+            white-space: nowrap;
+            overflow: hidden;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        .app-sidebar .sidebar-nav-btn:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .app-sidebar .sidebar-nav-btn[aria-current="page"],
+        .app-sidebar .sidebar-nav-btn.bg-blue-600 {
+            background-color: #0f172a !important; /* slate-900 activo */
+            color: #ffffff !important;
+            border-color: #0f172a !important;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15) !important;
+        }
+
+        .app-sidebar #tab-btn-dossiers[aria-current="page"],
+        .app-sidebar #tab-btn-dossiers.bg-blue-600 {
+            background-color: #0f766e !important; /* teal-700 activo */
+            color: #ffffff !important;
+            border-color: #0f766e !important;
+        }
+
+        .app-sidebar .sidebar-icon {
+            width: 18px;
+            height: 18px;
+            min-width: 18px;
+            stroke-width: 1.75;
+            stroke: currentColor;
+            flex-shrink: 0;
+            display: inline-block;
+        }
+
+        .app-sidebar.is-compact .sidebar-nav-btn,
+        .app-sidebar.is-collapsed .sidebar-nav-btn {
+            justify-content: center !important;
+            padding: 10px 0 !important;
+            gap: 0 !important;
+        }
+
+        .app-sidebar.is-compact .sidebar-label,
+        .app-sidebar.is-collapsed .sidebar-label,
+        .app-sidebar.is-compact .sidebar-section-title,
+        .app-sidebar.is-collapsed .sidebar-section-title,
+        .app-sidebar.is-compact .sidebar-brand-mini,
+        .app-sidebar.is-collapsed .sidebar-brand-mini {
+            display: none !important;
+        }
+
+        .app-sidebar.is-compact .sidebar-header-toggle,
+        .app-sidebar.is-collapsed .sidebar-header-toggle {
+            justify-content: center !important;
+            padding: 10px 4px !important;
+        }
+
+        /* ======================================================== */
+        /* OCULTAMIENTO NO DESTRUCTIVO: OPCIONES MARÍTIMAS Y ECO    */
+        /* ======================================================== */
+        /* Menú de la tuerca (⚙️): ocultar Compatibilidad, Editor, FCL, Editor ASBATANKVOY, Dossiers y checkbox FCL */
+        #advanced-modules-menu [data-module-id="compatibilidad"],
+        #advanced-modules-menu [data-module-id="gencon"],
+        #advanced-modules-menu [data-module-id="fcl"],
+        #advanced-modules-menu [data-module-id="asbatankvoy"],
+        #advanced-modules-menu [data-module-id="dossiers"],
+        #advanced-modules-menu .advanced-preference-item,
+        #advanced-modules-menu li:has(#advanced-tab-btn-compatibilidad),
+        #advanced-modules-menu li:has(#advanced-tab-btn-gencon),
+        #advanced-modules-menu li:has(#advanced-tab-btn-fcl),
+        #advanced-modules-menu li:has(#advanced-tab-btn-asbatankvoy),
+        #advanced-modules-menu li:has(#advanced-tab-btn-dossiers),
+        #advanced-modules-menu li:has(#show-container-modules-toggle) {
+            display: none !important;
+        }
+
+        /* Menú de tres puntos (⋮): ocultar Data Bridge Link, Reporte de Mercado, SeaCharter y Data Bridge */
+        #tools-dropdown-menu li:has(#btn-open-databridge-direct),
+        #tools-dropdown-menu li:has(#btn-market-report-nav),
+        #tools-dropdown-menu li:has(#btn-toggle-databridge),
+        #tools-dropdown-menu li:has(#link-seacharter-core-pro),
+        #btn-open-databridge-direct {
+            display: none !important;
+        }
+
+        /* ======================================================== */
+        /* PANEL INPUT GEOGRÁFICO Y BOTÓN FLOTANTE EXPANDIR         */
+        /* ======================================================== */
+        .route-input-expand-floating-btn {
+            display: none;
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            z-index: 35;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: #ffffff;
+            color: #0f172a;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+            transition: all 150ms ease;
+        }
+        .route-input-expand-floating-btn:hover {
+            background: #f8fafc;
+            color: #002060;
+            border-color: #94a3b8;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.2);
+        }
+        .map-command-shell.input-collapsed .route-input-expand-floating-btn,
+        .map-command-shell.is-input-collapsed .route-input-expand-floating-btn {
+            display: inline-flex !important;
+        }
+
+        .map-command-shell.input-collapsed #map-input-overlay,
+        .map-command-shell.is-input-collapsed #map-input-overlay,
+        #map-input-overlay.is-collapsed {
+            transform: translateX(calc(-100% + 46px));
+            opacity: 0 !important;
+            pointer-events: none !important;
+            visibility: hidden !important;
+        }
+
     </style>
     <style>
         .leaflet-route-highlight {
@@ -8948,7 +9139,7 @@
                 </button>
                 <ul id="mobile-module-nav-menu" class="mobile-module-nav-menu" aria-label="Seleccionar módulo"></ul>
             </div>
-            <div id="primary-module-tabs" class="module-tabs flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 max-w-full" aria-label="Navegación de módulos principales">
+            <div id="primary-module-tabs" class="module-tabs hidden" style="display: none !important;" aria-hidden="true">
                 <!-- Pestaña de navegación de Auditoría oculta estratégicamente (código latente) -->
                 <button type="button" id="tab-btn-auditor" class="tab-btn hidden" style="display: none;" data-module-id="auditor" aria-hidden="true" tabindex="-1">Auditoría</button>
             </div>
@@ -8995,7 +9186,7 @@
                         </svg>
                     </button>
                     <ul id="tools-dropdown-menu" class="tools-dropdown-menu" aria-label="Utilidades de sesión" onclick="if (event.target.closest('button, a')) setTimeout(closeMobileSessionMenu, 0);">
-                        <li class="tools-dropdown-item">
+                        <li class="tools-dropdown-item hidden" style="display: none !important;">
                             <button id="btn-market-report-nav" type="button" onclick="generateMarketReport(); closeMobileSessionMenu();" class="tools-dropdown-action" title="Generar Reporte de Mercado Actual" aria-label="Generar Reporte de Mercado Actual">
                                 <svg class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -9027,7 +9218,7 @@
                                 <span>Cargar Sesión</span>
                             </button>
                         </li>
-                        <li class="tools-dropdown-item">
+                        <li class="tools-dropdown-item hidden" style="display: none !important;">
                             <a id="btn-toggle-databridge" href="https://calm-shortbread-55bcfc.netlify.app/" target="_blank" rel="noopener noreferrer" onclick="openDataBridgeDashboard(event); closeMobileSessionMenu();" class="hidden tools-dropdown-action" title="Abrir Data Bridge" aria-label="Abrir Data Bridge">
                                 <svg id="icon-toggle-databridge" class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                                     <ellipse cx="12" cy="5" rx="7" ry="3" />
@@ -9047,7 +9238,7 @@
                                 </span>
                             </a>
                         </li>
-                        <li class="tools-dropdown-item">
+                        <li class="tools-dropdown-item hidden" style="display: none !important;">
                             <button id="btn-open-databridge-direct" type="button" class="tools-dropdown-action" title="Conectar Data Bridge" aria-label="Conectar Data Bridge">
                                 <svg class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M7 7h10v10" />
@@ -9057,7 +9248,7 @@
                                 <span>Data Bridge Link</span>
                             </button>
                         </li>
-                        <li class="tools-dropdown-item">
+                        <li class="tools-dropdown-item hidden" style="display: none !important;">
                             <a
                                 id="link-seacharter-core-pro"
                                 href="https://neon-seachartercorepro-4ce09d.netlify.app/"
@@ -9152,51 +9343,258 @@
         </div>
     </header>
 
-    <aside id="module-help-banner" class="contextual-guide-banner no-print" data-current-module="map" aria-label="Guía del módulo" aria-hidden="false">
-        <div class="contextual-guide-banner__content">
-            <span class="contextual-guide-banner__icon" aria-hidden="true"><i class="fa-solid fa-compass"></i></span>
-            <p class="contextual-guide-banner__text">Define la ruta: Marca coordenadas POL (Carga) y POD (Descarga).</p>
-        </div>
-        <button type="button" class="contextual-guide-banner__close" aria-label="Cerrar guía" title="No volver a mostrar">
-            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-        </button>
-    </aside>
+    <!-- CONTENEDOR PRINCIPAL DEL LAYOUT CON SIDEBAR IZQUIERDO -->
+    <div class="app-layout-wrapper flex flex-1 overflow-hidden relative w-full h-full">
 
-    <!-- DATALIST DE PUERTOS -->
+        <!-- SIDEBAR DE NAVEGACIÓN LATERAL IZQUIERDA COLAPSABLE -->
+        <aside id="app-sidebar" class="app-sidebar no-print flex flex-col justify-between shrink-0 bg-white border-r border-slate-200 transition-all duration-200 z-40 select-none" aria-label="Navegación principal">
+            <!-- Header superior del Sidebar con botón Toggle Colapsar/Expandir -->
+            <div class="sidebar-header-toggle flex items-center justify-between px-3 py-2.5 border-b border-slate-100">
+                <span class="sidebar-brand-mini text-[11px] font-black uppercase tracking-wider text-slate-400 sidebar-label">Módulos</span>
+                <button
+                    type="button"
+                    id="sidebar-toggle-btn"
+                    onclick="toggleSidebar()"
+                    class="sidebar-toggle-btn inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 transition cursor-pointer"
+                    title="Colapsar barra lateral"
+                    aria-label="Colapsar barra lateral"
+                    aria-expanded="true"
+                    aria-controls="app-sidebar"
+                >
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                </button>
+            </div>
 
-    <!-- MAIN CONTENT CONTAINER -->
-    <main class="app-main flex-1 overflow-hidden relative">
+            <!-- Navegación de módulos principales (Parte Superior: Módulos Operativos Terrestres) -->
+            <div class="sidebar-content-top flex-1 overflow-y-auto py-3 px-2 space-y-1">
+                <!-- 1. Rutas Terrestres -->
+                <button
+                    type="button"
+                    id="tab-btn-map"
+                    data-module-id="map"
+                    onclick="switchTab('map')"
+                    class="sidebar-nav-btn tab-btn bg-blue-600 text-white shadow"
+                    title="Rutas Terrestres"
+                    aria-label="Rutas Terrestres"
+                    aria-current="page"
+                >
+                    <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="6" cy="19" r="3"></circle>
+                        <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path>
+                        <circle cx="18" cy="5" r="3"></circle>
+                    </svg>
+                    <span class="sidebar-label">Rutas Terrestres</span>
+                </button>
 
-        <!-- ========================================== -->
-        <!-- MÓDULO 1: MAPA Y ESTADO GEOGRÁFICO         -->
-        <!-- ========================================== -->
-        <div id="view-map" class="view-section active-block absolute inset-0 min-h-[600px] xl:min-h-[800px] overflow-y-auto p-6 scroll-smooth">
-            <div id="map-command-shell" class="map-command-shell relative w-full h-full min-h-[600px] xl:min-h-[800px] overflow-hidden">
-                <div id="map-host" class="density-globe-stage absolute inset-0 w-full h-full min-h-[600px] xl:min-h-[800px] rounded-lg border border-[#e0e0e0] bg-blue-100 overflow-hidden shadow-[0_12px_28px_rgba(15,23,42,0.12)]">
-                    <div id="map-container" class="density-globe-canvas absolute inset-0 w-full h-full min-h-[600px] xl:min-h-[800px] rounded-lg border border-slate-200 bg-slate-950 overflow-hidden" data-globe-renderer>
-                        <div id="map-skeleton" class="w-full h-full min-h-[600px] flex flex-col items-center justify-center bg-slate-900 text-slate-100" style="background-color: #0f172a; color: #f1f5f9;" role="status" aria-live="polite" aria-label="Iniciando visor cartográfico">
-                            <div class="relative flex items-center justify-center mb-8" aria-hidden="true">
-                                <div class="absolute inset-0 rounded-full border-4 border-cyan-500/30 animate-ping"></div>
-                                <div class="h-16 w-16 rounded-full border-4 border-cyan-500 border-t-transparent animate-spin"></div>
-                                <div class="absolute h-3 w-3 rounded-full bg-cyan-400"></div>
-                            </div>
-                            <h2 class="text-2xl font-bold tracking-wide text-white">Land Charter Core PRO</h2>
-                            <p class="mt-3 text-sm text-cyan-400 animate-pulse font-medium">Iniciando motor de rutas terrestres (OSRM)...</p>
-                            <div class="mt-8 w-64 h-1.5 bg-slate-800 rounded-full overflow-hidden" aria-hidden="true">
-                                <div class="h-full bg-cyan-500 w-full animate-pulse"></div>
+                <!-- 2. Calculadora LDM -->
+                <button
+                    type="button"
+                    id="tab-btn-estimator"
+                    data-module-id="estimator"
+                    onclick="switchTab('estimator')"
+                    class="sidebar-nav-btn tab-btn"
+                    title="Calculadora LDM"
+                    aria-label="Calculadora LDM"
+                >
+                    <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect width="16" height="20" x="4" y="2" rx="2"></rect>
+                        <line x1="8" x2="16" y1="6" y2="6"></line>
+                        <line x1="16" x2="16" y1="14" y2="18"></line>
+                        <path d="M16 10h.01"></path>
+                        <path d="M12 10h.01"></path>
+                        <path d="M8 10h.01"></path>
+                        <path d="M12 14h.01"></path>
+                        <path d="M8 14h.01"></path>
+                        <path d="M12 18h.01"></path>
+                        <path d="M8 18h.01"></path>
+                    </svg>
+                    <span class="sidebar-label">Calculadora LDM</span>
+                </button>
+
+                <!-- 3. Proyectos -->
+                <button
+                    type="button"
+                    id="tab-btn-forwarders"
+                    data-module-id="FORWARDERS"
+                    onclick="switchTab('FORWARDERS')"
+                    class="sidebar-nav-btn tab-btn"
+                    title="Proyectos"
+                    aria-label="Proyectos"
+                >
+                    <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect width="20" height="14" x="2" y="7" rx="2" ry="2"></rect>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                    </svg>
+                    <span class="sidebar-label">Proyectos</span>
+                </button>
+
+                <!-- 4. Decisiones -->
+                <button
+                    type="button"
+                    id="tab-btn-decisiones"
+                    data-module-id="decisiones"
+                    onclick="switchTab('decisiones')"
+                    class="sidebar-nav-btn tab-btn"
+                    title="Decisiones"
+                    aria-label="Decisiones"
+                >
+                    <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="18" cy="18" r="3"></circle>
+                        <circle cx="6" cy="6" r="3"></circle>
+                        <path d="M6 9v12"></path>
+                        <path d="M18 9a9 9 0 0 1-9 9"></path>
+                    </svg>
+                    <span class="sidebar-label">Decisiones</span>
+                </button>
+
+                <!-- 5. Dossiers (movido de la tuerca ⚙️) -->
+                <button
+                    type="button"
+                    id="tab-btn-dossiers"
+                    data-module-id="dossiers"
+                    onclick="switchTab('dossiers'); window.DossierManager?.loadList();"
+                    class="sidebar-nav-btn tab-btn"
+                    title="Dossiers"
+                    aria-label="Dossiers"
+                >
+                    <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path>
+                        <path d="M12 11v6"></path>
+                        <path d="m9 14 3 3 3-3"></path>
+                    </svg>
+                    <span class="sidebar-label">Dossiers</span>
+                </button>
+
+                <!-- 6. Reporte de Mercado (movido de los 3 puntos ⋮) -->
+                <button
+                    type="button"
+                    id="sidebar-btn-market-report"
+                    onclick="generateMarketReport();"
+                    class="sidebar-nav-btn"
+                    title="Reporte de Mercado"
+                    aria-label="Reporte de Mercado"
+                >
+                    <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <span class="sidebar-label">Reporte de Mercado</span>
+                </button>
+            </div>
+
+            <!-- Parte Inferior Fija: Ecosistema (separada por una línea divisoria fina) -->
+            <div class="sidebar-content-bottom border-t border-slate-200/80 p-2 space-y-1 bg-slate-50/50">
+                <div class="sidebar-section-title px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Ecosistema
+                </div>
+
+                <!-- SeaCharter Core PRO (movido de ⋮) -->
+                <a
+                    id="sidebar-link-seacharter"
+                    href="https://neon-seachartercorepro-4ce09d.netlify.app/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onclick="updateAppSwitcherLinks();"
+                    class="sidebar-nav-btn"
+                    title="SeaCharter Core PRO"
+                    aria-label="SeaCharter Core PRO"
+                >
+                    <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="5" r="3"></circle>
+                        <line x1="12" y1="22" x2="12" y2="8"></line>
+                        <path d="M5 12H2a10 10 0 0 0 20 0h-3"></path>
+                    </svg>
+                    <span class="sidebar-label">SeaCharter Core PRO</span>
+                </a>
+
+                <!-- Data Bridge (movido de ⋮) -->
+                <a
+                    id="sidebar-link-databridge"
+                    href="https://calm-shortbread-55bcfc.netlify.app/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onclick="openDataBridgeDashboard(event);"
+                    class="sidebar-nav-btn"
+                    title="Data Bridge"
+                    aria-label="Data Bridge"
+                >
+                    <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                        <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"></path>
+                    </svg>
+                    <span class="sidebar-label">Data Bridge</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- ÁREA CENTRAL DE FLUJO DE TRABAJO -->
+        <div class="app-workspace-flow flex-1 flex flex-col overflow-hidden relative min-w-0">
+            <aside id="module-help-banner" class="contextual-guide-banner no-print" data-current-module="map" aria-label="Guía del módulo" aria-hidden="false">
+                <div class="contextual-guide-banner__content">
+                    <span class="contextual-guide-banner__icon" aria-hidden="true"><i class="fa-solid fa-compass"></i></span>
+                    <p class="contextual-guide-banner__text">Define la ruta: Marca coordenadas POL (Carga) y POD (Descarga).</p>
+                </div>
+                <button type="button" class="contextual-guide-banner__close" aria-label="Cerrar guía" title="No volver a mostrar">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </aside>
+
+            <!-- DATALIST DE PUERTOS -->
+
+            <!-- MAIN CONTENT CONTAINER -->
+            <main class="app-main flex-1 overflow-hidden relative">
+
+                <!-- ========================================== -->
+                <!-- MÓDULO 1: MAPA Y ESTADO GEOGRÁFICO         -->
+                <!-- ========================================== -->
+                <div id="view-map" class="view-section active-block absolute inset-0 min-h-[600px] xl:min-h-[800px] overflow-y-auto p-6 scroll-smooth">
+                    <div id="map-command-shell" class="map-command-shell relative w-full h-full min-h-[600px] xl:min-h-[800px] overflow-hidden">
+                        <div id="map-host" class="density-globe-stage absolute inset-0 w-full h-full min-h-[600px] xl:min-h-[800px] rounded-lg border border-[#e0e0e0] bg-blue-100 overflow-hidden shadow-[0_12px_28px_rgba(15,23,42,0.12)]">
+                            <div id="map-container" class="density-globe-canvas absolute inset-0 w-full h-full min-h-[600px] xl:min-h-[800px] rounded-lg border border-slate-200 bg-slate-950 overflow-hidden" data-globe-renderer>
+                                <div id="map-skeleton" class="w-full h-full min-h-[600px] flex flex-col items-center justify-center bg-slate-900 text-slate-100" style="background-color: #0f172a; color: #f1f5f9;" role="status" aria-live="polite" aria-label="Iniciando visor cartográfico">
+                                    <div class="relative flex items-center justify-center mb-8" aria-hidden="true">
+                                        <div class="absolute inset-0 rounded-full border-4 border-cyan-500/30 animate-ping"></div>
+                                        <div class="h-16 w-16 rounded-full border-4 border-cyan-500 border-t-transparent animate-spin"></div>
+                                        <div class="absolute h-3 w-3 rounded-full bg-cyan-400"></div>
+                                    </div>
+                                    <h2 class="text-2xl font-bold tracking-wide text-white">Land Charter Core PRO</h2>
+                                    <p class="mt-3 text-sm text-cyan-400 animate-pulse font-medium">Iniciando motor de rutas terrestres (OSRM)...</p>
+                                    <div class="mt-8 w-64 h-1.5 bg-slate-800 rounded-full overflow-hidden" aria-hidden="true">
+                                        <div class="h-full bg-cyan-500 w-full animate-pulse"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-                <div class="map-control-stack">
-                    <button id="btn-map-toggle-input" onclick="toggleRouteInputPanel()" class="map-icon-button" title="Ocultar input geográfico" aria-label="Ocultar input geográfico" aria-expanded="true" aria-controls="map-input-overlay">
-                        <i class="fa-solid fa-sliders"></i>
-                    </button>
-                    <button id="btn-map-fullscreen" onclick="toggleRouteMapFullscreen()" class="map-icon-button" title="Pantalla completa" aria-label="Pantalla completa">
-                        <i class="fa-solid fa-expand"></i>
-                    </button>
-                </div>
-                <section id="map-input-overlay" class="map-floating-panel route-sync-card ecosystem-panel space-y-4" aria-label="Input geográfico" aria-hidden="false">
+                        <div class="map-control-stack">
+                            <button id="btn-map-toggle-input" onclick="toggleRouteInputPanel()" class="map-icon-button" title="Ocultar input geográfico" aria-label="Ocultar input geográfico" aria-expanded="true" aria-controls="map-input-overlay">
+                                <i class="fa-solid fa-sliders"></i>
+                            </button>
+                            <button id="btn-map-fullscreen" onclick="toggleRouteMapFullscreen()" class="map-icon-button" title="Pantalla completa" aria-label="Pantalla completa">
+                                <i class="fa-solid fa-expand"></i>
+                            </button>
+                        </div>
+                        <!-- Botón flotante compacto para desplegar el Input Geográfico cuando está colapsado -->
+                        <button
+                            id="btn-show-route-input-floating"
+                            type="button"
+                            onclick="toggleRouteInputPanel(false)"
+                            class="route-input-expand-floating-btn shadow-lg"
+                            title="Mostrar Ruta Terrestre"
+                            aria-label="Mostrar Ruta Terrestre"
+                            aria-controls="map-input-overlay"
+                        >
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                            <span>Mostrar Ruta Terrestre</span>
+                        </button>
+                        <section id="map-input-overlay" class="map-floating-panel route-sync-card ecosystem-panel space-y-4" aria-label="Input geográfico" aria-hidden="false">
                     <div>
                         <div class="flex items-center justify-between gap-3">
                             <h2 class="text-sm font-bold uppercase text-[#002060]" data-i18n="map_input_header"><i class="fa-solid fa-map-location-dot mr-2"></i> Input geográfico</h2>
@@ -13686,6 +14084,8 @@
             <span class="sea-assistant-alert-badge" hidden aria-live="polite"></span>
         </button>
     </main>
+        </div><!-- /.app-workspace-flow -->
+    </div><!-- /.app-layout-wrapper -->
 
     <!-- BOTÓN FLOTANTE PARA RESTAURAR LA BARRA DE NAVEGACIÓN CUANDO ESTÁ OCULTA -->
     <button
@@ -30510,9 +30910,14 @@ function createRouteAnchorElement(type) {
             if (!menu) return;
             menu.innerHTML = '';
 
+            const hiddenMaritimeModules = ['compatibilidad', 'gencon', 'fcl', 'asbatankvoy', 'dossiers'];
             OPTIONAL_MODULES.forEach(moduleConfig => {
                 const item = document.createElement('li');
                 item.className = 'tools-dropdown-item';
+                if (hiddenMaritimeModules.includes(moduleConfig.id)) {
+                    item.className = 'tools-dropdown-item hidden';
+                    item.style.display = 'none';
+                }
                 item.appendChild(createModuleButton(moduleConfig, 'advanced'));
                 menu.appendChild(item);
             });
@@ -30609,7 +31014,8 @@ function createRouteAnchorElement(type) {
             });
 
             const preferenceItem = document.createElement('li');
-            preferenceItem.className = 'tools-dropdown-item advanced-preference-item';
+            preferenceItem.className = 'tools-dropdown-item advanced-preference-item hidden';
+            preferenceItem.style.display = 'none';
             preferenceItem.innerHTML = `
                 <label class="advanced-preference-toggle" for="show-container-modules-toggle">
                     <input type="checkbox" id="show-container-modules-toggle" ${userPreferences.showContainerModules ? 'checked' : ''}>
@@ -47011,6 +47417,14 @@ function scheduleReactiveEngine() {
                 seaCharterLink.setAttribute('aria-label', 'SeaCharter Core PRO');
             }
 
+            const sidebarSeaCharterLink = document.getElementById('sidebar-link-seacharter');
+            if (sidebarSeaCharterLink) {
+                const targetSeaCharterUrl = currentReference
+                    ? `https://neon-seachartercorepro-4ce09d.netlify.app/?ref=${currentReference}`
+                    : 'https://neon-seachartercorepro-4ce09d.netlify.app/';
+                sidebarSeaCharterLink.setAttribute('href', targetSeaCharterUrl);
+            }
+
             const dataBridgeLink = document.getElementById('btn-toggle-databridge');
             if (dataBridgeLink) {
                 const targetDataBridgeUrl = currentReference
@@ -47019,6 +47433,14 @@ function scheduleReactiveEngine() {
                 dataBridgeLink.setAttribute('href', targetDataBridgeUrl);
                 dataBridgeLink.setAttribute('target', '_blank');
                 dataBridgeLink.setAttribute('rel', 'noopener noreferrer');
+            }
+
+            const sidebarDataBridgeLink = document.getElementById('sidebar-link-databridge');
+            if (sidebarDataBridgeLink) {
+                const targetDataBridgeUrl = currentReference
+                    ? `https://calm-shortbread-55bcfc.netlify.app/?ref=${currentReference}`
+                    : 'https://calm-shortbread-55bcfc.netlify.app/';
+                sidebarDataBridgeLink.setAttribute('href', targetDataBridgeUrl);
             }
         }
 
@@ -55189,7 +55611,11 @@ ADDITIONAL NOTES:
         window.applyAuditSessionPayload = applyAuditSessionPayload;
 
         function loadAuditSession() {
-            document.getElementById('load-session-file-input')?.click();
+            if (typeof closeMobileSessionMenu === 'function') closeMobileSessionMenu();
+            switchTab('dossiers');
+            if (window.DossierManager?.loadList) {
+                window.DossierManager.loadList();
+            }
         }
 
         function handleImport(e) {
@@ -73153,6 +73579,81 @@ window.actualizarGrabCapacityVisibility = function() {
                 }, { once: true });
             } else {
                 applyHeaderVisibility(initialVisibility, false);
+            }
+        })();
+
+        // --- CONTROLADOR DE LA BARRA LATERAL (SIDEBAR COLAPSABLE) ---
+        (function() {
+            const SIDEBAR_STORAGE_KEY = 'landcharter_sidebar_compact';
+
+            function getStoredSidebarCompact() {
+                try {
+                    return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true';
+                } catch (_) {
+                    return false;
+                }
+            }
+
+            function setStoredSidebarCompact(compact) {
+                try {
+                    localStorage.setItem(SIDEBAR_STORAGE_KEY, compact ? 'true' : 'false');
+                } catch (_) {}
+            }
+
+            function applySidebarState(isCompact, smooth = true) {
+                const sidebar = document.getElementById('app-sidebar');
+                const toggleBtn = document.getElementById('sidebar-toggle-btn');
+                if (sidebar) {
+                    sidebar.classList.toggle('is-compact', isCompact);
+                    sidebar.classList.toggle('is-collapsed', isCompact);
+                }
+                if (toggleBtn) {
+                    toggleBtn.setAttribute('aria-expanded', String(!isCompact));
+                    toggleBtn.setAttribute('title', isCompact ? 'Expandir barra lateral' : 'Colapsar barra lateral');
+                    toggleBtn.setAttribute('aria-label', isCompact ? 'Expandir barra lateral' : 'Colapsar barra lateral');
+                    const svg = toggleBtn.querySelector('svg');
+                    if (svg) {
+                        svg.innerHTML = isCompact
+                            ? '<polyline points="9 18 15 12 9 6"></polyline>'
+                            : '<polyline points="15 18 9 12 15 6"></polyline>';
+                    }
+                }
+                window.dispatchEvent(new Event('resize'));
+                if (typeof window.routeMap?.invalidateSize === 'function') {
+                    window.routeMap.invalidateSize();
+                }
+                if (typeof window.GlobalFleetGlobe?.resize === 'function') {
+                    window.GlobalFleetGlobe.resize();
+                }
+                if (smooth) {
+                    setTimeout(() => {
+                        window.dispatchEvent(new Event('resize'));
+                        if (typeof window.routeMap?.invalidateSize === 'function') {
+                            window.routeMap.invalidateSize();
+                        }
+                    }, 240);
+                }
+            }
+
+            function toggleSidebar(forceState) {
+                const sidebar = document.getElementById('app-sidebar');
+                const current = sidebar ? (sidebar.classList.contains('is-compact') || sidebar.classList.contains('is-collapsed')) : getStoredSidebarCompact();
+                const next = typeof forceState === 'boolean' ? forceState : !current;
+                setStoredSidebarCompact(next);
+                applySidebarState(next, true);
+                return next;
+            }
+
+            window.toggleSidebar = toggleSidebar;
+            window.applySidebarState = applySidebarState;
+
+            const initialCompact = getStoredSidebarCompact();
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    applySidebarState(initialCompact, false);
+                }, { once: true });
+            } else {
+                applySidebarState(initialCompact, false);
             }
         })();
     </script>
