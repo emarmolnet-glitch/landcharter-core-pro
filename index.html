@@ -73888,17 +73888,30 @@ window.actualizarGrabCapacityVisibility = function() {
          (RODAHMAR ROAD / LAND CHARTER CORE PRO)
          ===================================================================== -->
     <style id="google-translate-custom-styles">
-        /* Oculta por completo la barra superior nativa de Google Translate */
-        .goog-te-banner-frame, .skiptranslate iframe { display: none !important; }
-        body { top: 0px !important; }
-        #google_translate_element {
-            display: none !important;
-        }
-        .goog-text-highlight {
-            background: none !important;
-            box-shadow: none !important;
-        }
-    </style>
+    /* Ocultar por completo la barra superior nativa y la ruedita de Google Translate */
+    .goog-te-banner-frame,
+    .skiptranslate iframe,
+    .goog-te-spinner-pos,
+    .VIpgJd-ZVi9od-aZ2wEe-wOHMyf,
+    .VIpgJd-ZVi9od-aZ2wEe-OiiCO,
+    .VIpgJd-ZVi9od-ORHb-OEVmcd,
+    #goog-gt-tt,
+    .goog-te-balloon-frame {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    body {
+      top: 0px !important;
+      position: static !important;
+    }
+    .goog-text-highlight {
+      background: none !important;
+      background-color: transparent !important;
+      box-shadow: none !important;
+    }
+  </style>
 
     <div id="google_translate_element" style="display:none;" translate="no" class="notranslate"></div>
 
