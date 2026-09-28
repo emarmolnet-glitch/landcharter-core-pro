@@ -4917,7 +4917,7 @@ function ForwarderWorkspaceInner() {
         const podLabel = destData?.displayName || destData?.name || (typeof aiPod === 'string' ? aiPod : '');
 
         // Inyectar en casillas terrestres y marítimas, avisando a React
-        ['input-pol', 'map-port-pol', 'port-pol'].forEach(id => {
+        ['map-port-pol', 'port-pol'].forEach(id => {
           const el = document.getElementById(id);
           if (el && polLabel) {
             el.value = polLabel;
@@ -4932,8 +4932,14 @@ function ForwarderWorkspaceInner() {
             try { el.blur(); } catch (_) {}
           }
         });
+        const inputPol = document.getElementById('input-pol');
+        if (inputPol && polLabel) {
+          inputPol.value = polLabel;
+          inputPol.dispatchEvent(new Event('input', { bubbles: true }));
+          try { inputPol.blur(); } catch (_) {}
+        }
 
-        ['input-pod', 'map-port-pod', 'port-pod'].forEach(id => {
+        ['map-port-pod', 'port-pod'].forEach(id => {
           const el = document.getElementById(id);
           if (el && podLabel) {
             el.value = podLabel;
@@ -4948,6 +4954,12 @@ function ForwarderWorkspaceInner() {
             try { el.blur(); } catch (_) {}
           }
         });
+        const inputPod = document.getElementById('input-pod');
+        if (inputPod && podLabel) {
+          inputPod.value = podLabel;
+          inputPod.dispatchEvent(new Event('input', { bubbles: true }));
+          try { inputPod.blur(); } catch (_) {}
+        }
 
         // Ocultar cualquier contenedor de sugerencias para experiencia zero-touch
         document.querySelectorAll('.port-autocomplete-menu, .autocomplete-list, ul[role="listbox"], .nominatim-suggester').forEach(menu => {
@@ -8764,7 +8776,7 @@ export function LandCharterMap({ containerId = 'map-container', className = '' }
         const map = L.map(container, {
           center: [50.5, 10.5],
           zoom: 4,
-          preferCanvas: true
+          preferCanvas: false
         });
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,

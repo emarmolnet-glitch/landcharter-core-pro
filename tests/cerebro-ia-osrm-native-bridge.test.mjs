@@ -37,19 +37,17 @@ test('3. ForwarderWorkspace invoca la función nativa directamente sin hacks ni 
   assert.match(forwarderJsx, /routeFn\(originData\s*\|\|\s*aiPol,\s*destData\s*\|\|\s*aiPod\)/);
 });
 
-test('4. El motor nativo actualiza la UI visual con curva geodésica intermitente, el zoom y el panel de itinerario', async () => {
+test('4. El motor nativo actualiza la UI visual con polilíneas estilo Google Maps, zoom fitBounds y panel de itinerario', async () => {
   const indexHtml = await readFile('index.html', 'utf8');
 
-  // Curva geodésica en Leaflet estilo vuelo con línea intermitente (#0f766e, dashed)
-  assert.match(indexHtml, /calculateCurvedRoutePoints/);
-  assert.match(indexHtml, /L\.polyline\(curvePoints/);
-  assert.match(indexHtml, /color:\s*['"]#0f766e['"]/);
-  assert.match(indexHtml, /weight:\s*3/);
-  assert.match(indexHtml, /dashArray:\s*['"]10,\s*10['"]/);
-  assert.match(indexHtml, /opacity:\s*0\.8/);
+  // Renderizado obligatorio de la polilínea en el mapa (estilo Google Maps)
+  assert.match(indexHtml, /color:\s*['"]#2563eb['"]/);
+  assert.match(indexHtml, /weight:\s*5/);
+  assert.match(indexHtml, /color:\s*['"]#93c5fd['"]/);
+  assert.match(indexHtml, /weight:\s*4/);
 
-  // Ajuste de zoom con fitBounds utilizando los dos puntos (Origen y Destino)
-  assert.match(indexHtml, /mapInstance\.fitBounds\(\s*\[\s*\[polCoords\.lat,\s*polCoords\.lon\],\s*\[podCoords\.lat,\s*podCoords\.lon\]\s*\]/);
+  // Ajuste de zoom con fitBounds utilizando routeLayer.getBounds()
+  assert.match(indexHtml, /map\.fitBounds\(route(?:Layer|Bounds)/);
 
   // Renderizado del panel de itinerario persistente (#route-itinerary-right-panel)
   assert.match(indexHtml, /renderRouteItineraryRightPanel\(window\.LandData\)/);

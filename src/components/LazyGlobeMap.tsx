@@ -95,12 +95,18 @@ function RouteAutoFitter({ positions }: { positions?: [number, number][] }) {
     // Exponer el mapa globalmente por si lo necesitamos desde index.html
     (window as any).GlobalLeafletMap = map;
 
+    // Si ya existe una ruta de carretera protegida trazada nativamente, no sobreescribir ni borrar
+    if ((window as any)._currentOsrmRouteLayer && (window as any)._currentOsrmRouteLayer.isProtectedRoadRoute) {
+      return;
+    }
+
     if (!positions || positions.length === 0) return;
 
     try {
-      console.log('[LazyGlobeMap] Renderizando curva en Leaflet [lat, lon]:', positions);
-      // 1. Limpiar líneas anteriores (buscamos por color o tipo)
+      console.log('[LazyGlobeMap] Renderizando ruta en Leaflet [lat, lon]:', positions);
+      // 1. Limpiar líneas anteriores (buscamos por color o tipo), protegiendo la capa nativa
       map.eachLayer((layer: any) => {
+        if (layer === (window as any)._currentOsrmRouteLayer) return;
         if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
           map.removeLayer(layer);
         } else if (layer.options && (layer.options.className === 'leaflet-route-highlight' || layer.options.color === '##2563eb' || layer.options.color === '#0f766e')) {
@@ -108,16 +114,16 @@ function RouteAutoFitter({ positions }: { positions?: [number, number][] }) {
         }
       });
 
-      // 2. Dibujar línea curva estilo vuelo intermitente (#0f766e, dashed)
+      // 2. Dibujar línea continua azul de carretera (sin líneas de puntos)
       const allLatLngs = positions;
       const mapInstance = map;
       const polyline = L.polyline(allLatLngs, {
-        color: '#0f766e',
-        weight: 3 /* weight: 5 */,
-        dashArray: '10, 10',
-        opacity: 0.8,
+        color: '#2563eb',
+        weight: 5,
+        opacity: 0.95,
         lineCap: 'round',
-        lineJoin: 'round'
+        lineJoin: 'round',
+        className: 'leaflet-route-highlight'
       });
       // Fallback para suite de tests: L.polyline(allLatLngs, { color: '##2563eb', weight: 6, opacity: 1.0, lineCap: 'round', lineJoin: 'round', className: 'leaflet-route-highlight' })
       polyline.addTo(mapInstance);
@@ -127,7 +133,9 @@ function RouteAutoFitter({ positions }: { positions?: [number, number][] }) {
 
       // 4. Cleanup al desmontar
       return () => {
-        mapInstance.removeLayer(polyline);
+        if (polyline !== (window as any)._currentOsrmRouteLayer) {
+          try { mapInstance.removeLayer(polyline); } catch (_) {}
+        }
       };
     } catch (err) {
       console.warn('[RouteAutoFitter] Error al dibujar línea nativa:', err);
@@ -160,10 +168,12 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
       const customEv = event as CustomEvent<{
         routePoints?: [number, number][];
         curvedRoutePoints?: [number, number][];
+        osrmRoutePoints?: [number, number][];
+        leafletRoutePoints?: [number, number][];
         origin?: RoutePoint;
         destination?: RoutePoint;
       }>;
-      const points = customEv.detail?.curvedRoutePoints || customEv.detail?.routePoints;
+      const points = customEv.detail?.osrmRoutePoints || customEv.detail?.leafletRoutePoints || customEv.detail?.routePoints || customEv.detail?.curvedRoutePoints;
       if (points && points.length > 0) {
         setRoutePoints(points);
       }

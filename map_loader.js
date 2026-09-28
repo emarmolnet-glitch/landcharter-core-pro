@@ -94,7 +94,7 @@
         if (typeof L === 'undefined' || !L || typeof L.map !== 'function') {
             return null;
         }
-        const config = Object.assign({ center: [20.0, 0.0], zoom: 2, attributionControl: false, preferCanvas: true }, options || {});
+        const config = Object.assign({ center: [20.0, 0.0], zoom: 2, attributionControl: false, preferCanvas: false }, options || {});
         const map = L.map(containerId, config).setView(config.center, config.zoom);
         L.tileLayer(MAP_STYLE_CONFIG.fallback.tileUrl, Object.assign({}, MAP_STYLE_CONFIG.fallback.tileOptions, {
             className: 'nautical-map-base'

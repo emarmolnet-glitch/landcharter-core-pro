@@ -708,19 +708,23 @@ async function executeActionableAiUpdateFields(actionObj) {
             });
         };
 
-        const polQuery = String(p.pol || "").trim();
-        const podQuery = String(p.pod || "").trim();
+        const polQuery = String(p.pol || p.origin || p.origen || "").trim();
+        const podQuery = String(p.pod || p.destination || p.destino || "").trim();
         let selectedRoutePorts = null;
 
         if (polQuery && podQuery) {
-            selectedRoutePorts = await selectActionableAiWpiRoute(polQuery, podQuery);
-            p = {
-                ...p,
-                pol: selectedRoutePorts.pol.officialLabel,
-                pod: selectedRoutePorts.pod.officialLabel,
-                pol_port: selectedRoutePorts.pol,
-                pod_port: selectedRoutePorts.pod,
-            };
+            try {
+                selectedRoutePorts = await selectActionableAiWpiRoute(polQuery, podQuery);
+                p = {
+                    ...p,
+                    pol: selectedRoutePorts.pol.officialLabel,
+                    pod: selectedRoutePorts.pod.officialLabel,
+                    pol_port: selectedRoutePorts.pol,
+                    pod_port: selectedRoutePorts.pod,
+                };
+            } catch (wpiErr) {
+                console.log("[Cerebro.ia] Puertos WPI no aplicables o ruta terrestre:", wpiErr?.message);
+            }
         }
 
         // 1. INYECCIÓN DE DATOS BÁSICOS
@@ -1021,6 +1025,63 @@ async function executeActionableAiUpdateFields(actionObj) {
             };
             const injectionResult = window.injectVoyageScenario(validatedScenario, { deferFinalActions: true });
             await window.finalizeAssistantVoyageInjection(injectionResult, { forceRouteCalculation: true });
+        } else {
+            // Sincronización con Cerebro.ia para rutas terrestres (ej. Sétif -> Béjaïa)
+            const landPol = String(p.land_origin || p.origin || p.origen || p.pol || '').trim();
+            const landPod = String(p.land_destination || p.destination || p.destino || p.pod || '').trim();
+            if (landPol && landPod) {
+                console.log("🚛 [Cerebro.ia/update_fields] Trazando ruta terrestre:", landPol, "->", landPod);
+                const routeFn = window.calculateLandRouteByCoordinates ||
+                                window.calculateLandRoute ||
+                                window.calculateOsrmRoute ||
+                                window.calculateOpenRouteService;
+                let routeResult = null;
+                if (typeof routeFn === 'function') {
+                    try {
+                        routeResult = await routeFn(landPol, landPod);
+                    } catch (routeErr) {
+                        console.warn("[Cerebro.ia/update_fields] Error en trazado terrestre:", routeErr);
+                    }
+                } else if (typeof window.runOnDemandMapRouteWorkflow === 'function') {
+                    try {
+                        routeResult = await window.runOnDemandMapRouteWorkflow(null, landPol, landPod);
+                    } catch (routeErr) {
+                        console.warn("[Cerebro.ia/update_fields] Error en runOnDemandMapRouteWorkflow:", routeErr);
+                    }
+                }
+
+                // Protección de distancia real: si land_distance viene como 0 pero existen land_origin y land_destination, NO sobrescribir con 0
+                const incomingLandDist = Number(p.land_distance ?? p.distance ?? p.distanceKm);
+                const realDist = Number(routeResult?.totalKilometers ?? routeResult?.distanceKm ?? window.LandData?.totalKilometers ?? window.LandData?.distanceKm ?? 0);
+                const effectiveDist = (realDist > 0) ? realDist : ((Number.isFinite(incomingLandDist) && incomingLandDist > 0) ? incomingLandDist : null);
+
+                if (effectiveDist !== null && effectiveDist > 0) {
+                    console.log(`[Cerebro.ia/update_fields] Aplicando distancia real protegida: ${effectiveDist} km`);
+                    if (window.State) {
+                        window.State.distanceKm = effectiveDist;
+                        window.State.totalKilometers = effectiveDist;
+                        window.State.distance = effectiveDist;
+                        window.State.distLaden = effectiveDist;
+                        window.State.land_distance = effectiveDist;
+                    }
+                    if (window.GlobalStore) {
+                        window.GlobalStore.distanceKm = effectiveDist;
+                        window.GlobalStore.totalKilometers = effectiveDist;
+                        window.GlobalStore.distLaden = effectiveDist;
+                    }
+                    ['dist-total', 'dist-laden', 'input-distance-km'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) {
+                            el.value = effectiveDist;
+                            el.dispatchEvent(new Event('input', { bubbles: true }));
+                            el.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    });
+                    if (typeof window.renderRouteItineraryRightPanel === 'function') {
+                        window.renderRouteItineraryRightPanel(routeResult || window.LandData);
+                    }
+                }
+            }
         }
 
         if (!isMapView) {
@@ -1040,25 +1101,43 @@ async function executeActionableAiUpdateFields(actionObj) {
 
 async function executeActionableAiRoute(action) {
   const payload = action?.payload || action || {};
-  const pol = String(payload.pol || '').trim();
-  const pod = String(payload.pod || '').trim();
+  const pol = String(payload.origin || payload.origen || payload.pol || '').trim();
+  const pod = String(payload.destination || payload.destino || payload.pod || '').trim();
   if (!pol || !pod) throw new Error('La acción de ruta requiere POL y POD.');
-  if (typeof window.injectVoyageScenario !== 'function' || typeof window.finalizeAssistantVoyageInjection !== 'function') {
-    throw new Error('El motor de inyección de viaje todavía no está disponible.');
+
+  try {
+    if (typeof selectActionableAiWpiRoute === 'function') {
+      const selectedPorts = await selectActionableAiWpiRoute(pol, pod);
+      if (selectedPorts?.pol && selectedPorts?.pod && typeof window.injectVoyageScenario === 'function' && typeof window.finalizeAssistantVoyageInjection === 'function') {
+        const tonnage = Number(payload.tonnage ?? payload.cargo_qty ?? payload.cargoQty);
+        const validatedScenario = {
+          ...payload,
+          pol: selectedPorts.pol.officialLabel,
+          pod: selectedPorts.pod.officialLabel,
+          pol_port: selectedPorts.pol,
+          pod_port: selectedPorts.pod,
+          ...(Number.isFinite(tonnage) && tonnage > 0 ? { cargo_qty: tonnage } : {}),
+        };
+        const injectionResult = window.injectVoyageScenario(validatedScenario, { deferFinalActions: true });
+        await window.finalizeAssistantVoyageInjection(injectionResult, { forceRouteCalculation: true });
+        return true;
+      }
+    }
+  } catch (err) {
+    console.log("[Cerebro.ia/Route] Selector WPI no aplicable o ruta terrestre:", err?.message);
   }
 
-  const selectedPorts = await selectActionableAiWpiRoute(pol, pod);
-  const tonnage = Number(payload.tonnage ?? payload.cargo_qty ?? payload.cargoQty);
-  const validatedScenario = {
-    ...payload,
-    pol: selectedPorts.pol.officialLabel,
-    pod: selectedPorts.pod.officialLabel,
-    pol_port: selectedPorts.pol,
-    pod_port: selectedPorts.pod,
-    ...(Number.isFinite(tonnage) && tonnage > 0 ? { cargo_qty: tonnage } : {}),
-  };
-  const injectionResult = window.injectVoyageScenario(validatedScenario, { deferFinalActions: true });
-  await window.finalizeAssistantVoyageInjection(injectionResult, { forceRouteCalculation: true });
+  const routeFn = window.calculateLandRouteByCoordinates ||
+                  window.calculateLandRoute ||
+                  window.calculateOsrmRoute ||
+                  window.calculateOpenRouteService;
+  if (typeof routeFn === 'function') {
+    await routeFn(pol, pod);
+    return true;
+  } else if (typeof window.runOnDemandMapRouteWorkflow === 'function') {
+    await window.runOnDemandMapRouteWorkflow(null, pol, pod);
+    return true;
+  }
   return true;
 }
 
