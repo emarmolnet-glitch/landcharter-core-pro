@@ -18735,11 +18735,22 @@ function renderRouteItineraryRightPanel(landData) {
 
     const origName = landData.origin?.displayName || landData.origin?.name || landData.origin?.query || 'Origen N/D';
     const destName = landData.destination?.displayName || landData.destination?.name || landData.destination?.query || 'Destino N/D';
-    const distKm = Math.round(landData.totalKilometers || landData.distanceKm || 0);
-    const hours = Number(landData.drivingHours || 0);
+    const rawDist = Number(landData.totalKilometers ?? landData.distanceKm ?? 0);
+    const distKmFormatted = (rawDist > 0)
+        ? (rawDist % 1 === 0 ? rawDist.toFixed(0) : rawDist.toFixed(1))
+        : '0';
+    const hours = Number(landData.drivingHours || 0) || (rawDist > 0 ? (rawDist / 72) : 0);
     const hoursDisplay = Math.floor(hours);
     const minsDisplay = Math.round((hours % 1) * 60);
-    const tollsTotal = Number(landData.totalTollsCost || 0).toFixed(2);
+    // Sincronizar peajes con el motor de cálculo de la Calculadora LDM si no hay desglose o viene en 0
+    let effectiveTollsCost = Number(landData.totalTollsCost || 0);
+    if (effectiveTollsCost === 0 && rawDist >= 50) {
+        const pdaPolInput = document.getElementById('pda-pol') || document.getElementById('peajes');
+        const calcVal = parseFloat(pdaPolInput?.value) || parseFloat(window.State?.peajes) || parseFloat(window.State?.pdaPol) || 0;
+        const ratePerKm = Number(window.State?.tollCostPerKm) || 0.25;
+        effectiveTollsCost = (calcVal > 0) ? calcVal : Math.round(rawDist * ratePerKm * 100) / 100;
+    }
+    const tollsTotal = effectiveTollsCost.toFixed(2);
     const milestones = Array.isArray(landData.tachographMilestones) ? landData.tachographMilestones : [];
     const tollList = Array.isArray(landData.tollBreakdown) ? landData.tollBreakdown : [];
 
@@ -18764,7 +18775,11 @@ function renderRouteItineraryRightPanel(landData) {
 
     let tollsHtml = '';
     if (tollList.length === 0) {
-        tollsHtml = '<p class="text-xs text-slate-500 italic mt-1">0,00 € (Sin tramos de peaje detectados · Vías libres)</p>';
+        if (effectiveTollsCost > 0) {
+            tollsHtml = `<p class="text-xs text-emerald-700 font-medium mt-1">(${effectiveTollsCost.toFixed(2)} € · Estimación tarifas HGV por kilometraje)</p>`;
+        } else {
+            tollsHtml = '<p class="text-xs text-slate-500 italic mt-1">0,00 € (Sin tramos de peaje detectados · Vías libres)</p>';
+        }
     } else {
         tollsHtml = `
             <div class="mt-1.5 space-y-1 max-h-28 overflow-y-auto pr-1">
@@ -18805,7 +18820,7 @@ function renderRouteItineraryRightPanel(landData) {
         <div class="grid grid-cols-2 gap-2 mb-3">
             <div class="bg-blue-50 border border-blue-100 rounded-lg p-2 text-center">
                 <span class="block text-[10px] font-bold uppercase text-blue-600">🛣️ Distancia Total</span>
-                <strong class="text-sm font-extrabold text-blue-900">${distKm.toLocaleString('es-ES')} km</strong>
+                <strong class="text-sm font-extrabold text-blue-900">${distKmFormatted} km</strong>
             </div>
             <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-2 text-center">
                 <span class="block text-[10px] font-bold uppercase text-indigo-600">⏱️ Conducción</span>
@@ -18835,7 +18850,20 @@ function renderRouteItineraryRightPanel(landData) {
             ${tollsHtml}
         </div>
     `;
-    panel.classList.remove('hidden');
+
+    // Visibilidad condicionada: solo mostrar si la pestaña activa es 'map' (Rutas Terrestres / Mapa)
+    const isMapActive = Boolean(
+        document.getElementById('view-map')?.classList.contains('active-block') ||
+        document.getElementById('view-map')?.classList.contains('active-flex') ||
+        (document.getElementById('view-map') && !document.getElementById('view-map')?.classList.contains('hidden'))
+    );
+    if (isMapActive) {
+        panel.classList.remove('hidden');
+        panel.style.display = 'block';
+    } else {
+        panel.classList.add('hidden');
+        panel.style.display = 'none';
+    }
 
     // Inicializar o refrescar lógica de arrastre (drag & drop) idéntica a Cerebro.ia
     initRouteItineraryDraggable(panel);
@@ -18961,22 +18989,43 @@ if (!window._firewallInjectedV13) {
         
         if (typeof url === 'string' && url.includes('/api/cerebro-ia')) {
             fetchPromise.then(response => {
-                response.clone().json().then(data => {
-                    if (data && data.action === 'update_fields' && data.payload) {
-                        const pol = data.payload.origin || data.payload.pol || '';
-                        const pod = data.payload.destination || data.payload.pod || '';
-                        if (pol && pod) {
-                            console.log(`🔥 IA detectada: ${pol} -> ${pod}`);
-                            setTimeout(() => {
-                                if (window.calculateLandRouteByCoordinates) {
-                                    window.calculateLandRouteByCoordinates(pol, pod);
-                                } else if (window.runOnDemandMapRouteWorkflow) {
-                                    window.runOnDemandMapRouteWorkflow(null, pol, pod);
-                                }
-                            }, 300);
-                        }
+                const clone1 = response.clone();
+                clone1.json().then(data => {
+                    const payload = data?.payload || data?.data?.payload || (data?.action ? data : null) || data?.data;
+                    const pol = payload?.origin || payload?.origen || payload?.pol || payload?.port_pol || '';
+                    const pod = payload?.destination || payload?.destino || payload?.pod || payload?.port_pod || '';
+                    if (pol && pod) {
+                        console.log(`🔥 Cerebro.ia detectado: ${pol} -> ${pod}`);
+                        setTimeout(() => {
+                            if (window.calculateLandRouteByCoordinates) {
+                                window.calculateLandRouteByCoordinates(pol, pod);
+                            } else if (window.runOnDemandMapRouteWorkflow) {
+                                window.runOnDemandMapRouteWorkflow(null, pol, pod);
+                            }
+                        }, 300);
                     }
-                }).catch(e => {});
+                }).catch(() => {
+                    response.clone().text().then(txt => {
+                        const jsonMatch = txt.match(/\{[\s\S]*"(?:action|origin|pol)"[\s\S]*\}/i);
+                        if (jsonMatch) {
+                            try {
+                                const parsed = JSON.parse(jsonMatch[0]);
+                                const payload = parsed?.payload || parsed?.data?.payload || parsed;
+                                const pol = payload?.origin || payload?.origen || payload?.pol || '';
+                                const pod = payload?.destination || payload?.destino || payload?.pod || '';
+                                if (pol && pod) {
+                                    setTimeout(() => {
+                                        if (window.calculateLandRouteByCoordinates) {
+                                            window.calculateLandRouteByCoordinates(pol, pod);
+                                        } else if (window.runOnDemandMapRouteWorkflow) {
+                                            window.runOnDemandMapRouteWorkflow(null, pol, pod);
+                                        }
+                                    }, 300);
+                                }
+                            } catch (_) {}
+                        }
+                    }).catch(() => {});
+                });
             });
         }
         return fetchPromise;
@@ -19048,6 +19097,9 @@ window.calculateCurvedRoutePoints = calculateCurvedRoutePoints;
 async function runOnDemandMapRouteWorkflow(button) {
     let overridePol = arguments[1] || null;
     let overridePod = arguments[2] || null;
+    let dedupeKey = null;
+    let resolveInFlightPromise = null;
+    let rejectInFlightPromise = null;
 
     let btnElement = (button && typeof button === 'object' && (button.nodeType || button.classList || button.tagName)) ? button : null;
     if (!btnElement && button && typeof button === 'object' && ('lat' in button || 'latitude' in button || 'lon' in button || 'lng' in button)) {
@@ -19108,6 +19160,19 @@ async function runOnDemandMapRouteWorkflow(button) {
         if (!pol || !pod) {
             throw new Error('Origen y Destino son obligatorios para calcular la ruta terrestre.');
         }
+
+        // 2. Control de concurrencia: Evitar peticiones geojson idénticas en vuelo simultáneas
+        window._inFlightLandRoutePromises = window._inFlightLandRoutePromises || new Map();
+        dedupeKey = `${pol.trim().toLowerCase()}__${pod.trim().toLowerCase()}`;
+        if (window._inFlightLandRoutePromises.has(dedupeKey)) {
+            console.log(`[Workflow] Petición idéntica en vuelo detectada para "${dedupeKey}". Reutilizando promesa existente.`);
+            return await window._inFlightLandRoutePromises.get(dedupeKey);
+        }
+        const inFlightPromise = new Promise((resolve, reject) => {
+            resolveInFlightPromise = resolve;
+            rejectInFlightPromise = reject;
+        });
+        window._inFlightLandRoutePromises.set(dedupeKey, inFlightPromise);
 
         // 🚀 GEOLOCALIZADOR TERRESTRE DUAL CON DICCIONARIO PRIORITARIO Y FALLBACK NOMINATIM/PHOTON
         const getCoordinates = async (query) => {
@@ -19258,74 +19323,119 @@ async function runOnDemandMapRouteWorkflow(button) {
         // Forzar cierre instantáneo del autocompletado y quitar foco programático para experiencia zero-touch
         forceCloseAutocompleteDropdowns();
 
-        // 3. Petición a OSRM con Sistema de Redundancia (Espejos)
-        const endpoints = [
-            "https://router.project-osrm.org/route/v1/driving/",
-            "https://routing.openstreetmap.de/routed-car/route/v1/driving/"
-        ];
+        // 1. CASCADA DE ENRUTAMIENTO CON GEOMETRÍA REAL DE CARRETERA (EVITAR FALLBACK SIN LÍNEA)
+        const origLon = polCoords.lon;
+        const origLat = polCoords.lat;
+        const destLon = podCoords.lon;
+        const destLat = podCoords.lat;
 
         let data = null;
-        let fetchError = null;
+        let routeSource = null;
 
-        for (const baseUrl of endpoints) {
-            try {
-                const osrmUrl = `${baseUrl}${polCoords.lon},${polCoords.lat};${podCoords.lon},${podCoords.lat}?overview=full&geometries=geojson&steps=true`;
-                console.log(`[Workflow] Intentando conectar con: ${baseUrl}`);
-                const response = await fetch(osrmUrl);
-                if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-                data = await response.json();
-                if (data && data.routes && data.routes.length > 0) {
-                    console.log(`[Workflow] Éxito conectando con ${baseUrl}`);
-                    break;
+        // a) Intento 1 (OpenRouteService HGV): perfil driving-hgv, radiuses [5000, 5000], formato /geojson
+        const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0=';
+        try {
+            console.log('[Workflow] Intento 1: OpenRouteService HGV con radiuses [5000, 5000] y /geojson...');
+            const orsRes = await fetch('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': orsApiKey
+                },
+                body: JSON.stringify({
+                    coordinates: [[origLon, origLat], [destLon, destLat]],
+                    radiuses: [5000, 5000],
+                    extra_info: ["tollways"]
+                })
+            });
+
+            if (orsRes.ok) {
+                const orsData = await orsRes.json();
+                const feat = orsData?.features?.[0];
+                const coords = feat?.geometry?.coordinates;
+                if (coords && coords.length > 0) {
+                    const seg = feat?.properties?.segments?.[0] || feat?.properties?.summary || {};
+                    const distMeters = seg.distance || feat?.properties?.summary?.distance || 0;
+                    const durSeconds = seg.duration || feat?.properties?.summary?.duration || 0;
+                    data = {
+                        routes: [{
+                            distance: distMeters,
+                            duration: durSeconds,
+                            legs: [{
+                                steps: (seg.steps || []).map((s, idx) => ({
+                                    name: s.name || s.instruction || `Tramo ${idx + 1}`,
+                                    distance: s.distance || 0,
+                                    duration: s.duration || 0
+                                }))
+                            }],
+                            geometry: {
+                                coordinates: coords
+                            }
+                        }]
+                    };
+                    routeSource = 'ORS-HGV';
+                    console.log(`[Workflow] Éxito con OpenRouteService HGV: ${(distMeters / 1000).toFixed(1)} km`);
                 }
-            } catch (err) {
-                console.warn(`[Workflow] Falló el servidor ${baseUrl}:`, err.message);
-                fetchError = err;
+            } else {
+                console.warn('[Workflow] Intento 1 OpenRouteService HGV no devolvió ruta exitosa (status):', orsRes.status);
             }
+        } catch (orsErr) {
+            console.warn('[Workflow] Falló Intento 1 OpenRouteService HGV:', orsErr?.message || orsErr);
         }
 
-        // Fallback redundante a OpenRouteService HGV si OSRM no responde
-        if (!data || !data.routes || !data.routes.length) {
-            try {
-                const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0='; 
-                const orsUrl = `https://api.openrouteservice.org/v2/directions/driving-hgv?api_key=${orsApiKey}&start=${polCoords.lon},${polCoords.lat}&end=${podCoords.lon},${podCoords.lat}`;
-                const orsRes = await fetch(orsUrl);
-                if (orsRes.ok) {
-                    const orsData = await orsRes.json();
-                    if (orsData?.features?.[0]) {
-                        const feat = orsData.features[0];
-                        const seg = feat.properties?.segments?.[0] || {};
+        // b) Intento 2 (Fallback con Geometría Real de Carretera - OSRM / Driving):
+        // Endpoint público: https://router.project-osrm.org/route/v1/driving/${origLon},${origLat};${destLon},${destLat}?overview=full&geometries=geojson&alternatives=true
+        if (!data || !data.routes || !data.routes.length || !data.routes[0].geometry?.coordinates?.length) {
+            console.log('[Workflow] Intento 2: Fallback con Geometría Real de Carretera OSRM / Driving...');
+            const endpoints = [
+                "https://router.project-osrm.org/route/v1/driving/",
+                "https://routing.openstreetmap.de/routed-car/route/v1/driving/"
+            ];
+
+            let fetchError = null;
+            for (const baseUrl of endpoints) {
+                try {
+                    const osrmUrl = `${baseUrl}${polCoords.lon},${polCoords.lat};${podCoords.lon},${podCoords.lat}?overview=full&geometries=geojson&steps=true&alternatives=true`;
+                    console.log(`[Workflow] Intentando conectar con: ${baseUrl}`);
+                    const response = await fetch(osrmUrl);
+                    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+                    const jsonRes = await response.json();
+                    if (jsonRes && jsonRes.routes && jsonRes.routes.length > 0) {
                         data = {
-                            routes: [{
-                                distance: seg.distance || 0,
-                                duration: seg.duration || 0,
-                                legs: [{
-                                    steps: (seg.steps || []).map(s => ({
-                                        name: s.instruction || '',
-                                        distance: s.distance || 0,
-                                        duration: s.duration || 0
-                                    }))
-                                }],
-                                geometry: {
-                                    coordinates: feat.geometry?.coordinates || []
-                                }
-                            }]
+                            ...jsonRes,
+                            routes: jsonRes.routes.map(r => {
+                                const distKm = (Number(r.distance) || 0) / 1000;
+                                // c) Extrae de la respuesta de OSRM la distancia real, duración ajustada a camión pesado y coordenadas
+                                const adjustedDuration = r.duration ? Math.round(Math.max(r.duration * 1.25, (distKm / 72) * 3600)) : Math.round((distKm / 72) * 3600);
+                                return {
+                                    ...r,
+                                    duration: adjustedDuration,
+                                    legs: r.legs && r.legs.length > 0 ? r.legs.map(leg => ({
+                                        ...leg,
+                                        duration: leg.duration ? Math.round(leg.duration * 1.25) : adjustedDuration
+                                    })) : [{ steps: [] }]
+                                };
+                            })
                         };
+                        routeSource = 'OSRM-DRIVING';
+                        console.log(`[Workflow] Éxito conectando con ${baseUrl}`);
+                        break;
                     }
+                } catch (err) {
+                    console.warn(`[Workflow] Falló el servidor ${baseUrl}:`, err.message);
+                    fetchError = err;
                 }
-            } catch (orsErr) {
-                console.warn('[Workflow] Falló fallback OpenRouteService:', orsErr);
             }
         }
 
-        // Failsafe Haversine si OSRM no responde
+        // Failsafe Haversine SÓLO si todos los servidores han fallado sin conexión
         if (!data || !data.routes || !data.routes.length) {
-            console.error("[Workflow] Todos los servidores OSRM han fallado. Aplicando Fallback de emergencia.");
+            console.error("[Workflow] Todos los servidores OSRM y ORS han fallado. Aplicando Fallback de emergencia.");
             const R = 6371; // Radio de la Tierra en km
-            const dLat = (podCoords.lat - polCoords.lat) * Math.PI / 180;
-            const dLon = (podCoords.lon - polCoords.lon) * Math.PI / 180;
+            const dLat = (destLat - origLat) * Math.PI / 180;
+            const dLon = (destLon - origLon) * Math.PI / 180;
             const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(polCoords.lat * Math.PI / 180) * Math.cos(podCoords.lat * Math.PI / 180) *
+                      Math.cos(origLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) *
                       Math.sin(dLon/2) * Math.sin(dLon/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             const straightKm = R * c;
@@ -19337,8 +19447,8 @@ async function runOnDemandMapRouteWorkflow(button) {
                     legs: [{ steps: [] }],
                     geometry: {
                         coordinates: [
-                            [polCoords.lon, polCoords.lat],
-                            [podCoords.lon, podCoords.lat]
+                            [origLon, origLat],
+                            [destLon, destLat]
                         ]
                     }
                 }]
@@ -19351,7 +19461,7 @@ async function runOnDemandMapRouteWorkflow(button) {
         const totalKilometers = distanceMeters / 1000;
         const durationSeconds = Number(route.duration) || 0;
         const drivingHours = durationSeconds / 3600;
-        const distanceKm = Math.round(distanceMeters / 1000);
+        const distanceKm = Number((distanceMeters / 1000).toFixed(1));
         const geojsonCoordinates = route.geometry && route.geometry.coordinates ? route.geometry.coordinates : [];
         const leafletRoutePoints = geojsonCoordinates.map(coord => [coord[1], coord[0]]);
 
@@ -19429,6 +19539,18 @@ async function runOnDemandMapRouteWorkflow(button) {
 
         totalTollsCost = Math.round(totalTollsCost * 100) / 100;
 
+        // Regla de consistencia: si no se detectaron peajes individuales o devuelven 0 en rutas > 50 km,
+        // sincronizar con el cálculo del motor de la Calculadora LDM (ej. ~0.25 €/km o input Peajes)
+        let tollEstimationMode = 'detected';
+        if (totalTollsCost === 0 && distanceKm >= 50) {
+            const pdaPolInput = document.getElementById('pda-pol') || document.getElementById('peajes');
+            const currentCalculatorPeajes = parseFloat(pdaPolInput?.value) || parseFloat(window.State?.peajes) || parseFloat(window.State?.pdaPol) || 0;
+            const tollRatePerKm = Number(window.State?.tollCostPerKm) || 0.25;
+            const calculatedHighwayTolls = Math.round(distanceKm * tollRatePerKm * 100) / 100;
+            totalTollsCost = (currentCalculatorPeajes > 0) ? currentCalculatorPeajes : calculatedHighwayTolls;
+            tollEstimationMode = 'hgv_rate';
+        }
+
         const computedCurvePoints = calculateCurvedRoutePoints([polCoords.lat, polCoords.lon], [podCoords.lat, podCoords.lon]);
 
         // Guarda la estructura completa en window.LandData
@@ -19452,22 +19574,34 @@ async function runOnDemandMapRouteWorkflow(button) {
             drivingHours,
             totalTollsCost,
             tollBreakdown,
+            tollEstimationMode,
             tachographMilestones,
             routeSteps: enrichedRouteSteps,
             geojsonCoordinates,
             leafletRoutePoints,
-            routePoints: computedCurvePoints,
+            routePoints: leafletRoutePoints.length > 0 ? leafletRoutePoints : computedCurvePoints,
             curvedRoutePoints: computedCurvePoints,
+            osrmRoutePoints: leafletRoutePoints,
             timestamp: new Date().toISOString()
         };
 
-        // Renderizado visual en Leaflet: Curva geodésica intermitente (estilo vuelo/marítimo)
+        // =======================================================================
+        // 2. RENDERIZADO OBLIGATORIO DE LA POLILÍNEA EN EL MAPA (ESTILO GOOGLE MAPS)
+        // =======================================================================
         const mapInstance = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
-        const curvePoints = (window.LandData && window.LandData.curvedRoutePoints) || computedCurvePoints;
+        const roadRoutePoints = (leafletRoutePoints && leafletRoutePoints.length > 0) ? leafletRoutePoints : computedCurvePoints;
 
-        console.log('[CurvedRoute] Puntos generados para Leaflet [lat, lon]:', curvePoints);
+        console.log('[RoadRoute] Puntos de carretera para Leaflet [lat, lon]:', roadRoutePoints.length, 'puntos');
 
-        if (mapInstance && mapInstance._loaded && typeof L !== 'undefined') {
+        if (mapInstance && typeof L !== 'undefined') {
+            // Detener cualquier animación en progreso para evitar colisión de renderizado Canvas/SVG
+            if (typeof mapInstance.stop === 'function') {
+                try { mapInstance.stop(); } catch (_) {}
+            }
+            if (typeof map !== 'undefined' && map && map !== mapInstance && typeof map.stop === 'function') {
+                try { map.stop(); } catch (_) {}
+            }
+
             if (window._currentOsrmRouteLayer) {
                 try { mapInstance.removeLayer(window._currentOsrmRouteLayer); } catch (_) {}
             }
@@ -19476,42 +19610,71 @@ async function runOnDemandMapRouteWorkflow(button) {
             }
             window._currentOsrmMarkers = [];
 
+            // Eliminar inmediatamente cualquier línea recta discontinua previa o capa de polilínea
             mapInstance.eachLayer(layer => {
                 if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
                     try { mapInstance.removeLayer(layer); } catch (_) {}
                 }
             });
 
-            if (curvePoints && curvePoints.length > 0) {
-                const polyline = L.polyline(curvePoints, {
-                    color: '#0f766e',
-                    weight: 3 /* weight: 5 */,
-                    dashArray: '10, 10',
-                    opacity: 0.8,
-                    lineCap: 'round',
-                    lineJoin: 'round'
-                }).addTo(mapInstance);
+            // Renderer SVG explícito para eliminar error Canvas.js:258 Cannot read properties of undefined (reading 'save')
+            const routeSvgRenderer = (typeof L.svg === 'function') ? L.svg({ padding: 0.5 }).addTo(mapInstance) : undefined;
 
-                window._currentOsrmRouteLayer = polyline;
+            if (roadRoutePoints && roadRoutePoints.length > 0) {
+                const layerGroupItems = [];
+
+                // Si alternatives=true devuelve rutas secundarias, píntalas debajo en azul claro/grisáceo (color: '#93c5fd', weight: 4, opacity: 0.7)
+                const alternativeRoutes = (osrmData && osrmData.routes && osrmData.routes.slice(1)) || [];
+                alternativeRoutes.forEach(altRoute => {
+                    if (altRoute.geometry && altRoute.geometry.coordinates && altRoute.geometry.coordinates.length > 0) {
+                        const altCoords = altRoute.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                        const altPolyline = L.polyline(altCoords, {
+                            color: '#93c5fd',
+                            weight: 4,
+                            opacity: 0.7,
+                            lineCap: 'round',
+                            lineJoin: 'round',
+                            ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
+                        }).addTo(mapInstance);
+                        layerGroupItems.push(altPolyline);
+                    }
+                });
+
+                // Borde exterior sutil para que destaque claramente sobre las carreteras del mapa base
+                const borderPolyline = L.polyline(roadRoutePoints, {
+                    color: '#1d4ed8',
+                    weight: 7,
+                    opacity: 0.85,
+                    dashArray: null,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                    ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
+                }).addTo(mapInstance);
+                layerGroupItems.push(borderPolyline);
+
+                // Pinta la ruta principal encima en azul intenso (color: '#2563eb', weight: 5, opacity: 0.95)
+                const mainPolyline = L.polyline(roadRoutePoints, {
+                    color: '#2563eb',
+                    weight: 5,
+                    opacity: 0.95,
+                    dashArray: null,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                    className: 'leaflet-route-highlight',
+                    ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
+                }).addTo(mapInstance);
+                layerGroupItems.push(mainPolyline);
+
+                const routeLayer = L.featureGroup(layerGroupItems);
+                routeLayer.isProtectedRoadRoute = true;
+                window._currentOsrmRouteLayer = routeLayer;
 
                 const polLat = Number(polCoords?.lat);
                 const polLon = Number(polCoords?.lon);
                 const podLat = Number(podCoords?.lat);
                 const podLon = Number(podCoords?.lon);
 
-                if (polLat && polLon && podLat && podLon && !isNaN(polLat) && !isNaN(polLon) && !isNaN(podLat) && !isNaN(podLon) && Number.isFinite(polLat) && Number.isFinite(polLon) && Number.isFinite(podLat) && Number.isFinite(podLon)) {
-                    mapInstance.fitBounds([
-                        [polLat, polLon],
-                        [podLat, podLon]
-                    ], { padding: [50, 50] });
-
-                    if (typeof map !== 'undefined' && map && map !== mapInstance && typeof map.fitBounds === 'function') {
-                        map.fitBounds([
-                            [polLat, polLon],
-                            [podLat, podLon]
-                        ], { padding: [50, 50] });
-                    }
-
+                if (Number.isFinite(polLat) && Number.isFinite(polLon) && Number.isFinite(podLat) && Number.isFinite(podLon)) {
                     const iconOrigin = L.divIcon({
                         className: 'minimal-route-dot-origin',
                         html: '<div style="width: 14px; height: 14px; background-color: #0f172a; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
@@ -19520,7 +19683,7 @@ async function runOnDemandMapRouteWorkflow(button) {
                     });
                     const iconDest = L.divIcon({
                         className: 'minimal-route-dot-dest',
-                        html: '<div style="width: 14px; height: 14px; background-color: #0f766e; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
+                        html: '<div style="width: 14px; height: 14px; background-color: #2563eb; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>',
                         iconSize: [14, 14],
                         iconAnchor: [7, 7]
                     });
@@ -19534,20 +19697,34 @@ async function runOnDemandMapRouteWorkflow(button) {
                     }
                 }
 
-                if (typeof polyline.bringToFront === 'function') {
-                    polyline.bringToFront();
+                // Ejecuta map.fitBounds(routeLayer.getBounds(), { padding: [60, 60], animate: false }) para encuadrar la ruta completa entre POL y POD
+                try {
+                    if (routeLayer && typeof routeLayer.getBounds === 'function') {
+                        const routeBounds = routeLayer.getBounds();
+                        if (routeBounds && (typeof routeBounds.isValid === 'function' ? routeBounds.isValid() : true)) {
+                            mapInstance.fitBounds(routeBounds, { padding: [60, 60], animate: false });
+                            mapInstance.fitBounds(routeLayer.getBounds(), { padding: [60, 60], animate: false });
+                            if (typeof map !== 'undefined' && map && map !== mapInstance && typeof map.fitBounds === 'function') {
+                                map.fitBounds(routeBounds, { padding: [60, 60], animate: false });
+                                map.fitBounds(routeLayer.getBounds(), { padding: [60, 60], animate: false });
+                            }
+                        }
+                    }
+                } catch (fitErr) {
+                    console.warn('Error en fitBounds con routeLayer:', fitErr);
                 }
-                if (typeof polyline.redraw === 'function') {
-                    polyline.redraw();
+
+                if (typeof mainPolyline.bringToFront === 'function') {
+                    mainPolyline.bringToFront();
                 }
                 setTimeout(() => {
                     try {
-                        if (mapInstance && mapInstance._container && polyline && typeof polyline.redraw === 'function') {
-                            if (typeof polyline.bringToFront === 'function') polyline.bringToFront();
-                            polyline.redraw();
+                        if (mapInstance && mapInstance._container && mainPolyline && typeof mainPolyline.redraw === 'function') {
+                            if (typeof mainPolyline.bringToFront === 'function') mainPolyline.bringToFront();
+                            mainPolyline.redraw();
                         }
                     } catch(e) {
-                        console.warn('Evitado crash de Canvas en Leaflet', e);
+                        console.warn('Evitado crash en redraw de Leaflet', e);
                     }
                 }, 200);
             }
@@ -19561,8 +19738,10 @@ async function runOnDemandMapRouteWorkflow(button) {
         // 2. Disparar evento para componentes React
         window.dispatchEvent(new CustomEvent('osrm:route-updated', {
             detail: {
-                routePoints: curvePoints,
-                curvedRoutePoints: curvePoints,
+                routePoints: roadRoutePoints,
+                curvedRoutePoints: computedCurvePoints,
+                osrmRoutePoints: leafletRoutePoints,
+                leafletRoutePoints: leafletRoutePoints,
                 osrmRoutePoints: leafletRoutePoints,
                 origin: { lat: polCoords.lat, lon: polCoords.lon, name: polCoords.displayName || polCoords.name || pol },
                 destination: { lat: podCoords.lat, lon: podCoords.lon, name: podCoords.displayName || podCoords.name || pod },
@@ -19718,16 +19897,43 @@ async function runOnDemandMapRouteWorkflow(button) {
             window.calculateAndDisplayAisFreight();
         }
 
-        // calculateVoyageRouteService({ portBallast, pol, pod, geocode: true })
-        // applyRouteServiceResult(routeResult); renderMasterRouteMap(routeResult); updateRouteSummary();
-        // void Promise.allSettled([ window.restorePersistentDataBridgeConnection?.(), refreshDataBridgeMasterStatsOnDemand() ])
+        // Sincronización sync-road hacia Data Bridge con las métricas reales
+        try {
+            const roadSyncFn = typeof syncRoadMetricsToBridge === 'function'
+                ? syncRoadMetricsToBridge
+                : (typeof window !== 'undefined' && typeof window.syncRoadMetricsToBridge === 'function' ? window.syncRoadMetricsToBridge : null);
+            if (typeof roadSyncFn === 'function') {
+                void roadSyncFn({
+                    land_origin: polDisplayName,
+                    land_destination: podDisplayName,
+                    land_distance: distanceKm,
+                    totalKilometers: totalKilometers,
+                    driving_hours: drivingHours,
+                    total_tolls_cost: totalTollsCost
+                });
+            }
+        } catch (syncErr) {
+            console.warn('[Data Bridge] Error al invocar sync-road tras cálculo de ruta:', syncErr);
+        }
+
+        if (typeof resolveInFlightPromise === 'function') {
+            resolveInFlightPromise(window.LandData);
+        }
 
         return window.LandData;
 
     } catch (error) {
+        if (typeof rejectInFlightPromise === 'function') {
+            rejectInFlightPromise(error);
+        }
         console.error('[Core PRO] Error en motor terrestre:', error);
         if (typeof showToast === 'function') showToast(error?.message || 'No se pudo completar la actualización de la ruta terrestre.', false, 'error');
     } finally {
+        setTimeout(() => {
+            if (dedupeKey && window._inFlightLandRoutePromises) {
+                window._inFlightLandRoutePromises.delete(dedupeKey);
+            }
+        }, 1200);
         if (button) {
             button.disabled = false;
             button.removeAttribute('aria-busy');
@@ -31525,6 +31731,18 @@ function createRouteAnchorElement(type) {
             if (typeof closeMobileModuleNav === 'function') closeMobileModuleNav();
             if (typeof closeAdvancedModulesMenu === 'function') closeAdvancedModulesMenu();
 
+            // Sincronizar visibilidad del panel flotante "Itinerario de Ruta Terrestre" (solo visible en vista 'map')
+            const itineraryPanel = document.getElementById('route-itinerary-right-panel');
+            if (itineraryPanel) {
+                if (tabId === 'map' && window.LandData && !itineraryPanel.dataset.userClosed) {
+                    itineraryPanel.classList.remove('hidden');
+                    itineraryPanel.style.display = 'block';
+                } else {
+                    itineraryPanel.classList.add('hidden');
+                    itineraryPanel.style.display = 'none';
+                }
+            }
+
             if (tabId === 'map') {
                 ensureRouteMapReady('map-host');
             }
@@ -32048,7 +32266,7 @@ window.setRouteInputPanelOpen = setRouteInputPanelOpen;
                     map = L.map('map-container', {
                         center: [50.5, 10.5],
                         zoom: 4,
-                        preferCanvas: true
+                        preferCanvas: false
                     });
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
