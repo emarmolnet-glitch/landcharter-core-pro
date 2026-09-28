@@ -9086,10 +9086,10 @@
                     <i class="fa-solid fa-arrow-right"></i>
                 </button>
             </div>
-            <div id="header-voyage-ref-container" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-600 text-xs font-mono shadow-2xs shrink-0" title="Referencia Única del Viaje / Contrato">
+            <div id="header-voyage-ref-container" translate="no" class="notranslate inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-600 text-xs font-mono shadow-2xs shrink-0" title="Referencia Única del Viaje / Contrato">
                 <i class="fa-solid fa-hashtag text-[10px] text-slate-400"></i>
-                <span class="text-slate-400 font-sans text-[10px] uppercase font-bold tracking-wider">Ref:</span>
-                <input type="text" id="quick-ref" class="bg-transparent font-mono text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1 w-36 transition-all" value="" oninput="syncQuickRef(this.value)" title="Referencia Única del Viaje / Contrato">
+                <span translate="no" class="notranslate text-slate-400 font-sans text-[10px] uppercase font-bold tracking-wider">Ref:</span>
+                <input type="text" id="quick-ref" translate="no" class="notranslate bg-transparent font-mono text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1 w-36 transition-all" value="" oninput="syncQuickRef(this.value)" title="Referencia Única del Viaje / Contrato">
                 <span id="header-sync-status-badge" class="hidden items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shadow-2xs transition-all" title="Data Bridge Sincronizado"><i class="fa-solid fa-check text-emerald-600 text-[10px]"></i> Sincronizado</span>
             </div>
             <div class="tools-dropdown-container">
@@ -9290,12 +9290,19 @@
             </button>
 
             <!-- Selector de Idioma -->
-            <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 flex-1 lg:flex-none max-w-[150px]">
+            <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 flex-1 lg:flex-none max-w-[170px]">
                 <i class="fa-solid fa-globe text-slate-500 mr-2 text-xs"></i>
                 <select id="language-selector" class="bg-transparent border-none outline-none text-xs text-white w-full cursor-pointer font-bold" onchange="changeLanguage(this.value)">
-                    <option value="es" class="bg-slate-900 text-white">Español</option>
-                    <option value="en" class="bg-slate-900 text-white">English</option>
-                    <option value="fr" class="bg-slate-900 text-white">Français</option>
+                    <option value="auto" class="bg-slate-900 text-white">🌐 AUTO</option>
+                    <option value="es" class="bg-slate-900 text-white">ES - Español</option>
+                    <option value="en" class="bg-slate-900 text-white">EN - English</option>
+                    <option value="fr" class="bg-slate-900 text-white">FR - Français</option>
+                    <option value="ar" class="bg-slate-900 text-white">AR - العربية</option>
+                    <option value="pt" class="bg-slate-900 text-white">PT - Português</option>
+                    <option value="de" class="bg-slate-900 text-white">DE - Deutsch</option>
+                    <option value="it" class="bg-slate-900 text-white">IT - Italiano</option>
+                    <option value="tr" class="bg-slate-900 text-white">TR - Türkçe</option>
+                    <option value="zh-CN" class="bg-slate-900 text-white">ZH - 中文</option>
                 </select>
             </div>
             <!-- Interruptor de contexto de negocio: solo cambia la capa de presentación.
@@ -9311,7 +9318,7 @@
                     aria-pressed="true"
                     title="Vista Armador (Shipowner): la demora es ingreso y el KPI principal es el TCE"
                 >
-                    <span aria-hidden="true" class="text-[10px] font-bold tracking-wider uppercase">OWN</span>
+                    <span aria-hidden="true" translate="no" class="notranslate text-[10px] font-bold tracking-wider uppercase">OWN</span>
                     <span class="sr-only">Vista Armador</span>
                 </button>
                 <button
@@ -9322,7 +9329,7 @@
                     aria-pressed="false"
                     title="Vista Fletador (Charterer): la demora es penalización y el KPI principal es el coste por tonelada"
                 >
-                    <span aria-hidden="true" class="text-[10px] font-bold tracking-wider uppercase">CHR</span>
+                    <span aria-hidden="true" translate="no" class="notranslate text-[10px] font-bold tracking-wider uppercase">CHR</span>
                     <span class="sr-only">Vista Fletador</span>
                 </button>
             </div>
@@ -73872,6 +73879,289 @@ window.actualizarGrabCapacityVisibility = function() {
                 }, { once: true });
             } else {
                 applySidebarState(initialCompact, false);
+            }
+        })();
+    </script>
+
+    <!-- =====================================================================
+         INTEGRACIÓN DE TRADUCCIÓN AUTOMÁTICA UNIVERSAL Y SELECTOR DE IDIOMA
+         (RODAHMAR ROAD / LAND CHARTER CORE PRO)
+         ===================================================================== -->
+    <style id="google-translate-custom-styles">
+        /* Oculta por completo la barra superior nativa de Google Translate */
+        .goog-te-banner-frame, .skiptranslate iframe { display: none !important; }
+        body { top: 0px !important; }
+        #google_translate_element {
+            display: none !important;
+        }
+        .goog-text-highlight {
+            background: none !important;
+            box-shadow: none !important;
+        }
+    </style>
+
+    <div id="google_translate_element" style="display:none;" translate="no" class="notranslate"></div>
+
+    <script type="text/javascript">
+        (function() {
+            // Helpers para manipulación de cookies googtrans
+            function setGoogtransCookie(targetLang) {
+                const cookieVal = '/es/' + targetLang;
+                document.cookie = 'googtrans=' + cookieVal + '; path=/; SameSite=Lax';
+                const host = window.location.hostname;
+                if (host && host !== 'localhost' && !/^[0-9.]+$/.test(host)) {
+                    document.cookie = 'googtrans=' + cookieVal + '; path=/; domain=' + host + '; SameSite=Lax';
+                    const parts = host.split('.');
+                    if (parts.length > 1) {
+                        document.cookie = 'googtrans=' + cookieVal + '; path=/; domain=.' + parts.slice(-2).join('.') + '; SameSite=Lax';
+                    }
+                }
+            }
+
+            function clearGoogtransCookie() {
+                const expired = 'Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                document.cookie = 'googtrans=; expires=' + expired;
+                const host = window.location.hostname;
+                if (host && host !== 'localhost' && !/^[0-9.]+$/.test(host)) {
+                    document.cookie = 'googtrans=; expires=' + expired + ' domain=' + host + ';';
+                    const parts = host.split('.');
+                    if (parts.length > 1) {
+                        document.cookie = 'googtrans=; expires=' + expired + ' domain=.' + parts.slice(-2).join('.') + ';';
+                    }
+                }
+            }
+
+            // 1. DETECCIÓN AUTOMÁTICA UNIVERSAL DE IDIOMA (🌐 AUTO PARA CUALQUIER PAÍS)
+            let manualLang = null;
+            try {
+                manualLang = localStorage.getItem('rodahmar_lang');
+            } catch (_) {}
+
+            let activeLang = 'es';
+            if (!manualLang || manualLang === 'auto') {
+                const browserLang = (navigator.language || navigator.userLanguage || 'es').toLowerCase();
+                const targetLang = browserLang.startsWith('zh') ? 'zh-CN' : browserLang.split('-')[0];
+                if (targetLang !== 'es') {
+                    setGoogtransCookie(targetLang);
+                    activeLang = targetLang;
+                } else {
+                    clearGoogtransCookie();
+                    activeLang = 'es';
+                }
+            } else if (manualLang === 'es') {
+                clearGoogtransCookie();
+                activeLang = 'es';
+            } else {
+                setGoogtransCookie(manualLang);
+                activeLang = manualLang;
+            }
+
+            // Configuración silenciosa de Google Translate
+            window.googleTranslateElementInit = function() {
+                try {
+                    new window.google.translate.TranslateElement({
+                        pageLanguage: 'es',
+                        autoDisplay: false
+                    }, 'google_translate_element');
+                } catch (err) {
+                    console.warn('[GoogleTranslate] Error de inicialización:', err);
+                }
+            };
+
+            // Inyección oficial del script de Google Translate
+            const gtScript = document.createElement('script');
+            gtScript.type = 'text/javascript';
+            gtScript.async = true;
+            gtScript.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+            document.head.appendChild(gtScript);
+
+            // 2. CONECTAR EL SELECTOR DE IDIOMA EN EL HEADER
+            function syncSelectorValue() {
+                const selector = document.getElementById('language-selector');
+                if (selector) {
+                    const currentPref = manualLang || 'auto';
+                    if (selector.value !== currentPref) {
+                        selector.value = currentPref;
+                    }
+                }
+            }
+
+            let isChanging = false;
+            function onRodahmarLanguageChange(val) {
+                if (isChanging) return;
+                isChanging = true;
+                try {
+                    localStorage.setItem('rodahmar_lang', val);
+                    localStorage.setItem('seacharter_lang', val === 'auto' ? 'es' : val);
+                } catch (_) {}
+
+                if (val === 'es') {
+                    clearGoogtransCookie();
+                    if (document.documentElement) document.documentElement.lang = 'es';
+                    location.reload();
+                    return;
+                }
+
+                let target = val;
+                if (val === 'auto') {
+                    const browserLang = (navigator.language || navigator.userLanguage || 'es').toLowerCase();
+                    target = browserLang.startsWith('zh') ? 'zh-CN' : browserLang.split('-')[0];
+                    if (target === 'es') {
+                        clearGoogtransCookie();
+                        location.reload();
+                        return;
+                    }
+                }
+
+                setGoogtransCookie(target);
+                if (document.documentElement) document.documentElement.lang = target;
+
+                const combo = document.querySelector('.goog-te-combo');
+                if (combo) {
+                    combo.value = target;
+                    combo.dispatchEvent(new Event('change'));
+                    isChanging = false;
+                } else {
+                    location.reload();
+                }
+            }
+
+            window.handleRodahmarLanguageChange = onRodahmarLanguageChange;
+
+            // Integrar con función global changeLanguage existente
+            const prevChangeLanguage = window.changeLanguage;
+            window.changeLanguage = function(val) {
+                if (typeof prevChangeLanguage === 'function') {
+                    try {
+                        prevChangeLanguage(val === 'auto' ? 'es' : val);
+                    } catch (_) {}
+                }
+                onRodahmarLanguageChange(val);
+            };
+
+            // 3. PROTECCIÓN DE NÚMEROS Y SIGLAS TÉCNICAS (notranslate)
+            function applyNotranslateProtections() {
+                // A. Todos los <input> y <textarea>
+                document.querySelectorAll('input, textarea').forEach(el => {
+                    el.setAttribute('translate', 'no');
+                    el.classList.add('notranslate');
+                });
+
+                // B. Selector # REF: y referencias técnicas de viaje / contrato
+                const refElements = document.querySelectorAll(
+                    '#header-voyage-ref-container, #quick-ref, #dossier-modal-reference, #new-estimation-current-reference'
+                );
+                refElements.forEach(el => {
+                    el.setAttribute('translate', 'no');
+                    el.classList.add('notranslate');
+                });
+
+                // C. Siglas operativas: POL, POD, MT, NM, DWT, TCE, LDM, OWN, CHR, CRM, LOG
+                const acronyms = ['POL', 'POD', 'MT', 'NM', 'DWT', 'TCE', 'LDM', 'OWN', 'CHR', 'CRM', 'LOG'];
+                const acronymRegex = new RegExp('\\b(' + acronyms.join('|') + ')\\b', 'g');
+
+                // Proteger elementos que contienen exclusivamente la sigla
+                document.querySelectorAll('span, button, strong, b, th, td, label, div').forEach(el => {
+                    if (el.children.length === 0) {
+                        const txt = (el.textContent || '').trim();
+                        if (acronyms.includes(txt)) {
+                            el.setAttribute('translate', 'no');
+                            el.classList.add('notranslate');
+                        }
+                    }
+                });
+
+                // Envolver siglas dentro de textos para que Google Translate no las altere
+                const walker = document.createTreeWalker(
+                    document.body,
+                    NodeFilter.SHOW_TEXT,
+                    {
+                        acceptNode: function(node) {
+                            if (!node.nodeValue || !acronymRegex.test(node.nodeValue)) {
+                                return NodeFilter.FILTER_REJECT;
+                            }
+                            const parent = node.parentElement;
+                            if (!parent || ['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT'].includes(parent.tagName)) {
+                                return NodeFilter.FILTER_REJECT;
+                            }
+                            if (parent.closest('.notranslate') || parent.getAttribute('translate') === 'no') {
+                                return NodeFilter.FILTER_REJECT;
+                            }
+                            return NodeFilter.FILTER_ACCEPT;
+                        }
+                    },
+                    false
+                );
+
+                const nodesToWrap = [];
+                let currNode;
+                while ((currNode = walker.nextNode())) {
+                    nodesToWrap.push(currNode);
+                }
+
+                nodesToWrap.forEach(node => {
+                    const parent = node.parentNode;
+                    if (!parent) return;
+                    const val = node.nodeValue;
+                    const frag = document.createDocumentFragment();
+                    let lastIdx = 0;
+                    acronymRegex.lastIndex = 0;
+                    let match;
+                    while ((match = acronymRegex.exec(val)) !== null) {
+                        if (match.index > lastIdx) {
+                            frag.appendChild(document.createTextNode(val.substring(lastIdx, match.index)));
+                        }
+                        const span = document.createElement('span');
+                        span.setAttribute('translate', 'no');
+                        span.className = 'notranslate';
+                        span.textContent = match[0];
+                        frag.appendChild(span);
+                        lastIdx = acronymRegex.lastIndex;
+                    }
+                    if (lastIdx < val.length) {
+                        frag.appendChild(document.createTextNode(val.substring(lastIdx)));
+                    }
+                    parent.replaceChild(frag, node);
+                });
+            }
+
+            // Aplicar protecciones inmediatamente y en DOMContentLoaded
+            applyNotranslateProtections();
+            syncSelectorValue();
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    applyNotranslateProtections();
+                    syncSelectorValue();
+                }, { once: true });
+            }
+
+            // Observador de mutaciones para proteger nuevos inputs dinámicos
+            try {
+                const observer = new MutationObserver(mutations => {
+                    let hasNewNodes = false;
+                    for (const m of mutations) {
+                        if (m.addedNodes.length > 0) {
+                            hasNewNodes = true;
+                            break;
+                        }
+                    }
+                    if (hasNewNodes) {
+                        document.querySelectorAll('input:not([translate="no"])').forEach(input => {
+                            input.setAttribute('translate', 'no');
+                            input.classList.add('notranslate');
+                        });
+                    }
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+            } catch (_) {}
+
+            // Vincular evento change directo al selector por robustez
+            const selectorEl = document.getElementById('language-selector');
+            if (selectorEl) {
+                selectorEl.addEventListener('change', function() {
+                    onRodahmarLanguageChange(this.value);
+                });
             }
         })();
     </script>
