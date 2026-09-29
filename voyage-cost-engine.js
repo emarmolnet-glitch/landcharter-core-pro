@@ -479,52 +479,75 @@
             ? ((pausasTacografo + descansosDiarios) / 24)
             : toNumber(calcResults.portDays);
 
-        // Calibración de Coste base: (distancia * 1.30 €/km) + peajes + (dietas * pernoctas)
-        let effectiveBuyFreight = toNumber(calcResults.buyFreight);
-        let effectiveSellFreight = toNumber(calcResults.sellFreight);
-        if (kmTotal > 0 && (effectiveBuyFreight <= 0 || effectiveBuyFreight > 10)) {
-            const peajes = kmTotal * 0.22;
-            const dietas = pernoctas * 65.0;
-            const costePorteTotal = (kmTotal * 1.30) + peajes + dietas;
-            effectiveBuyFreight = costePorteTotal / kmTotal;
-            effectiveSellFreight = effectiveBuyFreight * 1.15;
+        // Margen de Agencia / Markup (por defecto 10%)
+        const agencyMarginPercent = toNumber(calcResults.agencyMargin ?? calcResults.agencyMarkup ?? root.document?.getElementById('exec-agency-margin')?.value ?? root.document?.getElementById('margin-charterer')?.value ?? 10);
+        const execAgencyMarginInput = documentRef.getElementById('exec-agency-margin');
+        if (execAgencyMarginInput && documentRef.activeElement !== execAgencyMarginInput) {
+            execAgencyMarginInput.value = agencyMarginPercent;
         }
 
-        const effectiveBuyTotal = toNumber(calcResults.buyFreightTotal || calcResults.totalTripCost) > 0
-            ? toNumber(calcResults.buyFreightTotal || calcResults.totalTripCost)
-            : (kmTotal > 0 ? (effectiveBuyFreight * kmTotal) : 0);
+        // Calibración de Coste y Tarifa de Transporte:
+        // El transportista vende el porte a la agencia a una tarifa cerrada (Coste de Compra Oficial).
+        // La agencia le aplica su propio Margen de Agencia / Markup para obtener el Precio Total Cliente.
+        let effectiveBuyFreight = toNumber(calcResults.buyFreight);
+        let effectiveSellFreight = toNumber(calcResults.sellFreight);
+        let effectiveBuyTotal = toNumber(calcResults.buyFreightTotal);
+        let effectiveSellTotal = toNumber(calcResults.sellFreightTotal);
 
-        const effectiveSellTotal = toNumber(calcResults.sellFreightTotal || calcResults.totalRevenue) > 0
-            ? toNumber(calcResults.sellFreightTotal || calcResults.totalRevenue)
-            : (kmTotal > 0 ? (effectiveSellFreight * kmTotal) : 0);
+        if (kmTotal > 0 && (effectiveBuyFreight <= 0 || (effectiveBuyFreight > 10 && !calcResults.isExplicitCarrierRate))) {
+            const peajes = kmTotal * 0.22;
+            const dietas = pernoctas * 65.0;
+            const costePorteOperativo = (kmTotal * 1.30) + peajes + dietas;
+            // Tarifa cerrada del transportista a la agencia (Coste de Compra oficial, ej. 166€ + 15% = ~191€)
+            const carrierTariffTotal = costePorteOperativo * 1.15;
+            effectiveBuyFreight = carrierTariffTotal / kmTotal;
+            effectiveBuyTotal = carrierTariffTotal;
+
+            // Precio de Venta al Cliente sumando Coste de Compra + Margen de Agencia (ej. 191€ + 10% = ~210€)
+            effectiveSellTotal = carrierTariffTotal * (1 + (agencyMarginPercent / 100));
+            effectiveSellFreight = effectiveSellTotal / kmTotal;
+        } else {
+            if (effectiveBuyTotal <= 0) {
+                effectiveBuyTotal = toNumber(calcResults.buyFreightTotal || calcResults.totalTripCost) > 0
+                    ? toNumber(calcResults.buyFreightTotal || calcResults.totalTripCost)
+                    : (kmTotal > 0 ? (effectiveBuyFreight * kmTotal) : 0);
+            }
+            if (effectiveSellTotal <= 0) {
+                effectiveSellTotal = toNumber(calcResults.sellFreightTotal || calcResults.totalRevenue) > 0
+                    ? toNumber(calcResults.sellFreightTotal || calcResults.totalRevenue)
+                    : (kmTotal > 0 ? (effectiveSellFreight * kmTotal) : (effectiveBuyTotal * (1 + (agencyMarginPercent / 100))));
+            }
+        }
 
         const effectiveSpreadKm = Math.max(0, toNumber(effectiveSellFreight) - toNumber(effectiveBuyFreight));
-        const effectiveSpreadTotal = (toNumber(calcResults.chartererProfit) !== 0 || toNumber(calcResults.totalProfit) !== 0)
-            ? toNumber(calcResults.chartererProfit || calcResults.totalProfit)
-            : (kmTotal > 0 ? (effectiveSpreadKm * kmTotal) : Math.max(0, effectiveSellTotal - effectiveBuyTotal));
+        const effectiveSpreadTotal = (calcResults.chartererProfit !== undefined || calcResults.totalProfit !== undefined)
+            ? toNumber(calcResults.chartererProfit ?? calcResults.totalProfit)
+            : Math.max(0, effectiveSellTotal - effectiveBuyTotal);
 
-        const carrierMargin = toNumber(calcResults.tce);
-        const carrierMarginKm = kmTotal > 0 && carrierMargin > 0 ? (carrierMargin / kmTotal) : 0;
+        const carrierMargin = (calcResults.tce !== undefined && toNumber(calcResults.tce) > 0)
+            ? toNumber(calcResults.tce)
+            : effectiveBuyTotal;
+        const carrierMarginKm = kmTotal > 0 && carrierMargin > 0 ? (carrierMargin / kmTotal) : effectiveBuyFreight;
 
         setText('exec-vessel-type', resolvedVesselType);
         setText('exec-sea-days', formatDays(effectiveSeaDays));
         setText('exec-port-days', formatDays(effectivePortDays));
         setText('exec-total-days', formatDays(effectiveTotalDays));
 
-        // Lado Transportista / Chófer
+        // Lado Transportista / Chófer: Tarifa de venta a la agencia (Coste de Compra)
         setText('exec-buy-freight', formatRate(effectiveBuyFreight));
         setText('exec-buy-freight-total', formatCurrency(effectiveBuyTotal));
         setText('exec-carrier-sell-freight', formatRate(effectiveSellFreight));
         setText('exec-carrier-sell-total', formatCurrency(effectiveSellTotal));
-        setText('exec-tce', `${formatMoney(calcResults.tce)} / día`);
+        setText('exec-tce', (calcResults.modeNarrative === 'terrestre' || calcResults.mode === 'terrestre' || typeof isTerrestreModeContext === 'function') ? formatMoney(carrierMargin) : `${formatMoney(calcResults.tce)} / día`);
         setText('exec-carrier-margin-km', formatRate(carrierMarginKm));
 
-        // Lado Agencia / Cliente (Nuestra Casa)
+        // Lado Agencia / Cliente (Nuestra Casa): Flete de Coste Asociado = Compra, Venta = Compra + Margen, Beneficio = Venta - Compra
         setText('exec-sell-freight', formatRate(effectiveSellFreight));
         setText('exec-sell-freight-total', formatCurrency(effectiveSellTotal));
         setText('exec-agency-cost-freight', formatRate(effectiveBuyFreight));
         setText('exec-agency-cost-total', formatCurrency(effectiveBuyTotal));
-        setText('exec-charterer-profit', formatMoney(calcResults.chartererProfit));
+        setText('exec-charterer-profit', formatMoney(effectiveSpreadTotal));
         setText('exec-spread-mt', `${formatMoney(effectiveSpreadKm, 2)} / km`);
         setText('exec-agency-spread-total', formatCurrency(effectiveSpreadTotal));
 

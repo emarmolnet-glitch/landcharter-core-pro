@@ -9730,17 +9730,17 @@
                         <div class="bg-slate-50 border border-slate-200 p-5 rounded-xl shadow-sm">
                             <h4 class="text-xs text-slate-500 font-bold uppercase mb-4 border-b border-slate-200 pb-2 flex items-center justify-between">
                                 <span class="flex items-center gap-2"><span>🚛</span> LADO DEL TRANSPORTISTA / CHÓFER</span>
-                                <span class="text-[10px] font-semibold text-slate-400 normal-case">Coste porte & margen</span>
+                                <span class="text-[10px] font-semibold text-slate-400 normal-case">Tarifa porte cerrada (Coste Compra)</span>
                             </h4>
                             
                             <!-- Desglose Flete de Coste / Compra (por km y total) -->
                             <div class="mb-3 rounded-lg border border-slate-200 bg-white p-3">
-                                <span class="block text-[10px] text-slate-500 font-bold uppercase mb-1 tracking-wide">Coste de Compra / Porte (Coste por Km)</span>
+                                <span class="block text-[10px] text-slate-500 font-bold uppercase mb-1 tracking-wide">Tarifa Transportista (Coste de Compra Agencia)</span>
                                 <div class="flex items-baseline justify-between gap-2">
                                     <span class="text-2xl font-black text-slate-800" id="exec-buy-freight">0.00 €/km</span>
                                     <span class="text-sm font-bold text-slate-700">Total: <strong id="exec-buy-freight-total">0 €</strong></span>
                                 </div>
-                                <span class="block text-[9px] text-slate-400 font-medium mt-0.5">Tarifa base porteador (por km y porte completo del trayecto)</span>
+                                <span class="block text-[9px] text-slate-400 font-medium mt-0.5">Tarifa cerrada de venta del transportista a la agencia (Coste oficial de compra)</span>
                             </div>
 
                             <!-- Flete de Venta Asociado (Simetría con flete de venta) -->
@@ -9754,15 +9754,15 @@
                                 </div>
                             </div>
 
-                            <!-- Margen Neto del Transportista -->
-                            <div class="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
+                            <!-- Tarifa de Porte / Compra Cerrada -->
+                            <div class="rounded-lg border border-slate-300 bg-slate-100/70 p-3">
                                 <div class="flex items-center justify-between">
-                                    <span class="block text-xs text-slate-600 font-bold uppercase tracking-wide">Margen Neto del Viaje (€)</span>
-                                    <span class="text-xl font-bold text-emerald-600" id="exec-tce">0 €</span>
+                                    <span class="block text-xs text-slate-700 font-bold uppercase tracking-wide">Tarifa Cerrada de Compra (€)</span>
+                                    <span class="text-xl font-bold text-slate-800" id="exec-tce">0 €</span>
                                 </div>
                                 <div class="mt-1 flex items-center justify-between text-[10px] text-slate-500 font-medium">
-                                    <span>Rendimiento neto operativo</span>
-                                    <span>Margen/km: <strong id="exec-carrier-margin-km" class="text-emerald-700">0.00 €/km</strong></span>
+                                    <span>Coste cerrado acordado con transportista</span>
+                                    <span>Tarifa/km: <strong id="exec-carrier-margin-km" class="text-slate-700">0.00 €/km</strong></span>
                                 </div>
                             </div>
                         </div>
@@ -9781,7 +9781,19 @@
                                     <span class="text-2xl font-black text-blue-900" id="exec-sell-freight">0.00 €/km</span>
                                     <span class="text-sm font-bold text-blue-800">Total: <strong id="exec-sell-freight-total">0 €</strong></span>
                                 </div>
-                                <span class="block text-[9px] text-blue-400 font-medium mt-0.5">Precio facturado al cliente (por km y facturación total)</span>
+                                <span class="block text-[9px] text-blue-400 font-medium mt-0.5">Precio facturado al cliente (Coste Compra + Margen de Agencia)</span>
+                            </div>
+
+                            <!-- Inyección Margen de Agencia / Markup (por defecto 10%) -->
+                            <div class="mb-3 rounded-lg border border-blue-200 bg-white p-2.5 flex items-center justify-between">
+                                <div>
+                                    <label for="exec-agency-margin" class="block text-[10px] text-blue-700 font-bold uppercase tracking-wide">Margen de Agencia / Markup</label>
+                                    <span class="text-[9px] text-slate-400 font-medium">Multiplicador de intermediación comercial broker</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <input type="number" id="exec-agency-margin" value="10" min="0" max="100" step="any" class="w-16 h-7 text-right px-2 font-bold text-blue-900 border border-blue-300 rounded bg-blue-50/50 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none" oninput="window.setExecutiveAgencyMargin(this.value)">
+                                    <span class="text-xs font-bold text-blue-700">%</span>
+                                </div>
                             </div>
 
                             <!-- Flete de Coste Asociado (Simetría con flete de compra) -->
@@ -42129,8 +42141,37 @@ function scheduleReactiveEngine() {
 
             const unitaryTripCost = safeCalculationNumber(State.totalTripCost ?? State.totalCosts ?? displayTotalTripCost ?? 162);
             const finalSharedTotalCosts = isTerrestre ? (unitaryTripCost * fleetTrucksNeeded) : sharedTotalCosts;
-            const finalGrossRevCharterer = isTerrestre ? (multiplier * freightSell) : grossRevCharterer;
-            const finalGrossRevOwner = isTerrestre ? (multiplier * freightBuy) : grossRevOwner;
+
+            // Fletamento Terrestre (Brokerage):
+            // 1. Tarifa Transportista (Coste de Compra oficial de la agencia):
+            const carrierMarkupPercent = marginOwner > 0 ? marginOwner : 15;
+            const defaultCarrierTariffUnit = unitaryTripCost * (1 + (carrierMarkupPercent / 100));
+            const carrierPurchaseUnit = (isTerrestre && freightBuy > 0 && freightBuy !== 32.50)
+                ? (freightBuy > 10 ? (freightBuy / fleetTrucksNeeded) : (freightBuy * (truckPayloadCapacity || 24)))
+                : defaultCarrierTariffUnit;
+
+            // 2. Margen de Agencia / Markup (por defecto 10%):
+            const execAgencyMarginInput = document.getElementById('exec-agency-margin');
+            const agencyMarkupPercent = parseFloat(execAgencyMarginInput?.value || document.getElementById('margin-charterer')?.value || 10) || 10;
+            if (execAgencyMarginInput && document.activeElement !== execAgencyMarginInput) {
+                execAgencyMarginInput.value = agencyMarkupPercent;
+            }
+            const agencyMarkupMultiplier = 1 + (agencyMarkupPercent / 100);
+
+            // 3. Precio Total del Viaje (Cliente) = Coste de Compra + Margen de Agencia:
+            const defaultClientSaleUnit = carrierPurchaseUnit * agencyMarkupMultiplier;
+            const clientSaleUnit = (isTerrestre && freightSell > 0 && freightSell !== 35.00)
+                ? (freightSell > 10 ? (freightSell / fleetTrucksNeeded) : (freightSell * (truckPayloadCapacity || 24)))
+                : defaultClientSaleUnit;
+
+            // 4. Beneficio Total Agencia = Venta al cliente - Compra al transportista:
+            const agencyNetProfit = Math.max(0, clientSaleUnit - carrierPurchaseUnit);
+
+            const carrierRatePerKm = landTotalKilometers > 0 ? (carrierPurchaseUnit / landTotalKilometers) : (carrierPurchaseUnit / 107);
+            const clientRatePerKm = landTotalKilometers > 0 ? (clientSaleUnit / landTotalKilometers) : (clientSaleUnit / 107);
+
+            const finalGrossRevCharterer = isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : grossRevCharterer;
+            const finalGrossRevOwner = isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : grossRevOwner;
             const finalVoyageRevenues = isTerrestre ? (finalGrossRevOwner + voyageExtras) : voyageRevenues;
             const finalChartererCommissionCost = isTerrestre ? (finalGrossRevCharterer * (commPct / 100)) : chartererCommissionCost;
             const finalNetProfitOwner = isTerrestre ? (finalVoyageRevenues - finalSharedTotalCosts) : netProfitOwner;
@@ -42387,6 +42428,16 @@ function scheduleReactiveEngine() {
             State.tceOwnerTotal = isTerrestre ? finalNetProfitOwner : tceTotal;
             State.tceTotal = isTerrestre ? finalNetProfitOwner : tceTotal;
             State.netProfitCharterer = isTerrestre ? finalNetProfitCharterer : netProfitCharterer;
+            State.chartererProfit = isTerrestre ? finalNetProfitCharterer : netProfitCharterer;
+            State.agencyProfit = isTerrestre ? finalNetProfitCharterer : netProfitCharterer;
+            State.carrierPurchaseUnit = isTerrestre ? carrierPurchaseUnit : freightBuy;
+            State.clientSaleUnit = isTerrestre ? clientSaleUnit : freightSell;
+            State.carrierPurchaseTotal = isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (multiplier * freightBuy);
+            State.clientSaleTotal = isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : (multiplier * freightSell);
+            State.agencyMargin = isTerrestre ? agencyMarkupPercent : marginChart;
+            State.marginCharterer = isTerrestre ? agencyMarkupPercent : marginChart;
+            State.chartererFreightCost = isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : finalGrossRevOwner;
+            State.chartererGrossRevenue = isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : finalGrossRevCharterer;
             State.totalCosts = isTerrestre ? finalSharedTotalCosts : sharedTotalCosts;
             State.totalRevenue = isTerrestre ? finalGrossRevCharterer : totalRevenue;
             State.sugOwner = sugOwner;
@@ -42729,15 +42780,16 @@ function scheduleReactiveEngine() {
                     drivingHours: landDrivingHours,
                     totalKm: landTotalKilometers,
                     distanceKm: landTotalKilometers,
-                    buyFreight: landBreakEvenPerKm,
-                    sellFreight: landBreakEvenPerKm * 1.15,
-                    buyFreightTotal: landTotalKilometers > 0 ? (landBreakEvenPerKm * landTotalKilometers) : totalTripCost,
-                    sellFreightTotal: landTotalKilometers > 0 ? (landBreakEvenPerKm * 1.15 * landTotalKilometers) : 0,
-                    totalTripCost: landTotalKilometers > 0 ? (landBreakEvenPerKm * landTotalKilometers) : totalTripCost,
-                    totalRevenue: landTotalKilometers > 0 ? (landBreakEvenPerKm * 1.15 * landTotalKilometers) : 0,
-                    totalProfit: landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : netProfitCharterer,
-                    chartererProfit: landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : netProfitCharterer,
-                    tce: landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : tceOwner,
+                    buyFreight: isTerrestre ? carrierRatePerKm : landBreakEvenPerKm,
+                    sellFreight: isTerrestre ? clientRatePerKm : (landBreakEvenPerKm * 1.15),
+                    buyFreightTotal: isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * landTotalKilometers) : totalTripCost),
+                    sellFreightTotal: isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 1.15 * landTotalKilometers) : 0),
+                    totalTripCost: isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * landTotalKilometers) : totalTripCost),
+                    totalRevenue: isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 1.15 * landTotalKilometers) : 0),
+                    totalProfit: isTerrestre ? (agencyNetProfit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : netProfitCharterer),
+                    chartererProfit: isTerrestre ? (agencyNetProfit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : netProfitCharterer),
+                    tce: isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : tceOwner),
+                    agencyMargin: agencyMarkupPercent,
                     modeNarrative: 'terrestre',
                     mode: 'terrestre',
                     pdaIncrementalCost: operationalPenaltyAmount,
@@ -73500,6 +73552,19 @@ window.actualizarGrabCapacityVisibility = function() {
     </script>
 
     <script>
+        window.setExecutiveAgencyMargin = function(newMargin) {
+            const margin = Math.max(0, parseFloat(newMargin) || 0);
+            const marginChartererInput = document.getElementById('margin-charterer');
+            if (marginChartererInput) {
+                marginChartererInput.value = margin;
+            }
+            State.marginCharterer = margin;
+            State.agencyMargin = margin;
+            if (typeof runEngine === 'function') {
+                runEngine();
+            }
+        };
+
         window.setCalculatorMode = function(mode) {
             const execDash = document.getElementById('executive-dashboard');
             const techWork = document.getElementById('technical-workspace');
@@ -73516,6 +73581,12 @@ window.actualizarGrabCapacityVisibility = function() {
                 btnExec.classList.remove('text-slate-500');
                 btnTech.classList.remove('bg-white', 'text-blue-700', 'shadow-sm');
                 btnTech.classList.add('text-slate-500');
+
+                const marginVal = parseFloat(document.getElementById('margin-charterer')?.value || State.marginCharterer || 10) || 10;
+                const execAgencyMarginInput = document.getElementById('exec-agency-margin');
+                if (execAgencyMarginInput && document.activeElement !== execAgencyMarginInput) {
+                    execAgencyMarginInput.value = marginVal;
+                }
             } else {
                 execDash.classList.add('hidden');
                 execDash.classList.remove('flex');
@@ -73544,6 +73615,12 @@ window.actualizarGrabCapacityVisibility = function() {
                 if (pdaPolInput && (!pdaPolInput.value || pdaPolInput.value === '0') && peajesVal) pdaPolInput.value = peajesVal;
                 const pdaPodInput = document.getElementById('pda-pod');
                 if (pdaPodInput && (!pdaPodInput.value || pdaPodInput.value === '0') && dietasVal) pdaPodInput.value = dietasVal;
+
+                const marginVal = parseFloat(document.getElementById('exec-agency-margin')?.value || State.marginCharterer || 10) || 10;
+                const marginChartInput = document.getElementById('margin-charterer');
+                if (marginChartInput && (!marginChartInput.value || marginChartInput.value === '0')) {
+                    marginChartInput.value = marginVal;
+                }
             }
         };
     </script>
