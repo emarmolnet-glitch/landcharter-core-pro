@@ -1644,6 +1644,12 @@
             pointer-events: none;
         }
 
+        #land-bottom-metrics.hidden,
+        #map-route-summary.hidden,
+        .map-route-summary-overlay.hidden {
+            display: none !important;
+        }
+
         .map-route-summary-overlay > div {
             min-width: 0;
             background: rgba(255, 255, 255, 0.9);
@@ -7047,6 +7053,7 @@
         #view-estimator .bg-blue-950\/40,
         #view-map .route-sync-card,
         #view-map #map-route-summary > div,
+        #view-map #land-bottom-metrics > div,
         #view-auditor .bg-white,
         #view-auditor #resultsContent > div {
             background: var(--surface) !important;
@@ -9644,7 +9651,7 @@
                     </div>
                 </section>
                 <div id="nlp-input-widget-root"></div>
-                <div id="map-route-summary" class="map-route-summary-overlay grid grid-cols-2 md:grid-cols-3 text-xs">
+                <div id="land-bottom-metrics" data-legacy-id="map-route-summary" class="map-route-summary-overlay grid grid-cols-2 md:grid-cols-3 text-xs">
                         <div class="w-full border border-slate-200 rounded p-3"><span class="block text-slate-500 uppercase">Origen</span><strong id="sync-pol-label">TBA</strong></div>
                         <div class="w-full border border-slate-200 rounded p-3"><span class="block text-slate-500 uppercase">Destino</span><strong id="sync-pod-label">TBA</strong></div>
                         <div id="sync-miles-card" class="w-full border border-slate-200 rounded p-3" title="Distancia: 0 km"><span class="block text-slate-500 uppercase">Kilómetros</span><strong id="sync-miles-label">0 km</strong><small id="sync-miles-breakdown">0 km</small></div>
@@ -32123,6 +32130,12 @@ function setIsGeoInputOpen(isNextOpen) {
         }
     }
 
+    const bottomMetrics = document.getElementById('land-bottom-metrics') || document.getElementById('map-route-summary');
+    if (bottomMetrics) {
+        bottomMetrics.classList.toggle('hidden', !isGeoInputOpen);
+        bottomMetrics.setAttribute('aria-hidden', String(!isGeoInputOpen));
+    }
+
     const externalToggle = document.getElementById('btn-map-toggle-input');
     if (externalToggle) {
         externalToggle.setAttribute('aria-expanded', String(isGeoInputOpen));
@@ -32145,6 +32158,23 @@ function setIsGeoInputOpen(isNextOpen) {
 window.setIsGeoInputOpen = setIsGeoInputOpen;
 const setRouteInputPanelOpen = setIsGeoInputOpen;
 window.setRouteInputPanelOpen = setRouteInputPanelOpen;
+
+function syncLandBottomMetricsVisibility() {
+    const bottomMetrics = document.getElementById('land-bottom-metrics') || document.getElementById('map-route-summary');
+    if (bottomMetrics) {
+        bottomMetrics.classList.toggle('hidden', !isGeoInputOpen);
+        bottomMetrics.setAttribute('aria-hidden', String(!isGeoInputOpen));
+    }
+}
+window.syncLandBottomMetricsVisibility = syncLandBottomMetricsVisibility;
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        syncLandBottomMetricsVisibility();
+    }, { once: true });
+} else {
+    syncLandBottomMetricsVisibility();
+}
 
         function toggleRouteInputPanel(forceCollapsed) {
             const nextOpen = typeof forceCollapsed === 'boolean'
