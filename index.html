@@ -11496,7 +11496,7 @@
                                     <div class="grid gap-4">
                             <!-- Flete Armador -->
                             <div>
-                                <label id="label-buying-freight" class="mb-1 block text-[10px] font-bold uppercase text-indigo-700">Coste Compra Transportista (Coste por Km / Precio total del Viaje)</label>
+                                <label id="label-buying-freight" class="mb-1 block text-[10px] font-bold uppercase text-indigo-700">Coste Compra Transportista (Precio por Tonelada - €/ton)</label>
                                 <div class="flex">
                                     <input type="number" id="freight-rate" class="input-gc h-9 rounded-r-none border-slate-300 bg-white text-lg font-bold text-slate-900" value="32.50" step="any" oninput="runEngine()">
                                     <button type="button" id="btn-calc-owner-freight" onclick="handleFreightMasterTrigger('owner', event)" class="border-y border-indigo-700 bg-indigo-700 px-2 text-white transition hover:bg-indigo-800" title="Calcular e iniciar Auto-Flow"><i class="fa-solid fa-calculator"></i></button>
@@ -11527,7 +11527,7 @@
                                     <div class="grid gap-4 sm:grid-cols-2">
                             <!-- Flete Venta Fletador -->
                             <div class="sm:col-span-2">
-                                <label id="label-selling-freight" class="mb-1 block text-[10px] font-bold uppercase text-emerald-700">Precio Venta Cliente (Coste por Km / Precio total del Viaje)</label>
+                                <label id="label-selling-freight" class="mb-1 block text-[10px] font-bold uppercase text-emerald-700">Precio Venta Cliente (Precio por Tonelada - €/ton)</label>
                                 <div class="flex">
                                     <input type="number" id="freight-sell" class="input-gc h-9 rounded-r-none border-slate-300 bg-white text-lg font-bold text-slate-900" value="35.00" step="any" oninput="runEngine()">
                                     <button type="button" id="btn-calc-charter-freight" onclick="handleFreightMasterTrigger('charterer', event)" class="border-y border-emerald-700 bg-emerald-700 px-2 text-white transition hover:bg-emerald-800" title="Calcular e iniciar Auto-Flow"><i class="fa-solid fa-calculator"></i></button>
@@ -42242,10 +42242,11 @@ function scheduleReactiveEngine() {
 
             // Fletamento Terrestre (Brokerage):
             // 1. Tarifa Transportista (Coste de Compra oficial de la agencia):
+            // Lógica por Tonelada: Venta Total = Toneladas * Precio Venta/Ton; Coste Total = Toneladas * Precio Coste/Ton.
             const carrierMarkupPercent = marginOwner > 0 ? marginOwner : 15;
             const defaultCarrierTariffUnit = unitaryTripCost * (1 + (carrierMarkupPercent / 100));
             const carrierPurchaseUnit = (isTerrestre && freightBuy > 0 && freightBuy !== 32.50)
-                ? (freightBuy > 10 ? (freightBuy / fleetTrucksNeeded) : (freightBuy * (truckPayloadCapacity || 24)))
+                ? (freightBuy * (truckPayloadCapacity || 24))
                 : defaultCarrierTariffUnit;
 
             // 2. Margen de Agencia / Markup (por defecto 10%):
@@ -42259,7 +42260,7 @@ function scheduleReactiveEngine() {
             // 3. Precio Total del Viaje (Cliente) = Coste de Compra + Margen de Agencia:
             const defaultClientSaleUnit = carrierPurchaseUnit * agencyMarkupMultiplier;
             const clientSaleUnit = (isTerrestre && freightSell > 0 && freightSell !== 35.00)
-                ? (freightSell > 10 ? (freightSell / fleetTrucksNeeded) : (freightSell * (truckPayloadCapacity || 24)))
+                ? (freightSell * (truckPayloadCapacity || 24))
                 : defaultClientSaleUnit;
 
             // 4. Beneficio Total Agencia = Venta al cliente - Compra al transportista:
@@ -42268,8 +42269,8 @@ function scheduleReactiveEngine() {
             const carrierRatePerKm = landTotalKilometers > 0 ? (carrierPurchaseUnit / landTotalKilometers) : (carrierPurchaseUnit / 107);
             const clientRatePerKm = landTotalKilometers > 0 ? (clientSaleUnit / landTotalKilometers) : (clientSaleUnit / 107);
 
-            const finalGrossRevCharterer = isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : grossRevCharterer;
-            const finalGrossRevOwner = isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : grossRevOwner;
+            const finalGrossRevCharterer = isTerrestre ? (cargo > 0 && freightSell > 0 && freightSell !== 35.00 ? (cargo * freightSell) : (clientSaleUnit * fleetTrucksNeeded)) : grossRevCharterer;
+            const finalGrossRevOwner = isTerrestre ? (cargo > 0 && freightBuy > 0 && freightBuy !== 32.50 ? (cargo * freightBuy) : (carrierPurchaseUnit * fleetTrucksNeeded)) : grossRevOwner;
             const finalVoyageRevenues = isTerrestre ? (finalGrossRevOwner + voyageExtras) : voyageRevenues;
             const finalChartererCommissionCost = isTerrestre ? (finalGrossRevCharterer * (commPct / 100)) : chartererCommissionCost;
             const finalNetProfitOwner = isTerrestre ? (finalVoyageRevenues - finalSharedTotalCosts) : netProfitOwner;

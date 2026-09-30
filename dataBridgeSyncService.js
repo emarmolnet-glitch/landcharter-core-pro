@@ -259,11 +259,11 @@ export function buildRoadSyncPayload(options = {}) {
         road_net_margin,
     };
 
-    // 4. Land Freight Cost (land_freight_cost)
+    // 4. Land Freight Cost (land_freight_cost) - TOTAL GLOBAL MULTIPLICADO (FLOTA COMPLETA)
     let rawFreightCost = options.land_freight_cost ?? options.freight_cost ?? options.cost;
     if (rawFreightCost === undefined || rawFreightCost === null) {
         if (typeof window !== 'undefined' && window.State) {
-            rawFreightCost = window.State.land_freight_cost ?? window.State.totalTripCost ?? window.State.costTotal ?? window.State.freight_cost;
+            rawFreightCost = window.State.land_freight_cost ?? window.State.carrierPurchaseTotal ?? window.State.totalCosts ?? window.State.costTotal ?? window.State.freight_cost;
         }
     }
     if ((rawFreightCost === undefined || rawFreightCost === null || rawFreightCost === '') && typeof document !== 'undefined') {
@@ -272,7 +272,10 @@ export function buildRoadSyncPayload(options = {}) {
             rawFreightCost = costEl.textContent;
         }
     }
-    const land_freight_cost = parseLocalizedNumber(rawFreightCost, 0, 2);
+    let land_freight_cost = parseLocalizedNumber(rawFreightCost, 0, 2);
+    if (total_trucks > 1 && land_freight_cost > 0 && typeof window !== 'undefined' && window.State && (land_freight_cost === window.State.unitaryTripCost || land_freight_cost === window.State.carrierPurchaseUnit)) {
+        land_freight_cost = Math.round(land_freight_cost * total_trucks * 100) / 100;
+    }
 
     // 5. Valor Total Mercancía USD (valor_total_mercancia_usd)
     let rawGoodsValue = options.valor_total_mercancia_usd ?? options.goodsValue ?? options.merchandiseValue;
@@ -297,14 +300,17 @@ export function buildRoadSyncPayload(options = {}) {
         payload.line_items = rawServices;
     }
 
-    // 7. Land Freight Sale (land_freight_sale)
+    // 7. Land Freight Sale (land_freight_sale) - TOTAL GLOBAL MULTIPLICADO (FLOTA COMPLETA)
     let rawFreightSale = options.land_freight_sale ?? options.targetSalePrice ?? options.sale;
     if (rawFreightSale === undefined || rawFreightSale === null) {
         if (typeof window !== 'undefined' && window.State) {
-            rawFreightSale = window.State.land_freight_sale ?? window.State.salePrice ?? window.State.targetSalePrice;
+            rawFreightSale = window.State.land_freight_sale ?? window.State.clientSaleTotal ?? window.State.totalRevenue ?? window.State.salePrice ?? window.State.targetSalePrice;
         }
     }
-    const land_freight_sale = parseLocalizedNumber(rawFreightSale, 0, 2);
+    let land_freight_sale = parseLocalizedNumber(rawFreightSale, 0, 2);
+    if (total_trucks > 1 && land_freight_sale > 0 && typeof window !== 'undefined' && window.State && (land_freight_sale === window.State.clientSaleUnit)) {
+        land_freight_sale = Math.round(land_freight_sale * total_trucks * 100) / 100;
+    }
     if (options.land_freight_sale !== undefined || land_freight_sale > 0) {
         payload.land_freight_sale = land_freight_sale;
     }
@@ -320,6 +326,32 @@ export function buildRoadSyncPayload(options = {}) {
     }
     if (options.land_route) {
         payload.land_route = options.land_route;
+    }
+
+    // 9. Route & Chartering (Exportación a Core PRO con Total Global Multiplicado y mercancía periférica)
+    if (options.route_and_chartering || options.includeRouteChartering || (options.land_freight_cost !== undefined && options.land_freight_sale !== undefined) || (typeof window !== 'undefined' && window.State && (window.State.route_and_chartering || window.State.land_freight_cost))) {
+        const existingRoute = options.route_and_chartering
+            || (typeof window !== 'undefined' && window.State?.route_and_chartering ? { ...window.State.route_and_chartering } : {})
+            || {};
+
+        const periServices = options.peripheral_services
+            || (typeof window !== 'undefined' && window.State?.peripheral_services ? { ...window.State.peripheral_services } : {})
+            || existingRoute.peripheral_services
+            || {};
+
+        const periCost = options.peripheral_cost
+            ?? (typeof window !== 'undefined' && window.State?.peripheral_cost)
+            ?? (typeof periServices === 'object' && periServices !== null ? Object.values(periServices).reduce((sum, v) => sum + (Number(v) || 0), 0) : 0);
+
+        payload.route_and_chartering = {
+            ...existingRoute,
+            total_trucks,
+            land_freight_cost: Math.round(land_freight_cost * 100) / 100,
+            land_freight_sale: Math.round(land_freight_sale * 100) / 100,
+            peripheral_services: periServices,
+            peripheral_cost: periCost,
+            costes_mercancia_periferica: periServices,
+        };
     }
 
     return payload;
