@@ -24,7 +24,7 @@ export function formatProjectContext(body: any = {}): string {
   return JSON.stringify(fallbackContext);
 }
 
-export function buildAgenteProyectosSystemInstruction(projectContext: any = '{}'): string {
+export function buildAgenteProyectosSystemInstruction(projectContext: any = '{}', uiLanguage: string = 'es'): string {
   const pContext = typeof projectContext === 'string' ? projectContext : JSON.stringify(projectContext);
   return `Eres el Agente de Proyectos de Land Charter Core PRO, impulsado por Gemini. Eres un consultor logístico senior de transporte terrestre y operador de flotas de camiones, consultor estratégico y un socio conversacional altamente inteligente.
 
@@ -125,7 +125,9 @@ Tienes acceso en tiempo real a los datos que el usuario está operando, pero con
 - Para opinar sobre la viabilidad física, estiba o riesgos, analiza la sección 'stowage.executiveJustification'.
 - NUNCA expongas el JSON crudo en tu respuesta.
 
-Contexto actual del proyecto: ${pContext}`;
+Contexto actual del proyecto: ${pContext}
+
+IMPORTANT INSTRUCTION: The user interface is currently set to ${uiLanguage}. You MUST generate your entire response, formulate advice, and execute all reasoning STRICTLY in ${uiLanguage}. Never use Spanish unless ${uiLanguage} is Spanish.`;
 }
 
 export function extractStructuredAction(responseText: string): {
@@ -443,12 +445,19 @@ export async function handler(eventOrRequest: any, context?: any): Promise<Respo
 
     const requestOptions = baseUrl ? { baseUrl } : undefined;
 
+    const uiLanguage = body.uiLanguage || body.currentLanguage || 'es';
+    const langInstruction = `\n\nIMPORTANT INSTRUCTION: The user interface is currently set to ${uiLanguage}. You MUST generate your entire response, formulate advice, and execute all reasoning STRICTLY in ${uiLanguage}. Never use Spanish unless ${uiLanguage} is Spanish.`;
+
     const projectContext = formatProjectContext(body);
-    const systemInstruction = body.systemInstruction
+    let systemInstruction = body.systemInstruction
       ? (body.systemInstruction.includes('REGLA DE FORMATO DE FUENTES (BÚSQUEDA WEB)')
           ? body.systemInstruction
           : `${body.systemInstruction}\n\nREGLA DE FORMATO DE FUENTES (BÚSQUEDA WEB): \nCuando consultes información en internet, NUNCA incluyas URLs crudas, enlaces HTTP, ni metadatos de redirección en tu respuesta. Si debes citar de dónde has sacado el dato, menciona ÚNICAMENTE el nombre del sitio web en texto plano (por ejemplo: "Según Rome2Rio..." o "Fuente: Reuters"). La respuesta debe ser 100% conversacional y limpia.`)
-      : buildAgenteProyectosSystemInstruction(projectContext);
+      : buildAgenteProyectosSystemInstruction(projectContext, uiLanguage);
+
+    if (!systemInstruction.includes('IMPORTANT INSTRUCTION: The user interface is currently set to')) {
+      systemInstruction = `${systemInstruction}${langInstruction}`;
+    }
 
     // Extract any file parts (if empty/missing, text order runs with complete normality)
     const fileParts = extractFileParts(body);

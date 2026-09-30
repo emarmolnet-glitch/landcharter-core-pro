@@ -81,22 +81,74 @@ const icons = {
 let iaActiva = 'cerebro';
 let lastSubmittedAssistantPrompt = '';
 
+export function getAppUiLanguage() {
+  if (typeof window !== 'undefined') {
+    if (window.currentLanguage) return window.currentLanguage;
+    const stored = window.localStorage?.getItem('seacharter_lang') || window.localStorage?.getItem('rodahmar_lang');
+    if (stored && stored !== 'auto') return stored;
+    const select = document.getElementById('language-selector');
+    if (select?.value && select.value !== 'auto') return select.value;
+    if (document.documentElement?.lang) return document.documentElement.lang;
+  }
+  return 'es';
+}
+
+const ASSISTANT_I18N = {
+  thinking: {
+    es: "El asistente está pensando",
+    en: "The assistant is thinking...",
+    fr: "L'assistant est en train de réfléchir..."
+  },
+  cerebroPlaceholder: {
+    es: "Analizando con Data Bridge. Describe la carga...",
+    en: "Analyzing with Data Bridge. Describe the cargo...",
+    fr: "Analyse avec Data Bridge. Décrivez la cargaison..."
+  },
+  asistentePlaceholder: {
+    es: "Haz una consulta rápida de fletamento...",
+    en: "Ask a quick chartering query...",
+    fr: "Posez une question rapide sur l'affrètement..."
+  },
+  statusAvailable: {
+    es: "Disponible para consultas",
+    en: "Available for queries",
+    fr: "Disponible pour les requêtes"
+  },
+  welcomeAsistente: {
+    es: "Hola. Soy el Asistente SeaCharter. Puedo ayudarte con consultas sobre logística marítima, fletamentos y rutas.",
+    en: "Hello. I am the SeaCharter Assistant. I can help you with queries on maritime logistics, chartering, and routes.",
+    fr: "Bonjour. Je suis l'Assistant SeaCharter. Je peux vous aider pour les requêtes de logistique maritime, d'affrètement et d'itinéraires."
+  },
+  welcomeCerebro: {
+    es: "Hola. Soy Cerebro.ia. Puedo ayudarte con análisis de datos de Data Bridge, fletamentos y rutas.",
+    en: "Hello. I am Cerebro.ia. I can help you with Data Bridge data analysis, chartering, and routes.",
+    fr: "Bonjour. Je suis Cerebro.ia. Je peux vous aider avec l'analyse des données de Data Bridge, l'affrètement et les itinéraires."
+  }
+};
+
+export function getAssistantI18nText(key, lang = getAppUiLanguage()) {
+  const entry = ASSISTANT_I18N[key];
+  if (!entry) return "";
+  return entry[lang] || entry.en || entry.es;
+}
+
 function updateAiUI(type) {
   iaActiva = type;
   const dot = document.getElementById('sea-assistant-dot');
   const title = document.getElementById('sea-assistant-title');
   const input = document.querySelector('.sca-input');
+  const lang = getAppUiLanguage();
   
   if (!dot || !title || !input) return;
 
   if (type === 'cerebro') {
     dot.className = "sca-presence-dot w-2.5 h-2.5 rounded-full shrink-0 bg-[#6366f1]";
     title.textContent = "🧠 Cerebro.ia";
-    input.placeholder = "Analizando con Data Bridge. Describe la carga...";
+    input.placeholder = getAssistantI18nText('cerebroPlaceholder', lang);
   } else {
     dot.className = "sca-presence-dot w-2.5 h-2.5 rounded-full shrink-0 bg-green-500";
     title.textContent = "🤖 Asistente Core";
-    input.placeholder = "Haz una consulta rápida de fletamento...";
+    input.placeholder = getAssistantI18nText('asistentePlaceholder', lang);
   }
 }
 
@@ -240,12 +292,14 @@ function sanitizePayloadForAI(payload = {}) {
 }
 
 function createThinkingMessage() {
+  const lang = getAppUiLanguage();
+  const thinkingText = getAssistantI18nText('thinking', lang);
   const message = document.createElement("article");
   message.className = "sca-message sca-message--assistant";
   message.dataset.thinking = "true";
   message.innerHTML = `
     <div class="sca-bubble sca-thinking p-3 rounded-xl break-words text-[13px]" role="status">
-      <span>El asistente está pensando</span>
+      <span data-i18n="El asistente está pensando">${thinkingText}</span>
       <span class="sca-thinking-dots" aria-hidden="true"><span></span><span></span><span></span></span>
     </div>`;
   return message;
@@ -269,12 +323,18 @@ function getActiveAssistantEndpoint() {
 
 async function requestAssistantResponse(userText, historyElement, signal, attachedFiles = []) {
   const historial = collectConversationHistory(historyElement);
+  const uiLanguage = getAppUiLanguage();
+  const agentType = iaActiva === 'cerebro' ? 'cerebro' : 'asistente';
   
   const requestPayload = {
     CalculationData: collectCalculationData(),
     MarketData: collectMarketData(),
     UserContext: userText,
     ConversationHistory: historial,
+    message: userText,
+    mensaje: userText,
+    uiLanguage,
+    agentType,
   };
 
   if (attachedFiles.length > 0 || (iaActiva === 'local' && isSimulationQuery(userText))) {
@@ -287,7 +347,16 @@ async function requestAssistantResponse(userText, historyElement, signal, attach
   try {
     if (attachedFiles.length > 0) {
       const formData = new FormData();
-      formData.append("body", JSON.stringify(sanitizePayloadForAI(requestPayload)));
+      const sanitized = sanitizePayloadForAI(requestPayload);
+      sanitized.message = userText;
+      sanitized.mensaje = userText;
+      sanitized.uiLanguage = uiLanguage;
+      sanitized.agentType = agentType;
+      formData.append("body", JSON.stringify(sanitized));
+      formData.append("uiLanguage", uiLanguage);
+      formData.append("agentType", agentType);
+      formData.append("message", userText);
+      formData.append("mensaje", userText);
 
       attachedFiles.forEach((file, index) => {
         formData.append(`documento_${index}`, file);
@@ -302,6 +371,9 @@ async function requestAssistantResponse(userText, historyElement, signal, attach
       const sanitizedPayload = sanitizePayloadForAI(requestPayload);
       sanitizedPayload.contexto = collectChatContext();
       sanitizedPayload.mensaje = userText;
+      sanitizedPayload.message = userText;
+      sanitizedPayload.uiLanguage = uiLanguage;
+      sanitizedPayload.agentType = agentType;
 
       response = await fetch(endpointUrl, {
         method: "POST",
@@ -1926,6 +1998,24 @@ const fileInput = root.querySelector("#sca-file-input");
   let isSpeaking = false;
   let activeRequestController = null;
   let stoppedByUser = false;
+  let availableVoices = [];
+
+  const updateAvailableVoices = () => {
+    if (supportsSpeechSynthesis && typeof speechSynthesis.getVoices === "function") {
+      const list = speechSynthesis.getVoices() || [];
+      if (list.length > 0) {
+        availableVoices = list;
+      }
+    }
+  };
+
+  if (supportsSpeechSynthesis) {
+    updateAvailableVoices();
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+      speechSynthesis.onvoiceschanged = updateAvailableVoices;
+    }
+    speechSynthesis.addEventListener?.("voiceschanged", updateAvailableVoices);
+  }
 
   try {
     speechEnabled = supportsSpeechSynthesis && window.localStorage.getItem(SPEECH_PREFERENCE_KEY) === "true";
@@ -1984,7 +2074,32 @@ const fileInput = root.querySelector("#sca-file-input");
     if (!cleanText) return;
 
     const utterance = new window.SpeechSynthesisUtterance(cleanText);
-    utterance.lang = "es-ES";
+    const uiLanguage = getAppUiLanguage();
+    const lang = uiLanguage === 'fr' ? 'fr-FR' : (uiLanguage === 'en' ? 'en-US' : 'es-ES');
+    utterance.lang = lang;
+
+    try {
+      const voices = (availableVoices.length > 0 ? availableVoices : speechSynthesis.getVoices?.()) || [];
+      const prefix = lang.split('-')[0].toLowerCase();
+      const availableMatchingVoices = voices.filter(v => v.lang && v.lang.replace('_', '-').toLowerCase().startsWith(prefix));
+
+      if (availableMatchingVoices.length > 0) {
+        const bestVoice =
+          availableMatchingVoices.find(v => {
+            const name = v.name || '';
+            return name.includes('Google') || name.includes('Natural') || name.includes('Premium') || name.includes('Microsoft') || name.includes('Online');
+          }) ||
+          availableMatchingVoices.find(v => v.lang.replace('_', '-').toLowerCase() === lang.toLowerCase()) ||
+          availableMatchingVoices[0];
+
+        if (bestVoice) {
+          utterance.voice = bestVoice;
+        }
+      }
+    } catch (voiceErr) {
+      console.warn("❌ [Cerebro.ia/Voz] Error asignando voz:", voiceErr);
+    }
+
     utterance.rate = 1.1;
     utterance.pitch = 1;
     utterance.onstart = () => {
@@ -2185,9 +2300,13 @@ const fileInput = root.querySelector("#sca-file-input");
         appendMessage(createMessage("assistant", createProactiveGreeting(evaluation.moduleName), { meta: formatTime() }));
         aiAlertsStore.resetAlerts();
       } else if (!history.querySelector(".sca-message")) {
+        const lang = getAppUiLanguage();
+        const initialText = (iaActiva === 'cerebro')
+          ? getAssistantI18nText('welcomeCerebro', lang)
+          : getAssistantI18nText('welcomeAsistente', lang);
         appendMessage(createMessage(
           "assistant",
-          "Hola. Soy el Asistente SeaCharter. Puedo ayudarte con consultas sobre logística marítima, fletamentos y rutas.",
+          initialText,
         ));
       }
       requestAnimationFrame(() => {
@@ -2383,6 +2502,12 @@ const fileInput = root.querySelector("#sca-file-input");
       scrollToLatest();
     }
   });
+
+  const onLanguageChange = () => {
+    updateAiUI(iaActiva);
+  };
+  window.addEventListener('seacharter:language-changed', onLanguageChange);
+  window.addEventListener('languageChanged', onLanguageChange);
 }
 
 if (document.readyState === "loading") {

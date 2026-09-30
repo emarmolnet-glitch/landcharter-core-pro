@@ -32,6 +32,10 @@ Reglas de enrutamiento semántico:
 - Si el usuario pregunta por precios de bunker, índices de mercado, características técnicas de un puerto o posiciones de buques, consulta la entidad correspondiente de Data Bridge.
 Si no tienes el dato en tu contexto inmediato, informa al usuario que vas a consultar la base de datos de Data Bridge y prepara el payload de búsqueda.`;
 
+export function buildCerebroSystemPrompt(uiLanguage = 'es') {
+  return `${DATA_BRIDGE_SYSTEM_PROMPT}\n\nIMPORTANT INSTRUCTION: The user interface is currently set to ${uiLanguage}. You MUST generate your entire response, formulate advice, and execute all reasoning STRICTLY in ${uiLanguage}. Never use Spanish unless ${uiLanguage} is Spanish.`;
+}
+
 const TABLES = Object.freeze({
   bunker_prices_log: {
     select: "hub_name, fuel_grade, price::double precision AS price",

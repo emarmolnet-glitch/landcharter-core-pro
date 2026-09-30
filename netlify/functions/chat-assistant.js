@@ -137,7 +137,7 @@ export async function extractTextFromPDF(buffer, customLoader = null) {
   }
 }
 
-export function buildSystemInstruction(contexto = {}, historial = [], intent = CHAT_INTENTS.GENERAL) {
+export function buildSystemInstruction(contexto = {}, historial = [], intent = CHAT_INTENTS.GENERAL, uiLanguage = "es") {
   const baseInstruction = `Eres el asistente inteligente de LandCharter (Core PRO y Data Bridge). Eres un Consultor Logístico de Transporte Terrestre, Bróker y Auditor de Riesgos de Transporte por Carretera (camiones, tráilers, flotas). Tienes acceso total a internet y a fuentes externas en tiempo real (mediante la búsqueda web nativa de Google Search y herramientas web) para responder a cualquier pregunta o duda del usuario sobre actualidad, tecnología, datos de empresas, flotas, transportistas, fletes terrestres, mercados o información general. Tienes acceso directo al estado actual de la pantalla del usuario. Debes proporcionar auditorías de costes de transporte por camión, costes de combustible (Diésel/Gasoil), peajes, dietas y tacógrafo, y validación de presupuestos terrestres cuando el usuario lo solicite. Si el usuario te pregunta por la corrección de un cálculo o ruta, analiza rigurosamente los datos que aparecen en el contexto de la pantalla. NUNCA exijas ni te quejes de que falta combustible marítimo VLSFO, HSFO o MGO, ni exijas tiempos de plancha/laytime o calados; el ecosistema opera en modo terrestre con camiones/tráiler.`;
   const vesselLocationInstruction = `
 \nREGLA ABSOLUTA Y DE MÁXIMA PRIORIDAD — LOCALIZACIÓN DE VEHÍCULOS / FLOTA:
@@ -184,7 +184,6 @@ Esta regla prevalece sobre el enrutador de intenciones, las herramientas, el his
    - Elimina por completo referencias a piratería, zonas JWC, calados y temporales marítimos.
 
 3. Vehículo y Capacidad: Si la mercancía detectada o solicitada corresponde a envasados/sacos/big bags (coincide con /(big\s*bag|saco|sling|paletizad|envasad)/i y no contiene "granel" o "bulk"), asigna forzosamente "Camión Plataforma con Grúa Autocarga" (21t carga útil). Para carga general, Tráiler estándar Tauliner / lona (40t MMA, 24t carga útil), Frigorífico o Cisterna según la mercancía. No calcules DWT de buques ni planchas portuarias.
-`;
 
 2.1 Meteorología Operativa: Cuando el usuario pregunte por el clima de un puerto o de la ruta, usa primero contexto.meteorologia o la herramienta getWeatherForecast. Resume temperatura, viento, condición y estado operativo disponibles. Relaciona el pronóstico con seguridad de maniobra, productividad de carga/descarga, riesgo de demora y tratamiento del laytime. Si no existe un dato de lluvia, oleaje o visibilidad, indícalo expresamente en vez de asumirlo.
 
@@ -360,8 +359,50 @@ Asegúrate de que los saltos de línea (\\n) se escapan correctamente en el JSON
 
 Prohibido dar explicaciones largas o añadir formato Markdown a la respuesta después de una confirmación de ejecución.`;
 
-  const finalInstruction = `${baseInstruction}\n\n${contextInstruction}\n\n${intentRoutingRules}\n\n${moduleInstruction}\n\n${expertRules}\n\n${dualModeRules}\n\n${partialUpdateRules}\n\n${projectDocumentParserRule}\n\n${actionExecutionDirective}\n\n${vesselLocationInstruction}`;
+  const langInstruction = `\n\nIMPORTANT INSTRUCTION: The user interface is currently set to ${uiLanguage}. You MUST generate your entire response, formulate advice, and execute all reasoning STRICTLY in ${uiLanguage}. Never use Spanish unless ${uiLanguage} is Spanish.`;
+
+  const finalInstruction = `${baseInstruction}\n\n${contextInstruction}\n\n${intentRoutingRules}\n\n${moduleInstruction}\n\n${expertRules}\n\n${dualModeRules}\n\n${partialUpdateRules}\n\n${projectDocumentParserRule}\n\n${actionExecutionDirective}\n\n${vesselLocationInstruction}${langInstruction}`;
   return finalInstruction;
+}
+
+export function buildAsistenteSystemPrompt(contexto = {}, historial = [], intent = CHAT_INTENTS.GENERAL, uiLanguage = "es") {
+  return buildSystemInstruction(contexto, historial, intent, uiLanguage);
+}
+
+export function buildCerebroSystemPrompt(uiLanguage = "es", contexto = {}, historial = []) {
+  const baseInstruction = `Eres el Cerebro IA analítico de LandCharter Core PRO y Data Bridge. Eres un Consultor Logístico de Transporte Terrestre, Bróker y Auditor de Riesgos de Transporte por Carretera (camiones, tráilers, flotas) con acceso a Data Bridge (Neon PostgreSQL). Tienes acceso total a internet y a fuentes externas en tiempo real (mediante la búsqueda web nativa de Google Search y herramientas web) para responder a cualquier pregunta o duda del usuario sobre actualidad, tecnología, datos de empresas, flotas, transportistas, fletes terrestres, mercados o información general. Tienes acceso directo al estado actual de la pantalla del usuario.`;
+  const contextInstruction = `\nContexto actual de la pantalla del usuario:\n${JSON.stringify(contexto, null, 2)}\nHistorial reciente normalizado:\n${JSON.stringify(normalizeChatHistory(historial), null, 2)}`;
+  const langInstruction = `\n\nIMPORTANT INSTRUCTION: The user interface is currently set to ${uiLanguage}. You MUST generate your entire response, formulate advice, and execute all reasoning STRICTLY in ${uiLanguage}. Never use Spanish unless ${uiLanguage} is Spanish.`;
+  return `${baseInstruction}\n\n${DATA_BRIDGE_SYSTEM_PROMPT}\n\n${contextInstruction}${langInstruction}`;
+}
+
+export function buildProyectosSystemPrompt(projectContext = "{}", uiLanguage = "es") {
+  const pContext = typeof projectContext === "string" ? projectContext : JSON.stringify(projectContext);
+  return `Eres el Agente de Proyectos de Land Charter Core PRO, impulsado por Gemini. Eres un consultor logístico senior de transporte terrestre y operador de flotas de camiones, consultor estratégico y un socio conversacional altamente inteligente.
+
+REGLA CERO - SALUDOS Y MENSAJES CASUALES:
+Si el usuario te saluda ("hola", "buenos días", "qué tal") o hace una pregunta informal, responde ÚNICAMENTE con un saludo natural, humano y cercano, abriendo la puerta a la conversación.
+
+REGLAS DE COMPORTAMIENTO Y PERSONALIDAD:
+1. LIBERTAD ESTRATÉGICA Y CONVERSACIONAL: Habla de tú a tú con el usuario. Tienes permiso absoluto para debatir, opinar, aconsejar sobre negociaciones con cargadores y clientes, analizar tendencias de transporte por carretera o buscar cualquier dato en la web en tiempo real.
+2. OPINIÓN CRÍTICA Y ASESORAMIENTO: Analiza la situación, optimización de palets, pesos por eje, y da tu recomendación profesional como un operador de flotas senior.
+3. TONO NATURAL: Responde de forma directa, analítica y fluida en formato markdown.
+
+CONTEXTO EN VIVO DEL PROYECTO (USO INTERNO):
+Contexto actual del proyecto: ${pContext}
+
+IMPORTANT INSTRUCTION: The user interface is currently set to ${uiLanguage}. You MUST generate your entire response, formulate advice, and execute all reasoning STRICTLY in ${uiLanguage}. Never use Spanish unless ${uiLanguage} is Spanish.`;
+}
+
+export function getAgentSystemPrompt(agentType = "asistente", { contexto = {}, historial = [], intent = CHAT_INTENTS.GENERAL, projectContext = "{}", uiLanguage = "es" } = {}) {
+  const norm = String(agentType || "").toLowerCase();
+  if (norm === "cerebro" || norm.includes("cerebro")) {
+    return buildCerebroSystemPrompt(uiLanguage, contexto, historial);
+  }
+  if (norm === "proyectos" || norm === "proyecto" || norm.includes("proyecto")) {
+    return buildProyectosSystemPrompt(projectContext || contexto, uiLanguage);
+  }
+  return buildAsistenteSystemPrompt(contexto, historial, intent, uiLanguage);
 }
 
 function jsonResponse(status, body) {
@@ -473,8 +514,8 @@ export default async (req) => {
       }
     } else {
       body = await req.json();
-      mensaje = body?.mensaje;
-      rawContexto = body?.contexto || {};
+      mensaje = body?.mensaje || body?.message || body?.text;
+      rawContexto = body?.contexto || body?.context || {};
       imagenData = body?.image; 
     }
 
@@ -498,6 +539,9 @@ export default async (req) => {
     if (!apiKey) {
       return jsonResponse(500, { success: false, error: "Servicio de IA no configurado" });
     }
+
+    const uiLanguage = body?.uiLanguage || (formData ? formData.get("uiLanguage") : null) || rawContexto?.uiLanguage || "es";
+    const agentType = body?.agentType || (formData ? formData.get("agentType") : null) || (body?.iaActiva === "cerebro" ? "cerebro" : "asistente");
 
     // --- BLINDAJE DE SEGURIDAD CONTRA REFERENCIAS CIRCULARES ---
     let normalizedContext = {};
@@ -532,7 +576,11 @@ export default async (req) => {
     }
 
     const intent = classifyChatIntent(mensaje || "Analiza esta imagen", { context: normalizedContext });
-    const finalInstruction = buildSystemInstruction(normalizedContext, normalizedHistory, intent);
+    const finalInstruction = (agentType === "cerebro")
+      ? buildCerebroSystemPrompt(uiLanguage, normalizedContext, normalizedHistory)
+      : (agentType === "proyectos" || agentType === "proyecto")
+      ? buildProyectosSystemPrompt(normalizedContext, uiLanguage)
+      : buildSystemInstruction(normalizedContext, normalizedHistory, intent, uiLanguage);
     const action = intent === CHAT_INTENTS.SIMULATION
       ? buildCalculatorAutofillAction(mensaje || "", normalizedContext)
       : null;
