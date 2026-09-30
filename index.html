@@ -8954,6 +8954,31 @@
             padding: 10px 4px !important;
         }
 
+        .sidebar-language-item {
+            position: relative;
+        }
+
+        .sidebar-language-select {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 10;
+            border: none;
+            background: transparent;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .sidebar-language-select:focus-visible + .sidebar-label,
+        .sidebar-language-item:focus-within {
+            outline: 2px solid #2563eb;
+            outline-offset: -2px;
+            border-radius: 8px;
+        }
+
         /* ======================================================== */
         /* OCULTAMIENTO NO DESTRUCTIVO: OPCIONES MARÍTIMAS Y ECO    */
         /* ======================================================== */
@@ -9296,22 +9321,6 @@
                 <span>FAQ</span>
             </button>
 
-            <!-- Selector de Idioma -->
-            <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 flex-1 lg:flex-none max-w-[170px]">
-                <i class="fa-solid fa-globe text-slate-500 mr-2 text-xs"></i>
-                <select id="language-selector" class="bg-transparent border-none outline-none text-xs text-white w-full cursor-pointer font-bold" onchange="changeLanguage(this.value)">
-                    <option value="auto" class="bg-slate-900 text-white">🌐 AUTO</option>
-                    <option value="es" class="bg-slate-900 text-white">ES - Español</option>
-                    <option value="en" class="bg-slate-900 text-white">EN - English</option>
-                    <option value="fr" class="bg-slate-900 text-white">FR - Français</option>
-                    <option value="ar" class="bg-slate-900 text-white">AR - العربية</option>
-                    <option value="pt" class="bg-slate-900 text-white">PT - Português</option>
-                    <option value="de" class="bg-slate-900 text-white">DE - Deutsch</option>
-                    <option value="it" class="bg-slate-900 text-white">IT - Italiano</option>
-                    <option value="tr" class="bg-slate-900 text-white">TR - Türkçe</option>
-                    <option value="zh-CN" class="bg-slate-900 text-white">ZH - 中文</option>
-                </select>
-            </div>
             <!-- Interruptor de contexto de negocio: solo cambia la capa de presentación.
                  Va al final del rail derecho a propósito: el rail es nowrap y desborda
                  hacia la izquierda, así que el último hijo es la única posición donde el
@@ -9505,6 +9514,42 @@
             <div class="sidebar-content-bottom border-t border-slate-200/80 p-2 space-y-1 bg-slate-50/50">
                 <div class="sidebar-section-title px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
                     Ecosistema
+                </div>
+
+                <!-- Selector de Idiomas (Reubicado en Barra Lateral) -->
+                <div
+                    id="sidebar-language-container"
+                    class="sidebar-nav-btn sidebar-language-item relative flex items-center group cursor-pointer"
+                    title="Idioma: Español (ES)"
+                    aria-label="Selector de Idioma"
+                >
+                    <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    </svg>
+                    <span class="sidebar-label flex items-center justify-between flex-1 min-w-0">
+                        <span id="sidebar-lang-display-text" class="truncate font-semibold text-[13px]">Idioma</span>
+                        <span id="sidebar-lang-badge" class="ml-auto px-1.5 py-0.5 text-[10px] font-bold bg-slate-200/80 text-slate-700 rounded border border-slate-300/60 uppercase tracking-wider">ES</span>
+                    </span>
+                    <select
+                        id="language-selector"
+                        class="sidebar-language-select"
+                        onchange="changeLanguage(this.value)"
+                        title="Seleccionar idioma / Select language"
+                        aria-label="Seleccionar idioma"
+                    >
+                        <option value="auto" class="bg-slate-900 text-white">🌐 AUTO</option>
+                        <option value="es" class="bg-slate-900 text-white">ES - Español</option>
+                        <option value="en" class="bg-slate-900 text-white">EN - English</option>
+                        <option value="fr" class="bg-slate-900 text-white">FR - Français</option>
+                        <option value="ar" class="bg-slate-900 text-white">AR - العربية</option>
+                        <option value="pt" class="bg-slate-900 text-white">PT - Português</option>
+                        <option value="de" class="bg-slate-900 text-white">DE - Deutsch</option>
+                        <option value="it" class="bg-slate-900 text-white">IT - Italiano</option>
+                        <option value="tr" class="bg-slate-900 text-white">TR - Türkçe</option>
+                        <option value="zh-CN" class="bg-slate-900 text-white">ZH - 中文</option>
+                    </select>
                 </div>
 
                 <!-- SeaCharter Core PRO (movido de ⋮) -->
@@ -16407,6 +16452,25 @@
             });
         }
 
+        function updateSidebarLanguageBadge(lang) {
+            const badge = document.getElementById('sidebar-lang-badge');
+            if (badge) {
+                const code = (!lang || lang === 'auto') ? 'AUTO' : (lang === 'zh-CN' ? 'ZH' : lang.toUpperCase());
+                badge.textContent = code;
+            }
+            const container = document.getElementById('sidebar-language-container');
+            if (container) {
+                const langNames = {
+                    es: 'Español', en: 'English', fr: 'Français',
+                    ar: 'العربية', pt: 'Português', de: 'Deutsch',
+                    it: 'Italiano', tr: 'Türkçe', 'zh-CN': '中文', auto: 'Auto'
+                };
+                const langName = langNames[lang] || lang || 'Español';
+                const code = (!lang || lang === 'auto') ? 'AUTO' : (lang === 'zh-CN' ? 'ZH' : lang.toUpperCase());
+                container.title = `Idioma: ${langName} (${code})`;
+            }
+        }
+
         function changeLanguage(lang) {
             if (!lang) lang = 'es';
             try {
@@ -16420,6 +16484,7 @@
             if (selector && selector.value !== lang) {
                 selector.value = lang;
             }
+            updateSidebarLanguageBadge(lang);
             translatePage(lang);
             window.dispatchEvent(new CustomEvent('seacharter:language-changed', { detail: { lang } }));
             window.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang } }));
@@ -16438,15 +16503,18 @@
             window.currentLanguage = savedLang;
             const selector = document.getElementById('language-selector');
             if (selector) selector.value = savedLang;
+            updateSidebarLanguageBadge(savedLang);
             translatePage(savedLang);
         }
 
         if (typeof window !== 'undefined') {
+            window.updateSidebarLanguageBadge = updateSidebarLanguageBadge;
             window.changeLanguage = changeLanguage;
             window.translatePage = translatePage;
             window.initLanguage = initLanguage;
         }
         if (typeof globalThis !== 'undefined') {
+            globalThis.updateSidebarLanguageBadge = updateSidebarLanguageBadge;
             globalThis.changeLanguage = changeLanguage;
             globalThis.translatePage = translatePage;
             globalThis.initLanguage = initLanguage;
@@ -74027,6 +74095,10 @@ window.actualizarGrabCapacityVisibility = function() {
     <style id="google-translate-custom-styles">
     /* Ocultar por completo la barra superior nativa y la ruedita de Google Translate */
     .goog-te-banner-frame,
+    .skiptranslate iframe {
+      display: none !important;
+    }
+    .goog-te-banner-frame,
     .skiptranslate iframe,
     .goog-te-spinner-pos,
     .VIpgJd-ZVi9od-aZ2wEe-wOHMyf,
@@ -74041,6 +74113,8 @@ window.actualizarGrabCapacityVisibility = function() {
     }
     body {
       top: 0px !important;
+    }
+    body {
       position: static !important;
     }
     .goog-text-highlight {
@@ -74125,13 +74199,16 @@ window.actualizarGrabCapacityVisibility = function() {
             gtScript.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
             document.head.appendChild(gtScript);
 
-            // 2. CONECTAR EL SELECTOR DE IDIOMA EN EL HEADER
+            // 2. CONECTAR EL SELECTOR DE IDIOMA EN LA BARRA LATERAL (SIDEBAR)
             function syncSelectorValue() {
                 const selector = document.getElementById('language-selector');
                 if (selector) {
                     const currentPref = manualLang || 'auto';
                     if (selector.value !== currentPref) {
                         selector.value = currentPref;
+                    }
+                    if (typeof updateSidebarLanguageBadge === 'function') {
+                        updateSidebarLanguageBadge(currentPref);
                     }
                 }
             }
@@ -74144,6 +74221,9 @@ window.actualizarGrabCapacityVisibility = function() {
                     localStorage.setItem('rodahmar_lang', val);
                     localStorage.setItem('seacharter_lang', val === 'auto' ? 'es' : val);
                 } catch (_) {}
+                if (typeof updateSidebarLanguageBadge === 'function') {
+                    updateSidebarLanguageBadge(val);
+                }
 
                 if (val === 'es') {
                     clearGoogtransCookie();
