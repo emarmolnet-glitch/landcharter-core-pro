@@ -14,6 +14,70 @@ export function getAppUiLanguage() {
   return 'es';
 }
 
+export const SPEECH_LANG_MAP = Object.freeze({
+  es: 'es-ES',
+  en: 'en-US',
+  fr: 'fr-FR',
+  ar: 'ar-SA',
+  pt: 'pt-PT',
+  de: 'de-DE',
+  it: 'it-IT',
+  tr: 'tr-TR',
+  zh: 'zh-CN',
+  'zh-CN': 'zh-CN',
+  'zh-cn': 'zh-CN',
+});
+
+export function detectBrowserSpeechLanguage() {
+  if (typeof navigator !== 'undefined') {
+    const raw = (navigator.language || navigator.userLanguage || '').trim().toLowerCase();
+    if (raw.startsWith('zh')) return SPEECH_LANG_MAP['zh-CN'];
+    const base = raw.split('-')[0];
+    if (base && SPEECH_LANG_MAP[base]) return SPEECH_LANG_MAP[base];
+    if (raw && SPEECH_LANG_MAP[raw]) return SPEECH_LANG_MAP[raw];
+  }
+  return 'en-US';
+}
+
+export function getSpeechRecognitionLanguage(rawLang) {
+  let lang = rawLang;
+  if (!lang || typeof lang !== 'string') {
+    if (typeof window !== 'undefined') {
+      const doc = typeof document !== 'undefined' ? document : window.document;
+      const select = doc?.getElementById ? doc.getElementById('language-selector') : null;
+      if (select?.value) {
+        lang = select.value;
+      } else if (window.currentLanguage) {
+        lang = window.currentLanguage;
+      } else {
+        const stored = window.localStorage?.getItem('seacharter_lang') || window.localStorage?.getItem('rodahmar_lang');
+        if (stored) {
+          lang = stored;
+        } else if (doc?.documentElement?.lang) {
+          lang = doc.documentElement.lang;
+        }
+      }
+    }
+    if (!lang) lang = getAppUiLanguage();
+  }
+
+  const normalized = String(lang || '').trim().toLowerCase();
+  if (normalized === 'auto') {
+    return detectBrowserSpeechLanguage();
+  }
+
+  if (SPEECH_LANG_MAP[normalized]) {
+    return SPEECH_LANG_MAP[normalized];
+  }
+
+  const base = normalized.split('-')[0];
+  if (SPEECH_LANG_MAP[base]) {
+    return SPEECH_LANG_MAP[base];
+  }
+
+  return 'en-US';
+}
+
 const PROJECT_AGENT_I18N = {
   initialGreeting: {
     es: "¡Hola! Soy tu Agente de Proyectos. Estoy conectado al workspace y listo para ejecutar cualquier orden en lenguaje natural.",
@@ -98,6 +162,9 @@ export default function AgenteProyectosWidget({
     const handleLangChange = (e) => {
       const newLang = e?.detail?.lang || getAppUiLanguage();
       setUiLanguage(newLang);
+      if (recognitionRef.current) {
+        recognitionRef.current.lang = getSpeechRecognitionLanguage(newLang);
+      }
     };
     if (typeof window !== 'undefined') {
       window.addEventListener('seacharter:language-changed', handleLangChange);
@@ -820,6 +887,7 @@ Contexto actual del proyecto: ${projectContext}`;
         recognitionRef.current.stop();
         setIsListening(false);
       } else {
+        recognitionRef.current.lang = getSpeechRecognitionLanguage(uiLanguage);
         recognitionRef.current.start();
         setIsListening(true);
       }

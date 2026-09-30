@@ -93,6 +93,70 @@ export function getAppUiLanguage() {
   return 'es';
 }
 
+export const SPEECH_LANG_MAP = Object.freeze({
+  es: 'es-ES',
+  en: 'en-US',
+  fr: 'fr-FR',
+  ar: 'ar-SA',
+  pt: 'pt-PT',
+  de: 'de-DE',
+  it: 'it-IT',
+  tr: 'tr-TR',
+  zh: 'zh-CN',
+  'zh-CN': 'zh-CN',
+  'zh-cn': 'zh-CN',
+});
+
+export function detectBrowserSpeechLanguage() {
+  if (typeof navigator !== 'undefined') {
+    const raw = (navigator.language || navigator.userLanguage || '').trim().toLowerCase();
+    if (raw.startsWith('zh')) return SPEECH_LANG_MAP['zh-CN'];
+    const base = raw.split('-')[0];
+    if (base && SPEECH_LANG_MAP[base]) return SPEECH_LANG_MAP[base];
+    if (raw && SPEECH_LANG_MAP[raw]) return SPEECH_LANG_MAP[raw];
+  }
+  return 'en-US';
+}
+
+export function getSpeechRecognitionLanguage(rawLang) {
+  let lang = rawLang;
+  if (!lang || typeof lang !== 'string') {
+    if (typeof window !== 'undefined') {
+      const doc = typeof document !== 'undefined' ? document : window.document;
+      const select = doc?.getElementById ? doc.getElementById('language-selector') : null;
+      if (select?.value) {
+        lang = select.value;
+      } else if (window.currentLanguage) {
+        lang = window.currentLanguage;
+      } else {
+        const stored = window.localStorage?.getItem('seacharter_lang') || window.localStorage?.getItem('rodahmar_lang');
+        if (stored) {
+          lang = stored;
+        } else if (doc?.documentElement?.lang) {
+          lang = doc.documentElement.lang;
+        }
+      }
+    }
+    if (!lang) lang = getAppUiLanguage();
+  }
+
+  const normalized = String(lang || '').trim().toLowerCase();
+  if (normalized === 'auto') {
+    return detectBrowserSpeechLanguage();
+  }
+
+  if (SPEECH_LANG_MAP[normalized]) {
+    return SPEECH_LANG_MAP[normalized];
+  }
+
+  const base = normalized.split('-')[0];
+  if (SPEECH_LANG_MAP[base]) {
+    return SPEECH_LANG_MAP[base];
+  }
+
+  return 'en-US';
+}
+
 const ASSISTANT_I18N = {
   thinking: {
     es: "El asistente está pensando",
@@ -1893,7 +1957,7 @@ function mountSeaAssistant() {
         </div>
         <div class="sca-header-actions flex gap-2 items-center">
           <button class="sca-speech-toggle w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-600 transition-colors border-0 shrink-0" type="button" aria-label="Activar respuestas por voz" aria-pressed="false" title="Activar voz">${icons.speakerMuted}</button>
-          <button class="sca-minimize w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-600 transition-colors border-0 shrink-0" type="button" aria-label="Minimizar asistente" aria-expanded="true" title="Minimizar asistente">${icons.minimize}</button>
+          <button class="sca-minimize" type="button" aria-label="Minimizar asistente" aria-expanded="true" title="Minimizar asistente">${icons.minimize}</button>
           <button class="sca-close w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-600 transition-colors border-0 shrink-0" type="button" aria-label="Cerrar asistente" title="Cerrar asistente">${icons.close}</button>
         </div>
       </header>
@@ -2257,6 +2321,7 @@ const fileInput = root.querySelector("#sca-file-input");
       recognitionStateRef.current.shouldSubmit = false;
       recognitionStateRef.current.isStarting = true;
       try {
+        recognition.lang = getSpeechRecognitionLanguage();
         recognition.start();
       } catch (error) {
         console.error("❌ [Cerebro.ia/Voz] Error iniciando el reconocimiento", error);
@@ -2505,6 +2570,9 @@ const fileInput = root.querySelector("#sca-file-input");
 
   const onLanguageChange = () => {
     updateAiUI(iaActiva);
+    if (recognition) {
+      recognition.lang = getSpeechRecognitionLanguage();
+    }
   };
   window.addEventListener('seacharter:language-changed', onLanguageChange);
   window.addEventListener('languageChanged', onLanguageChange);
