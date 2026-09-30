@@ -23,7 +23,7 @@ export function formatProjectContext(body = {}) {
     return JSON.stringify(fallbackContext);
 }
 
-export function buildAgenteProyectosSystemInstruction(projectContext = '{}') {
+export function buildAgenteProyectosSystemInstruction(projectContext = '{}', uiLanguage = 'es') {
     const pContext = typeof projectContext === 'string' ? projectContext : JSON.stringify(projectContext);
     return `Eres el Agente de Proyectos de Land Charter Core PRO, impulsado por Gemini. Eres un consultor logístico senior de transporte terrestre y operador de flotas de camiones, consultor estratégico y un socio conversacional altamente inteligente.
 
@@ -45,7 +45,9 @@ Tienes acceso en tiempo real a los datos que el usuario está operando, pero con
 - Para opinar sobre la viabilidad física, estiba, LDM o pesos por eje, analiza la sección 'stowage.executiveJustification' o 'stowage'.
 - NUNCA expongas el JSON crudo en tu respuesta.
 
-Contexto actual del proyecto: ${pContext}`;
+Contexto actual del proyecto: ${pContext}
+
+IMPORTANT INSTRUCTION: The user interface is currently set to ${uiLanguage}. You MUST generate your entire response, formulate advice, and execute all reasoning STRICTLY in ${uiLanguage}. Never use Spanish unless ${uiLanguage} is Spanish.`;
 }
 
 export function buildGeminiHistory(historyEntries = []) {
@@ -147,13 +149,14 @@ export async function handler(eventOrRequest) {
 
         const projectContext = formatProjectContext(body);
         const userMessage = body.message || body.mensaje || body.UserContext || body.text || "Hola";
+        const uiLanguage = body.uiLanguage || body.currentLanguage || "es";
 
         const genAI = new GoogleGenerativeAI(apiKey);
 
         const model = genAI.getGenerativeModel({
             model: "gemini-2.5-flash",
             tools: [{ googleSearch: {} }], // <-- Búsqueda web nativa en tiempo real de Google
-            systemInstruction: buildAgenteProyectosSystemInstruction(projectContext)
+            systemInstruction: buildAgenteProyectosSystemInstruction(projectContext, uiLanguage)
         });
 
         const rawHistory = body.history || body.historial || [];

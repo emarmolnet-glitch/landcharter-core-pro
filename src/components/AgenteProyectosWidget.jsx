@@ -2,6 +2,57 @@ import React, { useState, useRef, useEffect } from 'react';
 import { getApiUrl } from '../utils/apiConfig.js';
 import './AgenteProyectosWidget.css';
 
+export function getAppUiLanguage() {
+  if (typeof window !== 'undefined') {
+    if (window.currentLanguage) return window.currentLanguage;
+    const stored = window.localStorage?.getItem('seacharter_lang') || window.localStorage?.getItem('rodahmar_lang');
+    if (stored && stored !== 'auto') return stored;
+    const select = document.getElementById('language-selector');
+    if (select?.value && select.value !== 'auto') return select.value;
+    if (document.documentElement?.lang) return document.documentElement.lang;
+  }
+  return 'es';
+}
+
+const PROJECT_AGENT_I18N = {
+  initialGreeting: {
+    es: "¡Hola! Soy tu Agente de Proyectos. Estoy conectado al workspace y listo para ejecutar cualquier orden en lenguaje natural.",
+    en: "Hello! I am your Project Agent. I am connected to the workspace and ready to execute any order in natural language.",
+    fr: "Bonjour ! Je suis votre Agent de Projets. Je suis connecté à l'espace de travail et prêt à exécuter tout ordre en langage naturel."
+  },
+  analyzing: {
+    es: "Analizando orden y calculando parámetros...",
+    en: "Analyzing order and calculating parameters...",
+    fr: "Analyse de la commande et calcul des paramètres..."
+  },
+  placeholder: {
+    es: "Escribe cualquier orden...",
+    en: "Type any order...",
+    fr: "Écrivez une commande..."
+  },
+  statusActive: {
+    es: "● Activo (Arrastrable)",
+    en: "● Active (Draggable)",
+    fr: "● Actif (Déplaçable)"
+  },
+  title: {
+    es: "Agente de Proyectos",
+    en: "Project Agent",
+    fr: "Agent de Projets"
+  },
+  restoreTitle: {
+    es: "Restaurar Agente de Proyectos",
+    en: "Restore Project Agent",
+    fr: "Restaurer l'Agent de Projets"
+  }
+};
+
+export function getProjectAgentI18nText(key, lang = 'es') {
+  const entry = PROJECT_AGENT_I18N[key];
+  if (!entry) return '';
+  return entry[lang] || entry.en || entry.es;
+}
+
 export default function AgenteProyectosWidget({
   onUpdatePayload,
   isOpen: controlledIsOpen,
@@ -37,9 +88,53 @@ export default function AgenteProyectosWidget({
     if (onToggleOpen) onToggleOpen(val);
   };
 
-  const [messages, setMessages] = useState([
-    { sender: 'agent', text: '¡Hola! Soy tu Agente de Proyectos. Estoy conectado al workspace y listo para ejecutar cualquier orden en lenguaje natural.' }
+  const [uiLanguage, setUiLanguage] = useState(() => getAppUiLanguage());
+
+  const [messages, setMessages] = useState(() => [
+    { sender: 'agent', text: getProjectAgentI18nText('initialGreeting', getAppUiLanguage()) }
   ]);
+
+  useEffect(() => {
+    const handleLangChange = (e) => {
+      const newLang = e?.detail?.lang || getAppUiLanguage();
+      setUiLanguage(newLang);
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('seacharter:language-changed', handleLangChange);
+      window.addEventListener('languageChanged', handleLangChange);
+      return () => {
+        window.removeEventListener('seacharter:language-changed', handleLangChange);
+        window.removeEventListener('languageChanged', handleLangChange);
+      };
+    }
+  }, []);
+
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].sender === 'agent') {
+        const isDefaultGreeting = Object.values(PROJECT_AGENT_I18N.initialGreeting).includes(prev[0].text);
+        if (isDefaultGreeting) {
+          return [{ sender: 'agent', text: getProjectAgentI18nText('initialGreeting', uiLanguage) }];
+        }
+      }
+      return prev;
+    });
+  }, [uiLanguage]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      const loadVoices = () => { window.speechSynthesis.getVoices?.(); };
+      loadVoices();
+      if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+      }
+      window.speechSynthesis.addEventListener?.('voiceschanged', loadVoices);
+      return () => {
+        window.speechSynthesis.removeEventListener?.('voiceschanged', loadVoices);
+      };
+    }
+  }, []);
+
   const [inputValue, setInputValue] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -99,7 +194,28 @@ export default function AgenteProyectosWidget({
       window.speechSynthesis.cancel();
       const clean = text.replace(/[✅📂📎🎙️🔊🔇●✕🗕•]/g, '').trim();
       const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.lang = 'es-ES';
+      const uiLanguage = getAppUiLanguage();
+      const lang = uiLanguage === 'fr' ? 'fr-FR' : (uiLanguage === 'en' ? 'en-US' : 'es-ES');
+      utterance.lang = lang;
+
+      const voices = window.speechSynthesis.getVoices?.() || [];
+      const prefix = lang.split('-')[0].toLowerCase();
+      const availableMatchingVoices = voices.filter(v => v.lang && v.lang.replace('_', '-').toLowerCase().startsWith(prefix));
+
+      if (availableMatchingVoices.length > 0) {
+        const bestVoice =
+          availableMatchingVoices.find(v => {
+            const name = v.name || '';
+            return name.includes('Google') || name.includes('Natural') || name.includes('Premium') || name.includes('Microsoft') || name.includes('Online');
+          }) ||
+          availableMatchingVoices.find(v => v.lang.replace('_', '-').toLowerCase() === lang.toLowerCase()) ||
+          availableMatchingVoices[0];
+
+        if (bestVoice) {
+          utterance.voice = bestVoice;
+        }
+      }
+
       utterance.rate = 1.05;
       window.speechSynthesis.speak(utterance);
     } catch {
@@ -211,6 +327,9 @@ Tienes acceso en tiempo real a los datos que el usuario está operando, pero con
 
 Contexto actual del proyecto: ${projectContext}`;
 
+      const currentUiLang = getAppUiLanguage();
+      const dynamicSystemInstruction = `${systemInstruction}\n\nIMPORTANT INSTRUCTION: The user interface is currently set to ${currentUiLang}. You MUST generate your entire response, formulate advice, and execute all reasoning STRICTLY in ${currentUiLang}. Never use Spanish unless ${currentUiLang} is Spanish.`;
+
       const response = await fetch(getApiUrl('/api/project-chat'), {
         method: 'POST',
         headers: {
@@ -221,7 +340,9 @@ Contexto actual del proyecto: ${projectContext}`;
           isProjectMode: true,
           message: raw,
           text: raw,
-          systemInstruction,
+          uiLanguage: currentUiLang,
+          agentType: 'proyectos',
+          systemInstruction: dynamicSystemInstruction,
           projectContext,
           history: messages,
           pol: routeData?.pol,
@@ -582,6 +703,9 @@ Tienes acceso en tiempo real a los datos que el usuario está operando, pero con
 
 Contexto actual del proyecto: ${projectContext}`;
 
+      const currentUiLang = getAppUiLanguage();
+      const dynamicSystemInstruction = `${systemInstruction}\n\nIMPORTANT INSTRUCTION: The user interface is currently set to ${currentUiLang}. You MUST generate your entire response, formulate advice, and execute all reasoning STRICTLY in ${currentUiLang}. Never use Spanish unless ${currentUiLang} is Spanish.`;
+
       const response = await fetch(getApiUrl('/.netlify/functions/project-parser'), {
         method: 'POST',
         headers: {
@@ -592,8 +716,10 @@ Contexto actual del proyecto: ${projectContext}`;
           fileBase64: cleanBase64,
           fileName: file.name,
           mimeType: file.type || 'application/pdf',
-          systemInstruction,
-          systemPrompt: systemInstruction,
+          uiLanguage: currentUiLang,
+          agentType: 'proyectos',
+          systemInstruction: dynamicSystemInstruction,
+          systemPrompt: dynamicSystemInstruction,
           projectContext,
           history: messages,
         })
@@ -814,7 +940,7 @@ Contexto actual del proyecto: ${projectContext}`;
           <div className="pa-bubble agent pa-loading-bubble" role="status" aria-live="polite">
             <span className="pa-avatar" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>📂</span>
             <div className="pa-bubble-text pa-loading-text">
-              <span className="pa-spinner">⏳</span> Analizando orden y calculando parámetros...
+              <span className="pa-spinner">⏳</span> <span data-i18n="Analizando orden y calculando parámetros...">{getProjectAgentI18nText('analyzing', uiLanguage)}</span>
             </div>
           </div>
         )}
@@ -848,7 +974,7 @@ Contexto actual del proyecto: ${projectContext}`;
         </button>
         <input 
           type="text" 
-          placeholder={isAnalyzing ? "Analizando orden y calculando parámetros..." : "Escribe cualquier orden..."} 
+          placeholder={isAnalyzing ? getProjectAgentI18nText('analyzing', uiLanguage) : getProjectAgentI18nText('placeholder', uiLanguage)} 
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           disabled={isAnalyzing}

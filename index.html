@@ -16148,7 +16148,33 @@
             "ID Estimación:": { en: "Estimation ID:", fr: "ID d'estimation :" },
             "Costo Total ETS Estimado (Est. ETS Cost)": { en: "Total Estimated ETS Cost", fr: "Coût total ETS estimé" },
             "Día de Carga (Laycan)": { en: "Loading Day (Laycan)", fr: "Jour de chargement (Laycan)" },
-            "Fecha Límite de Llegada": { en: "Arrival Deadline", fr: "Date limite d'arrivée" }
+            "Fecha Límite de Llegada": { en: "Arrival Deadline", fr: "Date limite d'arrivée" },
+
+            // AI Assistants Multi-Language Support
+            "El asistente está pensando": { es: "El asistente está pensando", en: "The assistant is thinking...", fr: "L'assistant est en train de réfléchir..." },
+            "Analizando orden y calculando parámetros...": { es: "Analizando orden y calculando parámetros...", en: "Analyzing order and calculating parameters...", fr: "Analyse de la commande et calcul des paramètres..." },
+            "Escribe cualquier orden...": { es: "Escribe cualquier orden...", en: "Type any order...", fr: "Écrivez une commande..." },
+            "Analizando con Data Bridge. Describe la carga...": { es: "Analizando con Data Bridge. Describe la carga...", en: "Analyzing with Data Bridge. Describe the cargo...", fr: "Analyse avec Data Bridge. Décrivez la cargaison..." },
+            "Haz una consulta rápida de fletamento...": { es: "Haz una consulta rápida de fletamento...", en: "Ask a quick chartering query...", fr: "Posez une question rapide sur l'affrètement..." },
+            "Disponible para consultas": { es: "Disponible para consultas", en: "Available for queries", fr: "Disponible pour les requêtes" },
+            "● Activo (Arrastrable)": { es: "● Activo (Arrastrable)", en: "● Active (Draggable)", fr: "● Actif (Déplaçable)" },
+            "Agente de Proyectos": { es: "Agente de Proyectos", en: "Project Agent", fr: "Agent de Projets" },
+            "Restaurar Agente de Proyectos": { es: "Restaurar Agente de Proyectos", en: "Restore Project Agent", fr: "Restaurer l'Agent de Projets" },
+            "¡Hola! Soy tu Agente de Proyectos. Estoy conectado al workspace y listo para ejecutar cualquier orden en lenguaje natural.": {
+                es: "¡Hola! Soy tu Agente de Proyectos. Estoy conectado al workspace y listo para ejecutar cualquier orden en lenguaje natural.",
+                en: "Hello! I am your Project Agent. I am connected to the workspace and ready to execute any order in natural language.",
+                fr: "Bonjour ! Je suis votre Agent de Projets. Je suis connecté à l'espace de travail et prêt à exécuter tout ordre en langage naturel."
+            },
+            "Hola. Soy el Asistente SeaCharter. Puedo ayudarte con consultas sobre logística marítima, fletamentos y rutas.": {
+                es: "Hola. Soy el Asistente SeaCharter. Puedo ayudarte con consultas sobre logística marítima, fletamentos y rutas.",
+                en: "Hello. I am the SeaCharter Assistant. I can help you with queries on maritime logistics, chartering, and routes.",
+                fr: "Bonjour. Je suis l'Assistant SeaCharter. Je peux vous aider pour les requêtes de logistique maritime, d'affrètement et d'itinéraires."
+            },
+            "Hola. Soy Cerebro.ia. Puedo ayudarte con análisis de datos de Data Bridge, fletamentos y rutas.": {
+                es: "Hola. Soy Cerebro.ia. Puedo ayudarte con análisis de datos de Data Bridge, fletamentos y rutas.",
+                en: "Hello. I am Cerebro.ia. I can help you with Data Bridge data analysis, chartering, and routes.",
+                fr: "Bonjour. Je suis Cerebro.ia. Je peux vous aider avec l'analyse des données de Data Bridge, l'affrètement et les itinéraires."
+            }
         };
 
         function normalizeKey(str) {
@@ -16389,11 +16415,14 @@
             if (typeof document !== 'undefined' && document.documentElement) {
                 document.documentElement.lang = lang;
             }
+            window.currentLanguage = lang;
             const selector = document.getElementById('language-selector');
             if (selector && selector.value !== lang) {
                 selector.value = lang;
             }
             translatePage(lang);
+            window.dispatchEvent(new CustomEvent('seacharter:language-changed', { detail: { lang } }));
+            window.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang } }));
             if (typeof autoPopulateRouteLimits === 'function') autoPopulateRouteLimits();
             if (typeof runEngine === 'function') runEngine();
         }
@@ -16406,6 +16435,7 @@
             if (typeof document !== 'undefined' && document.documentElement) {
                 document.documentElement.lang = savedLang;
             }
+            window.currentLanguage = savedLang;
             const selector = document.getElementById('language-selector');
             if (selector) selector.value = savedLang;
             translatePage(savedLang);
