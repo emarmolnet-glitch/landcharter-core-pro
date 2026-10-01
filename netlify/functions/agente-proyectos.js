@@ -132,12 +132,19 @@ export async function handler(eventOrRequest) {
             }), { status: 403, headers });
         }
 
-        const apiKey = (typeof Netlify !== 'undefined' && (Netlify.env?.get?.('GEMINI_API_KEY') || Netlify.env?.get?.('GOOGLE_API_KEY') || Netlify.env?.get?.('GOOGLE_GENAI_API_KEY')))
+        const apiKey = (typeof Netlify !== 'undefined' && (
+            Netlify.env?.get?.('GEMINI_API_KEY') ||
+            Netlify.env?.get?.('GOOGLE_API_KEY') ||
+            Netlify.env?.get?.('GOOGLE_GENAI_API_KEY') ||
+            Netlify.env?.get?.('NETLIFY_AI_GATEWAY_KEY')
+        ))
             || process.env.GEMINI_API_KEY
             || process.env.GOOGLE_API_KEY
-            || process.env.GOOGLE_GENAI_API_KEY;
+            || process.env.GOOGLE_GENAI_API_KEY
+            || process.env.NETLIFY_AI_GATEWAY_KEY;
 
         if (!apiKey) {
+            console.error("[agente-proyectos] Error: No se encontró clave de API (GEMINI_API_KEY / GOOGLE_API_KEY / NETLIFY_AI_GATEWAY_KEY).");
             return new Response(JSON.stringify({
                 success: false,
                 reply: "GEMINI_API_KEY no configurada en el servidor.",
@@ -146,6 +153,15 @@ export async function handler(eventOrRequest) {
                 payload: {}
             }), { status: 500, headers });
         }
+
+        const baseUrl = (typeof Netlify !== 'undefined' && (
+            Netlify.env?.get?.('GOOGLE_GEMINI_BASE_URL') ||
+            Netlify.env?.get?.('NETLIFY_AI_GATEWAY_BASE_URL')
+        ))
+            || process.env.GOOGLE_GEMINI_BASE_URL
+            || process.env.NETLIFY_AI_GATEWAY_BASE_URL;
+
+        const requestOptions = baseUrl ? { baseUrl } : undefined;
 
         const projectContext = formatProjectContext(body);
         const userMessage = body.message || body.mensaje || body.UserContext || body.text || "Hola";
@@ -157,7 +173,7 @@ export async function handler(eventOrRequest) {
             model: "gemini-2.5-flash",
             tools: [{ googleSearch: {} }], // <-- Búsqueda web nativa en tiempo real de Google
             systemInstruction: buildAgenteProyectosSystemInstruction(projectContext, uiLanguage)
-        });
+        }, requestOptions);
 
         const rawHistory = body.history || body.historial || [];
         const chatHistory = buildGeminiHistory(rawHistory);
@@ -183,6 +199,7 @@ export async function handler(eventOrRequest) {
             success: false,
             reply: "El Agente de Proyectos no está disponible temporalmente.",
             error: error instanceof Error ? error.message : "Error interno del servidor.",
+            details: error instanceof Error ? error.stack : String(error),
             action: "error",
             payload: {}
         }), { status: 503, headers });
