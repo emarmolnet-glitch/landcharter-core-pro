@@ -197,15 +197,22 @@ export function getAssistantI18nText(key, lang = getAppUiLanguage()) {
 }
 
 function updateAiUI(type) {
-  iaActiva = type;
+  const normalized = (type === 'cerebro' || type === 'Cerebro.ia') ? 'cerebro' : 'local';
+  iaActiva = normalized;
   const dot = document.getElementById('sea-assistant-dot');
   const title = document.getElementById('sea-assistant-title');
   const input = document.querySelector('.sca-input');
   const lang = getAppUiLanguage();
+
+  const agentSelect = document.querySelector('#sea-assistant-ai-select, #agent-selector, .sca-agent-select, select[name="agent"], select[data-agent-select]');
+  if (agentSelect) {
+    agentSelect.value = normalized === 'cerebro' ? 'cerebro' : (agentSelect.querySelector('option[value="core"]') ? 'core' : 'asistente');
+    agentSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  }
   
   if (!dot || !title || !input) return;
 
-  if (type === 'cerebro') {
+  if (normalized === 'cerebro') {
     dot.className = "sca-presence-dot w-2.5 h-2.5 rounded-full shrink-0 bg-[#6366f1]";
     title.textContent = "🧠 Cerebro.ia";
     input.placeholder = getAssistantI18nText('cerebroPlaceholder', lang);
@@ -214,6 +221,22 @@ function updateAiUI(type) {
     title.textContent = "🤖 Asistente Core";
     input.placeholder = getAssistantI18nText('asistentePlaceholder', lang);
   }
+}
+
+export function setActiveAgent(agent) {
+  const target = (agent === 'cerebro' || agent === 'Cerebro.ia') ? 'cerebro' : 'local';
+  updateAiUI(target);
+}
+
+export function setSelectedModel(model) {
+  const target = (model === 'cerebro' || model === 'Cerebro.ia') ? 'cerebro' : 'local';
+  updateAiUI(target);
+}
+
+if (typeof window !== 'undefined') {
+  window.setActiveAgent = setActiveAgent;
+  window.setSelectedModel = setSelectedModel;
+  window.updateAiUI = updateAiUI;
 }
 
 function createMessage(role, text, options = {}) {
@@ -226,7 +249,7 @@ function createMessage(role, text, options = {}) {
   if (role === "assistant" && !options.error) {
     if (options.aiType === 'cerebro') {
       chivatoHTML = `<div style="font-size: 10px; font-weight: 600; color: #6366f1; margin-bottom: 4px; padding-left: 4px;">🧠 Cerebro.ia (Data Bridge)</div>`;
-    } else if (options.aiType === 'local') {
+    } else if (options.aiType === 'local' || options.aiType === 'core' || options.aiType === 'asistente') {
       chivatoHTML = `<div style="font-size: 10px; font-weight: 600; color: #10b981; margin-bottom: 4px; padding-left: 4px;">🤖 Asistente Core</div>`;
     }
   }
@@ -2520,6 +2543,8 @@ const fileInput = root.querySelector("#sca-file-input");
     const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     activeRequestController = controller;
 
+    const currentAgentAtRequest = iaActiva;
+
     console.group("📨 [Cerebro.ia/Chat] Procesando respuesta normalizada");
     try {
       const response = await requestAssistantResponse(userText, history, controller.signal, filesToSend);
@@ -2558,9 +2583,31 @@ const fileInput = root.querySelector("#sca-file-input");
       replaceWithAssistantMessage(
         thinkingMessage,
         textoVisible,
-        { meta: formatTime(), error: actionResult?.error === true },
+        { meta: formatTime(), error: actionResult?.error === true, aiType: currentAgentAtRequest },
       );
       console.groupEnd();
+
+      // Hand-off automático: Si la respuesta actual viene de Cerebro.ia y es un cálculo exitoso
+      // (ej. contiene action: "update_fields" o actualizó el contexto de la calculadora),
+      // el frontend cambia programáticamente el estado del dropdown a Asistente Core e inyecta la bienvenida.
+      const isCerebro = currentAgentAtRequest === 'cerebro' || iaActiva === 'cerebro';
+      const actionName = action?.action || action?.name || action?.type || (typeof response?.action === 'string' ? response.action : response?.action?.action);
+      const isSuccessfulCalculation = isCerebro && actionResult?.error !== true && (
+        actionName === 'update_fields' ||
+        actionName === 'update_field' ||
+        actionName === 'calculator_autofill' ||
+        actionName === 'fill_complete_form' ||
+        (action && Boolean(actionResult))
+      );
+
+      if (isSuccessfulCalculation) {
+        setActiveAgent('core');
+        setSelectedModel('Asistente Core');
+        createAndSpeakAssistantMessage(
+          "✅ Los cálculos de Cerebro se han volcado en pantalla. Ya estoy al mando. ¿Quieres que ajustemos márgenes, servicios adicionales o generemos el reporte?",
+          { meta: formatTime(), aiType: 'local' }
+        );
+      }
     } catch (error) {
       console.error("❌ [Cerebro.ia/Chat] Error procesando la respuesta del asistente", error);
       console.groupEnd();
