@@ -259,6 +259,11 @@ export function buildRoadSyncPayload(options = {}) {
         road_net_margin,
     };
 
+    if (options.project_title || options.description || options.client_name) {
+        payload.project_title = options.project_title || options.description || options.client_name;
+        payload.description = options.description || options.project_title || options.client_name;
+    }
+
     // 4. Land Freight Cost (land_freight_cost) - TOTAL GLOBAL MULTIPLICADO (FLOTA COMPLETA)
     let rawFreightCost = options.land_freight_cost ?? options.freight_cost ?? options.cost;
     if (rawFreightCost === undefined || rawFreightCost === null) {
@@ -277,7 +282,7 @@ export function buildRoadSyncPayload(options = {}) {
         land_freight_cost = Math.round(land_freight_cost * total_trucks * 100) / 100;
     }
 
-    // 5. Valor Total Mercancía USD (valor_total_mercancia_usd)
+    // 5. Valor Total Mercancía USD (valor_total_mercancia_usd) - Estricto 0 salvo input manual
     let rawGoodsValue = options.valor_total_mercancia_usd ?? options.goodsValue ?? options.merchandiseValue;
     if (rawGoodsValue === undefined || rawGoodsValue === null) {
         if (typeof window !== 'undefined' && window.State) {
@@ -290,7 +295,7 @@ export function buildRoadSyncPayload(options = {}) {
         payload.land_freight_cost = land_freight_cost;
     }
     if (options.valor_total_mercancia_usd !== undefined || options.goodsValue !== undefined || valor_total_mercancia_usd > 0) {
-        payload.valor_total_mercancia_usd = valor_total_mercancia_usd;
+        payload.valor_total_mercancia_usd = valor_total_mercancia_usd > 0 ? valor_total_mercancia_usd : 0;
     }
 
     // 6. Services / Line items
@@ -448,6 +453,27 @@ export async function syncRoadMetricsToBridge(options = {}) {
         }
 
         logger.log('[Data Bridge] Volcado exitoso a /api/projects/sync-road:', payload);
+
+        try {
+            if (typeof BroadcastChannel === 'function') {
+                const syncMsg = {
+                    type: 'ROAD_METRICS_SYNC',
+                    reference: payload.reference,
+                    project_ref: payload.project_ref,
+                    land_freight_cost: payload.land_freight_cost,
+                    total_trucks: payload.total_trucks,
+                    road_transit_days: payload.road_transit_days,
+                    payload
+                };
+                ['seacharter_sync_channel', 'core_bridge_sync'].forEach((chName) => {
+                    try {
+                        const bc = new BroadcastChannel(chName);
+                        bc.postMessage(syncMsg);
+                        bc.close?.();
+                    } catch (_) {}
+                });
+            }
+        } catch (_) {}
 
         if (options.showUI !== false) {
             showSyncSuccessUI();

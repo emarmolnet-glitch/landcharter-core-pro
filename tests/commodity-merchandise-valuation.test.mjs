@@ -37,32 +37,19 @@ test('1. COMMODITY_VALUES and CARGO_VALUATIONS catalogs are exported with exact 
   assert.equal(COMMODITY_VALUES['CEM II 42,5 VRAC'], 50, 'CEM II 42,5 VRAC must be valued at 50 USD/MT');
 });
 
-test('2. autoCalculateEstimates detects commodity cargo type and computes autoMercanciaUsd = totalWeightTons * COMMODITY_VALUES[cargoType]', () => {
-  // Verifies rule checking if cargoType exists in COMMODITY_VALUES
-  assert.match(
-    forwarderWorkspaceSource,
-    /if\s*\(\s*COMMODITY_VALUES\[cargoType\]\s*!==\s*undefined\s*\)/,
-    'autoCalculateEstimates must check if cargoType exists in COMMODITY_VALUES'
-  );
-
-  // Verifies mathematical auto-calculation
-  assert.match(
+test('2. autoCalculateEstimates eliminates automatic calculation of merchandise value from tons/commodities', () => {
+  // Verifies that autoCalculateEstimates no longer auto-multiplies tons by COMMODITY_VALUES
+  assert.doesNotMatch(
     forwarderWorkspaceSource,
     /const\s+autoMercanciaUsd\s*=\s*totalWeightTons\s*\*\s*COMMODITY_VALUES\[cargoType\];/,
-    'autoCalculateEstimates must compute: const autoMercanciaUsd = totalWeightTons * COMMODITY_VALUES[cargoType];'
+    'autoCalculateEstimates must NOT auto-calculate merchandise value from tons'
   );
 
-  // Verifies immediate state injection into setMercanciaCost and activeProject.valor_total_mercancia_usd
+  // Verifies initial state of mercanciaCost is strictly 0 or manual input
   assert.match(
     forwarderWorkspaceSource,
-    /setMercanciaCost\(\s*autoMercanciaUsd\s*\)/,
-    'autoCalculateEstimates must immediately update setMercanciaCost(autoMercanciaUsd)'
-  );
-
-  assert.match(
-    forwarderWorkspaceSource,
-    /activeProject\.valor_total_mercancia_usd\s*=\s*autoMercanciaUsd/,
-    'autoCalculateEstimates must update activeProject.valor_total_mercancia_usd'
+    /const\s+\[mercanciaCost,\s*setMercanciaCost\]\s*=\s*useState\(\(\)\s*=>\s*\{[\s\S]*?Number\(activeProject\?\.valor_total_mercancia_usd\)\s*\|\|\s*0;/,
+    'mercanciaCost must initialize strictly to 0 by default unless existing project has explicit value'
   );
 });
 
@@ -84,7 +71,7 @@ test('3. UI Inputs allow manual editing without disabling or blocking (Aislamien
   assert.doesNotMatch(inputCost, /readOnly/, 'input-mercancia-cost must not be readOnly');
 });
 
-test('4. Mathematical simulation of auto-calculated merchandise value', () => {
+test('4. Mathematical simulation of catalog valuation reference', () => {
   const COMMODITY_VALUES = extractCommodityValues();
 
   // Simulation A: 24 MT of CEM I 42,5N/R BIGBAG
@@ -106,7 +93,7 @@ test('4. Mathematical simulation of auto-calculated merchandise value', () => {
   assert.equal(autoMercanciaC, 25000, '500 MT at 50 USD/MT must equal 25,000 USD');
 });
 
-test('5. handleSaveProjectCargo prioritizes mercanciaCost and persists valor_total_mercancia_usd to DB and Data Bridge', () => {
+test('5. handleSaveProjectCargo prioritizes manual mercanciaCost and persists valor_total_mercancia_usd to DB and Data Bridge', () => {
   const saveCargoMatch = forwarderWorkspaceSource.match(/const\s+handleSaveProjectCargo\s*=\s*async\s*\(\)\s*=>\s*\{[\s\S]*?finally\s*\{/);
   assert.ok(saveCargoMatch, 'handleSaveProjectCargo function must exist');
   const saveFn = saveCargoMatch[0];
@@ -120,27 +107,15 @@ test('5. handleSaveProjectCargo prioritizes mercanciaCost and persists valor_tot
   assert.match(saveFn, /valor_total_mercancia_usd:\s*merchandiseValueUsd/);
   assert.match(saveFn, /savedLineItem\s*=\s*\{[\s\S]*?valor_total_mercancia_usd:\s*merchandiseValueUsd/);
   assert.match(saveFn, /updatedProject\s*=\s*\{[\s\S]*?valor_total_mercancia_usd:\s*merchandiseValueUsd/);
-  assert.match(saveFn, /roadSyncFn\s*\(\s*\{[\s\S]*?valor_total_mercancia_usd:\s*merchandiseValueUsd/);
+  assert.match(saveFn, /dataBridgePayloadObject\s*=\s*\{[\s\S]*?valor_total_mercancia_usd:\s*merchandiseValueUsd/);
+  assert.match(saveFn, /roadSyncFn\s*\(\s*dataBridgePayloadObject\s*\)/);
 });
 
-test('6. autoCalculateEstimates includes safe fuzzy matching fallback for CEM I and CEM II derivatives and assigns to window.State.goodsValue', () => {
-  // Verifies safe fuzzy match logic for CEM I and CEM II
-  assert.match(
-    forwarderWorkspaceSource,
-    /matchCandidate\.includes\('CEM I'\)/,
-    'autoCalculateEstimates must include fuzzy match check for CEM I'
-  );
-
-  assert.match(
-    forwarderWorkspaceSource,
-    /matchCandidate\.includes\('CEM II'\)/,
-    'autoCalculateEstimates must include fuzzy match check for CEM II'
-  );
-
-  // Verifies window.State.goodsValue silent assignment
-  assert.match(
+test('6. Purged automatic estimation does not inject arbitrary goods values into window.State', () => {
+  // Verifies that autoCalculateEstimates does not set window.State.goodsValue = autoMercanciaUsd
+  assert.doesNotMatch(
     forwarderWorkspaceSource,
     /window\.State\.goodsValue\s*=\s*autoMercanciaUsd/,
-    'autoCalculateEstimates must assign autoMercanciaUsd to window.State.goodsValue'
+    'autoCalculateEstimates must not assign autoMercanciaUsd to window.State.goodsValue'
   );
 });

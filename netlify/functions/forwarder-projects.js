@@ -82,12 +82,36 @@ async function ensureForwarderProjectsTable(clientOrPool) {
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS route_and_chartering JSONB;
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS dossier_ref VARCHAR(255);
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS parent_ref VARCHAR(255);
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS project_title VARCHAR(255);
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS description TEXT;
       CREATE INDEX IF NOT EXISTS idx_forwarder_projects_ref ON forwarder_projects (project_ref);
     `);
     tableEnsured = true;
   } catch (err) {
     console.warn('[forwarder-projects] Advertencia al verificar/crear tabla forwarder_projects:', err?.message || err);
   }
+}
+
+// Helper para detectar si un texto es un nombre descriptivo libre (ej. "Bejaia a Aveiro 8000MT")
+// en lugar de una referencia canónica (ej. "RDM/2026-5590" o "EXP-123456")
+function isDescriptiveProjectName(str) {
+  if (!str || typeof str !== 'string') return false;
+  const s = str.trim();
+  if (/\s+/.test(s)) return true;
+  if (/^[0-9]+MT$/i.test(s)) return true;
+  if (/\b(a|to|de|from)\b/i.test(s)) return true;
+  return false;
+}
+
+// Resolver la clave primaria única project_ref canónica, impidiendo el uso de texto libre como clave
+function resolveCanonicalProjectRef(incomingRef, dossierRef, parentRef, referenceFallback) {
+  const candidates = [incomingRef, dossierRef, parentRef, referenceFallback];
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim() && !isDescriptiveProjectName(c)) {
+      return c.trim();
+    }
+  }
+  return `RDM/${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
 }
 
 function isMissingTableError(error) {
@@ -224,9 +248,20 @@ exports.handler = async (event) => {
       const parsedId = isIntegerId ? parseInt(data.id, 10) : null;
       const isAdaptedDossier = Boolean(data.is_maritime_dossier || data.from_maritime || data.is_new_insert || data.source === 'core_pro');
 
-      // Comprobar si ya existe un registro previo en forwarder_projects por ID o project_ref
+      // Extraer metadatos descriptivos (ej. "Bejaia a Aveiro 8000MT") para no usarlos como clave primaria
+      const descriptiveNameFromRef = isDescriptiveProjectName(data.project_ref) ? String(data.project_ref).trim() : null;
+      const descriptiveTitle = data.project_title || data.description || descriptiveNameFromRef || data.client_name || null;
+      const cleanIncomingRef = descriptiveNameFromRef ? null : (data.project_ref ? String(data.project_ref).trim() : null);
+
+      const effectiveDossierRef = data.dossier_ref || data.parent_ref || data.referenciaPadre || null;
+      const effectiveParentRef = data.parent_ref || data.dossier_ref || data.referenciaPadre || null;
+
+      // project_ref es la ÚNICA clave primaria de sincronización (ej. RDM/2026-5590)
+      const targetProjectRef = resolveCanonicalProjectRef(cleanIncomingRef, effectiveDossierRef, effectiveParentRef, data.reference || data.ref);
+
+      // Comprobar si ya existe un registro previo en forwarder_projects por ID o project_ref canónico
       let existingRecord = null;
-      if (parsedId || data.project_ref) {
+      if (parsedId || targetProjectRef) {
         try {
           const checkQuery = `
             SELECT id, project_ref FROM forwarder_projects 
@@ -234,7 +269,7 @@ exports.handler = async (event) => {
                OR ($2::text IS NOT NULL AND UPPER(project_ref) = UPPER($2))
             LIMIT 1;
           `;
-          const checkRes = await dbPool.query(checkQuery, [parsedId, data.project_ref ? String(data.project_ref).trim() : null]);
+          const checkRes = await dbPool.query(checkQuery, [parsedId, targetProjectRef]);
           if (checkRes.rows.length > 0) {
             existingRecord = checkRes.rows[0];
           }
@@ -271,32 +306,32 @@ exports.handler = async (event) => {
         const landDistance = Number(data.land_distance ?? data.totalKilometers ?? data.distance) || null;
         const dataJson = data.data !== undefined ? JSON.stringify(data.data) : '{}';
         const routeCharteringJson = data.route_and_chartering !== undefined ? JSON.stringify(data.route_and_chartering) : null;
-        const effectiveProjectRef = (data.project_ref && String(data.project_ref).trim())
-          ? String(data.project_ref).trim()
-          : (data.reference || `EXP-${Date.now().toString().slice(-6)}`);
-        const effectiveDossierRef = data.dossier_ref || data.parent_ref || data.referenciaPadre || effectiveProjectRef;
+        const effectiveProjectRef = targetProjectRef;
+        const finalDossierRef = effectiveDossierRef || effectiveProjectRef;
 
         const insertAdaptedQuery = `
           INSERT INTO forwarder_projects (
-            project_ref, client_name, status, global_margin_percentage,
+            project_ref, client_name, project_title, description, status, global_margin_percentage,
             documents, items, services,
             land_origin, land_destination, land_distance,
             land_freight_cost, land_freight_sale, valor_total_mercancia_usd,
             total_trucks, road_transit_days, road_net_margin,
             route_and_chartering, data, dossier_ref, parent_ref
           ) VALUES (
-            $1, $2, $3, $4,
-            $5::jsonb, $6::jsonb, $7::jsonb,
-            $8, $9, $10,
-            $11, $12, $13,
-            $14, $15, $16,
-            $17::jsonb, $18::jsonb, $19, $20
+            $1, $2, $3, $4, $5, $6,
+            $7::jsonb, $8::jsonb, $9::jsonb,
+            $10, $11, $12,
+            $13, $14, $15,
+            $16, $17, $18,
+            $19::jsonb, $20::jsonb, $21, $22
           )
           RETURNING *;
         `;
         const insertAdaptedValues = [
           effectiveProjectRef,
-          data.client_name || 'Cliente Core PRO',
+          descriptiveTitle || data.client_name || 'Cliente Core PRO',
+          descriptiveTitle,
+          descriptiveTitle,
           statusValue,
           marginValue,
           JSON.stringify(data.documents || []),
@@ -313,8 +348,8 @@ exports.handler = async (event) => {
           Number(data.road_net_margin) || null,
           routeCharteringJson,
           dataJson,
-          effectiveDossierRef,
-          effectiveDossierRef
+          finalDossierRef,
+          finalDossierRef
         ];
 
         const insertAdaptedResult = await dbPool.query(insertAdaptedQuery, insertAdaptedValues);
@@ -342,7 +377,7 @@ exports.handler = async (event) => {
       }
 
       // MODO ACTUALIZACIÓN (Si ya existe ID o REF en forwarder_projects)
-      if (existingRecord || (!isAdaptedDossier && (parsedId || data.project_ref))) {
+      if (existingRecord || (!isAdaptedDossier && (parsedId || targetProjectRef))) {
         const statusValue = (data.status !== undefined && data.status !== null && String(data.status).trim())
           ? String(data.status).trim()
           : null;
@@ -372,6 +407,8 @@ exports.handler = async (event) => {
           SET documents = COALESCE($1::jsonb, documents),
               items = CASE WHEN $2::jsonb IS NOT NULL AND jsonb_array_length($2::jsonb) > 0 THEN $2::jsonb ELSE items END,
               client_name = COALESCE($3, client_name),
+              project_title = COALESCE($18, project_title),
+              description = COALESCE($19, description),
               status = COALESCE($6, status),
               global_margin_percentage = COALESCE($7, global_margin_percentage),
               services = CASE WHEN $8::jsonb IS NOT NULL AND jsonb_array_length($8::jsonb) > 0 THEN $8::jsonb ELSE services END,
@@ -385,7 +422,7 @@ exports.handler = async (event) => {
               route_and_chartering = COALESCE($16::jsonb, route_and_chartering),
               data = COALESCE($17::jsonb, data),
               updated_at = CURRENT_TIMESTAMP
-          WHERE ($4::integer IS NOT NULL AND id = $4) OR ($5::text IS NOT NULL AND UPPER(project_ref) = UPPER($5))
+          WHERE id = $4 OR project_ref = $5
           RETURNING *;
         `;
         const updateValues = [
@@ -393,9 +430,9 @@ exports.handler = async (event) => {
           incomingUpdateItems !== undefined
             ? JSON.stringify(adaptProjectItems(incomingUpdateItems))
             : null,
-          data.client_name || null,
+          descriptiveTitle || data.client_name || null,
           parsedId,
-          data.project_ref ? String(data.project_ref).trim() : null,
+          targetProjectRef,
           statusValue,
           marginValue,
           servicesJson,
@@ -407,32 +444,36 @@ exports.handler = async (event) => {
           landDestination,
           landDistance,
           routeCharteringJson,
-          dataJson
+          dataJson,
+          descriptiveTitle,
+          descriptiveTitle
         ];
         const updateResult = await dbPool.query(updateQuery, updateValues);
         const row = updateResult.rows[0];
 
         // Si no encontró fila a actualizar y se proveyó project_ref, hacer INSERT de recuperación
-        if (!row && data.project_ref) {
+        if (!row && targetProjectRef) {
           const fallbackInsertQuery = `
             INSERT INTO forwarder_projects (
-              project_ref, client_name, status, global_margin_percentage,
+              project_ref, client_name, project_title, description, status, global_margin_percentage,
               documents, items, services,
               land_origin, land_destination, land_distance,
               land_freight_cost, land_freight_sale, valor_total_mercancia_usd,
               total_trucks, route_and_chartering, data, dossier_ref, parent_ref
             ) VALUES (
-              $1, $2, $3, $4,
-              $5::jsonb, $6::jsonb, $7::jsonb,
-              $8, $9, $10,
-              $11, $12, $13,
-              $14, $15::jsonb, $16::jsonb, $17, $18
+              $1, $2, $3, $4, $5, $6,
+              $7::jsonb, $8::jsonb, $9::jsonb,
+              $10, $11, $12,
+              $13, $14, $15,
+              $16, $17::jsonb, $18::jsonb, $19, $20
             )
             RETURNING *;
           `;
           const fallbackValues = [
-            String(data.project_ref).trim(),
-            data.client_name || 'Nuevo Cliente',
+            targetProjectRef,
+            descriptiveTitle || data.client_name || 'Nuevo Cliente',
+            descriptiveTitle,
+            descriptiveTitle,
             statusValue || 'BORRADOR',
             marginValue || '0',
             JSON.stringify(data.documents || []),
@@ -447,8 +488,8 @@ exports.handler = async (event) => {
             totalTrucks,
             routeCharteringJson,
             dataJson || '{}',
-            data.dossier_ref || data.project_ref,
-            data.parent_ref || data.project_ref
+            data.dossier_ref || targetProjectRef,
+            data.parent_ref || targetProjectRef
           ];
           const fallbackRes = await dbPool.query(fallbackInsertQuery, fallbackValues);
           const fbRow = fallbackRes.rows[0];
@@ -492,10 +533,8 @@ exports.handler = async (event) => {
       }
 
       // MODO CREACIÓN (Nuevo Proyecto)
-      const { client_name, status, documents, items, line_items, cargo_items, services, global_margin_percentage, dossier_ref, parent_ref, referenciaPadre } = data;
-      const effectiveDossierRef = dossier_ref || parent_ref || referenciaPadre || null;
-      const effectiveParentRef = parent_ref || dossier_ref || referenciaPadre || null;
-      const projectRef = `EXP-${Date.now().toString().slice(-6)}`;
+      const { client_name, status, documents, items, line_items, cargo_items, services, global_margin_percentage } = data;
+      const projectRef = targetProjectRef;
       const projectStatus = (status && typeof status === 'string' && status.trim()) ? status.trim() : 'BORRADOR';
       const marginPercentage = (global_margin_percentage !== undefined && global_margin_percentage !== null)
         ? String(global_margin_percentage)
@@ -509,7 +548,7 @@ exports.handler = async (event) => {
       const rawCreateItems = items || cargo_items || line_items || services || [];
       const insertValues = [
         projectRef, 
-        client_name || 'Nuevo Cliente', 
+        descriptiveTitle || client_name || 'Nuevo Cliente', 
         projectStatus,
         marginPercentage,
         JSON.stringify(documents || []),
@@ -518,11 +557,11 @@ exports.handler = async (event) => {
       const result = await dbPool.query(insertQuery, insertValues);
 
       const createdRow = result.rows[0];
-      if (createdRow && (effectiveDossierRef || effectiveParentRef)) {
+      if (createdRow) {
         try {
           await dbPool.query(
-            `UPDATE forwarder_projects SET dossier_ref = COALESCE($1, dossier_ref), parent_ref = COALESCE($2, parent_ref) WHERE id = $3`,
-            [effectiveDossierRef, effectiveParentRef, createdRow.id]
+            `UPDATE forwarder_projects SET project_title = COALESCE($1, project_title), description = COALESCE($2, description), dossier_ref = COALESCE($3, dossier_ref), parent_ref = COALESCE($4, parent_ref) WHERE id = $5`,
+            [descriptiveTitle, descriptiveTitle, effectiveDossierRef, effectiveParentRef, createdRow.id]
           );
         } catch (_ignore) {}
       }
@@ -600,7 +639,7 @@ exports.handler = async (event) => {
             route_and_chartering = COALESCE($16::jsonb, route_and_chartering),
             data = COALESCE($17::jsonb, data),
             updated_at = CURRENT_TIMESTAMP
-        WHERE ($4::integer IS NOT NULL AND id = $4) OR ($5::text IS NOT NULL AND UPPER(project_ref) = UPPER($5))
+        WHERE id = $4 OR project_ref = $5
         RETURNING *;
       `;
       const values = [
@@ -729,7 +768,7 @@ exports.handler = async (event) => {
           updated_at,
           TO_CHAR(created_at, 'DD/MM/YYYY') as date 
         FROM forwarder_projects 
-        ORDER BY created_at DESC 
+        ORDER BY updated_at DESC, created_at DESC 
         LIMIT 50;
       `;
       const listResult = await dbPool.query(listQuery);
