@@ -2657,9 +2657,9 @@ function ForwarderWorkspaceInner() {
         withSrvs.items = finalCargoItems;
         withSrvs.cargo_items = finalCargoItems;
 
-        // 3. EN LA MISMA FUNCIÓN, cuando construyas 'dataBridgePayloadObject', usa la constante directamente:
-        const finalLandCostMultiplied = Number((costEur || effectiveLandCost) * requiredTrucks);
-        const finalLandSaleMultiplied = Number((saleEur || withSrvs?.land_freight_sale || 0) * requiredTrucks);
+        // 3. EN LA MISMA FUNCIÓN, construir el Payload con el coste que YA viene totalizado:
+        const finalLandCostTotal = Number(costEur || effectiveLandCost);
+        const finalLandSaleTotal = Number(saleEur || withSrvs?.land_freight_sale || 0);
         
         const dataBridgePayloadObject = {
           reference: activeProject?.project_ref || withSrvs?.project_ref || ref,
@@ -2669,23 +2669,23 @@ function ForwarderWorkspaceInner() {
           land_origin: sOrigin || effectiveLandOrigin,
           land_destination: sDestination || effectiveLandDest,
           land_distance: sDist || effectiveLandDist,
-          land_freight_cost: finalLandCostMultiplied,
-          land_freight_sale: finalLandSaleMultiplied,
+          land_freight_cost: finalLandCostTotal,
+          land_freight_sale: finalLandSaleTotal,
           valor_total_mercancia_usd: 0,
-          freight_cost: finalLandCostMultiplied,
+          freight_cost: finalLandCostTotal,
           services: [{
              id: 'srv-auto-sync',
              name: `Flete Terrestre (${requiredTrucks} Camiones)`,
-             cost: finalLandCostMultiplied,
-             sale: finalLandSaleMultiplied,
-             cost_eur: finalLandCostMultiplied,
-             sale_price_eur: finalLandSaleMultiplied
+             cost: finalLandCostTotal,
+             sale: finalLandSaleTotal,
+             cost_eur: finalLandCostTotal,
+             sale_price_eur: finalLandSaleTotal
           }],
           line_items: [{
              id: 'srv-auto-sync',
              name: `Flete Terrestre (${requiredTrucks} Camiones)`,
-             cost_eur: finalLandCostMultiplied,
-             sale_price_eur: finalLandSaleMultiplied
+             cost_eur: finalLandCostTotal,
+             sale_price_eur: finalLandSaleTotal
           }],
           items: finalCargoItems,
           cargo_items: finalCargoItems,
