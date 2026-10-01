@@ -79,76 +79,9 @@ function normalizeStr(val) {
  * - Si contiene VRAC, GRANEL o BULK -> 'Graneles Sólidos / Minerales' y CEM II 42,5 VRAC
  */
 export function mapCargoCategoryAndType(rawText = '', currentCategory = '', currentType = '') {
-  const combined = `${rawText || ''} ${currentCategory || ''} ${currentType || ''}`.trim();
-  const norm = normalizeStr(combined);
-  const upper = combined.toUpperCase();
-
-  // Caso 1: Envasado / Unitizado (incluye BIG BAG, BIGBAG, y erratas comunes como BOG BAG / BOGBAG)
-  const isBigBagOrBogBag =
-    norm.includes('bigbag') ||
-    norm.includes('big bag') ||
-    norm.includes('bogbag') ||
-    norm.includes('bog bag') ||
-    norm.includes('big-bag') ||
-    norm.includes('bog-bag') ||
-    /(?:big|bog)[-\s_]*bags?/i.test(combined);
-
-  if (
-    isBigBagOrBogBag ||
-    norm.includes('sac') ||
-    norm.includes('saco') ||
-    norm.includes('fardilise') ||
-    norm.includes('tavcim') ||
-    norm.includes('paletizad') ||
-    norm.includes('pallet') ||
-    norm.includes('palet') ||
-    norm.includes('envasad')
-  ) {
-    let resolvedType = 'CEM I 52,5N BIGBAG';
-    if (upper.includes('CEM II 52.5N/R 50KG') || (upper.includes('52.5') && upper.includes('50KG'))) {
-      resolvedType = 'CEM II 52.5N/R 50KG';
-    } else if (upper.includes('FARDILLISE TAVCIM') || upper.includes('TAVCIM')) {
-      resolvedType = 'CEM II 42,5N/R FARDILLISE TAVCIM';
-    } else if (upper.includes('FARDILISE')) {
-      resolvedType = 'CEM II 42,5N/R FARDILISE';
-    } else if (upper.includes('CEM II 42,5 R BIGBAG') || (upper.includes('CEM II') && (upper.includes('42,5 R') || upper.includes('42.5 R')))) {
-      resolvedType = 'CEM II 42,5 R BIGBAG';
-    } else if (upper.includes('CEM I 52,5 R BIGBAG') || (upper.includes('CEM I') && (upper.includes('52,5 R') || upper.includes('52.5 R')))) {
-      resolvedType = 'CEM I 52,5 R BIGBAG';
-    } else if (upper.includes('CEM I 42,5N/R SAC') || (upper.includes('42,5') && upper.includes('SAC'))) {
-      resolvedType = 'CEM I 42,5N/R SAC 50KG';
-    } else if (upper.includes('CEM I 42,5N/R BIGBAG') || (upper.includes('42,5') && (upper.includes('BIGBAG') || upper.includes('BIG BAG') || upper.includes('BOG BAG') || upper.includes('BOGBAG')))) {
-      resolvedType = 'CEM I 42,5N/R BIGBAG';
-    } else if (upper.includes('CEM II 52.5N BIGBAG') || upper.includes('CEM II 52,5N') || upper.includes('CEM II 52.5N') || (upper.includes('CEM II') && (upper.includes('BIGBAG') || upper.includes('BIG BAG') || upper.includes('BOG BAG') || upper.includes('BOGBAG')))) {
-      resolvedType = 'CEM II 52.5N BIGBAG';
-    } else if (upper.includes('CEM I 52,5N SAC') || (upper.includes('52,5') && upper.includes('SAC'))) {
-      resolvedType = 'CEM I 52,5N SAC 50KG';
-    } else if (COMMODITY_TARIFFS[upper.trim()]) {
-      resolvedType = upper.trim();
-    }
-    return {
-      category: 'Carga Unitizada / Envasada',
-      type: resolvedType,
-      shipping_mode_supported: 'Tráiler Lona (13.6m)'
-    };
-  }
-
-  // Caso 2: Granel / Bulk
-  if (
-    norm.includes('vrac') ||
-    norm.includes('granel') ||
-    norm.includes('bulk')
-  ) {
-    return {
-      category: 'Graneles Sólidos / Minerales',
-      type: 'CEM II 42,5 VRAC',
-      shipping_mode_supported: 'Bañera Basculante / Tolva'
-    };
-  }
-
   return {
-    category: currentCategory || 'Carga Unitizada / Envasada',
-    type: currentType || (COMMODITY_TARIFFS[upper.trim()] ? upper.trim() : rawText),
+    category: currentCategory || 'Carga General',
+    type: currentType || rawText || 'Mercancía General',
     shipping_mode_supported: 'Tráiler Lona (13.6m)'
   };
 }
@@ -2725,6 +2658,9 @@ function ForwarderWorkspaceInner() {
         withSrvs.cargo_items = finalCargoItems;
 
         // 3. EN LA MISMA FUNCIÓN, cuando construyas 'dataBridgePayloadObject', usa la constante directamente:
+        const finalLandCostMultiplied = Number((costEur || effectiveLandCost) * requiredTrucks);
+        const finalLandSaleMultiplied = Number((saleEur || withSrvs?.land_freight_sale || 0) * requiredTrucks);
+        
         const dataBridgePayloadObject = {
           reference: activeProject?.project_ref || withSrvs?.project_ref || ref,
           project_ref: activeProject?.project_ref || withSrvs?.project_ref || ref,
@@ -2733,16 +2669,27 @@ function ForwarderWorkspaceInner() {
           land_origin: sOrigin || effectiveLandOrigin,
           land_destination: sDestination || effectiveLandDest,
           land_distance: sDist || effectiveLandDist,
-          land_freight_cost: costEur || effectiveLandCost,
-          land_freight_sale: saleEur || withSrvs?.land_freight_sale || 0,
-          valor_total_mercancia_usd: withSrvs?.valor_total_mercancia_usd || 0,
-          freight_cost: costEur || effectiveLandCost,
-          services: withSrvs?.services || withSrvs?.line_items || [],
-          line_items: withSrvs?.line_items || withSrvs?.services || [],
+          land_freight_cost: finalLandCostMultiplied,
+          land_freight_sale: finalLandSaleMultiplied,
+          valor_total_mercancia_usd: 0,
+          freight_cost: finalLandCostMultiplied,
+          services: [{
+             id: 'srv-auto-sync',
+             name: `Flete Terrestre (${requiredTrucks} Camiones)`,
+             cost: finalLandCostMultiplied,
+             sale: finalLandSaleMultiplied,
+             cost_eur: finalLandCostMultiplied,
+             sale_price_eur: finalLandSaleMultiplied
+          }],
+          line_items: [{
+             id: 'srv-auto-sync',
+             name: `Flete Terrestre (${requiredTrucks} Camiones)`,
+             cost_eur: finalLandCostMultiplied,
+             sale_price_eur: finalLandSaleMultiplied
+          }],
           items: finalCargoItems,
           cargo_items: finalCargoItems,
-          packing_list: withSrvs?.packing_list || null,
-          land_route: withSrvs?.land_route || {
+          land_route: {
             origin: sOrigin || effectiveLandOrigin,
             destination: sDestination || effectiveLandDest,
             distance_km: sDist || effectiveLandDist,
@@ -3259,12 +3206,23 @@ function ForwarderWorkspaceInner() {
           ? Number(projectToSave.land_freight_sale || projectToSave.targetSalePrice || projectToSave.sale)
           : (finalTotalLandSale > 0 ? finalTotalLandSale : Number(salePrice || activeProject?.land_freight_sale || 0)));
 
-      const rawCandidateRef = projectToSave?.project_ref || activeProject?.project_ref || projectToSave?.reference;
+      // FORZAR IDENTIDAD ÚNICA: NUNCA USAR SUFIJOS NI TEXTO LIBRE
+      let rawCandidateRef = projectToSave?.project_ref || activeProject?.project_ref || projectToSave?.reference || referenciaActivaGlobal;
+      
+      // Si la referencia contiene un guion y la palabra EXP, pelamos la basura y nos quedamos con la raíz.
+      if (rawCandidateRef && rawCandidateRef.includes('-EXP-')) {
+          rawCandidateRef = rawCandidateRef.split('-EXP-')[0];
+      }
+
       const isDescriptiveCandidate = rawCandidateRef && (/\s+/.test(rawCandidateRef) || /^[0-9]+MT$/i.test(rawCandidateRef) || /\b(a|to|de|from)\b/i.test(rawCandidateRef));
       const extractedTitle = isDescriptiveCandidate ? rawCandidateRef : (projectToSave?.project_title || activeProject?.project_title || projectToSave?.client_name || activeProject?.client_name);
-      const cleanRefCandidate = isDescriptiveCandidate ? null : rawCandidateRef;
 
-      const effectiveProjectRef = cleanRefCandidate || referenciaActivaGlobal || getActiveGlobalReference() || `RDM/${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+      const effectiveProjectRef = rawCandidateRef || getActiveGlobalReference() || `RDM/${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+      
+      // Forzar que el estado local también pierda el sufijo basura
+      if (activeProject) {
+          activeProject.project_ref = effectiveProjectRef;
+      }
 
       // Autogeneración de servicios por defecto si servicesList está vacío y hay coste terrestre válido
       const costeCalculado = Number(projectToSave?.land_freight_cost) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDeCosteTotalTerrestre || 0));
@@ -5703,7 +5661,7 @@ function ForwarderWorkspaceInner() {
         fob_mas_mercancia_unitario_usd_mt: currentReportSnapshot?.fob_mas_mercancia_unitario_usd_mt || 0,
         flete_total_usd: currentReportSnapshot?.flete_total_usd || 0,
         costes_fob_totales_usd: currentReportSnapshot?.costes_fob_totales_usd || 0,
-        valor_total_mercancia_usd: merchandiseValueUsd,
+        valor_total_mercancia_usd: 0,
       };
 
       const lineItemCost = absoluteLandCost;
@@ -5721,7 +5679,7 @@ function ForwarderWorkspaceInner() {
         margin_eur: lineItemPrice - lineItemCost,
         land_freight_cost: calculatedLandFreightCost,
         land_freight_sale: lineItemPrice,
-        valor_total_mercancia_usd: merchandiseValueUsd,
+        valor_total_mercancia_usd: 0,
         payload_data: payload,
       };
 
@@ -5746,7 +5704,7 @@ function ForwarderWorkspaceInner() {
           ...activeProject,
           land_freight_cost: totalServicesCost,
           land_freight_sale: totalServicesSale,
-          valor_total_mercancia_usd: merchandiseValueUsd,
+          valor_total_mercancia_usd: 0,
           line_items: updatedLineItems,
           services: updatedLineItems,
           cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || []),
