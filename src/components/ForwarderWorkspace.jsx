@@ -1709,8 +1709,8 @@ export function mapMaritimeDossierToLandCharter(dossier) {
     global_margin_percentage: '0',
     pol: extractedPol,
     pod: extractedPod,
-    land_origin: extractedPol,
-    land_destination: extractedPod,
+    land_origin: '',
+    land_destination: '',
     land_distance: 0,
     land_freight_cost: 0,
     land_freight_sale: 0,
@@ -2084,39 +2084,19 @@ function ForwarderWorkspaceInner() {
     
     const rescatarDatosCalculadora = () => {
       // Leemos la memoria silenciosa que deja la Calculadora
-      const gOrigin = window.State?.land_origin || window.State?.origin || window.State?.pol;
-      const gDest = window.State?.land_destination || window.State?.destination || window.State?.pod;
+      const gOrigin = window.State?.land_origin || '';
+      const gDest = window.State?.land_destination || '';
       const gDist = Number(window.State?.land_distance || window.State?.distanceKm || window.State?.distance || 0);
 
-      let changed = false;
-      
-      // Si hay datos en memoria y la ficha está vacía, los rescatamos y pintamos
+      // Si hay datos en memoria y la ficha está vacía, los rescatamos sin mutar activeProject en segundo plano
       if (gOrigin && gOrigin !== landOrigin && (!landOrigin || landOrigin === 'N/A')) {
         setLandOrigin(gOrigin);
-        changed = true;
       }
       if (gDest && gDest !== landDestination && (!landDestination || landDestination === 'N/A')) {
         setLandDestination(gDest);
-        changed = true;
       }
       if (gDist > 0 && Number(distanceKm) !== gDist && Number(distanceKm) === 0) {
         setDistanceKm(gDist);
-        changed = true;
-      }
-
-      // Si rescatamos algo, forzamos la actualización del proyecto para que Data Bridge lo guarde
-      if (changed && activeProject) {
-        setActiveProject(prev => ({
-          ...prev,
-          land_origin: gOrigin || prev?.land_origin,
-          land_destination: gDest || prev?.land_destination,
-          land_distance: gDist > 0 ? gDist : prev?.land_distance,
-          land_route: {
-            origin: gOrigin || prev?.land_route?.origin,
-            destination: gDest || prev?.land_route?.destination,
-            distance_km: gDist > 0 ? gDist : prev?.land_route?.distance_km
-          }
-        }));
       }
     };
 
@@ -2373,8 +2353,8 @@ function ForwarderWorkspaceInner() {
       }
 
       const ref = activeProject.project_ref || activeProject.id;
-      const effectiveLandOrigin = origin || pol || landOrigin || activeProject.land_origin || activeProject.pol || '';
-      const effectiveLandDest = destination || pod || landDestination || activeProject.land_destination || activeProject.pod || '';
+      const effectiveLandOrigin = activeProject?.land_origin || activeProject?.land_route?.origin || landOrigin || '';
+      const effectiveLandDest = activeProject?.land_destination || activeProject?.land_route?.destination || landDestination || '';
       const effectiveLandDist = Number(distanceKm) || Number(activeProject.land_distance) || Number(distanceNm) || 0;
       const effectiveLandCost = Number(estimatedCost) || Number(activeProject.land_freight_cost) || 0;
       const effectiveTotalTrucks = Number(activeProject.total_trucks) || 1;
@@ -2658,8 +2638,13 @@ function ForwarderWorkspaceInner() {
         withSrvs.cargo_items = finalCargoItems;
 
         // 3. EN LA MISMA FUNCIÓN, construir el Payload con el coste que YA viene totalizado:
-        const finalLandCostTotal = Number(costEur || effectiveLandCost);
-        const finalLandSaleTotal = Number(saleEur || withSrvs?.land_freight_sale || 0);
+        // Asegurarse de que el bloque services pase el total directamente sin volver a multiplicarse por camiones
+        const finalLandCostTotal = Number(activeProject?.land_freight_cost) > 0
+          ? Number(activeProject.land_freight_cost)
+          : Number(costEur || effectiveLandCost || 0);
+        const finalLandSaleTotal = Number(activeProject?.land_freight_sale) > 0
+          ? Number(activeProject.land_freight_sale)
+          : Number(saleEur || withSrvs?.land_freight_sale || 0);
         
         const dataBridgePayloadObject = {
           reference: activeProject?.project_ref || withSrvs?.project_ref || ref,
@@ -2778,8 +2763,8 @@ function ForwarderWorkspaceInner() {
       setDestination(activeProject.pod || '');
       setDistance(Math.round(Number(activeProject.distance_nm || activeProject.distanceNm || 0)));
       
-      setLandOrigin(activeProject?.land_route?.origin || activeProject?.land_origin || (typeof window !== 'undefined' ? (window.State?.land_origin || window.State?.origin || window.State?.pol) : '') || '');
-      setLandDestination(activeProject?.land_route?.destination || activeProject?.land_destination || (typeof window !== 'undefined' ? (window.State?.land_destination || window.State?.destination || window.State?.pod) : '') || '');
+      setLandOrigin(activeProject?.land_origin || activeProject?.land_route?.origin || (typeof window !== 'undefined' ? window.State?.land_origin : '') || '');
+      setLandDestination(activeProject?.land_destination || activeProject?.land_route?.destination || (typeof window !== 'undefined' ? window.State?.land_destination : '') || '');
       setDistanceKm(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || (typeof window !== 'undefined' ? (window.State?.land_distance || window.State?.distanceKm || window.State?.distance) : 0) || 0));
 
       // Rehidratación de costes de Land Freight desde Neon (si ya vienen guardados)
@@ -2952,8 +2937,8 @@ function ForwarderWorkspaceInner() {
       const rawDistance = Number(activeProject.distance_nm || activeProject.distanceNm || projectRoute.distance_nm || (typeof window !== 'undefined' ? (window.State?.distance_nm || window.State?.distance) : 0) || 0);
       const newDistance = Math.round(rawDistance);
 
-      const newLandOrigin = activeProject?.land_route?.origin || activeProject?.land_origin || (typeof window !== 'undefined' ? (window.State?.land_origin || window.State?.origin || window.State?.pol) : '') || '';
-      const newLandDestination = activeProject?.land_route?.destination || activeProject?.land_destination || (typeof window !== 'undefined' ? (window.State?.land_destination || window.State?.destination || window.State?.pod) : '') || '';
+      const newLandOrigin = activeProject?.land_origin || activeProject?.land_route?.origin || (typeof window !== 'undefined' ? window.State?.land_origin : '') || '';
+      const newLandDestination = activeProject?.land_destination || activeProject?.land_route?.destination || (typeof window !== 'undefined' ? window.State?.land_destination : '') || '';
       const newDistanceKm = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || (typeof window !== 'undefined' ? (window.State?.land_distance || window.State?.distanceKm || window.State?.distance) : 0) || 0);
       
       const newTolls = Number(activeProject.tollCost || activeProject.tollsCost || activeProject.peajes || activeProject.data?.financials?.tollCost || (typeof window !== 'undefined' ? (window.State?.tollCost || window.State?.peajes) : 0) || (newDistanceKm > 0 ? Math.round(newDistanceKm * 0.18) : 0));
@@ -3148,8 +3133,8 @@ function ForwarderWorkspaceInner() {
         ? [...projectToSave.services]
         : (Array.isArray(projectToSave?.line_items) && projectToSave.line_items.length > 0 ? [...projectToSave.line_items] : []);
 
-      const landOrigin = origin || pol || projectToSave?.land_origin || projectToSave?.pol || activeProject?.land_origin || activeProject?.pol || '';
-      const landDestination = destination || pod || projectToSave?.land_destination || projectToSave?.pod || activeProject?.land_destination || activeProject?.pod || '';
+      const landOrigin = projectToSave?.land_origin || projectToSave?.land_route?.origin || activeProject?.land_origin || activeProject?.land_route?.origin || '';
+      const landDestination = projectToSave?.land_destination || projectToSave?.land_route?.destination || activeProject?.land_destination || activeProject?.land_route?.destination || '';
       const distanceKm = Number(projectToSave?.land_distance) || Number(distanceNm) || Number(activeProject?.land_distance) || 0;
 
       // 1. Obtener la carga total en KG
@@ -3228,8 +3213,8 @@ function ForwarderWorkspaceInner() {
       const costeCalculado = Number(projectToSave?.land_freight_cost) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDeCosteTotalTerrestre || 0));
       const ventaCalculada = Number(projectToSave?.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDePrecioVentaTerrestre || 0));
       const autoTotalTrucks = Number(projectToSave?.total_trucks) > 0 ? Number(projectToSave.total_trucks) : (trucksNeeded || activeProject?.total_trucks || 1);
-      const autoLandOrigin = pol || origin || projectToSave?.land_origin || projectToSave?.pol || activeProject?.land_origin || activeProject?.pol || landOrigin || 'Origen';
-      const autoLandDestination = pod || destination || projectToSave?.land_destination || projectToSave?.pod || activeProject?.land_destination || activeProject?.pod || landDestination || 'Destino';
+      const autoLandOrigin = projectToSave?.land_origin || activeProject?.land_origin || landOrigin || 'Origen';
+      const autoLandDestination = projectToSave?.land_destination || activeProject?.land_destination || landDestination || 'Destino';
 
       if (servicesList.length === 0 && !projectToSave?.is_delete_action && (Number(tuVariableDeCosteTotalTerrestre) > 0 || costeCalculado > 0)) {
         const autoServiceName = 'Flete y Operaciones Terrestres (' + (autoTotalTrucks || 1) + ' Camiones: ' + (autoLandOrigin || 'Origen') + ' ➔ ' + (autoLandDestination || 'Destino') + ')';
@@ -3278,8 +3263,8 @@ function ForwarderWorkspaceInner() {
         land_freight_cost: Number(projectToSave.land_freight_cost) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDeCosteTotalTerrestre || 0)),
         land_freight_sale: Number(projectToSave.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDePrecioVentaTerrestre || 0)),
         valor_total_mercancia_usd: estadoDelValorFobCalculado,
-        land_origin: pol || origin || projectToSave.land_origin || projectToSave.pol || activeProject?.land_origin || activeProject?.pol || landOrigin,
-        land_destination: pod || destination || projectToSave.land_destination || projectToSave.pod || activeProject?.land_destination || activeProject?.pod || landDestination,
+        land_origin: projectToSave?.land_origin || activeProject?.land_origin || landOrigin || '',
+        land_destination: projectToSave?.land_destination || activeProject?.land_destination || landDestination || '',
         land_distance: distanceKm,
         total_trucks: Number(projectToSave?.total_trucks) > 0 ? Number(projectToSave.total_trucks) : (trucksNeeded || activeProject?.total_trucks),
         dss_optimal_cadence: dssOptimalTrucksPerDay,
@@ -3397,6 +3382,11 @@ function ForwarderWorkspaceInner() {
       const finalSaved = savedProject ? {
         ...payload,
         ...savedProject,
+        land_freight_cost: Number(payload.land_freight_cost) > 0 ? payload.land_freight_cost : savedProject.land_freight_cost,
+        land_freight_sale: Number(payload.land_freight_sale) > 0 ? payload.land_freight_sale : savedProject.land_freight_sale,
+        total_trucks: Number(payload.total_trucks) > 0 ? payload.total_trucks : savedProject.total_trucks,
+        land_origin: payload.land_origin || savedProject.land_origin || '',
+        land_destination: payload.land_destination || savedProject.land_destination || '',
         services: finalServices,
         line_items: finalServices,
         valor_total_mercancia_usd: Number(payload.valor_total_mercancia_usd) > 0 ? Number(payload.valor_total_mercancia_usd) : Number(savedProject?.valor_total_mercancia_usd || 0),
@@ -5495,6 +5485,25 @@ function ForwarderWorkspaceInner() {
   };
 
   const handleSaveProjectCargo = async () => {
+    const safeDist = Number(distanceKm) || Number(activeProject?.land_route?.distance_km) || 0;
+    const safeTrucks = Number(camionesReales) || Number(activeProject?.total_trucks) || 1;
+    const safeExchange = Number(exchangeRate) || 1;
+
+    // Matemáticas puras en el momento de guardar. Inmune a estados corrompidos.
+    const isSaveOutsideEU = isNonEURoute(landOrigin || activeProject?.land_origin, landDestination || activeProject?.land_destination, activeProject);
+    const dietsPerTruck = isSaveOutsideEU ? 0 : 75;
+    const absoluteLandCost = ((safeDist * 1.57) + (safeDist * 0.18) + dietsPerTruck) * safeTrucks * safeExchange;
+    const absoluteLandSale = absoluteLandCost * 1.18; // 18% de margen comercial
+
+    const calculatedLandFreightCost = absoluteLandCost;
+    const calculatedLandFreightSale = absoluteLandSale;
+
+    const finalTotalLandCost = Number(finalFooterCost > 0 ? finalFooterCost : (calculatedLandFreightCost > 0 ? calculatedLandFreightCost : Number(activeProject?.land_freight_cost || 0)));
+    const finalTotalLandSale = Number(finalFooterSale > 0 ? finalFooterSale : (calculatedLandFreightSale > 0 ? calculatedLandFreightSale : Number(activeProject?.land_freight_sale || 0)));
+    const total_trucks = safeTrucks;
+    const effectiveLandOrigin = landOrigin || activeProject?.land_origin || '';
+    const effectiveLandDestination = landDestination || activeProject?.land_destination || '';
+
     try {
       console.log('Guardar Flete y Estiba en Proyecto:', {
         cargoItems,
@@ -5524,19 +5533,6 @@ function ForwarderWorkspaceInner() {
       const currentReportSnapshot = buildExecutiveReportData();
       setActiveReport(currentReportSnapshot);
       setReportData(currentReportSnapshot);
-
-      const safeDist = Number(distanceKm) || Number(activeProject?.land_route?.distance_km) || 0;
-      const safeTrucks = Number(camionesReales) || Number(activeProject?.total_trucks) || 1;
-      const safeExchange = Number(exchangeRate) || 1;
-
-      // Matemáticas puras en el momento de guardar. Inmune a estados corrompidos.
-      const isSaveOutsideEU = isNonEURoute(landOrigin || activeProject?.land_origin, landDestination || activeProject?.land_destination, activeProject);
-      const dietsPerTruck = isSaveOutsideEU ? 0 : 75;
-      const absoluteLandCost = ((safeDist * 1.57) + (safeDist * 0.18) + dietsPerTruck) * safeTrucks * safeExchange;
-      const absoluteLandSale = absoluteLandCost * 1.18; // 18% de margen comercial
-
-      const calculatedLandFreightCost = absoluteLandCost;
-      const calculatedLandFreightSale = absoluteLandSale;
 
       const merchandiseValueUsd = Number(
         (mercanciaCost > 0 ? mercanciaCost : null)
@@ -5702,14 +5698,14 @@ function ForwarderWorkspaceInner() {
 
         const updatedProject = {
           ...activeProject,
-          land_freight_cost: totalServicesCost,
-          land_freight_sale: totalServicesSale,
+          land_freight_cost: finalTotalLandCost,
+          land_freight_sale: finalTotalLandSale,
           valor_total_mercancia_usd: 0,
           line_items: updatedLineItems,
           services: updatedLineItems,
           cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || []),
           packing_list: activeProject?.packing_list || null,
-          land_route: { origin: landOrigin, destination: landDestination, distance_km: distanceKm },
+          land_route: { origin: effectiveLandOrigin, destination: effectiveLandDestination, distance_km: safeDist },
           truck_type: vehicleType,
           vehicle_type: vehicleType,
           vehicle_attributes: activeProject?.vehicle_attributes || null,
@@ -5718,20 +5714,20 @@ function ForwarderWorkspaceInner() {
           payload_kg: getVehiclePayloadKg(vehicleType),
           route_and_chartering: payload.route_and_chartering,
           charteringAssessment: charteringAssessment,
-          land_origin: landOrigin || activeProject?.land_origin || '',
-          land_destination: landDestination || activeProject?.land_destination || '',
-          land_distance: distanceKm,
+          land_origin: effectiveLandOrigin,
+          land_destination: effectiveLandDestination,
+          land_distance: safeDist,
           pol: pol || activeProject?.pol || '',
           pod: pod || activeProject?.pod || '',
-          total_trucks: safeTrucks,
+          total_trucks: total_trucks,
 
           // BLINDAJE CORE PRO: Reinyectamos el estado de la BD original para evitar que Land Charter lo pise con ceros
           cost: activeProject?.cost || null,
           sale: activeProject?.sale || null,
           items: activeProject?.items || [],
           cargoQuantity: activeProject?.cargoQuantity || null,
-          targetSalePrice: totalServicesSale,
-          totalTripCost: totalServicesCost
+          targetSalePrice: finalTotalLandSale,
+          totalTripCost: finalTotalLandCost
         };
         setActiveProject(updatedProject);
         setProjects((prev) => (prev || []).map((p) => (p?.id === activeProject?.id || p?.project_ref === activeProject?.project_ref) ? updatedProject : p));
@@ -5746,10 +5742,10 @@ function ForwarderWorkspaceInner() {
                 reference: activeProject?.project_ref,
                 project_ref: activeProject?.project_ref,
                 total_trucks: updatedProject.total_trucks,
-                land_freight_cost: totalServicesCost,
-                land_freight_sale: totalServicesSale,
+                land_freight_cost: finalTotalLandCost,
+                land_freight_sale: finalTotalLandSale,
                 valor_total_mercancia_usd: merchandiseValueUsd,
-                freight_cost: totalServicesCost,
+                freight_cost: finalTotalLandCost,
                 services: updatedLineItems,
                 line_items: updatedLineItems,
                 items: (cargoItems && cargoItems.length > 0) ? cargoItems : activeProject?.items,
@@ -5784,6 +5780,39 @@ function ForwarderWorkspaceInner() {
       setError('Error al guardar flete y estiba: ' + (err?.message || 'Error desconocido'));
       setTimeout(() => setError(null), 4000);
     } finally {
+      // 3. ACTUALIZACIÓN ATÓMICA AL GUARDAR (EVITAR DESINCRONIZACIÓN)
+      setActiveProject((prev) => ({
+        ...prev,
+        land_freight_cost: finalTotalLandCost,
+        land_freight_sale: finalTotalLandSale,
+        targetSalePrice: finalTotalLandSale,
+        totalTripCost: finalTotalLandCost,
+        total_trucks: total_trucks,
+        land_origin: effectiveLandOrigin,
+        land_destination: effectiveLandDestination,
+        land_route: {
+          ...(prev?.land_route || {}),
+          origin: effectiveLandOrigin,
+          destination: effectiveLandDestination,
+          distance_km: safeDist,
+        },
+      }));
+      setProjects((prev) => (prev || []).map((p) => (p?.id === activeProject?.id || p?.project_ref === activeProject?.project_ref) ? {
+        ...p,
+        land_freight_cost: finalTotalLandCost,
+        land_freight_sale: finalTotalLandSale,
+        targetSalePrice: finalTotalLandSale,
+        totalTripCost: finalTotalLandCost,
+        total_trucks: total_trucks,
+        land_origin: effectiveLandOrigin,
+        land_destination: effectiveLandDestination,
+        land_route: {
+          ...(p?.land_route || {}),
+          origin: effectiveLandOrigin,
+          destination: effectiveLandDestination,
+          distance_km: safeDist,
+        },
+      } : p));
       setCargoItems([]);
       setIsCargoModalOpen(false);
       setSaveSuccessMessage('¡Flete y estiba guardados correctamente!');
@@ -5834,9 +5863,13 @@ function ForwarderWorkspaceInner() {
   const camionesReales = pesoTotalMercanciaKg > 0 ? Math.ceil(pesoTotalMercanciaKg / 24000) : fallbackTrucks;
 
   // CÁLCULO DECLARATIVO E INMUTABLE DEL TOTAL DE LA FLOTA TERRESTRE
-  // terrestrialUnitCost es el coste puro calculado de 1 camión (km, peajes, dietas). NUNCA contiene totales de BD.
-  const finalFooterCost = terrestrialUnitCost * camionesReales * exchangeRate;
-  const finalFooterSale = (terrestrialUnitCost * 1.18) * camionesReales * exchangeRate;
+  // Si activeProject tiene land_freight_cost / land_freight_sale guardados, mostrar el total bruto guardado
+  const finalFooterCost = Number(activeProject?.land_freight_cost) > 0
+    ? Number(activeProject.land_freight_cost)
+    : (terrestrialUnitCost * camionesReales * exchangeRate);
+  const finalFooterSale = Number(activeProject?.land_freight_sale) > 0
+    ? Number(activeProject.land_freight_sale)
+    : ((terrestrialUnitCost * 1.18) * camionesReales * exchangeRate);
 
   // Variables complementarias para compatibilidad y flete unitario
   const footerTotalCost = finalFooterCost;
@@ -6066,8 +6099,8 @@ function ForwarderWorkspaceInner() {
 
                 // 2. Extracción y Cálculos Terrestres Provisionales (Nivel 2)
                 const routeInfo = activeProject?.route_and_chartering || activeProject?.data?.route || activeProject?.data || {};
-                const rOrigin = activeProject?.land_route?.origin || activeProject?.land_origin || landOrigin || '';
-                const rDestination = activeProject?.land_route?.destination || activeProject?.land_destination || landDestination || '';
+                const rOrigin = activeProject?.land_origin || activeProject?.land_route?.origin || '';
+                const rDestination = activeProject?.land_destination || activeProject?.land_route?.destination || '';
                 const rDistKm = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0);
                 const rTruckType = vehicleType || activeProject?.truck_type || activeProject?.vehicle_type || activeProject?.data?.truckType || 'Camión / Tráiler';
 
@@ -6080,12 +6113,20 @@ function ForwarderWorkspaceInner() {
                 const rLdmPct = Math.min(100, Math.round((rLdm / 13.6) * 100));
 
                 const isZeroDist = !rDistKm || Number(rDistKm) <= 0;
-                const projectCost = activeProject?.land_freight_cost || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.cost_eur || 0), 0);
-                const projectSale = activeProject?.land_freight_sale || (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.sale_price_eur || 0), 0);
+                const projectCost = Number(activeProject?.land_freight_cost) > 0
+                  ? Number(activeProject.land_freight_cost)
+                  : (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.cost_eur || 0), 0);
+                const projectSale = Number(activeProject?.land_freight_sale) > 0
+                  ? Number(activeProject.land_freight_sale)
+                  : (activeProject?.line_items || []).reduce((acc, it) => acc + Number(it.sale_price_eur || 0), 0);
                 const isRRowOutsideEU = isNonEURoute(rOrigin, rDestination, activeProject);
                 const rDietsFallback = isRRowOutsideEU ? 0 : 75;
-                const rCostEur = isZeroDist ? 0 : (Number(projectCost) || Math.round(rDistKm * 1.57 + rDietsFallback));
-                const rSaleEur = isZeroDist ? 0 : (Number(projectSale) || (rCostEur > 0 ? Math.round(rCostEur * 1.18) : 0));
+                const rCostEur = Number(activeProject?.land_freight_cost) > 0
+                  ? Number(activeProject.land_freight_cost)
+                  : (Number(projectCost) > 0 ? Number(projectCost) : (isZeroDist ? 0 : Math.round(rDistKm * 1.57 + rDietsFallback)));
+                const rSaleEur = Number(activeProject?.land_freight_sale) > 0
+                  ? Number(activeProject.land_freight_sale)
+                  : (Number(projectSale) > 0 ? Number(projectSale) : (rCostEur > 0 ? Math.round(rCostEur * 1.18) : 0));
                 const rMargin = rSaleEur - rCostEur;
                 const rMarginPct = rCostEur > 0 ? Math.round((rMargin / rSaleEur) * 100) : 0;
                 const rDrivingDays = rDistKm > 0 ? Math.max(1, Math.ceil(rDistKm / 650)) : 0;
@@ -6236,8 +6277,12 @@ function ForwarderWorkspaceInner() {
                             </div>
                             <span className="text-base">🛣️</span>
                           </div>
-                          <div className="font-bold text-slate-800 text-sm truncate" title={`${rOrigin || 'N/A'} ➔ ${rDestination || 'N/A'}`}>
-                            {rOrigin || 'N/A'} <span className="text-blue-600 font-black">➔</span> {rDestination || 'N/A'}
+                          <div className="font-bold text-slate-800 text-sm truncate" title={(rOrigin && rDestination) ? `${rOrigin} ➔ ${rDestination}` : 'Sin ruta terrestre definida'}>
+                            {(rOrigin && rDestination) ? (
+                              <>{rOrigin} <span className="text-blue-600 font-black">➔</span> {rDestination}</>
+                            ) : (
+                              <span className="text-slate-400 font-normal italic">Sin ruta terrestre definida</span>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-slate-100">
@@ -7586,7 +7631,7 @@ function ForwarderWorkspaceInner() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center mt-3 pt-3 border-t border-slate-200">
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Ruta Terrestre</span>
-                    <span className="text-xs font-black text-slate-900 mt-1 block">{activeProject?.land_route?.origin || activeProject?.land_origin || landOrigin || ''} ➔ {activeProject?.land_route?.destination || activeProject?.land_destination || landDestination || ''}</span>
+                    <span className="text-xs font-black text-slate-900 mt-1 block">{(activeProject?.land_origin && activeProject?.land_destination) ? `${activeProject.land_origin} ➔ ${activeProject.land_destination}` : ((activeProject?.land_route?.origin && activeProject?.land_route?.destination) ? `${activeProject.land_route.origin} ➔ ${activeProject.land_route.destination}` : 'Sin ruta terrestre definida')}</span>
                     <span className="block text-[9px] text-slate-500 font-mono">{(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0))).toLocaleString('es-ES')} KM</span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
