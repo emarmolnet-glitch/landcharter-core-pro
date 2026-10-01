@@ -4,7 +4,6 @@ import { parsePackingList } from '../utils/packingListParser.js';
 import AgenteProyectosWidget from './AgenteProyectosWidget';
 import CalculadoraTarifasWidget from './CalculadoraTarifasWidget.jsx';
 import VisualTruckPlan from './VisualTruckPlan.jsx';
-import '../../dual-trading-chartering-view.js';
 import {
   buildCBAMCommercialAnalysis,
   generateCBAMCommercialProformaPDF,
@@ -1753,13 +1752,24 @@ function ForwarderWorkspaceInner() {
   const [isAgentVisible, setIsAgentVisible] = useState(true);
   const [isTariffCalculatorOpen, setIsTariffCalculatorOpen] = useState(false);
 
-  const handleApplyTarifasCalculadora = (totalConvertido) => {
+  const handleApplyTarifasCalculadora = (totalConvertido, options = {}) => {
     const safeTotal = Number(totalConvertido) || 0;
+    const calcOrigin = options?.origin || options?.land_origin || (typeof window !== 'undefined' ? (window.State?.land_origin || window.State?.origin) : '');
+    const calcDest = options?.destination || options?.land_destination || (typeof window !== 'undefined' ? (window.State?.land_destination || window.State?.destination) : '');
+    const calcDist = Number(options?.distance_km || options?.distanceKm || (typeof window !== 'undefined' ? (window.State?.land_distance || window.State?.distanceKm || window.State?.distance) : 0));
+
+    if (calcOrigin) setLandOrigin(calcOrigin);
+    if (calcDest) setLandDestination(calcDest);
+    if (calcDist > 0) setDistanceKm(calcDist);
+
     setInlandCost(safeTotal);
     setActiveProject((prev) => {
       if (!prev) return prev;
       return {
         ...prev,
+        land_origin: calcOrigin || prev.land_origin,
+        land_destination: calcDest || prev.land_destination,
+        ...(calcDist > 0 ? { land_distance: calcDist } : {}),
         inlandCost: safeTotal,
         inland_cost: safeTotal,
         peripheral_services: {
@@ -1772,18 +1782,18 @@ function ForwarderWorkspaceInner() {
       window.State = window.State || {};
       window.State.inlandCost = safeTotal;
       window.State.inland_cost = safeTotal;
+      if (calcOrigin) window.State.land_origin = calcOrigin;
+      if (calcDest) window.State.land_destination = calcDest;
     }
-    setSaveSuccessMessage(`Costes terrestres inyectados desde la Calculadora Universal: ${safeTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${displayCurrency}`);
+    setSaveSuccessMessage(`Costes terrestres inyectados desde la Calculadora: ${safeTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${displayCurrency}`);
   };
 
   const [isCargoModalOpen, setIsCargoModalOpen] = useState(false);
   const [editingLineItemId, setEditingLineItemId] = useState(null);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState(null);
 
-  // Herramientas Comerciales y Regulatorias (CBAM y Modo Dual)
+  // Herramientas Comerciales y Regulatorias (CBAM)
   const [isCbamOpen, setIsCbamOpen] = useState(false);
-  const [isDualTradingOpen, setIsDualTradingOpen] = useState(false);
-  const dualViewRef = useRef(null);
 
   // Parámetros locales CBAM sincronizados con el proyecto
   const [cbamSector, setCbamSector] = useState('');
@@ -1967,7 +1977,6 @@ function ForwarderWorkspaceInner() {
       if (e.key === 'Escape') {
         setShowExecutiveReport(false);
         setIsCbamOpen(false);
-        setIsDualTradingOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -2084,19 +2093,31 @@ function ForwarderWorkspaceInner() {
     
     const rescatarDatosCalculadora = () => {
       // Leemos la memoria silenciosa que deja la Calculadora
-      const gOrigin = window.State?.land_origin || '';
-      const gDest = window.State?.land_destination || '';
+      const gOrigin = window.State?.land_origin || window.State?.origin || '';
+      const gDest = window.State?.land_destination || window.State?.destination || '';
       const gDist = Number(window.State?.land_distance || window.State?.distanceKm || window.State?.distance || 0);
 
-      // Si hay datos en memoria y la ficha está vacía, los rescatamos sin mutar activeProject en segundo plano
-      if (gOrigin && gOrigin !== landOrigin && (!landOrigin || landOrigin === 'N/A')) {
+      // Si hay datos en memoria, los rescatamos y soldamos el estado de activeProject
+      if (gOrigin && gOrigin !== landOrigin) {
         setLandOrigin(gOrigin);
       }
-      if (gDest && gDest !== landDestination && (!landDestination || landDestination === 'N/A')) {
+      if (gDest && gDest !== landDestination) {
         setLandDestination(gDest);
       }
-      if (gDist > 0 && Number(distanceKm) !== gDist && Number(distanceKm) === 0) {
+      if (gDist > 0 && Number(distanceKm) !== gDist) {
         setDistanceKm(gDist);
+      }
+      if (gOrigin || gDest) {
+        setActiveProject((prev) => {
+          if (!prev) return prev;
+          if (prev.land_origin === gOrigin && prev.land_destination === gDest) return prev;
+          return {
+            ...prev,
+            land_origin: gOrigin || prev.land_origin,
+            land_destination: gDest || prev.land_destination,
+            ...(gDist > 0 ? { land_distance: gDist } : {}),
+          };
+        });
       }
     };
 
@@ -2333,12 +2354,9 @@ function ForwarderWorkspaceInner() {
     }
   };
 
+  // Cero autoguardados o peticiones automáticas que muten el estado: la sincronización y guardado solo ocurren con onClick del usuario
   useEffect(() => {
-    const curRef = (referenciaActivaGlobal || '').trim();
-    if (lastFetchedRef.current !== curRef) {
-      lastFetchedRef.current = curRef;
-      fetchProjects(curRef || null);
-    }
+    // Sincronización pasiva de la referencia activa global sin disparar fetchProjects automáticamente
   }, [referenciaActivaGlobal]);
 
   const handleSyncDataBridge = async () => {
@@ -2353,8 +2371,9 @@ function ForwarderWorkspaceInner() {
       }
 
       const ref = activeProject.project_ref || activeProject.id;
-      const effectiveLandOrigin = activeProject?.land_origin || activeProject?.land_route?.origin || landOrigin || '';
-      const effectiveLandDest = activeProject?.land_destination || activeProject?.land_route?.destination || landDestination || '';
+      const calcState = (typeof window !== 'undefined' ? (window.State || window.GlobalStore?.calculatedState || {}) : {});
+      const effectiveLandOrigin = activeProject?.land_origin || calcState?.origin || calcState?.land_origin || activeProject?.land_route?.origin || landOrigin || "Origen no definido";
+      const effectiveLandDest = activeProject?.land_destination || calcState?.destination || calcState?.land_destination || activeProject?.land_route?.destination || landDestination || "Destino no definido";
       const effectiveLandDist = Number(distanceKm) || Number(activeProject.land_distance) || Number(distanceNm) || 0;
       const effectiveLandCost = Number(estimatedCost) || Number(activeProject.land_freight_cost) || 0;
       const effectiveTotalTrucks = Number(activeProject.total_trucks) || 1;
@@ -2434,8 +2453,8 @@ function ForwarderWorkspaceInner() {
           withSrvs.data?.route || {};
 
         // BLINDAJE: Heredar de BD, o rescatar de la Memoria Global (Calculadora) si la BD está vacía
-        const sOrigin = withSrvs.land_route?.origin || withSrvs.land_origin || (typeof window !== 'undefined' ? (window.State?.land_origin || window.State?.origin || window.State?.pol) : '') || '';
-        const sDestination = withSrvs.land_route?.destination || withSrvs.land_destination || (typeof window !== 'undefined' ? (window.State?.land_destination || window.State?.destination || window.State?.pod) : '') || '';
+        const sOrigin = withSrvs.land_route?.origin || withSrvs.land_origin || (typeof window !== 'undefined' ? (window.State?.land_origin || window.State?.origin) : '') || '';
+        const sDestination = withSrvs.land_route?.destination || withSrvs.land_destination || (typeof window !== 'undefined' ? (window.State?.land_destination || window.State?.destination) : '') || '';
         const sDist = Math.round(Number(withSrvs.land_route?.distance_km || withSrvs.land_distance || (typeof window !== 'undefined' ? (window.State?.land_distance || window.State?.distanceKm || window.State?.distance) : 0) || 0));
 
         if (sOrigin) { setLandOrigin(sOrigin); }
@@ -2564,7 +2583,7 @@ function ForwarderWorkspaceInner() {
         setFreightSaleState(saleEur);
 
         const sTolls = Number(updated.tollCost || updated.tollsCost || updated.peajes || pFinancials.tollCost || (sDist > 0 ? Math.round(sDist * 0.18) : 0));
-        const isSyncOutsideEU = isNonEURoute(updated.land_origin || updated.pol || withSrvs.land_origin, updated.land_destination || updated.pod || withSrvs.land_destination, updated);
+        const isSyncOutsideEU = isNonEURoute(updated.land_origin || withSrvs.land_origin, updated.land_destination || withSrvs.land_destination, updated);
         const sDiets = isSyncOutsideEU ? 0 : Number(updated.driverDiets || updated.dietas || pFinancials.driverDiets || (sDist > 0 ? Math.round(Math.max(1, Math.ceil(sDist / 650)) * 75) : 0));
         setTollsState(sTolls);
         setDietsState(sDiets);
@@ -2646,13 +2665,17 @@ function ForwarderWorkspaceInner() {
           ? Number(activeProject.land_freight_sale)
           : Number(saleEur || withSrvs?.land_freight_sale || 0);
         
+        const syncOriginCity = sOrigin || effectiveLandOrigin || "Origen no definido";
+        const syncDestCity = sDestination || effectiveLandDest || "Destino no definido";
+        const syncServiceName = "Flete Terrestre (" + requiredTrucks + " Camiones: " + syncOriginCity + " ➔ " + syncDestCity + ")";
+
         const dataBridgePayloadObject = {
           reference: activeProject?.project_ref || withSrvs?.project_ref || ref,
           project_ref: activeProject?.project_ref || withSrvs?.project_ref || ref,
           id: activeProject?.id || withSrvs?.id,
           total_trucks: requiredTrucks,
-          land_origin: sOrigin || effectiveLandOrigin,
-          land_destination: sDestination || effectiveLandDest,
+          land_origin: syncOriginCity,
+          land_destination: syncDestCity,
           land_distance: sDist || effectiveLandDist,
           land_freight_cost: finalLandCostTotal,
           land_freight_sale: finalLandSaleTotal,
@@ -2660,7 +2683,8 @@ function ForwarderWorkspaceInner() {
           freight_cost: finalLandCostTotal,
           services: [{
              id: 'srv-auto-sync',
-             name: `Flete Terrestre (${requiredTrucks} Camiones)`,
+             name: syncServiceName,
+             description: syncServiceName,
              cost: finalLandCostTotal,
              sale: finalLandSaleTotal,
              cost_eur: finalLandCostTotal,
@@ -2668,15 +2692,16 @@ function ForwarderWorkspaceInner() {
           }],
           line_items: [{
              id: 'srv-auto-sync',
-             name: `Flete Terrestre (${requiredTrucks} Camiones)`,
+             name: syncServiceName,
+             description: syncServiceName,
              cost_eur: finalLandCostTotal,
              sale_price_eur: finalLandSaleTotal
           }],
           items: finalCargoItems,
           cargo_items: finalCargoItems,
           land_route: {
-            origin: sOrigin || effectiveLandOrigin,
-            destination: sDestination || effectiveLandDest,
+            origin: syncOriginCity,
+            destination: syncDestCity,
             distance_km: sDist || effectiveLandDist,
           },
         };
@@ -2942,7 +2967,7 @@ function ForwarderWorkspaceInner() {
       const newDistanceKm = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || (typeof window !== 'undefined' ? (window.State?.land_distance || window.State?.distanceKm || window.State?.distance) : 0) || 0);
       
       const newTolls = Number(activeProject.tollCost || activeProject.tollsCost || activeProject.peajes || activeProject.data?.financials?.tollCost || (typeof window !== 'undefined' ? (window.State?.tollCost || window.State?.peajes) : 0) || (newDistanceKm > 0 ? Math.round(newDistanceKm * 0.18) : 0));
-      const isInitOutsideEU = isNonEURoute(newLandOrigin || newOrigin, newLandDestination || newDestination, activeProject);
+      const isInitOutsideEU = isNonEURoute(newLandOrigin, newLandDestination, activeProject);
       const newDiets = isInitOutsideEU ? 0 : Number(activeProject.driverDiets || activeProject.dietas || activeProject.data?.financials?.driverDiets || (typeof window !== 'undefined' ? (window.State?.driverDiets || window.State?.dietas) : 0) || (newDistanceKm > 0 ? Math.round(Math.max(1, Math.ceil(newDistanceKm / 650)) * 75) : 0));
 
       setOriginState(newOrigin);
@@ -3133,8 +3158,9 @@ function ForwarderWorkspaceInner() {
         ? [...projectToSave.services]
         : (Array.isArray(projectToSave?.line_items) && projectToSave.line_items.length > 0 ? [...projectToSave.line_items] : []);
 
-      const landOrigin = projectToSave?.land_origin || projectToSave?.land_route?.origin || activeProject?.land_origin || activeProject?.land_route?.origin || '';
-      const landDestination = projectToSave?.land_destination || projectToSave?.land_route?.destination || activeProject?.land_destination || activeProject?.land_route?.destination || '';
+      const calcState = (typeof window !== 'undefined' ? (window.State || window.GlobalStore?.calculatedState || {}) : {});
+      const landOrigin = projectToSave?.land_origin || activeProject?.land_origin || calcState?.origin || calcState?.land_origin || projectToSave?.land_route?.origin || activeProject?.land_route?.origin || "Origen no definido";
+      const landDestination = projectToSave?.land_destination || activeProject?.land_destination || calcState?.destination || calcState?.land_destination || projectToSave?.land_route?.destination || activeProject?.land_route?.destination || "Destino no definido";
       const distanceKm = Number(projectToSave?.land_distance) || Number(distanceNm) || Number(activeProject?.land_distance) || 0;
 
       // 1. Obtener la carga total en KG
@@ -3213,11 +3239,11 @@ function ForwarderWorkspaceInner() {
       const costeCalculado = Number(projectToSave?.land_freight_cost) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDeCosteTotalTerrestre || 0));
       const ventaCalculada = Number(projectToSave?.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDePrecioVentaTerrestre || 0));
       const autoTotalTrucks = Number(projectToSave?.total_trucks) > 0 ? Number(projectToSave.total_trucks) : (trucksNeeded || activeProject?.total_trucks || 1);
-      const autoLandOrigin = projectToSave?.land_origin || activeProject?.land_origin || landOrigin || 'Origen';
-      const autoLandDestination = projectToSave?.land_destination || activeProject?.land_destination || landDestination || 'Destino';
+      const autoLandOrigin = projectToSave?.land_origin || activeProject?.land_origin || landOrigin || 'Origen no definido';
+      const autoLandDestination = projectToSave?.land_destination || activeProject?.land_destination || landDestination || 'Destino no definido';
 
       if (servicesList.length === 0 && !projectToSave?.is_delete_action && (Number(tuVariableDeCosteTotalTerrestre) > 0 || costeCalculado > 0)) {
-        const autoServiceName = 'Flete y Operaciones Terrestres (' + (autoTotalTrucks || 1) + ' Camiones: ' + (autoLandOrigin || 'Origen') + ' ➔ ' + (autoLandDestination || 'Destino') + ')';
+        const autoServiceName = "Flete Terrestre (" + autoTotalTrucks + " Camiones: " + autoLandOrigin + " ➔ " + autoLandDestination + ")";
         const defaultService = {
           id: 'srv-auto-' + Date.now(),
           name: autoServiceName,
@@ -3285,12 +3311,15 @@ function ForwarderWorkspaceInner() {
       if (isServicesEmpty && Number(payload.land_freight_cost) > 0 && !projectToSave?.is_delete_action) {
         const finalAutoCost = Number(payload.land_freight_cost) || costeCalculado || Number(tuVariableDeCosteTotalTerrestre) || 0;
         const finalAutoSale = Number(payload.land_freight_sale) || ventaCalculada || Number(tuVariableDePrecioVentaTerrestre) || 0;
-        const finalAutoName = 'Flete Terrestre (' + (payload.total_trucks || 1) + ' Camiones: ' + (payload.land_origin || 'Origen') + ' ➔ ' + (payload.land_destination || 'Destino') + ')';
+        const finalAutoTrucks = payload.total_trucks || 1;
+        const finalAutoOrigin = payload.land_origin || 'Origen no definido';
+        const finalAutoDest = payload.land_destination || 'Destino no definido';
+        const finalAutoName = "Flete Terrestre (" + finalAutoTrucks + " Camiones: " + finalAutoOrigin + " ➔ " + finalAutoDest + ")";
         const autoService = {
           id: 'srv-auto-' + Date.now(),
-          name: 'Flete Terrestre (' + (payload.total_trucks || 1) + ' Camiones: ' + (payload.land_origin || 'Origen') + ' ➔ ' + (payload.land_destination || 'Destino') + ')',
-          cost: payload.land_freight_cost,
-          sale: payload.land_freight_sale,
+          name: finalAutoName,
+          cost: finalAutoCost,
+          sale: finalAutoSale,
           description: finalAutoName,
           cost_eur: finalAutoCost,
           sale_price_eur: finalAutoSale,
@@ -4238,44 +4267,6 @@ function ForwarderWorkspaceInner() {
     }
   }, [cargoItems, totals, activeProject, subtotalFreight, subtotalFobOperations, estimatedCost, mercanciaCost]);
 
-  useEffect(() => {
-    if (isDualTradingOpen && dualViewRef.current) {
-      const dualView = dualViewRef.current;
-      const fleteUnitario = Number(activeReport?.flete_unitario_usd_mt ?? financialBreakdown?.flete_unitario_usd_mt ?? 0);
-      const tons = Number(totals.totalWeightTons || totals.weightTons || (totals.weightKg ? totals.weightKg / 1000 : 0)) || 0;
-      const stowage = Number(totals.stowageFactor || (totals.m3 && tons > 0 ? totals.m3 / tons : 0)) || 0;
-
-      dualView.fleteJustoCalculado = fleteUnitario;
-      dualView.toneladasTotales = tons;
-      dualView.factorDeEstiba = stowage;
-      dualView.toleranciaCarga = 5;
-      dualView.getExportContext = () => ({
-        syncid: activeProject?.project_ref || 'PROJECT-FORWARDER',
-        id: activeProject?.project_ref || 'PROJECT-FORWARDER',
-        toleranceType: 'MOLOO / MOLCO'
-      });
-
-      let backLink = null;
-      const handleBackLink = (e) => {
-        e.preventDefault();
-        setIsDualTradingOpen(false);
-      };
-      const attachBackLink = () => {
-        backLink = dualView.shadowRoot?.querySelector?.('.back-link');
-        if (backLink) {
-          backLink.addEventListener('click', handleBackLink);
-        }
-      };
-      attachBackLink();
-      const timer = setTimeout(attachBackLink, 250);
-
-      return () => {
-        clearTimeout(timer);
-        backLink?.removeEventListener('click', handleBackLink);
-      };
-    }
-  }, [isDualTradingOpen, activeReport, financialBreakdown, totals, activeProject]);
-
   // Proteger el Mapa (Evitar el Crash): asegurar limpieza con map.remove() y return temprano si no existe el contenedor
   useEffect(() => {
     // Si el contenedor del mapa (el div o el ref) no existe, haz un return temprano para evitar el error appendChild
@@ -4299,6 +4290,19 @@ function ForwarderWorkspaceInner() {
 
   const handleApplyProjectPayload = async (payload) => {
     if (!payload) return;
+
+    setActiveProject(prev => ({
+      ...(prev || {}),
+      land_origin: payload.land_origin || prev?.land_origin,
+      land_destination: payload.land_destination || prev?.land_destination
+    }));
+
+    if (payload.land_origin || payload.origin) {
+      setLandOrigin(payload.land_origin || payload.origin);
+    }
+    if (payload.land_destination || payload.destination) {
+      setLandDestination(payload.land_destination || payload.destination);
+    }
 
     let currentProject = activeProject;
     if (!currentProject) {
@@ -5166,8 +5170,8 @@ function ForwarderWorkspaceInner() {
       );
     }
 
-    const isOutsideEU = isNonEURoute(reportPol || sourcePayload?.land_origin || landOrigin, reportPod || sourcePayload?.land_destination || landDestination, activeProject);
-    const dssOptimalTrucksPerDay = getDssOptimalTrucksPerDay(activeProject, { origin: reportPol || landOrigin, destination: reportPod || landDestination, loadingRate: reportLoadRate });
+    const isOutsideEU = isNonEURoute(sourcePayload?.land_origin || landOrigin, sourcePayload?.land_destination || landDestination, activeProject);
+    const dssOptimalTrucksPerDay = getDssOptimalTrucksPerDay(activeProject, { origin: sourcePayload?.land_origin || landOrigin, destination: sourcePayload?.land_destination || landDestination, loadingRate: reportLoadRate });
     const campaignDimensioning = calculateFleetCampaignDimensioning(Math.max(1, Math.ceil(wTotalKg / 24000)), dssOptimalTrucksPerDay);
 
     return {
@@ -5665,15 +5669,20 @@ function ForwarderWorkspaceInner() {
       const totalPiecesCount = totals?.quantity || currentReportSnapshot?.totals?.quantity || safeCargoItems.length || 1;
       const totalWeightKg = totals?.weight || currentReportSnapshot?.totals?.weight || 0;
 
-      const savedServiceName = `Flete Terrestre (${safeTrucks} Camiones: ${landOrigin || 'Origen'} ➔ ${landDestination || 'Destino'})`;
+      const saveOriginCity = landOrigin || activeProject?.land_origin || "Origen no definido";
+      const saveDestCity = landDestination || activeProject?.land_destination || "Destino no definido";
+      const savedServiceName = "Flete Terrestre (" + safeTrucks + " Camiones: " + saveOriginCity + " ➔ " + saveDestCity + ")";
       const savedLineItem = {
         id: editingLineItemId || `item-${Date.now()}`,
         service_name: savedServiceName,
-        description: `Flete y Estiba Project Cargo (${totalPiecesCount} piezas, ${totalWeightKg.toLocaleString('es-ES')} kg)`,
+        name: savedServiceName,
+        description: savedServiceName,
+        cost: lineItemCost,
+        sale: lineItemPrice,
         cost_eur: lineItemCost,
         sale_price_eur: lineItemPrice,
         margin_eur: lineItemPrice - lineItemCost,
-        land_freight_cost: calculatedLandFreightCost,
+        land_freight_cost: lineItemCost,
         land_freight_sale: lineItemPrice,
         valor_total_mercancia_usd: 0,
         payload_data: payload,
@@ -6035,13 +6044,13 @@ function ForwarderWorkspaceInner() {
                     <span>{isSyncingDataBridge ? 'Sincronizando...' : 'Sincronizar (DataBridge)'}</span>
                   </button>
 
-                  {/* BOTÓN CALCULADORA UNIVERSAL DE TARIFAS TERRESTRES */}
+                  {/* BOTÓN CALCULADORA DE TARIFAS TERRESTRES / LDM */}
                   <button
                     type="button"
                     id="btn-open-tariff-calculator"
                     onClick={() => setIsTariffCalculatorOpen(true)}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white rounded-lg text-xs font-black shadow-xs transition-colors cursor-pointer ml-2"
-                    title="Abrir Calculadora Universal de Tarifas Terrestres (Widget Flotante)"
+                    title="Abrir Calculadora de Tarifas Terrestres / LDM (Widget Flotante)"
                   >
                     <span>🧮</span>
                     <span>Calculadora de Tarifas</span>
@@ -6064,43 +6073,15 @@ function ForwarderWorkspaceInner() {
                 </div>
               </header>
 
-              {/* RESUMEN HÍBRIDO (MARÍTIMO + TERRESTRE PROVISIONAL) */}
+              {/* RESUMEN TERRESTRE */}
               {(() => {
-                // 1. Extracción Segura de Datos Marítimos (Core PRO)
-                const seaOrigin = activeProject?.items?.[0]?.payload_data?.route_and_chartering?.pol || activeProject?.route_and_chartering?.pol || activeProject?.pol || 'N/A';
-                const seaDest = activeProject?.items?.[0]?.payload_data?.route_and_chartering?.pod || activeProject?.route_and_chartering?.pod || activeProject?.pod || 'N/A';
-                const seaMiles = Number(activeProject?.items?.[0]?.payload_data?.route_and_chartering?.distance_nm) || Number(activeProject?.route_and_chartering?.distance_nm) || Number(activeProject?.distance_nm) || 0;
-
                 const pItems = activeProject?.line_items?.[0]?.payload_data?.cargo_items || activeProject?.items || cargoItems || [];
                 const pVol = pItems.reduce((acc, it) => acc + (Number(it.quantity || 1) * Number(it.length_m || it.length || 0) * Number(it.width_m || it.width || 0) * Number(it.height_m || it.height || 0)), 0) || Number(totals.m3 || 0);
                 const pWtTons = (pItems.reduce((acc, it) => acc + (Number(it.quantity || 1) * Number(it.unit_weight_kg || it.weight || 0)), 0) || Number(totals.weight || 0)) / 1000;
 
-                const seaItemsList = (typeof extractProjectCargoItems === 'function' ? extractProjectCargoItems(activeProject) : null) || pItems;
-                const calculatedSeaItemsTons = Array.isArray(seaItemsList) && seaItemsList.length > 0
-                  ? seaItemsList.reduce((acc, it) => acc + (Number(it.quantity || it.qty || 1) * Number(it.unit_weight_kg || it.weight || 0)), 0) / 1000
-                  : 0;
-                const seaTons = Number(activeProject?.total_weight_tons) || Number(activeProject?.items?.[0]?.payload_data?.totals?.weight / 1000) || 0;
-
-                // Flete Marítimo Venta: Identificación y normalización
-                const seaFreightSale = Number(activeProject?.items?.[0]?.payload_data?.financial_summary?.customer_sale_price_usd) || Number(activeProject?.financialBreakdown?.oceanFreight?.subtotal) || Number(activeProject?.ocean_freight_sale) || 0;
-                const ocean_freight_sale =
-                  seaFreightSale ||
-                  activeProject?.ocean_freight_sale ||
-                  activeProject?.financial_summary?.customer_sale_price_usd ||
-                  activeProject?.data?.financial_summary?.customer_sale_price_usd ||
-                  activeProject?.target_freight ||
-                  0;
-                const target_freight = ocean_freight_sale;
-                const formattedSeaFreightSale = seaFreightSale > 0
-                  ? (activeProject?.currency === '$' || activeProject?.currency === 'USD'
-                      ? `$ ${seaFreightSale.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : `${seaFreightSale.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`)
-                  : (activeProject?.currency === '$' || activeProject?.currency === 'USD' ? '$ 0.00' : '0,00 €');
-
-                // 2. Extracción y Cálculos Terrestres Provisionales (Nivel 2)
-                const routeInfo = activeProject?.route_and_chartering || activeProject?.data?.route || activeProject?.data || {};
-                const rOrigin = activeProject?.land_origin || activeProject?.land_route?.origin || '';
-                const rDestination = activeProject?.land_destination || activeProject?.land_route?.destination || '';
+                // Extracción y Cálculos Terrestres
+                const rOrigin = activeProject?.land_origin || activeProject?.land_route?.origin || landOrigin || '';
+                const rDestination = activeProject?.land_destination || activeProject?.land_route?.destination || landDestination || '';
                 const rDistKm = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0);
                 const rTruckType = vehicleType || activeProject?.truck_type || activeProject?.vehicle_type || activeProject?.data?.truckType || 'Camión / Tráiler';
 
@@ -6133,131 +6114,7 @@ function ForwarderWorkspaceInner() {
 
                 return (
                   <div className="space-y-4">
-                    {/* BANNER MARÍTIMO (NIVEL 1): CONTEXTO MARÍTIMO (CORE PRO) */}
-                    <div className="bg-blue-50/50 border border-blue-200 rounded-xl p-4 shadow-xs">
-                      <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-blue-100">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-xs font-black uppercase tracking-wider text-blue-900">
-                            🚢 CONTEXTO MARÍTIMO (CORE PRO)
-                          </h3>
-                        </div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-100/70 border border-blue-200 px-2 py-0.5 rounded-full">
-                          Solo Lectura
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                        {/* Columna 1: Ruta */}
-                        <div className="bg-white/80 border border-blue-100 rounded-lg p-3 shadow-2xs flex flex-col justify-between">
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Ruta</span>
-                                {seaOrigin !== 'N/A' && seaDest !== 'N/A' ? (
-                                  <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
-                                    ✅ OK
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
-                                    ⚠️ Faltan datos
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-sm">⚓</span>
-                            </div>
-                            <div className="font-bold text-slate-800 text-sm truncate" title={`${seaOrigin} ➔ ${seaDest}`}>
-                              {seaOrigin} <span className="text-blue-600 font-black">➔</span> {seaDest}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-blue-50 text-[10px] font-medium text-slate-500">
-                            <span>POL ➔ POD Marítimo</span>
-                          </div>
-                        </div>
-
-                        {/* Columna 2: Distancia */}
-                        <div className="bg-white/80 border border-blue-100 rounded-lg p-3 shadow-2xs flex flex-col justify-between">
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Distancia</span>
-                                {seaMiles > 0 ? (
-                                  <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
-                                    ✅ OK
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
-                                    ⚠️ Vacío
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-sm">🧭</span>
-                            </div>
-                            <div className="text-xl font-mono font-black text-slate-900">
-                              {Number(seaMiles).toLocaleString('es-ES')} <span className="text-xs font-semibold text-slate-500">NM</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-blue-50 text-[10px] font-medium text-slate-500">
-                            <span>Millas Náuticas</span>
-                          </div>
-                        </div>
-
-                        {/* Columna 3: Carga */}
-                        <div className="bg-white/80 border border-blue-100 rounded-lg p-3 shadow-2xs flex flex-col justify-between">
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Carga</span>
-                                {seaTons > 0 ? (
-                                  <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
-                                    ✅ OK
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
-                                    ⚠️ Vacío
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-sm">⚖️</span>
-                            </div>
-                            <div className="text-xl font-mono font-black text-slate-900">
-                              {Number(seaTons).toLocaleString('es-ES', { maximumFractionDigits: 2 })} <span className="text-xs font-semibold text-slate-500">Toneladas</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-blue-50 text-[10px] font-medium text-slate-500">
-                            <span>Partidas Core PRO</span>
-                          </div>
-                        </div>
-
-                        {/* Columna 4: Flete Marítimo (Venta) */}
-                        <div className="bg-white/80 border border-blue-100 rounded-lg p-3 shadow-2xs flex flex-col justify-between">
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Flete Marítimo (Venta)</span>
-                                {seaFreightSale > 0 ? (
-                                  <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
-                                    ✅ OK
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
-                                    ⚠️ Vacío
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-sm">🌊</span>
-                            </div>
-                            <div className="text-xl font-mono font-black text-blue-700">
-                              {formattedSeaFreightSale}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-blue-50 text-[10px] font-medium text-slate-500">
-                            <span>Venta Marítima Objetivo</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* CUADRÍCULA DE RESUMEN TERRESTRE (NIVEL 2) */}
+                    {/* CUADRÍCULA DE RESUMEN TERRESTRE */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
                       {/* Tarjeta 1: Origen y Destino (Ruta) */}
                       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
@@ -6265,28 +6122,30 @@ function ForwarderWorkspaceInner() {
                           <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-1.5">
                               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Ruta Terrestre</span>
-                              {(rOrigin && rDestination) ? (
+                              {(activeProject?.land_origin || rOrigin) ? (
                                 <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
                                   ✅ OK
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
-                                  ⚠️ Faltan datos
+                                  ⚠️ Vacío
                                 </span>
                               )}
                             </div>
                             <span className="text-base">🛣️</span>
                           </div>
-                          <div className="font-bold text-slate-800 text-sm truncate" title={(rOrigin && rDestination) ? `${rOrigin} ➔ ${rDestination}` : 'Sin ruta terrestre definida'}>
-                            {(rOrigin && rDestination) ? (
-                              <>{rOrigin} <span className="text-blue-600 font-black">➔</span> {rDestination}</>
+                          <div className="font-bold text-slate-800 text-sm truncate" title={activeProject?.land_origin ? `${activeProject.land_origin}${activeProject.land_destination ? ` ➔ ${activeProject.land_destination}` : ''}` : (rOrigin ? `${rOrigin}${rDestination ? ` ➔ ${rDestination}` : ''}` : 'Sin ruta terrestre')}>
+                            {activeProject?.land_origin ? (
+                              <>{activeProject.land_origin} {activeProject.land_destination ? <><span className="text-blue-600 font-black">➔</span> {activeProject.land_destination}</> : ''}</>
+                            ) : rOrigin ? (
+                              <>{rOrigin} {rDestination ? <><span className="text-blue-600 font-black">➔</span> {rDestination}</> : ''}</>
                             ) : (
-                              <span className="text-slate-400 font-normal italic">Sin ruta terrestre definida</span>
+                              <span className="text-slate-400 font-normal italic">Sin ruta terrestre</span>
                             )}
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-slate-100">
-                          <span className={`w-2 h-2 rounded-full ${(rOrigin && rDestination) ? 'bg-emerald-500' : 'bg-amber-400'} shrink-0`}></span>
+                          <span className={`w-2 h-2 rounded-full ${(activeProject?.land_origin || rOrigin) ? 'bg-emerald-500' : 'bg-amber-400'} shrink-0`}></span>
                           <span className="text-[11px] font-medium text-slate-600">Corredor Directo UE</span>
                         </div>
                       </div>
@@ -6949,7 +6808,7 @@ function ForwarderWorkspaceInner() {
   onChange={(e) => {
     const val = e.target.value;
     setLandOrigin(val);
-    setActiveProject(prev => ({ ...prev, land_origin: val, pol: val }));
+    setActiveProject(prev => ({ ...prev, land_origin: val }));
   }}
   placeholder="Ej: Madrid, Barcelona, Sevilla"
   className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
@@ -6968,7 +6827,7 @@ function ForwarderWorkspaceInner() {
   onChange={(e) => {
     const val = e.target.value;
     setLandDestination(val);
-    setActiveProject(prev => ({ ...prev, land_destination: val, pod: val }));
+    setActiveProject(prev => ({ ...prev, land_destination: val }));
   }}
   placeholder="Ej: París, Lyon, Milán"
   className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm"
@@ -7154,7 +7013,7 @@ function ForwarderWorkspaceInner() {
                       const runningCost = Math.round(distKm * totalCostKm);
                       const rawType = String(cargoItems[0]?.type || '').toUpperCase().trim();
                       const currentTariff = COMMODITY_TARIFFS[rawType] || null;
-                      const isFinancialOutsideEU = isNonEURoute(landOrigin || origin || pol, landDestination || destination || pod, activeProject);
+                      const isFinancialOutsideEU = isNonEURoute(landOrigin, landDestination, activeProject);
                       const displayTolls = (isCommodityTariffActive && currentTariff) ? 0 : Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollsCost || (distKm * 0.18)));
                       const transitDays = distKm > 0 ? Math.max(1, Math.ceil(distKm / 650)) : 1;
                       const displayDiets = (isCommodityTariffActive && currentTariff) || isFinancialOutsideEU ? 0 : Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
@@ -7352,23 +7211,11 @@ function ForwarderWorkspaceInner() {
 
                       <button
                         type="button"
-                        id="btn-open-dual-trading-modal"
-                        onClick={() => setIsDualTradingOpen(true)}
-                        className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-[#002060] hover:bg-[#003380] active:bg-[#001845] text-white text-xs font-bold shadow-sm transition-all duration-150 cursor-pointer"
-                        title="Abrir Simulador Dual Trading"
-                        aria-label="Abrir Simulador Dual Trading"
-                      >
-                        <span className="text-sm" aria-hidden="true">⚖️</span>
-                        <span>Abrir Simulador Dual Trading</span>
-                      </button>
-
-                      <button
-                        type="button"
                         id="btn-open-tariff-calculator-section"
                         onClick={() => setIsTariffCalculatorOpen(true)}
                         className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-sky-700 hover:bg-sky-800 active:bg-sky-900 text-white text-xs font-bold shadow-sm transition-all duration-150 cursor-pointer"
-                        title="Abrir Calculadora Universal de Tarifas Terrestres"
-                        aria-label="Abrir Calculadora Universal de Tarifas Terrestres"
+                        title="Abrir Calculadora de Tarifas Terrestres / LDM"
+                        aria-label="Abrir Calculadora de Tarifas Terrestres / LDM"
                       >
                         <span className="text-sm" aria-hidden="true">🧮</span>
                         <span>Calculadora de Tarifas Terrestres</span>
@@ -7631,7 +7478,7 @@ function ForwarderWorkspaceInner() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center mt-3 pt-3 border-t border-slate-200">
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Ruta Terrestre</span>
-                    <span className="text-xs font-black text-slate-900 mt-1 block">{(activeProject?.land_origin && activeProject?.land_destination) ? `${activeProject.land_origin} ➔ ${activeProject.land_destination}` : ((activeProject?.land_route?.origin && activeProject?.land_route?.destination) ? `${activeProject.land_route.origin} ➔ ${activeProject.land_route.destination}` : 'Sin ruta terrestre definida')}</span>
+                    <span className="text-xs font-black text-slate-900 mt-1 block">{activeProject?.land_origin ? `${activeProject.land_origin}${activeProject.land_destination ? ` ➔ ${activeProject.land_destination}` : ''}` : ((activeProject?.land_route?.origin) ? `${activeProject.land_route.origin}${activeProject.land_route.destination ? ` ➔ ${activeProject.land_route.destination}` : ''}` : ((landOrigin) ? `${landOrigin}${landDestination ? ` ➔ ${landDestination}` : ''}` : 'Sin ruta terrestre'))}</span>
                     <span className="block text-[9px] text-slate-500 font-mono">{(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0))).toLocaleString('es-ES')} KM</span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
@@ -7679,8 +7526,8 @@ function ForwarderWorkspaceInner() {
                 let finalSalePrice;
 
                 const isReportOutsideEU = isNonEURoute(
-                  activeReport?.pol || activeReport?.landOrigin || landOrigin || origin,
-                  activeReport?.pod || activeReport?.landDestination || landDestination || destination,
+                  activeReport?.landOrigin || activeReport?.land_origin || landOrigin,
+                  activeReport?.landDestination || activeReport?.land_destination || landDestination,
                   activeProject || activeReport
                 );
 
@@ -7832,8 +7679,8 @@ function ForwarderWorkspaceInner() {
                 const appliedTariff = COMMODITY_TARIFFS[rawType] || activeReport?.appliedTariff || null;
                 const isTariffActive = Boolean(isCommodityTariffActive || appliedTariff || activeReport?.isCommodityTariffActive);
                 const isReportOutsideEU = isNonEURoute(
-                  activeReport?.pol || activeReport?.landOrigin || landOrigin || origin,
-                  activeReport?.pod || activeReport?.landDestination || landDestination || destination,
+                  activeReport?.landOrigin || activeReport?.land_origin || landOrigin,
+                  activeReport?.landDestination || activeReport?.land_destination || landDestination,
                   activeProject || activeReport
                 );
 
@@ -8011,8 +7858,8 @@ function ForwarderWorkspaceInner() {
 
                   // Cadencia de Flota - Escenario Óptimo (DSS)
                   const dssOptimalCadence = getDssOptimalTrucksPerDay(activeProject, {
-                    origin: landOrigin || origin || pol,
-                    destination: landDestination || destination || pod,
+                    origin: landOrigin,
+                    destination: landDestination,
                     loadingRate
                   });
                   const campaignDim = calculateFleetCampaignDimensioning(trucksReq, dssOptimalCadence);
@@ -8176,51 +8023,6 @@ function ForwarderWorkspaceInner() {
           </div>
         );
       })()}
-
-      {/* MODAL MODO DUAL TRADING & CHARTERING */}
-      {isDualTradingOpen && (
-        <div
-          id="modal-dual-trading"
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto animate-fadeIn print:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Simulador Dual Trading y Chartering"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsDualTradingOpen(false);
-          }}
-        >
-          <div className="relative w-full max-w-6xl h-[92vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-300">
-            {/* Header del Modal con título y botón de cierre claro */}
-            <div className="px-6 py-3.5 bg-[#002060] text-white flex items-center justify-between shrink-0 shadow-md">
-              <div className="flex items-center gap-2.5">
-                <span className="text-xl" aria-hidden="true">⚖️</span>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-black text-sm uppercase tracking-wider text-white">Modo Dual · Trading &amp; Chartering</h3>
-                    <span className="text-[10px] bg-teal-500/20 text-teal-300 border border-teal-400/30 px-2 py-0.5 rounded font-mono uppercase font-bold">Módulo Integrado</span>
-                  </div>
-                  <p className="text-[11px] text-blue-200">Arbitraje comercial y cálculo de margen cruzado sobre flete marítimo</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                id="btn-close-dual-trading"
-                onClick={() => setIsDualTradingOpen(false)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition cursor-pointer"
-                aria-label="Cerrar Simulador Dual Trading"
-              >
-                <span className="text-base font-normal">✕</span>
-                <span>Cerrar</span>
-              </button>
-            </div>
-
-            {/* Contenedor del Componente Web Dual Trading */}
-            <div className="flex-1 overflow-auto bg-[#F8FAFC]">
-              <dual-trading-chartering-view ref={dualViewRef} style={{ display: 'block', minHeight: '100%' }} />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* MODAL CUMPLIMIENTO CBAM (UE) */}
       {isCbamOpen && (() => {
@@ -8570,24 +8372,42 @@ function ForwarderWorkspaceInner() {
         stowagePlan={activeReport?.stowagePlan || reportData?.stowagePlan || calculateUniversalStowagePlan(cargoItems, totals, { shippingMode, pol, pod })}
       />
 
-      {/* Botón flotante para restaurar/abrir la Calculadora Universal de Tarifas */}
+      {/* Botón flotante para restaurar/abrir la Calculadora de Tarifas Terrestres / LDM */}
       {!isTariffCalculatorOpen && (
         <button
           type="button"
           id="floating-open-tariff-calc"
           className="tariff-calc-launcher-btn"
           onClick={() => setIsTariffCalculatorOpen(true)}
-          title="Abrir Calculadora Universal de Tarifas Terrestres"
+          title="Abrir Calculadora de Tarifas Terrestres / LDM"
         >
           <span>🧮</span>
           <span>Calculadora de Tarifas</span>
         </button>
       )}
 
-      {/* Widget Flotante de Calculadora Universal de Tarifas Terrestres (Exclusivo en Proyectos) */}
+      {/* Widget Flotante de Calculadora de Tarifas Terrestres / LDM (Exclusivo en Proyectos) */}
       <CalculadoraTarifasWidget
         isOpen={isTariffCalculatorOpen}
-        onClose={() => setIsTariffCalculatorOpen(false)}
+        onClose={() => {
+          setIsTariffCalculatorOpen(false);
+          if (typeof window !== 'undefined') {
+            const cOrigin = window.State?.land_origin || window.State?.origin || '';
+            const cDest = window.State?.land_destination || window.State?.destination || '';
+            const cDist = Number(window.State?.land_distance || window.State?.distanceKm || window.State?.distance || 0);
+            if (cOrigin) setLandOrigin(cOrigin);
+            if (cDest) setLandDestination(cDest);
+            if (cDist > 0) setDistanceKm(cDist);
+            if (cOrigin || cDest) {
+              setActiveProject((prev) => (prev ? {
+                ...prev,
+                land_origin: cOrigin || prev.land_origin,
+                land_destination: cDest || prev.land_destination,
+                ...(cDist > 0 ? { land_distance: cDist } : {})
+              } : prev));
+            }
+          }
+        }}
         onApply={handleApplyTarifasCalculadora}
         targetCurrency={displayCurrency}
       />

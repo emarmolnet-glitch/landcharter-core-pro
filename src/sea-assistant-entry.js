@@ -1165,6 +1165,16 @@ async function executeActionableAiUpdateFields(actionObj) {
             // Sincronización con Cerebro.ia para rutas terrestres (ej. Sétif -> Béjaïa)
             const landPol = String(p.land_origin || p.origin || p.origen || p.pol || '').trim();
             const landPod = String(p.land_destination || p.destination || p.destino || p.pod || '').trim();
+            if (landPol || landPod) {
+                if (window.State) {
+                    if (landPol) { window.State.land_origin = landPol; window.State.origin = landPol; }
+                    if (landPod) { window.State.land_destination = landPod; window.State.destination = landPod; }
+                }
+                if (window.GlobalStore) {
+                    if (landPol) { window.GlobalStore.land_origin = landPol; window.GlobalStore.origin = landPol; }
+                    if (landPod) { window.GlobalStore.land_destination = landPod; window.GlobalStore.destination = landPod; }
+                }
+            }
             if (landPol && landPod) {
                 console.log("🚛 [Cerebro.ia/update_fields] Trazando ruta terrestre:", landPol, "->", landPod);
                 const routeFn = window.calculateLandRouteByCoordinates ||
