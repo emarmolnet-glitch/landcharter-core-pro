@@ -527,10 +527,14 @@ export async function handler(eventOrRequest: any, context?: any): Promise<Respo
 
   } catch (error) {
     console.error("[project-chat] Error in serverless execution:", error);
+    if (error instanceof Error) {
+      console.error("[project-chat] Error stack trace:", error.stack);
+    }
     return new Response(JSON.stringify({
       success: false,
       reply: "El Agente de Proyectos no está disponible temporalmente.",
       error: error instanceof Error ? error.message : "Error interno del servidor.",
+      details: error instanceof Error ? error.stack : String(error),
       action: "error",
       payload: {}
     }), { status: 503, headers });

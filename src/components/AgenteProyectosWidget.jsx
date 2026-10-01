@@ -419,6 +419,23 @@ Contexto actual del proyecto: ${projectContext}`;
         }),
       });
 
+      if (!response.ok) {
+        let errBody = null;
+        try {
+          errBody = await response.clone().json();
+        } catch (_) {
+          try {
+            errBody = await response.clone().text();
+          } catch (_) {}
+        }
+        console.error('[AgenteProyectosWidget] Error HTTP en respuesta de API project-chat:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          errorBody: errBody
+        });
+      }
+
       const data = await response.json();
       let rawReply = data.reply || data.respuesta || data.text || (data.error ? `⚠️ ${data.error}` : 'No se pudo obtener respuesta del consultor.');
 
@@ -650,6 +667,9 @@ Contexto actual del proyecto: ${projectContext}`;
       }
     } catch (err) {
       console.error('Error al enviar mensaje a asistente conversacional:', err);
+      if (err instanceof Error) {
+        console.error('[AgenteProyectosWidget] Stack trace del error en cliente:', err.stack);
+      }
       const errorMsg = '⚠️ Error de comunicación con el consultor conversacional de proyectos.';
       setMessages(prev => [...prev, { sender: 'agent', text: errorMsg }]);
       speakMessage(errorMsg);
