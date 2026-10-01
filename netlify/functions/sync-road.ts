@@ -58,6 +58,8 @@ async function ensureProjectsTable(clientOrPool: Pool) {
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS pre_carriage JSONB DEFAULT '{}'::jsonb;
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS on_carriage JSONB DEFAULT '{}'::jsonb;
       ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS land_route JSONB DEFAULT '{}'::jsonb;
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS project_title VARCHAR(255);
+      ALTER TABLE forwarder_projects ADD COLUMN IF NOT EXISTS description TEXT;
       CREATE INDEX IF NOT EXISTS idx_forwarder_projects_ref ON forwarder_projects (project_ref);
     `);
     schemaEnsured = true;
@@ -196,7 +198,18 @@ export default async (req: Request, _context: Context) => {
     }
 
     // Aceptar project_ref o reference como fallback en el payload, pero mapear SIEMPRE a la columna project_ref de Neon
-    const projectRef = cleanString(body.project_ref || body.projectRef || body.reference || body.ref || body.contractRef || body.contract_ref);
+    const rawRef = cleanString(body.project_ref || body.projectRef || body.reference || body.ref || body.contractRef || body.contract_ref);
+    const isDescriptive = /\s+/.test(rawRef) || /^[0-9]+MT$/i.test(rawRef) || /\b(a|to|de|from)\b/i.test(rawRef);
+    const descriptiveTitle = cleanString(body.project_title || body.description || (isDescriptive ? rawRef : body.client_name));
+
+    let projectRef = isDescriptive
+      ? cleanString(body.dossier_ref || body.parent_ref || body.referenciaPadre)
+      : rawRef;
+
+    if (!projectRef && rawRef) {
+      projectRef = rawRef;
+    }
+
     if (!projectRef) {
       return Response.json(
         { success: false, error: "project_ref is required." },
@@ -257,6 +270,8 @@ export default async (req: Request, _context: Context) => {
         services = CASE WHEN $10::jsonb IS NOT NULL AND jsonb_array_length($10::jsonb) > 0 THEN $10::jsonb ELSE services END,
         land_freight_sale = CASE WHEN $11::numeric > 0 THEN $11::numeric ELSE land_freight_sale END,
         valor_total_mercancia_usd = CASE WHEN $12::numeric > 0 THEN $12::numeric ELSE valor_total_mercancia_usd END,
+        project_title = COALESCE(NULLIF($13::text, ''), project_title),
+        description = COALESCE(NULLIF($14::text, ''), description),
         updated_at = CURRENT_TIMESTAMP
       WHERE upper(project_ref) = upper($1::text) OR project_ref = $1::text
       RETURNING id, project_ref;
@@ -275,6 +290,8 @@ export default async (req: Request, _context: Context) => {
       servicesJson,
       land_freight_sale,
       valor_total_mercancia_usd,
+      descriptiveTitle || null,
+      descriptiveTitle || null,
     ]);
 
     if (result.rowCount === 0) {
@@ -282,6 +299,8 @@ export default async (req: Request, _context: Context) => {
         INSERT INTO forwarder_projects (
           project_ref,
           client_name,
+          project_title,
+          description,
           status,
           total_trucks,
           road_transit_days,
@@ -298,7 +317,9 @@ export default async (req: Request, _context: Context) => {
           updated_at
         ) VALUES (
           $1::text,
-          'Proyecto ' || $1::text,
+          COALESCE(NULLIF($13::text, ''), 'Proyecto ' || $1::text),
+          $13::text,
+          $14::text,
           'BORRADOR',
           $2::integer,
           $3::numeric,
@@ -329,6 +350,8 @@ export default async (req: Request, _context: Context) => {
         servicesJson,
         land_freight_sale,
         valor_total_mercancia_usd,
+        descriptiveTitle || null,
+        descriptiveTitle || null,
       ]);
     }
 

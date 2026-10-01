@@ -43,8 +43,17 @@ function serialize(row: typeof charterDossiers.$inferSelect, includePayload = fa
 
 function generateReference() {
   const year = new Date().getUTCFullYear();
-  const suffix = Math.floor(1000 + Math.random() * 9000);
-  return `RDM/${year}-${suffix}`;
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `RDM/${year}-${random}`;
+}
+
+function isDescriptiveReference(str: string): boolean {
+  if (!str) return false;
+  const s = str.trim();
+  if (/\s+/.test(s)) return true;
+  if (/^[0-9]+MT$/i.test(s)) return true;
+  if (/\b(a|to|de|from)\b/i.test(s)) return true;
+  return false;
 }
 
 export default async (req: Request) => {
@@ -106,15 +115,22 @@ export default async (req: Request) => {
       return Response.json({ success: false, error: "Dossier payload is too large" }, { status: 413 });
     }
 
+    const incomingRef = cleanText(body.project_ref || body.reference, 80);
+    const isDescriptive = isDescriptiveReference(incomingRef);
+    const effectiveReference = (!isDescriptive && incomingRef) ? incomingRef : generateReference();
+
+    const additionalNotes = isDescriptive ? ` [Título: ${incomingRef}]` : "";
+    const internalNotes = (cleanText(body.internalNotes, 3800) + additionalNotes).trim();
+
     const values = {
       accountKey: key,
-      reference: cleanText(body.reference, 80) || generateReference(),
+      reference: effectiveReference,
       pol: cleanText(body.pol),
       pod: cleanText(body.pod),
       cargoName: cleanText(body.cargoName),
       cargoVolume: Number(body.cargoVolume) || 0,
       charterer: cleanText(body.charterer),
-      internalNotes: cleanText(body.internalNotes, 4000),
+      internalNotes,
       status: normalizeStatus(body.status),
       sessionPayload,
       updatedAt: new Date(),

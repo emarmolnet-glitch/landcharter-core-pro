@@ -188,22 +188,17 @@ test('5. persistProjectToDatabase autogenerates Flete Terrestre line item before
   );
 });
 
-test('6. persistProjectToDatabase calculates valor_total_mercancia_usd from items and GICA cement catalog', () => {
-  // Verifies calculation of valorCalculadoDeItems from cargoArrayForFob
+test('6. persistProjectToDatabase does not auto-calculate valor_total_mercancia_usd from items and initializes strictly to manual input or 0', () => {
+  // Verifies that auto-calculation from tons/commodities is eliminated
   assert.match(
     forwarderWorkspaceSource,
-    /const\s+estadoDelValorFobCalculado\s*=\s*Number\(mercanciaCost\)/,
-    'Must evaluate estadoDelValorFobCalculado from mercanciaCost'
+    /estadoDelValorFobCalculado/,
+    'Must evaluate estadoDelValorFobCalculado strictly from manual input or project'
   );
   assert.match(
     forwarderWorkspaceSource,
-    /let\s+valorCalculadoDeItems\s*=\s*0;/,
-    'Must initialize valorCalculadoDeItems'
-  );
-  assert.match(
-    forwarderWorkspaceSource,
-    /valor_total_mercancia_usd:\s*Number\(estadoDelValorFobCalculado\)\s*\|\|\s*Number\(valorCalculadoDeItems\)\s*\|\|\s*Number\(projectToSave\.valor_total_mercancia_usd\)\s*\|\|\s*0/,
-    'Must assign valor_total_mercancia_usd using estadoDelValorFobCalculado, valorCalculadoDeItems, projectToSave fallback'
+    /valor_total_mercancia_usd:\s*estadoDelValorFobCalculado/,
+    'Must assign valor_total_mercancia_usd strictly using manual value without auto-multiplying items'
   );
 });
 

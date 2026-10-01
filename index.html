@@ -41797,6 +41797,12 @@ function scheduleReactiveEngine() {
             let totalCost = isZeroCalculation ? 0 : (grossRevOwner + chartererCommissionCost);
             let netProfitCharterer = isZeroCalculation ? 0 : (totalRevenue - totalCost);
 
+            const rawLandFreightCost = (!isTerrestre && State.land_freight_cost > 0) ? Number(State.land_freight_cost) : 0;
+            if (rawLandFreightCost > 0) {
+                totalCost += rawLandFreightCost;
+                netProfitCharterer -= rawLandFreightCost;
+            }
+
             if (cpStandard === 'ASBATANKVOY') {
                 totalCost += delayCost;
                 netProfitCharterer -= delayCost;
@@ -68401,6 +68407,12 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             let totalCost = isZeroCalculation ? 0 : (grossRevOwner + chartererCommissionCost);
             let netProfitCharterer = isZeroCalculation ? 0 : (totalRevenue - totalCost);
 
+            const rawLandFreightCost = (typeof isTerrestreMode !== 'function' || !isTerrestreMode()) && (State?.land_freight_cost > 0) ? Number(State.land_freight_cost) : 0;
+            if (rawLandFreightCost > 0) {
+                totalCost += rawLandFreightCost;
+                netProfitCharterer -= rawLandFreightCost;
+            }
+
             if (cpStandard === 'ASBATANKVOY') {
                 totalCost += delayCost;
                 netProfitCharterer -= delayCost;
@@ -68756,6 +68768,31 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                     const data = event.data;
                     if (!data) return;
                     const referenceManager = window.ContractReference || window.ContractRefManager;
+
+                    if (data.type === 'ROAD_METRICS_SYNC') {
+                        const roadCost = Number(data.land_freight_cost ?? data.payload?.land_freight_cost) || 0;
+                        const trucksCount = Number(data.total_trucks ?? data.payload?.total_trucks) || 1;
+                        const ref = data.project_ref || data.reference || data.payload?.project_ref || data.payload?.reference;
+                        if (ref && referenceManager?.setActiveContractRef) {
+                            referenceManager.setInjectionLock?.(true);
+                            referenceManager.setActiveContractRef(ref);
+                            setTimeout(() => referenceManager.setInjectionLock?.(false), 200);
+                        }
+                        if (roadCost > 0) {
+                            window.State = window.State || {};
+                            window.State.land_freight_cost = roadCost;
+                            window.State.total_trucks = trucksCount;
+                            if (typeof SeaCharterStore !== 'undefined' && typeof SeaCharterStore.set === 'function') {
+                                SeaCharterStore.set({
+                                    land_freight_cost: roadCost,
+                                    total_trucks: trucksCount,
+                                });
+                            }
+                            if (typeof runEngine === 'function') {
+                                try { runEngine(); } catch (_) {}
+                            }
+                        }
+                    }
 
                     if (data.type === 'active_core_pro_session' || data.type === 'INJECT_VESSEL' || data.type === 'SEACHARTER_DATABRIDGE_LOAD_DATA') {
                         const ref = data.reference || data.payload?.reference;
@@ -70046,16 +70083,21 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 canonicalTotalCosts,
                 voyageCostWithoutEts > 0 ? voyageCostWithoutEts + etsCost : 0
             );
+            const rawLandFreightCost = Math.max(0, safeCalculationNumber(
+                sourceState?.land_freight_cost ?? State?.land_freight_cost ?? 0
+            ));
+            const combinedTotalCosts = totalCosts + rawLandFreightCost;
             const includesPositioning = Boolean(breakdown.includesPositioning || safeCalculationNumber(sourceState?.distBallast) > 0);
             const includesEts = etsCost > 0;
             const includedCosts = [];
+            if (rawLandFreightCost > 0) includedCosts.push(`flete terrestre flota (€${Math.round(rawLandFreightCost).toLocaleString('es-ES')})`);
             if (includesPositioning) includedCosts.push('posicionamiento');
             if (includesEts) includedCosts.push('ETS');
             if (safeCalculationNumber(breakdown.capex ?? sourceState?.costCapex) > 0) includedCosts.push('CAPEX');
             if (safeCalculationNumber(breakdown.contingency) > 0) includedCosts.push('contingencia clima/congestión');
             if (safeCalculationNumber(breakdown.smartIncrement) > 0) includedCosts.push('ajustes operativos');
             return {
-                totalCosts,
+                totalCosts: combinedTotalCosts,
                 breakdown,
                 breakEvenFreight: Math.max(0, safeCalculationNumber(canonical?.breakEvenFreight)),
                 cargoQty: Math.max(0, safeCalculationNumber(canonical?.cargoQty ?? sourceState?.cargo)),
