@@ -299,8 +299,35 @@ export function buildRoadSyncPayload(options = {}) {
     }
 
     // 6. Services / Line items
-    const rawServices = options.services ?? options.line_items;
+    let rawServices = options.services ?? options.line_items;
     if (Array.isArray(rawServices) && rawServices.length > 0) {
+        const state = (typeof window !== 'undefined' ? (window.State || {}) : {});
+        const effectiveTotalTrucks = total_trucks > 0 ? total_trucks : (Number(state.trucks_needed || state.flota) || 1);
+        if (effectiveTotalTrucks > 1) {
+            rawServices = rawServices.map((srv) => {
+                if (!srv || typeof srv !== 'object') return srv;
+                const isTerrestre = srv.id === 'srv-auto-sync' || String(srv.id || '').startsWith('srv-auto') || /terrestre/i.test(srv.name || srv.description || srv.service_name || '');
+                if (isTerrestre) {
+                    const srvCost = Number(srv.cost ?? srv.cost_eur ?? 0);
+                    const srvSale = Number(srv.sale ?? srv.sale_price_eur ?? 0);
+                    const isAlreadyTotal = (land_freight_cost > 0 && srvCost >= (land_freight_cost - 5)) || (srvCost > 5000);
+                    if (!isAlreadyTotal && srvCost > 0) {
+                        const totalCost = Number((srvCost * effectiveTotalTrucks).toFixed(2));
+                        const totalSale = srvSale > 0 ? Number((srvSale * effectiveTotalTrucks).toFixed(2)) : Number((totalCost * 1.18).toFixed(2));
+                        return {
+                            ...srv,
+                            cost: totalCost,
+                            sale: totalSale,
+                            cost_eur: totalCost,
+                            sale_price_eur: totalSale,
+                            land_freight_cost: totalCost,
+                            land_freight_sale: totalSale,
+                        };
+                    }
+                }
+                return srv;
+            });
+        }
         payload.services = rawServices;
         payload.line_items = rawServices;
     }

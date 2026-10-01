@@ -2656,14 +2656,25 @@ function ForwarderWorkspaceInner() {
         withSrvs.items = finalCargoItems;
         withSrvs.cargo_items = finalCargoItems;
 
-        // 3. EN LA MISMA FUNCIÓN, construir el Payload con el coste que YA viene totalizado:
-        // Asegurarse de que el bloque services pase el total directamente sin volver a multiplicarse por camiones
-        const finalLandCostTotal = Number(activeProject?.land_freight_cost) > 0
-          ? Number(activeProject.land_freight_cost)
-          : Number(costEur || effectiveLandCost || 0);
-        const finalLandSaleTotal = Number(activeProject?.land_freight_sale) > 0
-          ? Number(activeProject.land_freight_sale)
-          : Number(saleEur || withSrvs?.land_freight_sale || 0);
+        // 3. EN LA MISMA FUNCIÓN, construir el Payload con el coste TOTAL de la flota en el array de servicios:
+        const state = (typeof window !== 'undefined' ? (window.State || {}) : {});
+        const totalTrucks = Number(requiredTrucks) > 0
+          ? Number(requiredTrucks)
+          : Number(state.trucks_needed || state.flota || activeProject?.total_trucks || withSrvs?.total_trucks || 1);
+
+        const unitCost = Number(costEur || effectiveLandCost || estimatedCost || 0);
+        const unitSale = Number(saleEur || withSrvs?.land_freight_sale || salePrice || (unitCost > 0 ? unitCost * 1.18 : 0));
+
+        const rawSavedCost = Number(activeProject?.land_freight_cost);
+        const rawSavedSale = Number(activeProject?.land_freight_sale);
+        const isCostAlreadyTotal = totalTrucks > 1 && rawSavedCost > 0 && rawSavedCost > (unitCost * 1.5);
+        const isSaleAlreadyTotal = totalTrucks > 1 && rawSavedSale > 0 && rawSavedSale > (unitSale * 1.5);
+
+        const totalCost = isCostAlreadyTotal ? rawSavedCost : Number((unitCost * totalTrucks).toFixed(2));
+        const totalSale = isSaleAlreadyTotal ? rawSavedSale : Number((unitSale * totalTrucks).toFixed(2));
+
+        const finalLandCostTotal = totalCost;
+        const finalLandSaleTotal = totalSale;
         
         const syncOriginCity = sOrigin || effectiveLandOrigin || "Origen no definido";
         const syncDestCity = sDestination || effectiveLandDest || "Destino no definido";
@@ -2677,25 +2688,25 @@ function ForwarderWorkspaceInner() {
           land_origin: syncOriginCity,
           land_destination: syncDestCity,
           land_distance: sDist || effectiveLandDist,
-          land_freight_cost: finalLandCostTotal,
-          land_freight_sale: finalLandSaleTotal,
+          land_freight_cost: totalCost,
+          land_freight_sale: totalSale,
           valor_total_mercancia_usd: 0,
-          freight_cost: finalLandCostTotal,
+          freight_cost: totalCost,
           services: [{
              id: 'srv-auto-sync',
              name: syncServiceName,
              description: syncServiceName,
-             cost: finalLandCostTotal,
-             sale: finalLandSaleTotal,
-             cost_eur: finalLandCostTotal,
-             sale_price_eur: finalLandSaleTotal
+             cost: totalCost,
+             sale: totalSale,
+             cost_eur: totalCost,
+             sale_price_eur: totalSale
           }],
           line_items: [{
              id: 'srv-auto-sync',
              name: syncServiceName,
              description: syncServiceName,
-             cost_eur: finalLandCostTotal,
-             sale_price_eur: finalLandSaleTotal
+             cost_eur: totalCost,
+             sale_price_eur: totalSale
           }],
           items: finalCargoItems,
           cargo_items: finalCargoItems,
@@ -3257,6 +3268,26 @@ function ForwarderWorkspaceInner() {
           land_freight_sale: ventaCalculada,
         };
         servicesList.push(defaultService);
+      } else if (servicesList.length > 0 && autoTotalTrucks > 1) {
+        servicesList.forEach((srv) => {
+          if (!srv || typeof srv !== 'object') return;
+          const isTerrestre = srv.id === 'srv-auto-sync' || String(srv.id || '').startsWith('srv-auto') || /terrestre/i.test(srv.name || srv.description || srv.service_name || '');
+          if (isTerrestre) {
+            const srvCost = Number(srv.cost ?? srv.cost_eur ?? 0);
+            const srvSale = Number(srv.sale ?? srv.sale_price_eur ?? 0);
+            const isAlreadyTotal = (costeCalculado > 0 && srvCost >= (costeCalculado - 5)) || (costeOperativoPorCamion > 0 && srvCost > (costeOperativoPorCamion * 1.5));
+            if (!isAlreadyTotal && srvCost > 0) {
+              const totalCost = Number((srvCost * autoTotalTrucks).toFixed(2));
+              const totalSale = srvSale > 0 ? Number((srvSale * autoTotalTrucks).toFixed(2)) : Number((totalCost * 1.18).toFixed(2));
+              srv.cost = totalCost;
+              srv.sale = totalSale;
+              srv.cost_eur = totalCost;
+              srv.sale_price_eur = totalSale;
+              srv.land_freight_cost = totalCost;
+              srv.land_freight_sale = totalSale;
+            }
+          }
+        });
       }
 
       // El valor de la mercancía (FOB/producto) debe inicializarse estrictamente en 0 o estar vacío por defecto.
