@@ -9057,6 +9057,20 @@
             stroke-opacity: 1 !important;
             fill: none !important;
         }
+
+        /* OVERRIDE CSS INFALIBLE: MODO FERROCARRIL (TREN) */
+        .train-mode path.leaflet-interactive,
+        .train-mode path.leaflet-route-highlight,
+        .train-mode .leaflet-route-highlight,
+        .train-mode path,
+        .leaflet-rail-route-highlight,
+        path.leaflet-rail-route-highlight {
+            stroke: #333333 !important;
+            stroke-dasharray: 10 10 !important;
+            stroke-width: 5px !important;
+            stroke-opacity: 1 !important;
+            fill: none !important;
+        }
     </style>
     <link href="./calculator_view.css" rel="stylesheet">
     <link href="./market-contacts.css" rel="stylesheet">
@@ -10063,6 +10077,8 @@
                                         <option value="Camión / Tráiler">Camión / Tráiler · 32.0 L/100km · 24t</option>
                                         <option value="Camión Plataforma con Grúa Autocarga">Camión Plataforma con Grúa Autocarga · 34.0 L/100km · 21t</option>
                                         <option value="Camión Plataforma Abierta (Sin Grúa)">Camión Plataforma Abierta (Sin Grúa) · 31.5 L/100km · 24t</option>
+                                        <option value="Tren Tolva (Ferrocarril)">Tren Tolva (Ferrocarril) · Granel Ferroviario · 50t</option>
+                                        <option value="Tren Plataforma">Tren Plataforma · Plataforma Ferroviaria · 50t</option>
                                         <option value="Bañera Basculante (Granel)">Bañera Basculante (Granel) · 32.0 L/100km · 26t</option>
                                         <option value="Camión Silo Presurizado">Camión Silo Presurizado · 32.0 L/100km · 25t</option>
                                         <option value="Tráiler Tauliner (13.6m)">Tráiler Tauliner (13.6m) · 32.0 L/100km · 24t</option>
@@ -19677,6 +19693,16 @@ async function runOnDemandMapRouteWorkflow(button) {
 
         const computedCurvePoints = calculateCurvedRoutePoints([polCoords.lat, polCoords.lon], [podCoords.lat, podCoords.lon]);
 
+        window._currentRouteDrawState = {
+            roadRoutePoints: (leafletRoutePoints && leafletRoutePoints.length > 0) ? leafletRoutePoints : computedCurvePoints,
+            osrmData,
+            polCoords,
+            podCoords,
+            pol,
+            pod,
+            distanceKm
+        };
+
         // Guarda la estructura completa en window.LandData
         window.LandData = {
             origin: {
@@ -19744,50 +19770,86 @@ async function runOnDemandMapRouteWorkflow(button) {
             // Renderer SVG explícito para eliminar error Canvas.js:258 Cannot read properties of undefined (reading 'save')
             const routeSvgRenderer = (typeof L.svg === 'function') ? L.svg({ padding: 0.5 }).addTo(mapInstance) : undefined;
 
+            const vehicle_type = window.State?.vehicleType || window.State?.truckType || (typeof document !== 'undefined' ? (document.getElementById('vehicle_type')?.value || document.getElementById('nombre-buque-calculadora')?.value) : '') || '';
+            const isRail = vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva');
+
+            console.log('MAPA - ¿Es tren?:', isRail, 'Tipo:', vehicle_type);
+
+            // Alternar clase train-mode para override CSS infalible
+            if (typeof document !== 'undefined') {
+                const mapShell = document.getElementById('map-command-shell');
+                const mapHost = document.getElementById('map-host');
+                const mapCont = document.getElementById('map-container');
+                const mapLeafletCont = mapInstance?._container;
+                [mapShell, mapHost, mapCont, mapLeafletCont].forEach(el => {
+                    if (el) {
+                        if (isRail) el.classList.add('train-mode');
+                        else el.classList.remove('train-mode');
+                    }
+                });
+            }
+
             if (roadRoutePoints && roadRoutePoints.length > 0) {
                 const layerGroupItems = [];
 
-                // Si alternatives=true devuelve rutas secundarias, píntalas debajo en azul claro/grisáceo (color: '#93c5fd', weight: 4, opacity: 0.7)
-                const alternativeRoutes = (osrmData && osrmData.routes && osrmData.routes.slice(1)) || [];
-                alternativeRoutes.forEach(altRoute => {
-                    if (altRoute.geometry && altRoute.geometry.coordinates && altRoute.geometry.coordinates.length > 0) {
-                        const altCoords = altRoute.geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                        const altPolyline = L.polyline(altCoords, {
-                            color: '#93c5fd',
-                            weight: 4,
-                            opacity: 0.7,
-                            lineCap: 'round',
-                            lineJoin: 'round',
-                            ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
-                        }).addTo(mapInstance);
-                        layerGroupItems.push(altPolyline);
-                    }
-                });
+                if (!isRail) {
+                    // Si alternatives=true devuelve rutas secundarias, píntalas debajo en azul claro/grisáceo (color: '#93c5fd', weight: 4, opacity: 0.7)
+                    const alternativeRoutes = (osrmData && osrmData.routes && osrmData.routes.slice(1)) || [];
+                    alternativeRoutes.forEach(altRoute => {
+                        if (altRoute.geometry && altRoute.geometry.coordinates && altRoute.geometry.coordinates.length > 0) {
+                            const altCoords = altRoute.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                            const altPolyline = L.polyline(altCoords, {
+                                color: '#93c5fd',
+                                weight: 4,
+                                opacity: 0.7,
+                                lineCap: 'round',
+                                lineJoin: 'round',
+                                ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
+                            }).addTo(mapInstance);
+                            layerGroupItems.push(altPolyline);
+                        }
+                    });
 
-                // Borde exterior sutil para que destaque claramente sobre las carreteras del mapa base
-                const borderPolyline = L.polyline(roadRoutePoints, {
-                    color: '#1d4ed8',
-                    weight: 7,
-                    opacity: 0.85,
-                    dashArray: null,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                    ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
-                }).addTo(mapInstance);
-                layerGroupItems.push(borderPolyline);
+                    // Borde exterior sutil para que destaque claramente sobre las carreteras del mapa base
+                    const borderPolyline = L.polyline(roadRoutePoints, {
+                        color: '#1d4ed8',
+                        weight: 7,
+                        opacity: 0.85,
+                        dashArray: null,
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                        ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
+                    }).addTo(mapInstance);
+                    layerGroupItems.push(borderPolyline);
 
-                // Pinta la ruta principal encima en azul intenso (color: '#2563eb', weight: 5, opacity: 0.95)
-                const mainPolyline = L.polyline(roadRoutePoints, {
-                    color: '#2563eb',
-                    weight: 5,
-                    opacity: 0.95,
-                    dashArray: null,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                    className: 'leaflet-route-highlight',
-                    ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
-                }).addTo(mapInstance);
-                layerGroupItems.push(mainPolyline);
+                    // Pinta la ruta principal encima en azul intenso (color: '#2563eb', weight: 5, opacity: 0.95)
+                    const mainPolyline = L.polyline(roadRoutePoints, {
+                        color: '#2563eb',
+                        weight: 5,
+                        opacity: 0.95,
+                        dashArray: null,
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                        className: 'leaflet-route-highlight',
+                        ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
+                    }).addTo(mapInstance);
+                    layerGroupItems.push(mainPolyline);
+                } else {
+                    // MODO FERROCARRIL (TREN):
+                    // a) Cambia el color de la línea a gris oscuro o negro (#333333).
+                    // b) Aplica un estilo de vía de tren (línea discontinua dashArray: '10, 10').
+                    const railPolyline = L.polyline(roadRoutePoints, {
+                        color: '#333333',
+                        weight: 4,
+                        opacity: 0.95,
+                        dashArray: '10, 10',
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                        className: 'leaflet-rail-route-highlight',
+                        ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
+                    }).addTo(mapInstance);
+                    layerGroupItems.push(railPolyline);
+                }
 
                 const routeLayer = L.featureGroup(layerGroupItems);
                 routeLayer.isProtectedRoadRoute = true;
@@ -20066,6 +20128,100 @@ async function runOnDemandMapRouteWorkflow(button) {
         }
     }
 }
+
+function redrawCurrentRoute(overrideVehicleType) {
+    const drawState = window._currentRouteDrawState;
+    if (!drawState || !drawState.roadRoutePoints || drawState.roadRoutePoints.length === 0) return;
+    const mapInstance = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
+    if (!mapInstance || typeof L === 'undefined') return;
+
+    const vehicle_type = overrideVehicleType || window.State?.vehicleType || window.State?.truckType || (typeof document !== 'undefined' ? (document.getElementById('vehicle_type')?.value || document.getElementById('nombre-buque-calculadora')?.value) : '') || '';
+    const isRail = vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva');
+
+    console.log('MAPA - ¿Es tren?:', isRail, 'Tipo:', vehicle_type);
+
+    if (typeof document !== 'undefined') {
+        const mapShell = document.getElementById('map-command-shell');
+        const mapHost = document.getElementById('map-host');
+        const mapCont = document.getElementById('map-container');
+        const mapLeafletCont = mapInstance?._container;
+        [mapShell, mapHost, mapCont, mapLeafletCont].forEach(el => {
+            if (el) {
+                if (isRail) el.classList.add('train-mode');
+                else el.classList.remove('train-mode');
+            }
+        });
+    }
+
+    if (window._currentOsrmRouteLayer) {
+        try { mapInstance.removeLayer(window._currentOsrmRouteLayer); } catch (_) {}
+        window._currentOsrmRouteLayer = null;
+    }
+
+    mapInstance.eachLayer(layer => {
+        if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
+            try { mapInstance.removeLayer(layer); } catch (_) {}
+        }
+    });
+
+    const routeSvgRenderer = (typeof L.svg === 'function') ? L.svg({ padding: 0.5 }).addTo(mapInstance) : undefined;
+    const layerGroupItems = [];
+
+    if (!isRail) {
+        const borderPolyline = L.polyline(drawState.roadRoutePoints, {
+            color: '#1d4ed8',
+            weight: 7,
+            opacity: 0.85,
+            dashArray: null,
+            lineCap: 'round',
+            lineJoin: 'round',
+            ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
+        }).addTo(mapInstance);
+        layerGroupItems.push(borderPolyline);
+
+        const mainPolyline = L.polyline(drawState.roadRoutePoints, {
+            color: '#2563eb',
+            weight: 5,
+            opacity: 0.95,
+            dashArray: null,
+            lineCap: 'round',
+            lineJoin: 'round',
+            className: 'leaflet-route-highlight',
+            ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
+        }).addTo(mapInstance);
+        layerGroupItems.push(mainPolyline);
+    } else {
+        const railPolyline = L.polyline(drawState.roadRoutePoints, {
+            color: '#333333',
+            weight: 4,
+            opacity: 0.95,
+            dashArray: '10, 10',
+            lineCap: 'round',
+            lineJoin: 'round',
+            className: 'leaflet-rail-route-highlight',
+            ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
+        }).addTo(mapInstance);
+        layerGroupItems.push(railPolyline);
+    }
+
+    const routeLayer = L.featureGroup(layerGroupItems);
+    routeLayer.isProtectedRoadRoute = true;
+    routeLayer.isRail = isRail;
+    window._currentOsrmRouteLayer = routeLayer;
+
+    window.dispatchEvent(new CustomEvent('osrm:route-updated', {
+        detail: {
+            routePoints: drawState.roadRoutePoints,
+            leafletRoutePoints: drawState.roadRoutePoints,
+            osrmRoutePoints: drawState.roadRoutePoints,
+            isRail: isRail,
+            vehicleType: vehicle_type,
+            origin: drawState.polCoords,
+            destination: drawState.podCoords
+        }
+    }));
+}
+window.redrawCurrentRoute = redrawCurrentRoute;
 window.runOnDemandMapRouteWorkflow = runOnDemandMapRouteWorkflow;
 
 // Exposición pública y directa de la función nativa de cálculo para Cerebro IA / React
@@ -20859,8 +21015,32 @@ function createRouteAnchorElement(type) {
                 return { painted: false, leafletPoints: [] };
             }
 
+            const vehicle_type = window.State?.vehicleType || window.State?.truckType || (typeof document !== 'undefined' ? (document.getElementById('vehicle_type')?.value || document.getElementById('nombre-buque-calculadora')?.value) : '') || '';
+            const isRail = vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva');
+
+            console.log('MAPA - ¿Es tren?:', isRail, 'Tipo:', vehicle_type);
+
+            if (typeof document !== 'undefined') {
+                const mapShell = document.getElementById('map-command-shell');
+                const mapHost = document.getElementById('map-host');
+                const mapCont = document.getElementById('map-container');
+                const rCont = routeMap?._container || (typeof routeMap?.getContainer === 'function' ? routeMap.getContainer() : null);
+                [mapShell, mapHost, mapCont, rCont].forEach(el => {
+                    if (el) {
+                        if (isRail) el.classList.add('train-mode');
+                        else el.classList.remove('train-mode');
+                    }
+                });
+            }
+
             if (isMapboxRouteMap(routeMap)) {
-                const lngLatCoords = normalizeRouteCoordinatesForMapbox(leafletPoints);
+                let lngLatCoords = normalizeRouteCoordinatesForMapbox(leafletPoints);
+                if (lngLatCoords.length < 2 && options.origin && options.destination) {
+                    lngLatCoords = [
+                        [Number(options.origin.lng || options.origin.lon), Number(options.origin.lat)],
+                        [Number(options.destination.lng || options.destination.lon), Number(options.destination.lat)]
+                    ];
+                }
                 if (lngLatCoords.length < 2) {
                     console.warn(`[Route Map] ${label} no se pudo pintar en Mapbox: coordenadas [lng, lat] inválidas.`, lngLatCoords);
                     return { painted: false, leafletPoints, lngLatCoords };
@@ -20872,18 +21052,18 @@ function createRouteAnchorElement(type) {
                     data: {
                         type: 'Feature',
                         geometry: { type: 'LineString', coordinates: lngLatCoords },
-                        properties: { planned: true }
+                        properties: { planned: true, isRail }
                     }
                 });
-                const dashArray = Array.isArray(options.dashArray) ? options.dashArray : [5, 10];
+                const dashArray = isRail ? [2, 2] : (Array.isArray(options.dashArray) ? options.dashArray : [5, 10]);
                 routeMap.addLayer({
                     id: `${id}-line`,
                     type: 'line',
                     source: `${id}-source`,
                     layout: { 'line-join': 'round', 'line-cap': 'round' },
                     paint: {
-                        'line-color': options.color || ROUTE_LADEN_LINE_COLOR,
-                        'line-width': options.weight || 3,
+                        'line-color': isRail ? '#333333' : (options.color || ROUTE_LADEN_LINE_COLOR),
+                        'line-width': options.weight || (isRail ? 4 : 3),
                         'line-opacity': Number.isFinite(options.opacity) ? options.opacity : 1,
                         'line-dasharray': dashArray
                     }
@@ -20928,10 +21108,10 @@ function createRouteAnchorElement(type) {
 
             const pane = ensureLeafletRouteLinePane(routeMap);
             const polyline = L.polyline(leafletPoints, {
-                color: options.color || ROUTE_LADEN_LINE_COLOR,
-                weight: options.weight || 3,
+                color: isRail ? '#333333' : (options.color || ROUTE_LADEN_LINE_COLOR),
+                weight: options.weight || (isRail ? 4 : 3),
                 opacity: Number.isFinite(options.opacity) ? options.opacity : 1,
-                dashArray: options.leafletDashArray || '5, 10',
+                dashArray: isRail ? '10, 10' : (options.leafletDashArray || '5, 10'),
                 pane: pane || undefined,
                 interactive: false
             });
@@ -21093,6 +21273,24 @@ function createRouteAnchorElement(type) {
             function renderRouteOnMap(routeMap) {
                 try {
                     if (!checkReady(routeMap) || state.route.length < 2) return false;
+                    const vehicle_type = window.State?.vehicleType || window.State?.truckType || (typeof document !== 'undefined' ? (document.getElementById('vehicle_type')?.value || document.getElementById('nombre-buque-calculadora')?.value) : '') || '';
+                    const isRail = vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva');
+
+                    console.log('MAPA - ¿Es tren?:', isRail, 'Tipo:', vehicle_type);
+
+                    if (typeof document !== 'undefined') {
+                        const mapShell = document.getElementById('map-command-shell');
+                        const mapHost = document.getElementById('map-host');
+                        const mapCont = document.getElementById('map-container');
+                        const rCont = routeMap?._container || (typeof routeMap?.getContainer === 'function' ? routeMap.getContainer() : null);
+                        [mapShell, mapHost, mapCont, rCont].forEach(el => {
+                            if (el) {
+                                if (isRail) el.classList.add('train-mode');
+                                else el.classList.remove('train-mode');
+                            }
+                        });
+                    }
+
                     if (isMapboxRouteMap(routeMap)) {
                         const renderMapboxRoute = () => {
                             try {
@@ -21101,7 +21299,7 @@ function createRouteAnchorElement(type) {
                                     type: 'geojson',
                                     data: {
                                         type: 'Feature',
-                                        properties: { isDynamic: true },
+                                        properties: { isDynamic: true, isRail },
                                         geometry: { type: 'LineString', coordinates: state.route.map(([lat, lon]) => [lon, lat]) }
                                     }
                                 });
@@ -21110,7 +21308,12 @@ function createRouteAnchorElement(type) {
                                     type: 'line',
                                     source: MAPBOX_ROUTE_SOURCE_ID,
                                     layout: { 'line-join': 'round', 'line-cap': 'round' },
-                                    paint: { 'line-color': ROUTE_DYNAMIC_COLOR, 'line-width': 4, 'line-opacity': 0.95, 'line-dasharray': [10, 10] }
+                                    paint: {
+                                        'line-color': isRail ? '#333333' : ROUTE_DYNAMIC_COLOR,
+                                        'line-width': 4,
+                                        'line-opacity': 0.95,
+                                        'line-dasharray': isRail ? [2, 2] : [10, 10]
+                                    }
                                 });
                                 if (typeof mapboxgl !== 'undefined') {
                                     const bounds = new mapboxgl.LngLatBounds();
@@ -21129,10 +21332,10 @@ function createRouteAnchorElement(type) {
                     try {
                         cleanDynamicLayers(routeMap, dynamicKinds.route);
                         L.polyline(state.route, {
-                            color: ROUTE_DYNAMIC_COLOR,
+                            color: isRail ? '#333333' : ROUTE_DYNAMIC_COLOR,
                             weight: 4,
                             opacity: 0.95,
-                            dashArray: '10, 10',
+                            dashArray: isRail ? '10, 10' : '10, 10',
                             isDynamic: true,
                             dynamicKind: dynamicKinds.route
                         }).addTo(routeMap);
@@ -38632,6 +38835,13 @@ if (document.readyState === 'loading') {
                 if (!options.deferEngine && typeof runEngine === 'function') {
                     runEngine();
                 }
+
+                if (typeof window.redrawCurrentRoute === 'function') {
+                    window.redrawCurrentRoute(matched.name);
+                }
+                window.dispatchEvent(new CustomEvent('vehicle-type-changed', { detail: { vehicleType: matched.name } }));
+                window.dispatchEvent(new CustomEvent('vehicle:changed', { detail: { vehicleType: matched.name } }));
+
                 return matched;
             }
             return null;

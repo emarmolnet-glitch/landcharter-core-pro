@@ -1002,7 +1002,12 @@ async function executeActionableAiUpdateFields(actionObj) {
             }
         });
 
-        // 🚀 2b. REGLA DE FLOTA PARA MERCANCÍA ENVASADA (BIG BAGS / SACOS / SLINGS / PALETIZADO) EN TEXTO LIBRE
+        // 🚀 2b. ACTUALIZAR VEHICLE_TYPE EN EL ESTADO GLOBAL Y PROTEGER DE SOBRESCRITURAS
+        const payloadExplicitVehicle = p.vehicle_type || p.truck_type || p.vehicleType || p.truckType || p.vessel_class || p.vesselClass || '';
+        const currentSelectedVehicle = window.State?.vehicleType || window.State?.truckType || '';
+        const isCurrentOrPayloadRail = (payloadExplicitVehicle && (payloadExplicitVehicle.toLowerCase().includes('tren') || payloadExplicitVehicle.toLowerCase().includes('tolva'))) ||
+                                      (currentSelectedVehicle && (currentSelectedVehicle.toLowerCase().includes('tren') || currentSelectedVehicle.toLowerCase().includes('tolva')));
+
         const rawCargoPrompt = [
             p.cargoName,
             p.cargo_name,
@@ -1031,11 +1036,22 @@ async function executeActionableAiUpdateFields(actionObj) {
         const isPackagedGoods = PACKAGED_CARGO_REGEX.test(rawCargoPrompt) && !BULK_CARGO_REGEX.test(rawCargoPrompt);
         let assignedVehicle = null;
 
-        if (isPackagedGoods) {
+        if (payloadExplicitVehicle) {
+            assignedVehicle = payloadExplicitVehicle;
+            console.log("🚂 [Cerebro.ia/update_fields] Vehículo explícito recibido en payload:", assignedVehicle);
+        } else if (isPackagedGoods && !isCurrentOrPayloadRail) {
+            // Solo establecer por defecto Camión Plataforma si no hay un vehículo ya definido o no es tren
             assignedVehicle = "Camión Plataforma con Grúa Autocarga";
             console.log("🚛 [Cerebro.ia/FleetRule] Mercancía envasada detectada en NLP. Forzando vehículo a:", assignedVehicle);
+        } else if (isCurrentOrPayloadRail && currentSelectedVehicle) {
+            assignedVehicle = currentSelectedVehicle;
+            console.log("🚂 [Cerebro.ia/update_fields] Conservando modo ferroviario existente:", assignedVehicle);
+        }
 
-            // Anulación absoluta del fallback genérico ("Tráiler Tauliner (13.6m)" o "Camión / Tráiler")
+        if (assignedVehicle) {
+            const isAssignedRail = assignedVehicle.toLowerCase().includes('tren') || assignedVehicle.toLowerCase().includes('tolva');
+            const targetPayloadCap = isAssignedRail ? 50 : (assignedVehicle.includes('Grúa') ? 21 : 24);
+
             if (typeof window.handleVehicleTypeSelection === "function") {
                 window.handleVehicleTypeSelection(assignedVehicle);
             }
@@ -1050,9 +1066,9 @@ async function executeActionableAiUpdateFields(actionObj) {
             window.State.vehicleType = assignedVehicle;
             window.State.truckType = assignedVehicle;
             window.State.vessel = assignedVehicle;
-            window.State.truckPayloadCapacity = 21;
-            window.State.cargaUtil = 21;
-            window.State.dwt = 21;
+            window.State.truckPayloadCapacity = targetPayloadCap;
+            window.State.cargaUtil = targetPayloadCap;
+            window.State.dwt = targetPayloadCap;
 
             const inputBuque = document.getElementById("nombre-buque-calculadora");
             if (inputBuque && inputBuque.value !== assignedVehicle) {
@@ -1066,13 +1082,13 @@ async function executeActionableAiUpdateFields(actionObj) {
             if (execEl) execEl.textContent = assignedVehicle;
             const truckCapEl = document.getElementById("truckPayloadCapacity");
             if (truckCapEl) {
-                truckCapEl.value = 21;
+                truckCapEl.value = targetPayloadCap;
                 truckCapEl.dispatchEvent(new Event("input", { bubbles: true }));
                 truckCapEl.dispatchEvent(new Event("change", { bubbles: true }));
             }
             const dwtEl = document.getElementById("vessel-dwt");
             if (dwtEl) {
-                dwtEl.value = 21;
+                dwtEl.value = targetPayloadCap;
                 dwtEl.dispatchEvent(new Event("input", { bubbles: true }));
                 dwtEl.dispatchEvent(new Event("change", { bubbles: true }));
             }
@@ -1083,10 +1099,16 @@ async function executeActionableAiUpdateFields(actionObj) {
             }
 
             window.dispatchEvent(new CustomEvent("sea-assistant:field-updated", {
-                detail: { field: "vehicleType", value: assignedVehicle, vehicleType: assignedVehicle },
+                detail: { field: "vehicleType", value: assignedVehicle, vehicleType: assignedVehicle, vehicle_type: assignedVehicle, truck_type: assignedVehicle },
             }));
             window.dispatchEvent(new CustomEvent("vehicle-type:selected", {
-                detail: { vehicleType: assignedVehicle, selectedType: assignedVehicle },
+                detail: { vehicleType: assignedVehicle, selectedType: assignedVehicle, vehicle_type: assignedVehicle, truck_type: assignedVehicle },
+            }));
+            window.dispatchEvent(new CustomEvent("vehicle-type-changed", {
+                detail: { vehicleType: assignedVehicle },
+            }));
+            window.dispatchEvent(new CustomEvent("vehicle:changed", {
+                detail: { vehicleType: assignedVehicle },
             }));
         }
 
@@ -1096,19 +1118,28 @@ async function executeActionableAiUpdateFields(actionObj) {
             ...(p.pod ? { pod: p.pod } : {}),
         };
         if (assignedVehicle) {
+            const isAssignedRail = assignedVehicle.toLowerCase().includes('tren') || assignedVehicle.toLowerCase().includes('tolva');
+            const targetCap = isAssignedRail ? 50 : (assignedVehicle.includes('Grúa') ? 21 : 24);
             Object.assign(routeState, {
                 vehicleType: assignedVehicle,
+                vehicle_type: assignedVehicle,
                 truckType: assignedVehicle,
+                truck_type: assignedVehicle,
                 vessel: assignedVehicle,
                 vessel_class: assignedVehicle,
-                dwt: 21,
-                cargaUtil: 21,
-                truckPayloadCapacity: 21,
-                cargoProduct: 'Big Bags (Minerales/Cemento)',
-                cargoType: 'CEM I 42,5N/R BIGBAG',
-                product: 'CEM I 42,5N/R BIGBAG',
-                category: 'Carga Unitizada / Envasada',
-                cargoCategory: 'Carga Unitizada / Envasada',
+                dwt: targetCap,
+                cargaUtil: targetCap,
+                truckPayloadCapacity: targetCap,
+                ...(isAssignedRail ? {
+                    cargoProduct: p.cargo || p.product || 'Granel Ferroviario',
+                    cargoCategory: 'Graneles / Ferrocarril',
+                } : {
+                    cargoProduct: 'Big Bags (Minerales/Cemento)',
+                    cargoType: 'CEM I 42,5N/R BIGBAG',
+                    product: 'CEM I 42,5N/R BIGBAG',
+                    category: 'Carga Unitizada / Envasada',
+                    cargoCategory: 'Carga Unitizada / Envasada',
+                })
             });
         }
         const tonnage = Number(p.tonnage);

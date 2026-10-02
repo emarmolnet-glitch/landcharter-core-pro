@@ -593,6 +593,14 @@ export const LAND_VEHICLE_CATALOG = [
 export function getVehiclePayloadKg(vehicleTypeName) {
   if (!vehicleTypeName) return 24000;
   const str = String(vehicleTypeName).toLowerCase().trim();
+  if (
+    str.includes('tren tolva') ||
+    (str.includes('tren') && str.includes('tolva')) ||
+    str.includes('tren plataforma') ||
+    str.includes('ferrocarril')
+  ) {
+    return 50000;
+  }
   const isSinGrua = str.includes('sin grúa') || str.includes('sin grua') || str.includes('plataforma abierta');
   if (
     !isSinGrua &&
@@ -626,6 +634,41 @@ export function getVehiclePayloadKg(vehicleTypeName) {
 
 export function getCompatibleMethodsForVehicle(vType) {
   const name = String(vType || '').toLowerCase().trim();
+  if (name.includes('tren tolva') || (name.includes('tren') && name.includes('tolva'))) {
+    return {
+      isPlatform: false,
+      hasCrane: false,
+      defaultLoading: 'Carga por Silo / Tubo (Granel)',
+      defaultDischarge: 'Basculante / Tolva (Granel)',
+      allowed: [
+        'Carga por Silo / Tubo (Granel)',
+        'Carga Superior (Grúa Portuaria / Puente Grúa)',
+        'Cinta Transportadora',
+        'Basculante / Tolva (Granel)',
+      ],
+      incompatible: [
+        'Carga Trasera por Muelle / Rampa',
+        'Carga Lateral (Lona / Tauliner)',
+      ],
+    };
+  }
+  if (name.includes('tren plataforma')) {
+    return {
+      isPlatform: true,
+      hasCrane: false,
+      defaultLoading: 'Carga Superior (Grúa Portuaria / Puente Grúa)',
+      defaultDischarge: 'Carga Superior (Grúa Portuaria / Puente Grúa)',
+      allowed: [
+        'Carga Superior (Grúa Portuaria / Puente Grúa)',
+        'Carga Lateral con Carretilla Elevadora',
+      ],
+      incompatible: [
+        'Autocarga con Grúa del Camión',
+        'Carga Trasera por Muelle / Rampa',
+        'Carga Lateral (Lona / Tauliner)',
+      ],
+    };
+  }
   const isSinGrua = name.includes('sin grúa') || name.includes('sin grua') || name.includes('plataforma abierta');
   if (
     !isSinGrua &&
@@ -2043,6 +2086,13 @@ function ForwarderWorkspaceInner() {
         vehicle_type: selectedType,
       } : prev));
     }
+    if (typeof window !== 'undefined') {
+      if (typeof window.redrawCurrentRoute === 'function') {
+        window.redrawCurrentRoute(selectedType);
+      }
+      window.dispatchEvent(new CustomEvent('vehicle-type-changed', { detail: { vehicleType: selectedType } }));
+      window.dispatchEvent(new CustomEvent('vehicle:changed', { detail: { vehicleType: selectedType } }));
+    }
   };
 
   // Sincronización reactiva del Tipo de Vehículo Terrestre con el Estado Global, DOM y Modo Técnico
@@ -2629,11 +2679,16 @@ function ForwarderWorkspaceInner() {
         if (typeof setTrucksCount === 'function') setTrucksCount(requiredTrucks);
         if (typeof setVehicleCount === 'function') setVehicleCount(requiredTrucks);
 
+        const vehicle_type = vehicleType || withSrvs?.vehicle_type || withSrvs?.truck_type || activeProject?.vehicle_type || activeProject?.truck_type || '';
+        const isRail = vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva');
+        const servicePrefix = isRail ? 'Flete Ferroviario' : 'Flete Terrestre';
+        const vehicleCountLabel = isRail ? (requiredTrucks === 1 ? 'Vagón' : 'Vagones') : (requiredTrucks === 1 ? 'Camión' : 'Camiones');
+
         // 1. Creas la constante con el cálculo final:
         const finalCargoItems = [{
           id: 'sync-land-charter-fixed-row',
           category: 'Carga Unificada / Envasada',
-          type: `Flete Terrestre (${requiredTrucks} Camiones)`,
+          type: isRail ? `${servicePrefix} (${requiredTrucks} ${vehicleCountLabel})` : `Flete Terrestre (${requiredTrucks} Camiones)`,
           quantity: requiredTrucks,
           unit_weight_kg: truckPayloadMT * 1000,
           weight: truckPayloadMT * 1000
@@ -2678,7 +2733,9 @@ function ForwarderWorkspaceInner() {
         
         const syncOriginCity = sOrigin || effectiveLandOrigin || "Origen no definido";
         const syncDestCity = sDestination || effectiveLandDest || "Destino no definido";
-        const syncServiceName = "Flete Terrestre (" + requiredTrucks + " Camiones: " + syncOriginCity + " ➔ " + syncDestCity + ")";
+        const syncServiceName = isRail
+          ? `${servicePrefix} (${requiredTrucks} ${vehicleCountLabel}: ${syncOriginCity} ➔ ${syncDestCity})`
+          : ("Flete Terrestre (" + requiredTrucks + " Camiones: " + syncOriginCity + " ➔ " + syncDestCity + ")");
 
         const dataBridgePayloadObject = {
           reference: activeProject?.project_ref || withSrvs?.project_ref || ref,
@@ -3252,9 +3309,13 @@ function ForwarderWorkspaceInner() {
       const autoTotalTrucks = Number(projectToSave?.total_trucks) > 0 ? Number(projectToSave.total_trucks) : (trucksNeeded || activeProject?.total_trucks || 1);
       const autoLandOrigin = projectToSave?.land_origin || activeProject?.land_origin || landOrigin || 'Origen no definido';
       const autoLandDestination = projectToSave?.land_destination || activeProject?.land_destination || landDestination || 'Destino no definido';
+      const vehicle_type_save = vehicleType || projectToSave?.vehicle_type || projectToSave?.truck_type || activeProject?.vehicle_type || activeProject?.truck_type || '';
+      const isRail_save = vehicle_type_save?.toLowerCase().includes('tren') || vehicle_type_save?.toLowerCase().includes('tolva');
+      const autoPrefix = isRail_save ? 'Flete Ferroviario' : 'Flete Terrestre';
+      const autoCountLabel = isRail_save ? (autoTotalTrucks === 1 ? 'Vagón' : 'Vagones') : (autoTotalTrucks === 1 ? 'Camión' : 'Camiones');
 
       if (servicesList.length === 0 && !projectToSave?.is_delete_action && (Number(tuVariableDeCosteTotalTerrestre) > 0 || costeCalculado > 0)) {
-        const autoServiceName = "Flete Terrestre (" + autoTotalTrucks + " Camiones: " + autoLandOrigin + " ➔ " + autoLandDestination + ")";
+        const autoServiceName = `${autoPrefix} (${autoTotalTrucks} ${autoCountLabel}: ${autoLandOrigin} ➔ ${autoLandDestination})`;
         const defaultService = {
           id: 'srv-auto-' + Date.now(),
           name: autoServiceName,
@@ -3345,7 +3406,9 @@ function ForwarderWorkspaceInner() {
         const finalAutoTrucks = payload.total_trucks || 1;
         const finalAutoOrigin = payload.land_origin || 'Origen no definido';
         const finalAutoDest = payload.land_destination || 'Destino no definido';
-        const finalAutoName = "Flete Terrestre (" + finalAutoTrucks + " Camiones: " + finalAutoOrigin + " ➔ " + finalAutoDest + ")";
+        const finalAutoPrefix = isRail_save ? 'Flete Ferroviario' : 'Flete Terrestre';
+        const finalAutoCountLabel = isRail_save ? (finalAutoTrucks === 1 ? 'Vagón' : 'Vagones') : (finalAutoTrucks === 1 ? 'Camión' : 'Camiones');
+        const finalAutoName = `${finalAutoPrefix} (${finalAutoTrucks} ${finalAutoCountLabel}: ${finalAutoOrigin} ➔ ${finalAutoDest})`;
         const autoService = {
           id: 'srv-auto-' + Date.now(),
           name: finalAutoName,
@@ -4361,7 +4424,29 @@ function ForwarderWorkspaceInner() {
     let updatedProject = { ...currentProject };
     let hasChanges = false;
 
+    // 1. ACTUALIZAR VEHÍCULO DESDE EL PAYLOAD DE LA IA
+    const payloadExplicitVehicle = payload.vehicle_type || payload.truck_type || payload.vehicleType || payload.truckType || payload.vessel_class || payload.vesselClass;
+    if (payloadExplicitVehicle) {
+      handleVehicleTypeChange(payloadExplicitVehicle);
+      setVehicleType(payloadExplicitVehicle);
+      updatedProject.truck_type = payloadExplicitVehicle;
+      updatedProject.vehicle_type = payloadExplicitVehicle;
+      hasChanges = true;
+      if (typeof window !== 'undefined') {
+        window.State = window.State || {};
+        window.State.vehicleType = payloadExplicitVehicle;
+        window.State.truckType = payloadExplicitVehicle;
+        window.State.vessel = payloadExplicitVehicle;
+        if (typeof window.handleVehicleTypeSelection === 'function') {
+          window.handleVehicleTypeSelection(payloadExplicitVehicle);
+        }
+      }
+    }
+
     // Regla de Flota para Mercancía Envasada / Big Bags en NLP y Chat Libre (Cerebro.ia)
+    const currentVT = payloadExplicitVehicle || vehicleType || (typeof window !== 'undefined' ? (window.State?.vehicleType || window.State?.truckType) : '');
+    const isCurrentOrPayloadRail = currentVT && (currentVT.toLowerCase().includes('tren') || currentVT.toLowerCase().includes('tolva'));
+
     const detectedCargoCandidate = [
       payload.cargoName,
       payload.cargo_name,
@@ -4391,7 +4476,8 @@ function ForwarderWorkspaceInner() {
     const isExplicitBigBag = /big\s*bag/i.test(detectedCargoCandidate);
     const isPackagedFromNlp = isExplicitBigBag || (PACKAGED_REGEX.test(detectedCargoCandidate) && !BULK_REGEX.test(detectedCargoCandidate));
 
-    if (isPackagedFromNlp) {
+    // Solo establecer por defecto Camión Plataforma si NO hay un vehículo explícito en el payload y NO es tren
+    if (isPackagedFromNlp && !payloadExplicitVehicle && !isCurrentOrPayloadRail) {
       const targetVehicle = 'Camión Plataforma con Grúa Autocarga';
       handleVehicleTypeChange('Camión Plataforma con Grúa Autocarga');
       setVehicleType('Camión Plataforma con Grúa Autocarga');
@@ -5702,7 +5788,11 @@ function ForwarderWorkspaceInner() {
 
       const saveOriginCity = landOrigin || activeProject?.land_origin || "Origen no definido";
       const saveDestCity = landDestination || activeProject?.land_destination || "Destino no definido";
-      const savedServiceName = "Flete Terrestre (" + safeTrucks + " Camiones: " + saveOriginCity + " ➔ " + saveDestCity + ")";
+      const vehicle_type_item = vehicleType || activeProject?.vehicle_type || activeProject?.truck_type || '';
+      const isRail_item = vehicle_type_item?.toLowerCase().includes('tren') || vehicle_type_item?.toLowerCase().includes('tolva');
+      const savePrefix = isRail_item ? 'Flete Ferroviario' : 'Flete Terrestre';
+      const saveCountLabel = isRail_item ? (safeTrucks === 1 ? 'Vagón' : 'Vagones') : (safeTrucks === 1 ? 'Camión' : 'Camiones');
+      const savedServiceName = `${savePrefix} (${safeTrucks} ${saveCountLabel}: ${saveOriginCity} ➔ ${saveDestCity})`;
       const savedLineItem = {
         id: editingLineItemId || `item-${Date.now()}`,
         service_name: savedServiceName,
@@ -5725,7 +5815,7 @@ function ForwarderWorkspaceInner() {
           : (Array.isArray(activeProject.services) ? activeProject.services : []);
         const updatedLineItems = editingLineItemId
           ? existingItems.map((li) => (li.id === editingLineItemId ? savedLineItem : li))
-          : [...existingItems.filter(item => item.service_name !== savedLineItem.service_name && !item.service_name?.toLowerCase().includes('terrestre')), savedLineItem];
+          : [...existingItems.filter(item => item.service_name !== savedLineItem.service_name && !item.service_name?.toLowerCase().includes('terrestre') && !item.service_name?.toLowerCase().includes('ferroviario')), savedLineItem];
 
         const totalServicesCost = updatedLineItems.reduce((acc, it) => {
           if (it.id === savedLineItem.id || it.service_name?.toLowerCase().includes('terrestre')) return acc;
@@ -6639,7 +6729,7 @@ function ForwarderWorkspaceInner() {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div>
                           <label htmlFor="vehicle_type" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
-                            Tipo de Vehículo Terrestre (vehicle_type) *
+                            Vehículo / Modo de Transporte (vehicle_type) *
                           </label>
                           <select
                             id="vehicle_type"
@@ -6653,6 +6743,12 @@ function ForwarderWorkspaceInner() {
                             </option>
                             <option value="Camión Plataforma Abierta (Sin Grúa)">
                               Camión Plataforma Abierta (Sin Grúa) (24.000 kg Carga Útil · 100% Portuario)
+                            </option>
+                            <option value="Tren Tolva (Ferrocarril)">
+                              Tren Tolva (Ferrocarril) (50.000 kg Carga Útil · Graneles / Tolva)
+                            </option>
+                            <option value="Tren Plataforma">
+                              Tren Plataforma (50.000 kg Carga Útil · Plataforma Ferroviaria)
                             </option>
                             <option value="Bañera Basculante (Granel)">
                               Bañera Basculante (Granel) (26.000 kg Carga Útil · Graneles Sólidos)
@@ -6675,7 +6771,7 @@ function ForwarderWorkspaceInner() {
                           </select>
                           <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono mt-1">
                             <span>Carga Útil Efectiva: <strong className="text-slate-800 font-bold">{getVehiclePayloadKg(vehicleType).toLocaleString('es-ES')} kg</strong></span>
-                            <span className="text-blue-700 font-bold">{vehicleType.includes('Grúa') ? 'Tara Pluma Reducida (-3t)' : 'Tara Estándar'}</span>
+                            <span className="text-blue-700 font-bold">{(vehicleType?.toLowerCase().includes('tren') || vehicleType?.toLowerCase().includes('tolva')) ? 'Tracción Ferroviaria' : (vehicleType.includes('Grúa') ? 'Tara Pluma Reducida (-3t)' : 'Tara Estándar')}</span>
                           </div>
                         </div>
 
@@ -7463,6 +7559,9 @@ function ForwarderWorkspaceInner() {
                     <span className="block text-[10px] uppercase font-bold text-slate-500">
                       {(() => {
                         const curVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
+                        const vehicle_type = curVT;
+                        const isRail = vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva');
+                        if (isRail) return 'Vagones/Trenes';
                         const curPayloadTons = getVehiclePayloadKg(curVT) / 1000;
                         return curPayloadTons !== 24 ? `Flota (${curPayloadTons}t Carga Útil)` : 'Tráilers Estándar de 24t';
                       })()}
@@ -7476,6 +7575,9 @@ function ForwarderWorkspaceInner() {
                         return Math.max(1, Number(activeProject?.total_trucks || Math.ceil(tons / curPayloadTons)));
                       })()} {(() => {
                         const curVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
+                        const vehicle_type = curVT;
+                        const isRail = vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva');
+                        if (isRail) return 'Vagones/Trenes';
                         const curPayloadKg = getVehiclePayloadKg(curVT);
                         const curPayloadTons = curPayloadKg / 1000;
                         const tons = (totalWeightTons > 0 ? totalWeightTons : (totals.weight / 1000 || 1));
@@ -7486,8 +7588,10 @@ function ForwarderWorkspaceInner() {
                     <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">
                       {(() => {
                         const curVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
+                        const vehicle_type = curVT;
+                        const isRail = vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva');
                         const curPayloadTons = getVehiclePayloadKg(curVT) / 1000;
-                        return `Capacidad máx. ${curPayloadTons}t (${curVT})`;
+                        return isRail ? `Capacidad máx. ${curPayloadTons}t por vagón (${curVT})` : `Capacidad máx. ${curPayloadTons}t (${curVT})`;
                       })()}
                     </span>
                   </div>
@@ -7528,7 +7632,15 @@ function ForwarderWorkspaceInner() {
                       {activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Camión / Tráiler'}
                     </span>
                     <span className="block text-[9px] text-slate-500">
-                      40t MMA · {getVehiclePayloadKg(activeReport?.vehicleType || vehicleType || activeProject?.truck_type) / 1000}t Carga Útil · {loadingMethod || 'Estándar'}
+                      {(() => {
+                        const curVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Camión / Tráiler';
+                        const vehicle_type = curVT;
+                        const isRail = vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva');
+                        const pTons = getVehiclePayloadKg(curVT) / 1000;
+                        return isRail
+                          ? `${pTons}t Carga Útil / Vagón · ${loadingMethod || 'Tolva / Vía'}`
+                          : `40t MMA · ${pTons}t Carga Útil · ${loadingMethod || 'Estándar'}`;
+                      })()}
                     </span>
                   </div>
                 </div>
@@ -7747,17 +7859,27 @@ function ForwarderWorkspaceInner() {
                   <div className="bg-slate-100 border-2 border-slate-900 p-6 rounded-lg flex justify-between items-center mb-8">
                     <div>
                       <span className="text-[10px] uppercase font-bold text-slate-600 tracking-widest block mb-1">
-                        {isTariffActive ? 'Tarifa Oficial Convenio Comercial / FSPE (All-In)' : 'Importe Total Cotización Terrestre (All-In)'}
+                        {isTariffActive ? 'Tarifa Oficial Convenio Comercial / FSPE (All-In)' : (currentVT?.toLowerCase().includes('tren') || currentVT?.toLowerCase().includes('tolva') ? 'Importe Total Cotización Ferroviaria (All-In)' : 'Importe Total Cotización Terrestre (All-In)')}
                       </span>
                       <h2 className="text-2xl font-black uppercase text-slate-900">PRECIO TOTAL DE VENTA AL CLIENTE</h2>
                       <div className="mt-2 flex items-center gap-2">
-                        <span className="bg-blue-100 text-blue-800 border border-blue-200 px-3 py-1 rounded text-xs font-bold font-mono">
-                          {singleTruckSale.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol} / Camión ({trucksRequired} {trucksRequired === 1 ? 'camión' : 'camiones'})
-                        </span>
+                        {(() => {
+                          const vehicle_type = currentVT;
+                          const isRail = vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva');
+                          const unitLabel = isRail ? 'Vagón' : 'Camión';
+                          const countLabel = isRail ? (trucksRequired === 1 ? 'vagón' : 'vagones') : (trucksRequired === 1 ? 'camión' : 'camiones');
+                          return (
+                            <span className="bg-blue-100 text-blue-800 border border-blue-200 px-3 py-1 rounded text-xs font-bold font-mono">
+                              {singleTruckSale.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol} / {unitLabel} ({trucksRequired} {countLabel})
+                            </span>
+                          );
+                        })()}
                         <span className="text-[10px] text-slate-500 font-semibold">
                           {isTariffActive
                             ? `Convenio FSPE plano (${totalTons.toFixed(1)} t @ ${(appliedTariff?.inlandUsdMt || 3.00).toFixed(2)} $/MT · ${trucksRequired} ${currentVT})`
-                            : `Cálculo terrestre (${totalTons.toFixed(1)} t a máx ${currentPayloadTons} t / ${currentVT})`}
+                            : ((currentVT?.toLowerCase().includes('tren') || currentVT?.toLowerCase().includes('tolva'))
+                              ? `Cálculo ferroviario (${totalTons.toFixed(1)} t a máx ${currentPayloadTons} t / vagón · ${currentVT})`
+                              : `Cálculo terrestre (${totalTons.toFixed(1)} t a máx ${currentPayloadTons} t / ${currentVT})`)}
                         </span>
                       </div>
                     </div>
@@ -8525,8 +8647,85 @@ export function LandCharterMap({ containerId = 'map-container', className = '' }
       }
     }
 
+    let cachedRouteDetail = null;
+
+    // Escucha de rutas con soporte para ferrocarril y carretera
+    const handleRouteEvent = (e) => {
+      if (!localInstanceRef.current || typeof L === 'undefined') return;
+      const map = localInstanceRef.current;
+      const detail = (e && e.detail) ? e.detail : (cachedRouteDetail || {});
+      if (e && e.detail) cachedRouteDetail = e.detail;
+
+      let pts = detail.osrmRoutePoints || detail.leafletRoutePoints || detail.routePoints || detail.curvedRoutePoints;
+      const orig = detail.origin || (typeof window !== 'undefined' && window.LandData?.origin);
+      const dst = detail.destination || (typeof window !== 'undefined' && window.LandData?.destination);
+
+      // Fallback Geodésico: Si la API de routing no da ruta para el tren, dibuja una línea recta o curva geodésica limpia
+      if ((!pts || pts.length < 2) && orig && dst) {
+        const oLat = Number(orig.lat ?? orig.latitude);
+        const oLon = Number(orig.lon ?? orig.lng ?? orig.longitude);
+        const dLat = Number(dst.lat ?? dst.latitude);
+        const dLon = Number(dst.lon ?? dst.lng ?? dst.longitude);
+        if (Number.isFinite(oLat) && Number.isFinite(oLon) && Number.isFinite(dLat) && Number.isFinite(dLon)) {
+          if (typeof window !== 'undefined' && typeof window.calculateCurvedRoutePoints === 'function') {
+            pts = window.calculateCurvedRoutePoints([oLat, oLon], [dLat, dLon]);
+          } else {
+            pts = [[oLat, oLon], [dLat, dLon]];
+          }
+        }
+      }
+
+      if (!pts || pts.length < 2) return;
+
+      const vehicle_type = (typeof window !== 'undefined' ? (window.State?.vehicleType || window.State?.truckType) : '') || '';
+      const isRail = vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva');
+
+      console.log('MAPA - ¿Es tren?:', isRail, 'Tipo:', vehicle_type);
+
+      const mCont = localContainerRef.current || (typeof map.getContainer === 'function' ? map.getContainer() : null);
+      if (mCont) {
+        if (isRail) mCont.classList.add('train-mode');
+        else mCont.classList.remove('train-mode');
+      }
+
+      map.eachLayer((layer) => {
+        if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
+          try { map.removeLayer(layer); } catch (_) {}
+        }
+      });
+
+      const poly = L.polyline(pts, {
+        color: isRail ? '#333333' : '#2563eb',
+        weight: isRail ? 4 : 5,
+        opacity: 0.95,
+        dashArray: isRail ? '10, 10' : undefined,
+        lineCap: 'round',
+        lineJoin: 'round',
+        className: isRail ? 'leaflet-rail-route-highlight' : 'leaflet-route-highlight'
+      }).addTo(map);
+
+      try {
+        map.fitBounds(poly.getBounds(), { padding: [50, 50] });
+      } catch (_) {}
+    };
+
+    const handleVehicleChangeForMap = () => {
+      handleRouteEvent(null);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('osrm:route-updated', handleRouteEvent);
+      window.addEventListener('vehicle-type-changed', handleVehicleChangeForMap);
+      window.addEventListener('vehicle:changed', handleVehicleChangeForMap);
+    }
+
     // Función de limpieza (cleanup) en el useEffect que destruye la instancia
     return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('osrm:route-updated', handleRouteEvent);
+        window.removeEventListener('vehicle-type-changed', handleVehicleChangeForMap);
+        window.removeEventListener('vehicle:changed', handleVehicleChangeForMap);
+      }
       if (localInstanceRef.current) {
         try {
           if (typeof localInstanceRef.current.remove === 'function') {
