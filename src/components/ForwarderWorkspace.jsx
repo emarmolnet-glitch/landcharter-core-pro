@@ -415,6 +415,16 @@ export const TERRESTRIAL_DISCHARGE_METHODS = [
   'Descarga Neumática (Silo)',
 ];
 
+export const RAIL_LOADING_METHODS = [
+  'Carga por Silo / Tubo (Granel)',
+  'Cinta transportadora (Terminal)',
+];
+
+export const RAIL_DISCHARGE_METHODS = [
+  'Descarga inferior por gravedad (Foso)',
+  'Descarga neumática (Silo)',
+];
+
 export const OPERATIONAL_METHOD_RATIOS = Object.freeze({
   'Autocarga con Grúa del Camión': 20, // 20 TM/h o 20 bultos/h
   'Carga Lateral (Lona / Tauliner)': 25,
@@ -425,10 +435,20 @@ export const OPERATIONAL_METHOD_RATIOS = Object.freeze({
   'Carga Superior (Grúa Portuaria / Puente Grúa)': 20,
   'Basculante / Tolva (Granel)': 50,
   'Descarga Neumática (Silo)': 40,
+  'Silo / Carga superior por gravedad': 1500,
+  'Cinta transportadora (Terminal)': 1500,
+  'Descarga inferior por gravedad (Foso)': 1500,
+  'Descarga neumática (Silo)': 1500,
 });
 
-export function getRatioOperativo(method) {
+export function getRatioOperativo(method, vehicleType = '') {
   if (!method) return 25;
+  const vType = String(vehicleType || (typeof window !== 'undefined' ? (window.State?.vehicleType || window.State?.truckType) : '')).toLowerCase();
+  const isRail = vType.includes('tren') || vType.includes('tolva') || vType.includes('ferroviario');
+  const mLower = String(method).toLowerCase();
+  if (isRail && (mLower.includes('silo') || mLower.includes('cinta') || mLower.includes('gravedad') || mLower.includes('foso'))) {
+    return 1500;
+  }
   return OPERATIONAL_METHOD_RATIOS[method] || 25;
 }
 
@@ -634,21 +654,23 @@ export function getVehiclePayloadKg(vehicleTypeName) {
 
 export function getCompatibleMethodsForVehicle(vType) {
   const name = String(vType || '').toLowerCase().trim();
-  if (name.includes('tren tolva') || (name.includes('tren') && name.includes('tolva'))) {
+  if (name.includes('tren tolva') || (name.includes('tren') && name.includes('tolva')) || name.includes('tolva')) {
     return {
       isPlatform: false,
       hasCrane: false,
       defaultLoading: 'Carga por Silo / Tubo (Granel)',
-      defaultDischarge: 'Basculante / Tolva (Granel)',
+      defaultDischarge: 'Descarga inferior por gravedad (Foso)',
       allowed: [
         'Carga por Silo / Tubo (Granel)',
-        'Carga Superior (Grúa Portuaria / Puente Grúa)',
-        'Cinta Transportadora',
-        'Basculante / Tolva (Granel)',
+        'Cinta transportadora (Terminal)',
+        'Descarga inferior por gravedad (Foso)',
+        'Descarga neumática (Silo)',
       ],
       incompatible: [
         'Carga Trasera por Muelle / Rampa',
         'Carga Lateral (Lona / Tauliner)',
+        'Autocarga con Grúa del Camión',
+        'Carga con Transpaleta / Carretilla Elevadora',
       ],
     };
   }
@@ -2065,7 +2087,11 @@ function ForwarderWorkspaceInner() {
       }
     }
     const compat = getCompatibleMethodsForVehicle(selectedType);
-    if (selectedType === 'Camión Plataforma con Grúa Autocarga' || selectedType.includes('Grúa Autocarga')) {
+    const isRailSelected = Boolean(selectedType?.toLowerCase().includes('tren') || selectedType?.toLowerCase().includes('tolva'));
+    if (selectedType === 'Tren Tolva (Ferrocarril)' || isRailSelected || selectedType.includes('Tolva')) {
+      setLoadingMethod('Carga por Silo / Tubo (Granel)');
+      setDischargeMethod('Descarga inferior por gravedad (Foso)');
+    } else if (selectedType === 'Camión Plataforma con Grúa Autocarga' || selectedType.includes('Grúa Autocarga')) {
       setLoadingMethod('Autocarga con Grúa del Camión');
       setDischargeMethod('Autocarga con Grúa del Camión');
     } else if (compat.isPlatform) {
@@ -2098,7 +2124,15 @@ function ForwarderWorkspaceInner() {
   // Sincronización reactiva del Tipo de Vehículo Terrestre con el Estado Global, DOM y Modo Técnico
   useEffect(() => {
     if (!vehicleType) return;
-    if (vehicleType === 'Camión Plataforma con Grúa Autocarga' || vehicleType.includes('Grúa Autocarga')) {
+    const isRailCurrent = Boolean(vehicleType?.toLowerCase().includes('tren') || vehicleType?.toLowerCase().includes('tolva'));
+    if (vehicleType === 'Tren Tolva (Ferrocarril)' || isRailCurrent || vehicleType.includes('Tolva')) {
+      if (loadingMethod !== 'Silo / Carga superior por gravedad' && loadingMethod !== 'Cinta transportadora (Terminal)') {
+        setLoadingMethod('Silo / Carga superior por gravedad');
+      }
+      if (dischargeMethod !== 'Descarga inferior por gravedad (Foso)' && dischargeMethod !== 'Descarga neumática (Silo)') {
+        setDischargeMethod('Descarga inferior por gravedad (Foso)');
+      }
+    } else if (vehicleType === 'Camión Plataforma con Grúa Autocarga' || vehicleType.includes('Grúa Autocarga')) {
       setLoadingMethod('Autocarga con Grúa del Camión');
       setDischargeMethod('Autocarga con Grúa del Camión');
     }
@@ -2133,6 +2167,23 @@ function ForwarderWorkspaceInner() {
       const dwtEl = document.getElementById('vessel-dwt');
       if (dwtEl && payloadTons > 0) {
         dwtEl.value = payloadTons;
+      }
+    }
+  }, [vehicleType]);
+
+  // Auto-selección (UX): cuando el usuario seleccione "Tren Tolva (Ferrocarril)", el sistema debe auto-seleccionar
+  // "Carga por Silo / Tubo (Granel)" y "Descarga inferior por gravedad (Foso)" para evitar que se quede seleccionada una opción de camión antigua.
+  useEffect(() => {
+    if (!vehicleType) return;
+    const isRailMode = Boolean(vehicleType?.toLowerCase().includes('tren') || vehicleType?.toLowerCase().includes('tolva'));
+    if (vehicleType === 'Tren Tolva (Ferrocarril)' || isRailMode || vehicleType.includes('Tolva')) {
+      const allowedRailLoad = ['Carga por Silo / Tubo (Granel)', 'Cinta transportadora (Terminal)'];
+      const allowedRailDisch = ['Descarga inferior por gravedad (Foso)', 'Descarga neumática (Silo)'];
+      if (!allowedRailLoad.includes(loadingMethod)) {
+        setLoadingMethod('Carga por Silo / Tubo (Granel)');
+      }
+      if (!allowedRailDisch.includes(dischargeMethod)) {
+        setDischargeMethod('Descarga inferior por gravedad (Foso)');
       }
     }
   }, [vehicleType]);
@@ -2178,24 +2229,40 @@ function ForwarderWorkspaceInner() {
 
   // Recálculo automático de horas previstas de carga/descarga según ratio operativo
   useEffect(() => {
-    if (loadingMethod === 'Autocarga con Grúa del Camión') {
+    const isRailMode = Boolean(vehicleType?.toLowerCase().includes('tren') || vehicleType?.toLowerCase().includes('tolva'));
+    const isRailMethod = loadingMethod.includes('Silo') || loadingMethod.includes('Cinta') || loadingMethod.includes('gravedad') || loadingMethod.includes('Foso');
+    if (isRailMode && isRailMethod) {
+      const ratio = 1500; // 1500 TM/h para tren tolva en terminal industrial
+      const tons = totalWeightKg > 0 ? (totalWeightKg / 1000) : (Number(activeProject?.total_weight_tons) || 1000);
+      const computedHours = Math.max(0.5, Math.round((tons / ratio) * 10) / 10);
+      setLoadingRate(computedHours);
+      setSafeLoadHours(computedHours);
+    } else if (loadingMethod === 'Autocarga con Grúa del Camión') {
       const ratio = 20; // 20 TM/h
       const tons = totalWeightKg > 0 ? (totalWeightKg / 1000) : 24;
       const singleTruckTons = Math.min(24, tons);
       const computedHours = Math.round((singleTruckTons / ratio) * 10) / 10;
       setLoadingRate(computedHours);
     }
-  }, [loadingMethod, totalWeightKg]);
+  }, [loadingMethod, vehicleType, totalWeightKg]);
 
   useEffect(() => {
-    if (dischargeMethod === 'Autocarga con Grúa del Camión') {
+    const isRailMode = Boolean(vehicleType?.toLowerCase().includes('tren') || vehicleType?.toLowerCase().includes('tolva'));
+    const isRailMethod = dischargeMethod.includes('Silo') || dischargeMethod.includes('Cinta') || dischargeMethod.includes('gravedad') || dischargeMethod.includes('Foso');
+    if (isRailMode && isRailMethod) {
+      const ratio = 1500; // 1500 TM/h para tren tolva en terminal industrial
+      const tons = totalWeightKg > 0 ? (totalWeightKg / 1000) : (Number(activeProject?.total_weight_tons) || 1000);
+      const computedHours = Math.max(0.5, Math.round((tons / ratio) * 10) / 10);
+      setDischargingRate(computedHours);
+      setSafeDischHours(computedHours);
+    } else if (dischargeMethod === 'Autocarga con Grúa del Camión') {
       const ratio = 20; // 20 TM/h
       const tons = totalWeightKg > 0 ? (totalWeightKg / 1000) : 24;
       const singleTruckTons = Math.min(24, tons);
       const computedHours = Math.round((singleTruckTons / ratio) * 10) / 10;
       setDischargingRate(computedHours);
     }
-  }, [dischargeMethod, totalWeightKg]);
+  }, [dischargeMethod, vehicleType, totalWeightKg]);
 
   // Sincronización reactiva con eventos emitidos por Cerebro.ia y Agente NLP
   useEffect(() => {
@@ -3268,6 +3335,7 @@ function ForwarderWorkspaceInner() {
 
       const totalTonnage = (totalKg > 0 ? totalKg / 1000 : 0) || Number(projectToSave?.total_weight_tons || activeProject?.total_weight_tons || 1);
       const costeTren = Math.round(distanceKm * 0.04 * totalTonnage * 100) / 100;
+      const grossWeight = isRail ? Math.round(totalTonnage + (trucksNeeded * 20)) : (totalKg > 0 ? totalKg : 24000);
 
       // Coste y Venta por camión (Exclusión de dietas en rutas fuera de la UE)
       const isOutsideEU = isNonEURoute(landOrigin, landDestination, activeProject || projectToSave);
@@ -3600,6 +3668,7 @@ function ForwarderWorkspaceInner() {
 
       const totalTonnage = (totalKg > 0 ? totalKg / 1000 : 0) || Number(activeProject?.total_weight_tons || 1);
       const costeTren = Math.round(distanceKm * 0.04 * totalTonnage * 100) / 100;
+      const grossWeight = isRail ? Math.round(totalTonnage + (trucksNeeded * 20)) : (totalKg > 0 ? totalKg : 24000);
 
       // Coste y Venta por camión (Exclusión de dietas en rutas fuera de la UE)
       const isOutsideEU = isNonEURoute(landOrigin, landDestination, activeProject);
@@ -6925,71 +6994,57 @@ function ForwarderWorkspaceInner() {
                           <label htmlFor="metodo_carga" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
                             Método de Carga (Origen) *
                           </label>
-                          <select
-                            id="metodo_carga"
-                            name="metodo_carga"
-                            value={loadingMethod}
-                            onChange={(e) => setLoadingMethod(e.target.value)}
-                            className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm cursor-pointer"
-                          >
-                            {(() => {
-                              const isPlatform = vehicleType.includes('Plataforma');
-                              const isPlatformCrane = vehicleType === 'Camión Plataforma con Grúa Autocarga' || vehicleType.includes('Grúa Autocarga');
-                              const isBulk = vehicleType.includes('Bañera') || vehicleType.includes('Silo');
+                          {(() => {
+                            const isRail = Boolean(vehicleType?.toLowerCase().includes('tren') || vehicleType?.toLowerCase().includes('tolva'));
+                            const loadingMethods = isRail
+                              ? ['Carga por Silo / Tubo (Granel)', 'Cinta transportadora (Terminal)']
+                              : (vehicleType.includes('Plataforma')
+                                ? [
+                                    ...(vehicleType === 'Camión Plataforma con Grúa Autocarga' || vehicleType.includes('Grúa Autocarga') ? ['Autocarga con Grúa del Camión'] : []),
+                                    'Carga Superior (Grúa Portuaria / Puente Grúa)',
+                                    'Carga Lateral con Carretilla Elevadora',
+                                  ]
+                                : (vehicleType.includes('Bañera') || vehicleType.includes('Silo')
+                                  ? ['Carga por Silo / Tubo (Granel)', 'Carga Superior (Grúa Portuaria / Puente Grúa)', 'Cinta Transportadora']
+                                  : TERRESTRIAL_LOADING_METHODS));
 
-                              if (isPlatform) {
-                                return (
-                                  <>
-                                    {isPlatformCrane && (
-                                      <option value="Autocarga con Grúa del Camión">Autocarga con Grúa del Camión</option>
-                                    )}
-                                    <option value="Carga Superior (Grúa Portuaria / Puente Grúa)">Carga Superior (Grúa Portuaria / Puente Grúa)</option>
-                                    <option value="Carga Lateral con Carretilla Elevadora">Carga Lateral con Carretilla Elevadora</option>
-                                    <option disabled value="carga_trasera_muelle" className="text-slate-400">🚫 Carga Trasera por Muelle / Rampa (Incompatible con Plataforma)</option>
-                                  </>
-                                );
-                              }
-                              if (isBulk) {
-                                return (
-                                  <>
-                                    <option value="Carga por Silo / Tubo (Granel)">Carga por Silo / Tubo (Granel)</option>
-                                    <option value="Carga Superior (Grúa Portuaria / Puente Grúa)">Carga Superior (Grúa Portuaria / Puente Grúa)</option>
-                                    <option value="Cinta Transportadora">Cinta Transportadora</option>
-                                  </>
-                                );
-                              }
-                              return (
-                                <>
-                                  <option value="Carga Lateral (Lona / Tauliner)">Carga Lateral (Lona / Tauliner)</option>
-                                  <option value="Carga Trasera por Muelle / Rampa">Carga Trasera por Muelle / Rampa</option>
-                                  <option value="Carga Superior (Grúa Portuaria / Puente Grúa)">Carga Superior (Grúa Portuaria / Puente Grúa)</option>
-                                  <option value="Carga con Transpaleta / Carretilla Elevadora">Carga con Transpaleta / Carretilla Elevadora</option>
-                                  <option value="Autocarga con Grúa del Camión">Autocarga con Grúa del Camión</option>
-                                </>
-                              );
-                            })()}
-                          </select>
-                          <div className="flex flex-wrap gap-1 mt-1.5" id="pills_metodo_carga_workspace">
-                            {TERRESTRIAL_LOADING_METHODS.map((m) => {
-                              const isSel = loadingMethod === m;
-                              return (
-                                <button
-                                  key={m}
-                                  type="button"
-                                  onClick={() => setLoadingMethod(m)}
-                                  className={`px-2 py-0.5 text-[10px] rounded-full border transition-all cursor-pointer ${
-                                    isSel
-                                      ? 'bg-blue-100 text-blue-800 border-blue-500 font-bold shadow-sm'
-                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                                  }`}
+                            return (
+                              <>
+                                <select
+                                  id="metodo_carga"
+                                  name="metodo_carga"
+                                  value={loadingMethod}
+                                  onChange={(e) => setLoadingMethod(e.target.value)}
+                                  className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm cursor-pointer"
                                 >
-                                  {isSel ? '✓ ' : ''}{m}
-                                </button>
-                              );
-                            })}
-                          </div>
+                                  {loadingMethods.map((m) => (
+                                    <option key={m} value={m}>{m}</option>
+                                  ))}
+                                </select>
+                                <div className="flex flex-wrap gap-1 mt-1.5" id="pills_metodo_carga_workspace">
+                                  {loadingMethods.map((m) => {
+                                    const isSel = loadingMethod === m;
+                                    return (
+                                      <button
+                                        key={m}
+                                        type="button"
+                                        onClick={() => setLoadingMethod(m)}
+                                        className={`px-2 py-0.5 text-[10px] rounded-full border transition-all cursor-pointer ${
+                                          isSel
+                                            ? 'bg-blue-100 text-blue-800 border-blue-500 font-bold shadow-sm'
+                                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                        }`}
+                                      >
+                                        {isSel ? '✓ ' : ''}{m}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </>
+                            );
+                          })()}
                           <div className="text-[10px] text-slate-500 font-mono mt-1">
-                            {vehicleType.includes('Plataforma') ? 'Operativa en abierto (sin muelle cerrado)' : 'Compatible con carrozado'}
+                            {(vehicleType?.toLowerCase().includes('tren') || vehicleType?.toLowerCase().includes('tolva')) ? 'Operativa ferroviaria / Tolva (gravedad o terminal)' : (vehicleType.includes('Plataforma') ? 'Operativa en abierto (sin muelle cerrado)' : 'Compatible con carrozado')}
                           </div>
                         </div>
 
@@ -6997,70 +7052,56 @@ function ForwarderWorkspaceInner() {
                           <label htmlFor="metodo_descarga" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
                             Método de Descarga (Destino) *
                           </label>
-                          <select
-                            id="metodo_descarga"
-                            name="metodo_descarga"
-                            value={dischargeMethod}
-                            onChange={(e) => setDischargeMethod(e.target.value)}
-                            className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm cursor-pointer"
-                          >
-                            {(() => {
-                              const isPlatform = vehicleType.includes('Plataforma');
-                              const isPlatformCrane = vehicleType === 'Camión Plataforma con Grúa Autocarga' || vehicleType.includes('Grúa Autocarga');
-                              const isBulk = vehicleType.includes('Bañera') || vehicleType.includes('Silo');
+                          {(() => {
+                            const isRail = Boolean(vehicleType?.toLowerCase().includes('tren') || vehicleType?.toLowerCase().includes('tolva'));
+                            const unloadingMethods = isRail
+                              ? ['Descarga inferior por gravedad (Foso)', 'Descarga neumática (Silo)']
+                              : (vehicleType.includes('Plataforma')
+                                ? [
+                                    ...(vehicleType === 'Camión Plataforma con Grúa Autocarga' || vehicleType.includes('Grúa Autocarga') ? ['Autocarga con Grúa del Camión'] : []),
+                                    'Carga Superior (Grúa Portuaria / Puente Grúa)',
+                                    'Carga Lateral con Carretilla Elevadora',
+                                  ]
+                                : (vehicleType.includes('Bañera') || vehicleType.includes('Silo')
+                                  ? ['Basculante / Tolva (Granel)', 'Descarga Neumática (Silo)', 'Carga Superior (Grúa Portuaria / Puente Grúa)']
+                                  : TERRESTRIAL_DISCHARGE_METHODS));
 
-                              if (isPlatform) {
-                                return (
-                                  <>
-                                    {isPlatformCrane && (
-                                      <option value="Autocarga con Grúa del Camión">Autocarga con Grúa del Camión</option>
-                                    )}
-                                    <option value="Carga Superior (Grúa Portuaria / Puente Grúa)">Carga Superior (Grúa Portuaria / Puente Grúa)</option>
-                                    <option value="Carga Lateral con Carretilla Elevadora">Carga Lateral con Carretilla Elevadora</option>
-                                    <option disabled value="carga_trasera_muelle" className="text-slate-400">🚫 Carga Trasera por Muelle / Rampa (Incompatible con Plataforma)</option>
-                                  </>
-                                );
-                              }
-                              if (isBulk) {
-                                return (
-                                  <>
-                                    <option value="Basculante / Tolva (Granel)">Basculante / Tolva (Granel)</option>
-                                    <option value="Descarga Neumática (Silo)">Descarga Neumática (Silo)</option>
-                                    <option value="Carga Superior (Grúa Portuaria / Puente Grúa)">Carga Superior (Grúa Portuaria / Puente Grúa)</option>
-                                  </>
-                                );
-                              }
-                              return (
-                                <>
-                                  <option value="Carga Trasera por Muelle / Rampa">Carga Trasera por Muelle / Rampa</option>
-                                  <option value="Carga Lateral (Lona / Tauliner)">Carga Lateral (Lona / Tauliner)</option>
-                                  <option value="Carga Superior (Grúa Portuaria / Puente Grúa)">Carga Superior (Grúa Portuaria / Puente Grúa)</option>
-                                  <option value="Carga con Transpaleta / Carretilla Elevadora">Carga con Transpaleta / Carretilla Elevadora</option>
-                                  <option value="Autocarga con Grúa del Camión">Autocarga con Grúa del Camión</option>
-                                </>
-                              );
-                            })()}
-                          </select>
-                          <input type="hidden" id="metodo_descarga_pod" value={dischargeMethod} readOnly />
-                          <div className="flex flex-wrap gap-1 mt-1.5" id="pills_metodo_descarga_workspace">
-                            {TERRESTRIAL_DISCHARGE_METHODS.map((m) => {
-                              const isSel = dischargeMethod === m;
-                              return (
-                                <button
-                                  key={m}
-                                  type="button"
-                                  onClick={() => setDischargeMethod(m)}
-                                  className={`px-2 py-0.5 text-[10px] rounded-full border transition-all cursor-pointer ${
-                                    isSel
-                                      ? 'bg-blue-100 text-blue-800 border-blue-500 font-bold shadow-sm'
-                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                                  }`}
+                            return (
+                              <>
+                                <select
+                                  id="metodo_descarga"
+                                  name="metodo_descarga"
+                                  value={dischargeMethod}
+                                  onChange={(e) => setDischargeMethod(e.target.value)}
+                                  className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm cursor-pointer"
                                 >
-                                  {isSel ? '✓ ' : ''}{m}
-                                </button>
-                              );
-                            })}
-                          </div>
+                                  {unloadingMethods.map((m) => (
+                                    <option key={m} value={m}>{m}</option>
+                                  ))}
+                                </select>
+                                <input type="hidden" id="metodo_descarga_pod" value={dischargeMethod} readOnly />
+                                <div className="flex flex-wrap gap-1 mt-1.5" id="pills_metodo_descarga_workspace">
+                                  {unloadingMethods.map((m) => {
+                                    const isSel = dischargeMethod === m;
+                                    return (
+                                      <button
+                                        key={m}
+                                        type="button"
+                                        onClick={() => setDischargeMethod(m)}
+                                        className={`px-2 py-0.5 text-[10px] rounded-full border transition-all cursor-pointer ${
+                                          isSel
+                                            ? 'bg-blue-100 text-blue-800 border-blue-500 font-bold shadow-sm'
+                                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                        }`}
+                                      >
+                                        {isSel ? '✓ ' : ''}{m}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </>
+                            );
+                          })()}
                           <div className="text-[10px] text-slate-500 font-mono mt-1">
                             {vehicleType.includes('Plataforma') ? 'Descarga vertical libre / pluma hidráulica' : 'Descarga estándar'}
                           </div>

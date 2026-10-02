@@ -38856,6 +38856,25 @@ if (document.readyState === 'loading') {
                         renderMethodPills('pol');
                         renderMethodPills('pod');
                     }
+                } else if (matched.name === 'Tren Tolva (Ferrocarril)' || String(matched.name).toLowerCase().includes('tren') || String(matched.name).toLowerCase().includes('tolva')) {
+                    const stressPanel = document.getElementById('stress-test-panel');
+                    if (stressPanel) {
+                        stressPanel.classList.add('hidden');
+                        stressPanel.style.display = 'none';
+                    }
+                    if (typeof selectMethodPill === 'function') {
+                        selectMethodPill('pol', 'Carga por Silo / Tubo (Granel)');
+                        selectMethodPill('pod', 'Descarga inferior por gravedad (Foso)');
+                    } else {
+                        const polEl = document.getElementById('metodo_carga');
+                        const podEl = document.getElementById('metodo_descarga_pod');
+                        if (polEl) polEl.value = 'silo_tubo_granel';
+                        if (podEl) podEl.value = 'descarga_inferior_foso';
+                    }
+                    if (typeof renderMethodPills === 'function') {
+                        renderMethodPills('pol');
+                        renderMethodPills('pod');
+                    }
                 }
 
                 if (!options.deferEngine && typeof runEngine === 'function') {
@@ -41365,7 +41384,7 @@ function scheduleReactiveEngine() {
             const tollCost = isZeroCalculation ? 0 : (isRail ? 0 : (Number(window.LandData?.totalTollsCost) || (landTotalKilometers * landTollCostPerKm)));
             const dietasCost = isRail ? 0 : (pernoctas * 65.0);
             const totalTripCost = isZeroCalculation ? 0 : (isRail ? costeTren : (baseKmCost + tollCost + dietasCost));
-            const landBreakEvenPerKm = (landTotalKilometers > 0 && totalTripCost > 0) ? (totalTripCost / landTotalKilometers) : (isRail ? (costeTren / (landTotalKilometers || 1)) : baseKmRate);
+            const landBreakEvenPerKm = isRail ? 0.04 : ((landTotalKilometers > 0 && totalTripCost > 0) ? (totalTripCost / landTotalKilometers) : baseKmRate);
 
             const fuelCost = isZeroCalculation ? 0 : (isRail ? 0 : ((landTotalKilometers / 100) * landVehicleConsumption * landDieselPrice));
             const fixedCost = isRail ? costeTren : Math.max(0, totalTripCost - fuelCost - tollCost);
@@ -41448,10 +41467,10 @@ function scheduleReactiveEngine() {
             const pdaPolInputEl = document.getElementById('pda-pol');
             const pdaPodInputEl = document.getElementById('pda-pod');
             const currentModule3PdaTotal = (pdaPolInputEl ? (parseFloat(pdaPolInputEl.value) || 0) : 0) + (pdaPodInputEl ? (parseFloat(pdaPodInputEl.value) || 0) : 0);
-            const displayFuelCost = isZeroCalculation ? 0 : (isTerrestre ? (fuelCost > 0 ? fuelCost : 46) : (fuelCost > 0 ? fuelCost : totalBunkers));
-            const displayFixedCost = isZeroCalculation ? 0 : (isTerrestre ? (fixedCost > 0 ? fixedCost : 77) : (fixedCost > 0 ? fixedCost : totalOpex));
-            const displayTollCost = isZeroCalculation ? 0 : (isTerrestre ? (currentModule3PdaTotal > 0 ? currentModule3PdaTotal : (tollCost > 0 ? tollCost : 17)) : (tollCost > 0 ? tollCost : smartPortExpenses));
-            const displayTotalTripCost = isZeroCalculation ? 0 : (isTerrestre ? (totalTripCost > 0 ? totalTripCost : (displayFuelCost + displayFixedCost + displayTollCost)) : (totalTripCost > 0 ? totalTripCost : adjustedCostTotal));
+            const displayFuelCost = isZeroCalculation ? 0 : (isRail ? 0 : (isTerrestre ? (fuelCost > 0 ? fuelCost : 46) : (fuelCost > 0 ? fuelCost : totalBunkers)));
+            const displayFixedCost = isZeroCalculation ? 0 : (isRail ? costeTren : (isTerrestre ? (fixedCost > 0 ? fixedCost : 77) : (fixedCost > 0 ? fixedCost : totalOpex)));
+            const displayTollCost = isZeroCalculation ? 0 : (isRail ? 0 : (isTerrestre ? (currentModule3PdaTotal > 0 ? currentModule3PdaTotal : (tollCost > 0 ? tollCost : 17)) : (tollCost > 0 ? tollCost : smartPortExpenses)));
+            const displayTotalTripCost = isZeroCalculation ? 0 : (isRail ? costeTren : (isTerrestre ? (totalTripCost > 0 ? totalTripCost : (displayFuelCost + displayFixedCost + displayTollCost)) : (totalTripCost > 0 ? totalTripCost : adjustedCostTotal)));
 
             document.getElementById('res-cost-bunker').innerText = `€${Math.round(displayFuelCost).toLocaleString('es-ES')}`;
             const inverseFuelStrategyEl = document.getElementById('inverse-fuel-strategy-label');
@@ -41724,6 +41743,18 @@ function scheduleReactiveEngine() {
             if (labelFuelCostBasis) {
                 labelFuelCostBasis.innerText = isRail ? 'Coste de Tracción Ferroviaria (Locomotora):' : 'Coste de Combustible (Diésel/AdBlue):';
             }
+            const labelOpexCostBasis = document.getElementById('label-opex-cost-basis');
+            if (labelOpexCostBasis && isRail) {
+                labelOpexCostBasis.innerText = 'Costes Fijos / Tracción Convoy:';
+            }
+            const labelCapexCostBasis = document.getElementById('label-capex-cost-basis');
+            if (labelCapexCostBasis && isRail) {
+                labelCapexCostBasis.innerText = 'Cánones Adicionales (€):';
+            }
+            const labelTotalCostsBasis = document.getElementById('label-total-costs-basis');
+            if (labelTotalCostsBasis && isRail) {
+                labelTotalCostsBasis.innerText = 'COSTE TOTAL OPERACIÓN FERROVIARIA:';
+            }
             const labelCostsHeader = document.getElementById('costs-header-title');
             if (labelCostsHeader) {
                 labelCostsHeader.innerHTML = isRail
@@ -41758,7 +41789,7 @@ function scheduleReactiveEngine() {
             }
             const labelGrabCapacity = document.getElementById('label-grab-capacity');
             if (labelGrabCapacity) {
-                labelGrabCapacity.innerText = isRail ? 'Peso Bruto del Convoy (KG)' : 'Peso Bruto (KG)';
+                labelGrabCapacity.innerText = isRail ? 'PESO BRUTO DEL CONVOY (MT)' : 'Peso Bruto (KG)';
             }
 
             State.totalKilometers = landTotalKilometers;
@@ -41890,20 +41921,21 @@ function scheduleReactiveEngine() {
                 : 0;
             const truckPayloadCapacity = rawVehiclePayload > 0 ? rawVehiclePayload : 24;
             State.truckPayloadCapacity = truckPayloadCapacity;
+            const railUnitCostPerTon = isRail ? (landTotalKilometers * 0.04) : 0;
             const roadCostPerTon = isTerrestre && truckPayloadCapacity > 0
-                ? (safeCalculationNumber(State.totalTripCost ?? State.totalCosts ?? displayTotalTripCost ?? 162) / truckPayloadCapacity)
+                ? (isRail ? railUnitCostPerTon : (safeCalculationNumber(State.totalTripCost ?? State.totalCosts ?? displayTotalTripCost ?? 162) / truckPayloadCapacity))
                 : 0;
 
             const costPlusMinimumFreight = Number.isFinite(costPlusResults?.minFreightRate)
-                ? costPlusResults.minFreightRate
+                ? (isRail ? railUnitCostPerTon : costPlusResults.minFreightRate)
                 : (isTerrestre && roadCostPerTon > 0 ? roadCostPerTon : Number(State.costPlusMinFreightRate || 0));
             const activePricingMinimumFreight = isTerrestre
-                ? (costPlusMinimumFreight > 0 ? costPlusMinimumFreight : (roadCostPerTon > 0 ? roadCostPerTon : 6.75))
+                ? (isRail ? railUnitCostPerTon : (costPlusMinimumFreight > 0 ? costPlusMinimumFreight : (roadCostPerTon > 0 ? roadCostPerTon : 6.75)))
                 : (vesselPricingClass?.type === 'Cost-Plus' && costPlusMinimumFreight > 0
                     ? costPlusMinimumFreight
                     : inverseMinimumFreight);
             const breakEvenParaVentaSugerida = isTerrestre
-                ? (roadCostPerTon > 0 ? roadCostPerTon : 6.75)
+                ? (isRail ? railUnitCostPerTon : (roadCostPerTon > 0 ? roadCostPerTon : 6.75))
                 : (operacionModo === 'COA' && coaScenarioProjection
                     ? coaScenarioProjection.securityScenario.breakEvenAverage
                     : activePricingMinimumFreight);
@@ -41912,8 +41944,9 @@ function scheduleReactiveEngine() {
             let precioObjetivoFletador = 0;
 
             if (isTerrestre) {
-                // Modo Terrestre: Coste Base €/TM = State.totalTripCost / truckPayloadCapacity (~6,75 €/t)
-                precioObjetivoArmador = calcularPrecioObjetivo(fleteMinimoBaseVenta, marginOwner);
+                // Modo Terrestre / Ferroviario:
+                // Si isRail: coste unitario estricto = distanciaKm * 0.04 (€/t)
+                precioObjetivoArmador = isRail ? (landTotalKilometers * 0.04) : calcularPrecioObjetivo(fleteMinimoBaseVenta, marginOwner);
                 precioObjetivoFletador = marginChart > 0
                     ? calcularPrecioObjetivo(precioObjetivoArmador, marginChart)
                     : precioObjetivoArmador;
@@ -41971,17 +42004,19 @@ function scheduleReactiveEngine() {
             const suggestedChartererCard = document.getElementById('res-sug-charterer')?.parentElement;
             const suggestedBelowTarget = precioObjetivoArmador < fleteMinimoBaseVenta || precioObjetivoFletador < fleteMinimoBaseVenta;
             const coaMargenTotalEl = document.getElementById('res-coa-margen-total');
-            if (ventaSugeridaEl) ventaSugeridaEl.innerText = isTerrestre ? `${ventaSugerida.toFixed(2)} €/t` : `$${ventaSugerida.toFixed(2)} /TM`;
+            if (ventaSugeridaEl) ventaSugeridaEl.innerText = isRail ? `${ventaSugerida.toFixed(2)} €/t` : (isTerrestre ? `${ventaSugerida.toFixed(2)} €/t` : `$${ventaSugerida.toFixed(2)} /TM`);
             if (ventaSugeridaSubtextEl) {
-                ventaSugeridaSubtextEl.innerText = suggestedBelowTarget
-                    ? 'Alerta: Venta por debajo del TCE Objetivo'
-                    : (isTerrestre
-                        ? `Coste Base ${fleteMinimoBaseVenta.toFixed(2)} €/t + margen transportista ${marginOwner.toFixed(2).replace(/\.00$/, '')}%` + (marginChart > 0 ? ` + margen agencia ${marginChart.toFixed(2).replace(/\.00$/, '')}%` : '')
-                        : (operacionModo === 'COA' && coaScenarioProjection
-                            ? `Target protegido por BunkerIndex pesimista +10%${coaScenarioProjection.adjustmentActive ? ` y ajuste compartido ${coaScenarioProjection.sharedAdjustmentPct.toFixed(2)}%` : ''}`
-                            : (isMarketStrategyActive && fleteObjetivoMercado > 0
-                                ? `Anclado a Benchmark de Mercado $${fleteObjetivoMercado.toFixed(2)} /MT (Coste Base $${fleteMinimoBaseVenta.toFixed(2)} /MT)`
-                                : `Coste Base $${fleteMinimoBaseVenta.toFixed(2)} + margen armador ${marginOwner.toFixed(2).replace(/\.00$/, '')}%` + (marginChart > 0 ? ` + margen fletador ${marginChart.toFixed(2).replace(/\.00$/, '')}%` : ''))));
+                ventaSugeridaSubtextEl.innerText = isRail
+                    ? `Coste Tracción Base ${fleteMinimoBaseVenta.toFixed(2)} €/t (${landTotalKilometers} km × 0.04) + margen transportista ${marginOwner.toFixed(2).replace(/\.00$/, '')}%` + (marginChart > 0 ? ` + margen agencia ${marginChart.toFixed(2).replace(/\.00$/, '')}%` : '')
+                    : (suggestedBelowTarget
+                        ? 'Alerta: Venta por debajo del TCE Objetivo'
+                        : (isTerrestre
+                            ? `Coste Base ${fleteMinimoBaseVenta.toFixed(2)} €/t + margen transportista ${marginOwner.toFixed(2).replace(/\.00$/, '')}%` + (marginChart > 0 ? ` + margen agencia ${marginChart.toFixed(2).replace(/\.00$/, '')}%` : '')
+                            : (operacionModo === 'COA' && coaScenarioProjection
+                                ? `Target protegido por BunkerIndex pesimista +10%${coaScenarioProjection.adjustmentActive ? ` y ajuste compartido ${coaScenarioProjection.sharedAdjustmentPct.toFixed(2)}%` : ''}`
+                                : (isMarketStrategyActive && fleteObjetivoMercado > 0
+                                    ? `Anclado a Benchmark de Mercado $${fleteObjetivoMercado.toFixed(2)} /MT (Coste Base $${fleteMinimoBaseVenta.toFixed(2)} /MT)`
+                                    : `Coste Base $${fleteMinimoBaseVenta.toFixed(2)} + margen armador ${marginOwner.toFixed(2).replace(/\.00$/, '')}%` + (marginChart > 0 ? ` + margen fletador ${marginChart.toFixed(2).replace(/\.00$/, '')}%` : '')))));
             }
             [targetPriceCard, suggestedOwnerCard, suggestedChartererCard].forEach((card) => {
                 if (!card) return;
@@ -42176,6 +42211,20 @@ function scheduleReactiveEngine() {
             State.trucksNeeded = trucks_needed;
             State.total_trucks = fleetTrucksNeeded;
 
+            // Cálculo dinámico de grossWeight / Peso Bruto del Convoy:
+            // Si isRail es TRUE, se calcula en Toneladas Métricas (MT): totalTonnage + (trucksNeeded * 20) [20 MT de tara por vagón].
+            const totalTonnage = Number(cargo || State.cargoQty || State.cargo || 0);
+            const calculatedGrossWeight = isRail
+                ? Math.round(totalTonnage + (fleetTrucksNeeded * 20))
+                : Math.round(Number(document.getElementById('grab-capacity-cbm')?.value) || (totalTonnage > 0 ? totalTonnage * 1000 : 24000));
+
+            const grabCapacityInput = document.getElementById('grab-capacity-cbm');
+            if (grabCapacityInput && isRail) {
+                grabCapacityInput.value = calculatedGrossWeight;
+            }
+            State.grossWeight = calculatedGrossWeight;
+            State.pesoBruto = calculatedGrossWeight;
+
             const unitaryTripCost = safeCalculationNumber(State.totalTripCost ?? State.totalCosts ?? displayTotalTripCost ?? 162);
             // Si isRail es true, el coste total es directamente costeTren (distancia * 0.04 * totalTonnage) y NO se multiplica por camiones
             const finalSharedTotalCosts = isRail
@@ -42219,20 +42268,20 @@ function scheduleReactiveEngine() {
                 ? (costeTren * agencyMarkupMultiplier)
                 : (isTerrestre ? (cargo > 0 && freightSell > 0 && freightSell !== 35.00 ? (cargo * freightSell) : (clientSaleUnit * fleetTrucksNeeded)) : grossRevCharterer);
             const finalGrossRevOwner = isRail
-                ? costeTren
+                ? (costeTren * (1 + (carrierMarkupPercent / 100)))
                 : (isTerrestre ? (cargo > 0 && freightBuy > 0 && freightBuy !== 32.50 ? (cargo * freightBuy) : (carrierPurchaseUnit * fleetTrucksNeeded)) : grossRevOwner);
             const finalVoyageRevenues = isRail
                 ? (finalGrossRevOwner + voyageExtras)
                 : (isTerrestre ? (finalGrossRevOwner + voyageExtras) : voyageRevenues);
-            const finalChartererCommissionCost = isRail
-                ? (finalGrossRevCharterer * (commPct / 100))
-                : (isTerrestre ? (finalGrossRevCharterer * (commPct / 100)) : chartererCommissionCost);
+            const finalChartererCommissionCost = (isRail || isTerrestre)
+                ? 0
+                : chartererCommissionCost;
             const finalNetProfitOwner = isRail
-                ? (finalVoyageRevenues - finalSharedTotalCosts)
+                ? (costeTren * (carrierMarkupPercent / 100))
                 : (isTerrestre ? (finalVoyageRevenues - finalSharedTotalCosts) : netProfitOwner);
-            const finalNetProfitCharterer = isRail
-                ? (finalGrossRevCharterer - finalGrossRevOwner - finalChartererCommissionCost)
-                : (isTerrestre ? (finalGrossRevCharterer - finalGrossRevOwner - finalChartererCommissionCost) : netProfitCharterer);
+            const finalNetProfitCharterer = (isRail || isTerrestre)
+                ? (finalGrossRevCharterer - finalGrossRevOwner)
+                : (finalGrossRevCharterer - finalGrossRevOwner - finalChartererCommissionCost);
             const finalTceTotal = isRail ? finalNetProfitOwner : (isTerrestre ? finalNetProfitOwner : tceTotal);
 
             const finalFuelCost = isRail ? 0 : ((isTerrestre ? displayFuelCost : totalBunkers) * (isTerrestre ? fleetTrucksNeeded : 1));
@@ -42247,11 +42296,11 @@ function scheduleReactiveEngine() {
             const netProfitOwnerDailyEl = document.getElementById('res-net-profit-owner-daily');
             if (netProfitOwnerDailyEl) {
                 netProfitOwnerDailyEl.innerText = isTerrestre && fleetTrucksNeeded > 1
-                    ? `Flota: ${fleetTrucksNeeded} camiones (${truckPayloadCapacity}t/vehículo)`
+                    ? (isRail ? `Flota: ${fleetTrucksNeeded} vagones (${truckPayloadCapacity}t/vagón)` : `Flota: ${fleetTrucksNeeded} camiones (${truckPayloadCapacity}t/vehículo)`)
                     : `Margen Neto Diario: ${netProfitOwnerDaily.toLocaleString('es-ES', {maximumFractionDigits:0})} € / día`;
             }
             document.getElementById('res-tce-label').innerText = isTerrestre && fleetTrucksNeeded > 1
-                ? `Margen Neto Proyecto (${fleetTrucksNeeded} camiones): ${finalTceTotal.toLocaleString('es-ES', {maximumFractionDigits:0})} €`
+                ? `Margen Neto Proyecto ${isRail ? `(${fleetTrucksNeeded} vagones)` : `(${fleetTrucksNeeded} camiones)`}: ${finalTceTotal.toLocaleString('es-ES', {maximumFractionDigits:0})} €`
                 : `Margen Neto del Viaje (€): ${tceTotal.toLocaleString('es-ES', {maximumFractionDigits:0})} € (Diario: ${tceOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} € / día)`;
             const ownerProfitTooltip = document.getElementById('owner-profit-tooltip');
             if (ownerProfitTooltip) ownerProfitTooltip.title = `Margen Neto Transportista = Ingresos del viaje - Costes operativos y peajes.`;
@@ -42261,15 +42310,15 @@ function scheduleReactiveEngine() {
             const ownerFinalNetEl = document.getElementById('res-owner-final-net');
             if (ownerGrossRevenueEl) {
                 ownerGrossRevenueEl.innerText = `${finalVoyageRevenues.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
-                ownerGrossRevenueEl.title = `Ingresos del viaje = porte bruto + recargos aplicables${fleetTrucksNeeded > 1 ? ` (${fleetTrucksNeeded} camiones)` : ''}`;
+                ownerGrossRevenueEl.title = `Ingresos del viaje = porte bruto + recargos aplicables${fleetTrucksNeeded > 1 ? ` ${isRail ? `(${fleetTrucksNeeded} vagones)` : `(${fleetTrucksNeeded} camiones)`}` : ''}`;
             }
             if (ownerVoyageCostsEl) {
                 ownerVoyageCostsEl.innerText = `${sharedVoyageCosts.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
-                ownerVoyageCostsEl.title = `Combustible y peajes para ${fleetTrucksNeeded} camiones`;
+                ownerVoyageCostsEl.title = isRail ? `Costes operativos para ${fleetTrucksNeeded} vagones` : `Combustible y peajes para ${fleetTrucksNeeded} camiones`;
             }
             if (ownerOpexCapexEl) {
                 ownerOpexCapexEl.innerText = `${finalOpexCapex.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
-                ownerOpexCapexEl.title = `Costes fijos chófer/amortización para ${fleetTrucksNeeded} camiones`;
+                ownerOpexCapexEl.title = isRail ? `Costes de tracción y material para ${fleetTrucksNeeded} vagones` : `Costes fijos chófer/amortización para ${fleetTrucksNeeded} camiones`;
             }
             if (ownerFinalNetEl) {
                 ownerFinalNetEl.innerText = `${finalNetProfitOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
@@ -42864,13 +42913,20 @@ function scheduleReactiveEngine() {
             if (typeof updateCBAMModuleView === 'function') {
                 updateCBAMModuleView();
             }
-            if (window.SeaCharterVoyageCostEngine?.renderAutomaticRiskMatrix) {
-                State.sensitivityAnalysis = window.SeaCharterVoyageCostEngine.renderAutomaticRiskMatrix(State);
-            } else if (typeof renderStressTestScenario === 'function') {
-                renderStressTestScenario(State);
+            const stressPanelEl = document.getElementById('stress-test-panel');
+            if (stressPanelEl && isRail) {
+                stressPanelEl.classList.add('hidden');
+                stressPanelEl.style.display = 'none';
             }
-            if (typeof calculateTachographTimes === 'function') {
-                calculateTachographTimes();
+            if (!isRail) {
+                if (window.SeaCharterVoyageCostEngine?.renderAutomaticRiskMatrix) {
+                    State.sensitivityAnalysis = window.SeaCharterVoyageCostEngine.renderAutomaticRiskMatrix(State);
+                } else if (typeof renderStressTestScenario === 'function') {
+                    renderStressTestScenario(State);
+                }
+                if (typeof calculateTachographTimes === 'function') {
+                    calculateTachographTimes();
+                }
             }
             notifyPendingDraftRecalculation();
             } finally {
@@ -51652,7 +51708,7 @@ Example:
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
                             <h5 class="font-bold text-amber-400 uppercase mb-2 border-b border-slate-700/50 pb-1 flex items-center gap-1.5">
-                                <i class="fa-solid fa-coins"></i> Lado Transportista: Estructura de Costes ${trucksNeeded > 1 ? `(${trucksNeeded} camiones)` : ''}
+                                <i class="fa-solid fa-coins"></i> Lado Transportista: Estructura de Costes ${trucksNeeded > 1 ? (isRailExec ? `(${trucksNeeded} vagones)` : `(${trucksNeeded} camiones)`) : ''}
                             </h5>
                             <ul class="space-y-1.5">
                                 <li class="flex justify-between font-bold">
@@ -65212,20 +65268,30 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             const container = document.getElementById(containerId);
             if (!container) return;
 
-            const allowedLabels = [...new Set(equipmentMatrix[category] || Object.values(METHOD_LABEL_BY_VALUE))];
-            const terrestrialLabels = [
-                'Autocarga con Grúa del Camión',
-                'Carga Lateral (Lona / Tauliner)',
-                'Carga Trasera por Muelle / Rampa',
-                'Carga Superior (Puente Grúa / Techo descapotable)',
-                'Carga con Transpaleta / Carretilla Elevadora',
-                'Carga por Silo / Tubo (Granel)'
-            ];
-            const filteredLabels = allowedLabels.filter((label) => terrestrialLabels.includes(label));
-            if (!filteredLabels.includes('Autocarga con Grúa del Camión')) {
-                filteredLabels.unshift('Autocarga con Grúa del Camión');
+            const currentVehicleType = String(window.State?.vehicleType || document.getElementById('nombre-buque-calculadora')?.value || '').toLowerCase();
+            const isRail = currentVehicleType.includes('tren') || currentVehicleType.includes('tolva') || currentVehicleType.includes('ferroviario');
+
+            let displayLabels;
+            if (isRail) {
+                const loadingMethods = ['Carga por Silo / Tubo (Granel)', 'Cinta transportadora (Terminal)'];
+                const unloadingMethods = ['Descarga inferior por gravedad (Foso)', 'Descarga neumática (Silo)'];
+                displayLabels = side === 'pod' ? unloadingMethods : loadingMethods;
+            } else {
+                const allowedLabels = [...new Set(equipmentMatrix[category] || Object.values(METHOD_LABEL_BY_VALUE))];
+                const terrestrialLabels = [
+                    'Autocarga con Grúa del Camión',
+                    'Carga Lateral (Lona / Tauliner)',
+                    'Carga Trasera por Muelle / Rampa',
+                    'Carga Superior (Puente Grúa / Techo descapotable)',
+                    'Carga con Transpaleta / Carretilla Elevadora',
+                    'Carga por Silo / Tubo (Granel)'
+                ];
+                const filteredLabels = allowedLabels.filter((label) => terrestrialLabels.includes(label));
+                if (!filteredLabels.includes('Autocarga con Grúa del Camión')) {
+                    filteredLabels.unshift('Autocarga con Grúa del Camión');
+                }
+                displayLabels = filteredLabels.length > 0 ? filteredLabels : terrestrialLabels;
             }
-            const displayLabels = filteredLabels.length > 0 ? filteredLabels : terrestrialLabels;
             const currentLabel = getSelectedMethodLabel(side) || displayLabels[0];
 
             container.innerHTML = displayLabels.map((label) => {
@@ -65302,6 +65368,37 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 }
                 if (typeof updateSection2LocalState === 'function') {
                     updateSection2LocalState(horasInputId, String(horasCalculadas));
+                }
+            } else {
+                const currentVehicleType = String(window.State?.vehicleType || document.getElementById('nombre-buque-calculadora')?.value || '').toLowerCase();
+                const isRail = currentVehicleType.includes('tren') || currentVehicleType.includes('tolva') || currentVehicleType.includes('ferroviario');
+                const isRailGranelMethod = label.includes('Silo') || label.includes('Cinta') || label.includes('gravedad') || label.includes('Foso');
+                if (isRail && isRailGranelMethod) {
+                    const horasInputId = side === 'pod' ? 'horas-previstas-descarga' : 'horas-previstas-carga';
+                    const horasInput = document.getElementById(horasInputId);
+                    const cargoEl = document.getElementById('cargo-qty');
+                    const rawCargo = parseFloat(cargoEl?.value) || parseFloat(window.State?.cargoQty) || 1000;
+                    const pesoEnToneladas = rawCargo > 50000 ? (rawCargo / 1000) : (rawCargo > 0 ? rawCargo : 1000);
+                    const ratioOperativo = 1500; // 1500 TM/h para tren tolva
+                    const horasCalculadas = Math.max(0.5, Math.round((pesoEnToneladas / ratioOperativo) * 10) / 10);
+                    if (horasInput) {
+                        horasInput.value = String(horasCalculadas);
+                    }
+                    if (typeof updateSection2LocalState === 'function') {
+                        updateSection2LocalState(horasInputId, String(horasCalculadas));
+                    }
+                    const rateInputId = side === 'pod' ? 'rate-disch' : 'rate-load';
+                    const rateInput = document.getElementById(rateInputId);
+                    if (rateInput) {
+                        rateInput.value = '1500';
+                        if (typeof updateCargoOperationDraft === 'function') {
+                            updateCargoOperationDraft(rateInputId, '1500');
+                        }
+                    }
+                    if (window.State) {
+                        if (side === 'pod') window.State.dischRate = 1500;
+                        else window.State.loadRate = 1500;
+                    }
                 }
             }
             if (methodValue === 'camion_tolva' && side === 'pol' && typeof actualizarModuloCamionTolva === 'function') {
@@ -71517,6 +71614,10 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                         // REGLA AUTOCARGA CON GRÚA DEL CAMIÓN:
                         // Ratio base de 20 (20 TM/h o 20 bultos/h). En ritmo diario (TM/D) equivale a 20 * 24 = 480 TM/D o ratio 20 t/h.
                         estimatedTpd = 20 * 24; // 480 TM/D
+                    } else if (Boolean(String(window.State?.vehicleType || document.getElementById('nombre-buque-calculadora')?.value || '').toLowerCase().includes('tren') || String(window.State?.vehicleType || document.getElementById('nombre-buque-calculadora')?.value || '').toLowerCase().includes('tolva')) && (methodLabel.includes('Silo') || methodLabel.includes('Cinta') || methodLabel.includes('gravedad') || methodLabel.includes('Foso'))) {
+                        // REGLA TREN TOLVA / GRANEL FERROVIARIO:
+                        // Ratio industrial de 1500 TM/h. En tasa por hora = 1500 TM/h.
+                        estimatedTpd = 1500;
                     } else if (typeof window.isCraneMethod === 'function' && window.isCraneMethod(methodLabel)) {
                         if (typeof window.calcularRitmoEfectivo === 'function') {
                             estimatedTpd = window.calcularRitmoEfectivo(s);
@@ -71532,7 +71633,7 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                     }
                 }
 
-                // Autocompletar Horas previstas de Carga / Descarga si el método es Autocarga con Grúa del Camión
+                // Autocompletar Horas previstas de Carga / Descarga si el método es Autocarga con Grúa del Camión o Tren Tolva
                 if (methodVal === 'autocarga_grua_camion' || methodLabel === 'Autocarga con Grúa del Camión') {
                     const horasInputId = s === 'pod' ? 'horas-previstas-descarga' : 'horas-previstas-carga';
                     const horasInput = document.getElementById(horasInputId);
@@ -71541,6 +71642,18 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                         const pesoEnToneladas = cargoQty > 500 ? (cargoQty / 1000) : (cargoQty > 0 ? cargoQty : 24);
                         const ratioOperativo = 20;
                         const horasCalculadas = Math.round((pesoEnToneladas / ratioOperativo) * 10) / 10;
+                        horasInput.value = String(horasCalculadas);
+                        if (typeof window.updateSection2LocalState === 'function') {
+                            window.updateSection2LocalState(horasInputId, String(horasCalculadas));
+                        }
+                    }
+                } else if (Boolean(String(window.State?.vehicleType || document.getElementById('nombre-buque-calculadora')?.value || '').toLowerCase().includes('tren') || String(window.State?.vehicleType || document.getElementById('nombre-buque-calculadora')?.value || '').toLowerCase().includes('tolva')) && (methodLabel.includes('Silo') || methodLabel.includes('Cinta') || methodLabel.includes('gravedad') || methodLabel.includes('Foso'))) {
+                    const horasInputId = s === 'pod' ? 'horas-previstas-descarga' : 'horas-previstas-carga';
+                    const horasInput = document.getElementById(horasInputId);
+                    if (horasInput) {
+                        const pesoEnToneladas = cargoQty > 50000 ? (cargoQty / 1000) : (cargoQty > 0 ? cargoQty : 1000);
+                        const ratioOperativo = 1500;
+                        const horasCalculadas = Math.max(0.5, Math.round((pesoEnToneladas / ratioOperativo) * 10) / 10);
                         horasInput.value = String(horasCalculadas);
                         if (typeof window.updateSection2LocalState === 'function') {
                             window.updateSection2LocalState(horasInputId, String(horasCalculadas));
