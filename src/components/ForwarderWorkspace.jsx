@@ -1618,32 +1618,32 @@ if (typeof window !== 'undefined') {
  */
 export function isProjectMatchingActiveDossier(project, activeDossierRef) {
   if (!project || !activeDossierRef) return false;
-  const active = String(activeDossierRef).trim().toUpperCase();
+  const active = String(activeDossierRef || '').trim().toUpperCase();
   if (!active) return false;
 
   const candidateParentRefs = [
-    project.referenciaPadre,
-    project.referencia_padre,
-    project.dossier_ref,
-    project.dossierRef,
-    project.parent_ref,
-    project.parentRef,
-    project.data?.dossier_ref,
-    project.data?.parent_ref,
-    project.data?.referenciaPadre,
-    project.data?.referencia_padre,
+    project?.referenciaPadre,
+    project?.referencia_padre,
+    project?.dossier_ref,
+    project?.dossierRef,
+    project?.parent_ref,
+    project?.parentRef,
+    project?.data?.dossier_ref,
+    project?.data?.parent_ref,
+    project?.data?.referenciaPadre,
+    project?.data?.referencia_padre,
   ];
 
   for (const candidate of candidateParentRefs) {
     if (candidate !== undefined && candidate !== null) {
-      const norm = String(candidate).trim().toUpperCase();
+      const norm = String(candidate || '').trim().toUpperCase();
       if (norm && (norm === active || norm.startsWith(active) || active.startsWith(norm))) {
         return true;
       }
     }
   }
 
-  const projectRef = String(project.project_ref || project.projectRef || '').trim().toUpperCase();
+  const projectRef = String(project?.project_ref || project?.projectRef || '').trim().toUpperCase();
   if (projectRef && (projectRef === active || projectRef.startsWith(active))) {
     return true;
   }
@@ -2289,7 +2289,7 @@ function ForwarderWorkspaceInner() {
       // devuelva vacío o ningún proyecto coincidente, se dispara una segunda consulta automática
       // al endpoint marítimo (/.netlify/functions/dossiers) buscando esa misma referencia y adaptando los datos.
       const hasMatchingLandProject = activeRef
-        ? list.some((p) => isProjectMatchingActiveDossier(p, activeRef) || String(p?.project_ref || '').toUpperCase() === activeRef.toUpperCase())
+        ? list.some((p) => isProjectMatchingActiveDossier(p, activeRef) || String(p?.project_ref || '').toUpperCase() === String(activeRef || '').toUpperCase())
         : false;
 
       if (activeRef && (!hasMatchingLandProject || list.length === 0)) {
@@ -2306,7 +2306,7 @@ function ForwarderWorkspaceInner() {
               ? dossierData.dossiers
               : (Array.isArray(dossierData) ? dossierData : (dossierData?.dossier ? [dossierData.dossier] : []));
 
-            const matchedDossier = rawDossiers.find((d) => String(d?.reference || '').toUpperCase() === activeRef.toUpperCase())
+            const matchedDossier = rawDossiers.find((d) => String(d?.reference || '').toUpperCase() === String(activeRef || '').toUpperCase())
               || rawDossiers.find((d) => isProjectMatchingActiveDossier(d, activeRef))
               || (rawDossiers.length > 0 ? rawDossiers[0] : null);
 
@@ -2369,7 +2369,7 @@ function ForwarderWorkspaceInner() {
           setprojectDocuments(withSrvs.documents || withSrvs.files || []);
         }
       } else if (targetRef) {
-        const matching = list.find((p) => String(p?.project_ref || '').toUpperCase() === targetRef.toUpperCase() || isProjectMatchingActiveDossier(p, targetRef));
+        const matching = list.find((p) => String(p?.project_ref || '').toUpperCase() === String(targetRef || '').toUpperCase() || isProjectMatchingActiveDossier(p, targetRef));
         if (matching) {
           const srvs = (Array.isArray(matching.services) && matching.services.length > 0)
             ? matching.services
@@ -2725,8 +2725,29 @@ function ForwarderWorkspaceInner() {
         const isCostAlreadyTotal = totalTrucks > 1 && rawSavedCost > 0 && rawSavedCost > (unitCost * 1.5);
         const isSaleAlreadyTotal = totalTrucks > 1 && rawSavedSale > 0 && rawSavedSale > (unitSale * 1.5);
 
-        const totalCost = isCostAlreadyTotal ? rawSavedCost : Number((unitCost * totalTrucks).toFixed(2));
-        const totalSale = isSaleAlreadyTotal ? rawSavedSale : Number((unitSale * totalTrucks).toFixed(2));
+        const effDistSync = Number(sDist || effectiveLandDist || distanceKm || 0);
+        const costeTrenSync = Math.round(effDistSync * 0.04 * (totalTons || 1) * 100) / 100;
+
+        const totalCost = isRail
+          ? costeTrenSync
+          : (isCostAlreadyTotal ? rawSavedCost : Number((unitCost * totalTrucks).toFixed(2)));
+        const totalSale = isRail
+          ? Math.round(costeTrenSync * 1.18 * 100) / 100
+          : (isSaleAlreadyTotal ? rawSavedSale : Number((unitSale * totalTrucks).toFixed(2)));
+
+        if (typeof window !== 'undefined' && isRail) {
+          window.State = window.State || {};
+          window.State.totalTripCost = totalCost;
+          window.State.totalCosts = totalCost;
+          window.State.costTotal = totalCost;
+          window.State.land_freight_cost = totalCost;
+          window.State.land_freight_sale = totalSale;
+          if (window.GlobalStore) {
+            window.GlobalStore.totalTripCost = totalCost;
+            window.GlobalStore.totalCosts = totalCost;
+            window.GlobalStore.land_freight_cost = totalCost;
+          }
+        }
 
         const finalLandCostTotal = totalCost;
         const finalLandSaleTotal = totalSale;
@@ -3239,21 +3260,25 @@ function ForwarderWorkspaceInner() {
 
       // 2. Calcular los camiones necesarios reales
       const truckType = vehicleType || projectToSave?.truck_type || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
-      const payloadPerTruck = getVehiclePayloadKg(truckType) || 24000;
+      const isRail = truckType?.toLowerCase().includes('tren') || truckType?.toLowerCase().includes('tolva');
+      const payloadPerTruck = getVehiclePayloadKg(truckType) || (isRail ? 50000 : 24000);
       const trucksNeeded = Number(projectToSave?.total_trucks) > 0
         ? Number(projectToSave.total_trucks)
         : (totalKg > 0 ? Math.ceil(totalKg / payloadPerTruck) : 1);
 
+      const totalTonnage = (totalKg > 0 ? totalKg / 1000 : 0) || Number(projectToSave?.total_weight_tons || activeProject?.total_weight_tons || 1);
+      const costeTren = Math.round(distanceKm * 0.04 * totalTonnage * 100) / 100;
+
       // Coste y Venta por camión (Exclusión de dietas en rutas fuera de la UE)
       const isOutsideEU = isNonEURoute(landOrigin, landDestination, activeProject || projectToSave);
-      const runningCost = Math.round(distanceKm * 1.57);
-      const tolls = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollCost || (distanceKm > 0 ? distanceKm * 0.18 : 0)));
+      const runningCost = isRail ? costeTren : Math.round(distanceKm * 1.57);
+      const tolls = isRail ? 0 : Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollCost || (distanceKm > 0 ? distanceKm * 0.18 : 0)));
       const transitDays = distanceKm > 0 ? Math.max(1, Math.ceil(distanceKm / 650)) : 1;
-      const diets = isOutsideEU ? 0 : Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
+      const diets = (isRail || isOutsideEU) ? 0 : Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
       const safeLoadHours = Number(loadingRate || 2) > 24 ? 2 : Number(loadingRate || 2);
       const safeDischHours = Number(dischargingRate || 2) > 24 ? 2 : Number(dischargingRate || 2);
-      const waitPenalty = Number(warehouseWaitPenaltyEur || 0) || (Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40));
-      const baseTruckOperatingCost = runningCost + tolls + diets + waitPenalty;
+      const waitPenalty = isRail ? 0 : (Number(warehouseWaitPenaltyEur || 0) || (Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40)));
+      const baseTruckOperatingCost = isRail ? costeTren : (runningCost + tolls + diets + waitPenalty);
 
       // Cadencia de Flota y Dimensionamiento (DSS Escenario Óptimo)
       const dssOptimalTrucksPerDay = getDssOptimalTrucksPerDay(activeProject || projectToSave, { origin: landOrigin, destination: landDestination, loadingRate });
@@ -3261,9 +3286,11 @@ function ForwarderWorkspaceInner() {
 
       const costeOperativoPorCamion = (!distanceKm || Number(distanceKm) <= 0)
         ? 0
-        : (baseTruckOperatingCost > 0
-          ? baseTruckOperatingCost
-          : (Number(estimatedCost) > 0 ? Number(estimatedCost) : (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0)));
+        : (isRail
+          ? (costeTren > 0 && trucksNeeded > 0 ? Number((costeTren / trucksNeeded).toFixed(2)) : costeTren)
+          : (baseTruckOperatingCost > 0
+            ? baseTruckOperatingCost
+            : (Number(estimatedCost) > 0 ? Number(estimatedCost) : (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0))));
       const precioVentaPorCamion = (!distanceKm || Number(distanceKm) <= 0)
         ? 0
         : (costeOperativoPorCamion > 0
@@ -3271,8 +3298,26 @@ function ForwarderWorkspaceInner() {
           : (Number(salePrice) > 0 ? Number(salePrice) : (Number(activeProject?.land_freight_sale) > 0 ? Number(activeProject.land_freight_sale) : 0)));
 
       // 3. Coste y Venta Total (SIN volver a multiplicar por toneladas ni kilos)
-      const finalTotalLandCost = (!distanceKm || Number(distanceKm) <= 0) ? 0 : Number((trucksNeeded * costeOperativoPorCamion).toFixed(2));
-      const finalTotalLandSale = (!distanceKm || Number(distanceKm) <= 0) ? 0 : Number((trucksNeeded * precioVentaPorCamion).toFixed(2));
+      const finalTotalLandCost = (!distanceKm || Number(distanceKm) <= 0)
+        ? 0
+        : (isRail ? costeTren : Number((trucksNeeded * costeOperativoPorCamion).toFixed(2)));
+      const finalTotalLandSale = (!distanceKm || Number(distanceKm) <= 0)
+        ? 0
+        : (isRail ? Number((costeTren * 1.18).toFixed(2)) : Number((trucksNeeded * precioVentaPorCamion).toFixed(2)));
+
+      if (typeof window !== 'undefined' && isRail) {
+        window.State = window.State || {};
+        window.State.totalTripCost = finalTotalLandCost;
+        window.State.totalCosts = finalTotalLandCost;
+        window.State.costTotal = finalTotalLandCost;
+        window.State.land_freight_cost = finalTotalLandCost;
+        window.State.land_freight_sale = finalTotalLandSale;
+        if (window.GlobalStore) {
+          window.GlobalStore.totalTripCost = finalTotalLandCost;
+          window.GlobalStore.totalCosts = finalTotalLandCost;
+          window.GlobalStore.land_freight_cost = finalTotalLandCost;
+        }
+      }
 
       const tuVariableDeCosteTotalTerrestre = (!distanceKm || Number(distanceKm) <= 0)
         ? 0
@@ -3549,19 +3594,23 @@ function ForwarderWorkspaceInner() {
 
       // 2. Calcular los camiones necesarios reales
       const truckType = vehicleType || activeProject?.truck_type || activeProject?.vehicle_type || 'Tráiler Tauliner (13.6m)';
-      const payloadPerTruck = getVehiclePayloadKg(truckType) || 24000;
+      const isRail = truckType?.toLowerCase().includes('tren') || truckType?.toLowerCase().includes('tolva');
+      const payloadPerTruck = getVehiclePayloadKg(truckType) || (isRail ? 50000 : 24000);
       const trucksNeeded = totalKg > 0 ? Math.ceil(totalKg / payloadPerTruck) : 1;
+
+      const totalTonnage = (totalKg > 0 ? totalKg / 1000 : 0) || Number(activeProject?.total_weight_tons || 1);
+      const costeTren = Math.round(distanceKm * 0.04 * totalTonnage * 100) / 100;
 
       // Coste y Venta por camión (Exclusión de dietas en rutas fuera de la UE)
       const isOutsideEU = isNonEURoute(landOrigin, landDestination, activeProject);
-      const runningCost = Math.round(distanceKm * 1.57);
-      const tolls = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollCost || (distanceKm > 0 ? distanceKm * 0.18 : 0)));
+      const runningCost = isRail ? costeTren : Math.round(distanceKm * 1.57);
+      const tolls = isRail ? 0 : Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollCost || (distanceKm > 0 ? distanceKm * 0.18 : 0)));
       const transitDays = distanceKm > 0 ? Math.max(1, Math.ceil(distanceKm / 650)) : 1;
-      const diets = isOutsideEU ? 0 : Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
+      const diets = (isRail || isOutsideEU) ? 0 : Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (transitDays * 75)));
       const safeLoadHours = Number(loadingRate || 2) > 24 ? 2 : Number(loadingRate || 2);
       const safeDischHours = Number(dischargingRate || 2) > 24 ? 2 : Number(dischargingRate || 2);
-      const waitPenalty = Number(warehouseWaitPenaltyEur || 0) || (Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40));
-      const baseTruckOperatingCost = runningCost + tolls + diets + waitPenalty;
+      const waitPenalty = isRail ? 0 : (Number(warehouseWaitPenaltyEur || 0) || (Math.max(0, (safeLoadHours - 2) * 40) + Math.max(0, (safeDischHours - 2) * 40)));
+      const baseTruckOperatingCost = isRail ? costeTren : (runningCost + tolls + diets + waitPenalty);
 
       // Cadencia de Flota y Dimensionamiento (DSS Escenario Óptimo)
       const dssOptimalTrucksPerDay = getDssOptimalTrucksPerDay(activeProject, { origin: landOrigin, destination: landDestination, loadingRate });
@@ -3569,9 +3618,11 @@ function ForwarderWorkspaceInner() {
 
       const costeOperativoPorCamion = (!distanceKm || Number(distanceKm) <= 0)
         ? 0
-        : (baseTruckOperatingCost > 0
-          ? baseTruckOperatingCost
-          : (Number(estimatedCost) > 0 ? Number(estimatedCost) : (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0)));
+        : (isRail
+          ? (costeTren > 0 && trucksNeeded > 0 ? Number((costeTren / trucksNeeded).toFixed(2)) : costeTren)
+          : (baseTruckOperatingCost > 0
+            ? baseTruckOperatingCost
+            : (Number(estimatedCost) > 0 ? Number(estimatedCost) : (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0))));
       const precioVentaPorCamion = (!distanceKm || Number(distanceKm) <= 0)
         ? 0
         : (costeOperativoPorCamion > 0
@@ -3579,8 +3630,26 @@ function ForwarderWorkspaceInner() {
           : (Number(salePrice) > 0 ? Number(salePrice) : (Number(activeProject?.land_freight_sale) > 0 ? Number(activeProject.land_freight_sale) : 0)));
 
       // 3. Coste y Venta Total (SIN volver a multiplicar por toneladas ni kilos)
-      const finalTotalLandCost = Number((trucksNeeded * costeOperativoPorCamion).toFixed(2));
-      const finalTotalLandSale = Number((trucksNeeded * precioVentaPorCamion).toFixed(2));
+      const finalTotalLandCost = (!distanceKm || Number(distanceKm) <= 0)
+        ? 0
+        : (isRail ? costeTren : Number((trucksNeeded * costeOperativoPorCamion).toFixed(2)));
+      const finalTotalLandSale = (!distanceKm || Number(distanceKm) <= 0)
+        ? 0
+        : (isRail ? Number((costeTren * 1.18).toFixed(2)) : Number((trucksNeeded * precioVentaPorCamion).toFixed(2)));
+
+      if (typeof window !== 'undefined' && isRail) {
+        window.State = window.State || {};
+        window.State.totalTripCost = finalTotalLandCost;
+        window.State.totalCosts = finalTotalLandCost;
+        window.State.costTotal = finalTotalLandCost;
+        window.State.land_freight_cost = finalTotalLandCost;
+        window.State.land_freight_sale = finalTotalLandSale;
+        if (window.GlobalStore) {
+          window.GlobalStore.totalTripCost = finalTotalLandCost;
+          window.GlobalStore.totalCosts = finalTotalLandCost;
+          window.GlobalStore.land_freight_cost = finalTotalLandCost;
+        }
+      }
 
       // 1. ELIMINAR EL BLOAT MARÍTIMO (Dieta estricta para evitar Error 500)
       const cleanProject = { ...activeProject };
@@ -3950,7 +4019,7 @@ function ForwarderWorkspaceInner() {
       ? cargoItems[0].type
       : ((items && items.length > 0 && items[0]?.type) ? items[0].type : (activeProject?.cargoType || activeProject?.cargo_type || ''));
     const cleanCargoType = String(targetCargoType || '').trim();
-    const upperCargoType = cleanCargoType.toUpperCase();
+    const upperCargoType = (cleanCargoType || '').toUpperCase();
     const isGicaExplicit = /gica/i.test(`${rawType} ${upperCargoType}`);
 
     let cargoType = cleanCargoType;
@@ -4283,10 +4352,35 @@ function ForwarderWorkspaceInner() {
       totalEstimatedCost = calculatedOceanFreight + calculatedFobOperations;
     }
 
+    const activeVType = vehicleType || activeProject?.vehicle_type || activeProject?.truck_type || '';
+    const isRailAuto = activeVType.toLowerCase().includes('tren') || activeVType.toLowerCase().includes('tolva');
+    if (isRailAuto) {
+      const effDist = Number(distanceKm) || Number(activeProject?.land_distance) || Number(distanceNm) || 0;
+      const totalTons = totalWeightTons > 0 ? totalWeightTons : (totalPieces > 0 && totals.weight > 0 ? totals.weight / 1000 : 1);
+      const costeTren = Math.round(effDist * 0.04 * totalTons * 100) / 100;
+      if (costeTren > 0) {
+        totalEstimatedCost = costeTren;
+        calculatedOceanFreight = costeTren;
+        if (typeof window !== 'undefined') {
+          window.State = window.State || {};
+          window.State.totalTripCost = costeTren;
+          window.State.totalCosts = costeTren;
+          window.State.costTotal = costeTren;
+          window.State.land_freight_cost = costeTren;
+          window.State.land_freight_sale = Number((costeTren * 1.18).toFixed(2));
+          if (window.GlobalStore) {
+            window.GlobalStore.totalTripCost = costeTren;
+            window.GlobalStore.totalCosts = costeTren;
+            window.GlobalStore.land_freight_cost = costeTren;
+          }
+        }
+      }
+    }
+
     setSubtotalFreight(calculatedOceanFreight.toFixed(2));
     setSubtotalFobOperations(calculatedFobOperations.toFixed(2));
     setEstimatedCost(totalEstimatedCost.toFixed(2));
-    setSalePrice((totalEstimatedCost * 1.15).toFixed(2));
+    setSalePrice((totalEstimatedCost * (isRailAuto ? 1.18 : 1.15)).toFixed(2));
   };
 
   useEffect(() => {
@@ -5951,6 +6045,29 @@ function ForwarderWorkspaceInner() {
   };
 
   const getStowageAscii = (report = null) => {
+    const isReportRail = Boolean(
+      (vehicleType && (vehicleType.toLowerCase().includes('tren') || vehicleType.toLowerCase().includes('tolva'))) ||
+      (report?.vehicleType && (report.vehicleType.toLowerCase().includes('tren') || report.vehicleType.toLowerCase().includes('tolva'))) ||
+      (activeProject?.vehicle_type && (activeProject.vehicle_type.toLowerCase().includes('tren') || activeProject.vehicle_type.toLowerCase().includes('tolva'))) ||
+      (activeProject?.truck_type && (activeProject.truck_type.toLowerCase().includes('tren') || activeProject.truck_type.toLowerCase().includes('tolva')))
+    );
+    if (isReportRail) {
+      const wagons = Math.max(1, Number(report?.total_trucks || activeProject?.total_trucks || 2));
+      const convoyScheme = `[LOCOMOTORA]${'===[TOLVA]'.repeat(wagons)}`;
+      return [
+        '========================================================================================',
+        '  CROQUIS ESQUEMÁTICO DE CONVOY FERROVIARIO',
+        `  Convoy ferroviario: ${wagons} Vagones`,
+        '========================================================================================',
+        '',
+        `  ${convoyScheme}`,
+        '',
+        '  • Tracción: Locomotora Diésel-Eléctrica / Eléctrica de Alta Potencia',
+        `  • Material Rodante: ${wagons}x Vagones Tolva de Gran Capacidad`,
+        `  • Capacidad Nominal: ${wagons * 50} MT (~50 MT por vagón)`,
+        '========================================================================================'
+      ].join('\n');
+    }
     const plan = report?.stowagePlan
       || reportData?.stowagePlan
       || calculateUniversalStowagePlan(cargoItems, totals, { shippingMode, pol, pod });
@@ -5975,31 +6092,55 @@ function ForwarderWorkspaceInner() {
   const isOutsideEU = !routeIsStrictlyEU;
   const exchangeRate = routeIsStrictlyEU ? 1 : (typeof window !== 'undefined' && window.State?.exchangeRate ? window.State.exchangeRate : 1.10);
 
+  const vehicle_type_upper = vehicleType || activeProject?.truck_type || activeProject?.vehicle_type || '';
+  const isRailUpper = vehicle_type_upper?.toLowerCase().includes('tren') || vehicle_type_upper?.toLowerCase().includes('tolva');
+
   // Usamos la variable de coste terrestre extraída (ej. totalRoadCost o cost), NUNCA el estimatedCost marítimo.
   const distKmUpper = Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : (distanceKm || 0))));
-  const runningCostUpper = Math.round(distKmUpper * (1.35 + 0.22));
-  const tollsUpper = Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollsCost || (distKmUpper * 0.18)));
-  const dietsUpper = isOutsideEU ? 0 : Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (Math.max(1, Math.ceil(distKmUpper / 650)) * 75)));
-  const waitPenaltyUpper = Number(warehouseWaitPenaltyEur || 0);
-  const calculatedTerrestrialUnit = runningCostUpper + tollsUpper + dietsUpper + waitPenaltyUpper;
-
-  const fallbackUpperDiets = isOutsideEU ? 0 : 75;
-  const terrestrialUnitCost = Number(calculatedTerrestrialUnit > 0 ? calculatedTerrestrialUnit : (((distKmUpper || distanceKm || 0) * 1.57) + ((distKmUpper || distanceKm || 0) * 0.18) + fallbackUpperDiets));
-  const rawCost = Number(activeProject?.land_freight_cost) || terrestrialUnitCost || 0;
-  const rawSale = Number(activeProject?.land_freight_sale) || (terrestrialUnitCost * 1.18) || 0;
-
+  const totalWeightTons = totals.weight > 0 ? (totals.weight / 1000) : (parseSafeNumber(activeProject?.cargoQuantity || activeProject?.total_weight_tons) || 0);
   const fallbackTrucks = Number(activeProject?.total_trucks) > 0 ? Number(activeProject.total_trucks) : 1;
   const pesoTotalMercanciaKg = typeof totals !== 'undefined' && totals?.weight ? totals.weight : (activeProject?.items || []).reduce((sum, it) => sum + (parseSafeNumber(it.weight) || (parseSafeNumber(it.cantidad) * parseSafeNumber(it.peso_unitario)) || 0), 0);
-  const camionesReales = pesoTotalMercanciaKg > 0 ? Math.ceil(pesoTotalMercanciaKg / 24000) : fallbackTrucks;
+  const camionesReales = pesoTotalMercanciaKg > 0 ? Math.ceil(pesoTotalMercanciaKg / (isRailUpper ? 50000 : 24000)) : fallbackTrucks;
+  const totalTonnageUpper = Number(totalWeightTons) > 0 ? Number(totalWeightTons) : (pesoTotalMercanciaKg > 0 ? pesoTotalMercanciaKg / 1000 : 1);
+  const costeTrenUpper = Math.round(distKmUpper * 0.04 * totalTonnageUpper * 100) / 100;
+
+  const runningCostUpper = isRailUpper ? costeTrenUpper : Math.round(distKmUpper * (1.35 + 0.22));
+  const tollsUpper = isRailUpper ? 0 : Math.round(Number(activeProject?.tollCost || activeProject?.peajes || tollsCost || (distKmUpper * 0.18)));
+  const dietsUpper = (isRailUpper || isOutsideEU) ? 0 : Math.round(Number(activeProject?.driverDiets || activeProject?.dietas || driverDiets || (Math.max(1, Math.ceil(distKmUpper / 650)) * 75)));
+  const waitPenaltyUpper = isRailUpper ? 0 : Number(warehouseWaitPenaltyEur || 0);
+  const calculatedTerrestrialUnit = isRailUpper
+    ? (camionesReales > 0 ? costeTrenUpper / camionesReales : costeTrenUpper)
+    : (runningCostUpper + tollsUpper + dietsUpper + waitPenaltyUpper);
+
+  const fallbackUpperDiets = (isRailUpper || isOutsideEU) ? 0 : 75;
+  const terrestrialUnitCost = isRailUpper
+    ? (camionesReales > 0 ? costeTrenUpper / camionesReales : costeTrenUpper)
+    : Number(calculatedTerrestrialUnit > 0 ? calculatedTerrestrialUnit : (((distKmUpper || distanceKm || 0) * 1.57) + ((distKmUpper || distanceKm || 0) * 0.18) + fallbackUpperDiets));
+  const rawCost = Number(activeProject?.land_freight_cost) || (isRailUpper ? costeTrenUpper : terrestrialUnitCost) || 0;
+  const rawSale = Number(activeProject?.land_freight_sale) || (isRailUpper ? Math.round(costeTrenUpper * 1.18 * 100) / 100 : (terrestrialUnitCost * 1.18)) || 0;
 
   // CÁLCULO DECLARATIVO E INMUTABLE DEL TOTAL DE LA FLOTA TERRESTRE
   // Si activeProject tiene land_freight_cost / land_freight_sale guardados, mostrar el total bruto guardado
   const finalFooterCost = Number(activeProject?.land_freight_cost) > 0
     ? Number(activeProject.land_freight_cost)
-    : (terrestrialUnitCost * camionesReales * exchangeRate);
+    : (isRailUpper ? costeTrenUpper : (terrestrialUnitCost * camionesReales * exchangeRate));
   const finalFooterSale = Number(activeProject?.land_freight_sale) > 0
     ? Number(activeProject.land_freight_sale)
-    : ((terrestrialUnitCost * 1.18) * camionesReales * exchangeRate);
+    : (isRailUpper ? Math.round(costeTrenUpper * 1.18 * 100) / 100 : ((terrestrialUnitCost * 1.18) * camionesReales * exchangeRate));
+
+  if (typeof window !== 'undefined' && isRailUpper) {
+    window.State = window.State || {};
+    window.State.totalTripCost = finalFooterCost;
+    window.State.totalCosts = finalFooterCost;
+    window.State.costTotal = finalFooterCost;
+    window.State.land_freight_cost = finalFooterCost;
+    window.State.land_freight_sale = finalFooterSale;
+    if (window.GlobalStore) {
+      window.GlobalStore.totalTripCost = finalFooterCost;
+      window.GlobalStore.totalCosts = finalFooterCost;
+      window.GlobalStore.land_freight_cost = finalFooterCost;
+    }
+  }
 
   // Variables complementarias para compatibilidad y flete unitario
   const footerTotalCost = finalFooterCost;
@@ -6008,7 +6149,6 @@ function ForwarderWorkspaceInner() {
   const finalTotalSale = finalFooterSale;
   const currentCurrency = displayCurrency;
 
-  const totalWeightTons = totals.weight > 0 ? (totals.weight / 1000) : (parseSafeNumber(activeProject?.cargoQuantity || activeProject?.total_weight_tons) || 0);
   const tonelajeReal = Number(totalWeightTons) || 1;
   const realUnitFreight = finalFooterSale / tonelajeReal;
   // --------------------------------------------------
@@ -6233,6 +6373,8 @@ function ForwarderWorkspaceInner() {
                 const rMarginPct = rCostEur > 0 ? Math.round((rMargin / rSaleEur) * 100) : 0;
                 const rDrivingDays = rDistKm > 0 ? Math.max(1, Math.ceil(rDistKm / 650)) : 0;
 
+                const isRailResumen = rTruckType?.toLowerCase().includes('tren') || rTruckType?.toLowerCase().includes('tolva');
+
                 return (
                   <div className="space-y-4">
                     {/* CUADRÍCULA DE RESUMEN TERRESTRE */}
@@ -6253,7 +6395,7 @@ function ForwarderWorkspaceInner() {
                                 </span>
                               )}
                             </div>
-                            <span className="text-base">🛣️</span>
+                            <span className="text-base">{isRailResumen ? '🚂' : '🛣️'}</span>
                           </div>
                           <div className="font-bold text-slate-800 text-sm truncate" title={activeProject?.land_origin ? `${activeProject.land_origin}${activeProject.land_destination ? ` ➔ ${activeProject.land_destination}` : ''}` : (rOrigin ? `${rOrigin}${rDestination ? ` ➔ ${rDestination}` : ''}` : 'Sin ruta terrestre')}>
                             {activeProject?.land_origin ? (
@@ -6267,7 +6409,7 @@ function ForwarderWorkspaceInner() {
                         </div>
                         <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-slate-100">
                           <span className={`w-2 h-2 rounded-full ${(activeProject?.land_origin || rOrigin) ? 'bg-emerald-500' : 'bg-amber-400'} shrink-0`}></span>
-                          <span className="text-[11px] font-medium text-slate-600">Corredor Directo UE</span>
+                          <span className="text-[11px] font-medium text-slate-600">{isRailResumen ? 'Corredor Ferroviario' : 'Corredor Directo UE'}</span>
                         </div>
                       </div>
 
@@ -6294,7 +6436,11 @@ function ForwarderWorkspaceInner() {
                           </div>
                         </div>
                         <div className="text-[11px] font-medium text-slate-600 mt-3 pt-2 border-t border-slate-100">
-                          {rDistKm > 0 ? `~${rDrivingDays} jornada${rDrivingDays > 1 ? 's' : ''} (Tacógrafo UE)` : 'Sin distancia calculada'}
+                          {rDistKm > 0
+                            ? (isRailResumen
+                              ? `~${rDrivingDays} jornada${rDrivingDays > 1 ? 's' : ''} (Tránsito Ferroviario / Conducción por Relevos · Surcos de corredor)`
+                              : `~${rDrivingDays} jornada${rDrivingDays > 1 ? 's' : ''} (Tacógrafo UE)`)
+                            : 'Sin distancia calculada'}
                         </div>
                       </div>
 
@@ -7596,35 +7742,51 @@ function ForwarderWorkspaceInner() {
                     </span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
-                    <span className="block text-[10px] uppercase font-bold text-slate-500">Distancia por carretera</span>
+                    <span className="block text-[10px] uppercase font-bold text-slate-500">
+                      {isRail ? 'Distancia ferroviaria' : 'Distancia por carretera'}
+                    </span>
                     <span className="text-sm font-black text-slate-900 mt-1 block font-mono">
                       {Math.round(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0))).toLocaleString('es-ES')} KM
                     </span>
-                    <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">Kilómetros (Transporte Terrestre)</span>
+                    <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">
+                      {isRail ? 'Kilómetros (Línea Ferroviaria)' : 'Kilómetros (Transporte Terrestre)'}
+                    </span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
-                    <span className="block text-[10px] uppercase font-bold text-slate-500">Jornadas de tacógrafo</span>
-                    <span className="text-sm font-black text-blue-700 mt-1 block font-mono">
-                      ~{Math.max(1, Math.ceil(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0)) / 650))} jornada(s)
+                    <span className="block text-[10px] uppercase font-bold text-slate-500">
+                      {isRail ? 'Tránsito Ferroviario' : 'Jornadas de tacógrafo'}
                     </span>
-                    <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">Reglamento CE 561/2006</span>
+                    <span className="text-sm font-black text-blue-700 mt-1 block font-mono">
+                      ~{Math.max(1, Math.ceil(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0)) / 650))} {isRail ? 'jornada(s) convoy' : 'jornada(s)'}
+                    </span>
+                    <span className="block text-[9px] text-slate-400 font-semibold mt-0.5" title={isRail ? 'El tiempo de tránsito depende de los surcos del corredor ferroviario y no de la normativa vial de camiones' : 'Reglamento CE 561/2006'}>
+                      {isRail ? 'Tránsito Ferroviario / Conducción por Relevos (Surcos de corredor)' : 'Reglamento CE 561/2006'}
+                    </span>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center mt-3 pt-3 border-t border-slate-200">
                   <div className="bg-white p-2.5 rounded border border-slate-200">
-                    <span className="block text-[10px] uppercase font-bold text-slate-500">Ruta Terrestre</span>
+                    <span className="block text-[10px] uppercase font-bold text-slate-500">
+                      {isRail ? 'Corredor Ferroviario' : 'Ruta Terrestre'}
+                    </span>
                     <span className="text-xs font-black text-slate-900 mt-1 block">{activeProject?.land_origin ? `${activeProject.land_origin}${activeProject.land_destination ? ` ➔ ${activeProject.land_destination}` : ''}` : ((activeProject?.land_route?.origin) ? `${activeProject.land_route.origin}${activeProject.land_route.destination ? ` ➔ ${activeProject.land_route.destination}` : ''}` : ((landOrigin) ? `${landOrigin}${landDestination ? ` ➔ ${landDestination}` : ''}` : 'Sin ruta terrestre'))}</span>
                     <span className="block text-[9px] text-slate-500 font-mono">{(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0))).toLocaleString('es-ES')} KM</span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Tiempos Carga / Descarga</span>
                     <span className="text-xs font-black text-slate-900 mt-1 block">{loadingRate || 2}h / {dischargingRate || 2}h</span>
-                    <span className="block text-[9px] text-slate-500">Franquicia legal: 2 horas</span>
+                    <span className="block text-[9px] text-slate-500">{isRail ? 'Operativa en vía / Tolva' : 'Franquicia legal: 2 horas'}</span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
-                    <span className="block text-[10px] uppercase font-bold text-slate-500">Tránsito & Tacógrafo</span>
-                    <span className="text-xs font-black text-blue-700 mt-1 block font-mono">~{Math.max(1, Math.ceil(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0)) / 650))} jornada(s) chófer</span>
-                    <span className="block text-[9px] text-slate-500">Reglamento CE 561/2006</span>
+                    <span className="block text-[10px] uppercase font-bold text-slate-500">
+                      {isRail ? 'Tránsito Ferroviario / Conducción por Relevos' : 'Tránsito & Tacógrafo'}
+                    </span>
+                    <span className="text-xs font-black text-blue-700 mt-1 block font-mono">
+                      ~{Math.max(1, Math.ceil(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0)) / 650))} {isRail ? 'jornada(s) tren' : 'jornada(s) chófer'}
+                    </span>
+                    <span className="block text-[9px] text-slate-500" title={isRail ? 'El tiempo de tránsito depende de los surcos del corredor ferroviario y no de la normativa vial de camiones' : 'Reglamento CE 561/2006'}>
+                      {isRail ? 'Surcos de corredor (sin normativa vial)' : 'Reglamento CE 561/2006'}
+                    </span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Configuración Vehículo</span>
@@ -7674,7 +7836,18 @@ function ForwarderWorkspaceInner() {
                   activeProject || activeReport
                 );
 
-                if (isTariffActive) {
+                const curVTReport = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || activeProject?.vehicle_type || 'Tráiler Tauliner (13.6m)';
+                const isRailReport = curVTReport?.toLowerCase().includes('tren') || curVTReport?.toLowerCase().includes('tolva');
+
+                if (isRailReport) {
+                  const costeTren = Math.round(distKm * 0.04 * (Number(totalTons) || 1) * 100) / 100;
+                  runningCost = costeTren;
+                  tollsCost = 0;
+                  driverDiets = 0;
+                  waitPenalty = 0;
+                  totalRoadCost = costeTren;
+                  finalSalePrice = Math.round(totalRoadCost * 1.18 * 100) / 100;
+                } else if (isTariffActive) {
                   // Herencia de Datos FSPE en el Reporte (Blindaje Financiero):
                   // Forzar peajes, dietas y penalizaciones a 0 €
                   tollsCost = 0;
@@ -7761,18 +7934,22 @@ function ForwarderWorkspaceInner() {
                           <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{(isTariffActive ? 0 : Math.round(tollsCost * 0.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
                         </tr>
                         <tr className="hover:bg-slate-50">
-                          <td className="py-2.5 px-3 font-bold text-slate-900">Dietas y Pernoctas de Chófer</td>
+                          <td className="py-2.5 px-3 font-bold text-slate-900">
+                            {isRailReport ? 'Tripulación & Relevos Ferroviarios' : 'Dietas y Pernoctas de Chófer'}
+                          </td>
                           <td className="py-2.5 px-3 text-slate-600">
-                            {isTariffActive
-                              ? 'Blindaje FSPE: Dietas incluidas en tarifa plana de commodity (0,00 €)'
-                              : isReportOutsideEU
-                                ? 'Exclusión geográfica (fuera de la UE): Operativa limitada estrictamente a tracción pura y peajes sin compensación de personal UE (0,00 €)'
-                                : `${transitDays} jornada(s) según normativa de tacógrafo UE (75 €/día)`
+                            {isRailReport
+                              ? 'Tránsito Ferroviario / Conducción por Relevos: El tiempo de tránsito depende de los surcos del corredor ferroviario y no de la normativa vial de camiones (0,00 € dietas viales)'
+                              : (isTariffActive
+                                ? 'Blindaje FSPE: Dietas incluidas en tarifa plana de commodity (0,00 €)'
+                                : isReportOutsideEU
+                                  ? 'Exclusión geográfica (fuera de la UE): Operativa limitada estrictamente a tracción pura y peajes sin compensación de personal UE (0,00 €)'
+                                  : `${transitDays} jornada(s) según normativa de tacógrafo UE (75 €/día)`)
                             }
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono text-slate-800">{driverDiets.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{(isTariffActive || isReportOutsideEU ? 0 : Math.round(driverDiets * 1.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{(isTariffActive || isReportOutsideEU ? 0 : Math.round(driverDiets * 0.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{(isTariffActive || isReportOutsideEU || isRailReport ? 0 : Math.round(driverDiets * 1.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">{(isTariffActive || isReportOutsideEU || isRailReport ? 0 : Math.round(driverDiets * 0.18)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
                         </tr>
                         {waitPenalty > 0 && (
                           <tr className="hover:bg-amber-50 bg-amber-50/60 font-semibold">
@@ -7832,7 +8009,15 @@ function ForwarderWorkspaceInner() {
                 let singleTruckCost;
                 let singleTruckSale;
 
-                if (isTariffActive) {
+                const isRailTotal = currentVT?.toLowerCase().includes('tren') || currentVT?.toLowerCase().includes('tolva') || activeProject?.vehicle_type?.toLowerCase().includes('tren') || activeProject?.truck_type?.toLowerCase().includes('tren');
+
+                if (isRailTotal) {
+                  const costeTren = Math.round(distKm * 0.04 * (Number(totalTons) || 1) * 100) / 100;
+                  singleTruckCost = trucksRequired > 0 ? Math.round((costeTren / trucksRequired) * 100) / 100 : costeTren;
+                  singleTruckSale = Math.round(singleTruckCost * 1.18 * 100) / 100;
+                  projectTotalCost = costeTren;
+                  projectTotalSale = Math.round(costeTren * 1.18 * 100) / 100;
+                } else if (isTariffActive) {
                   // Herencia de Datos FSPE en el Reporte (Blindaje Financiero):
                   // Replicar exactamente la lógica de pantalla sin multiplicar km por camiones
                   const pesoTotalRealMT = Number(totalTons) || 0;
@@ -8017,31 +8202,33 @@ function ForwarderWorkspaceInner() {
                   });
                   const campaignDim = calculateFleetCampaignDimensioning(trucksReq, dssOptimalCadence);
 
+                  const isRail = currentVT?.toLowerCase().includes('tren') || currentVT?.toLowerCase().includes('tolva') || activeProject?.vehicle_type?.toLowerCase().includes('tren') || activeProject?.truck_type?.toLowerCase().includes('tren');
+
                   return (
                     <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-800 shadow-xs space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
                         <div className="flex items-center gap-2">
-                          <span className="text-lg">🚛</span>
+                          <span className="text-lg">{isRail ? '🚂' : '🚛'}</span>
                           <div>
                             <h4 className="text-xs font-black uppercase tracking-wider text-emerald-700">
-                              Motor de Cubicación de Camiones y Metros Lineales (LDM)
+                              {isRail ? 'Dimensionamiento Ferroviario y Composición de Convoy' : 'Motor de Cubicación de Camiones y Metros Lineales (LDM)'}
                             </h4>
                             <span className="text-[10px] text-slate-500">
-                              {currentVT} (13.60m x 2.48m x 2.70m · {currentPayloadTons}t Carga Útil · 40t MMA)
+                              {currentVT} ({isRail ? `${currentPayloadTons}t Capacidad por Vagón · Convoy Ferroviario` : `13.60m x 2.48m x 2.70m · ${currentPayloadTons}t Carga Útil · 40t MMA`})
                             </span>
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 text-[11px] font-mono">
                           <span id="badge-cadencia-optima-dss" className="bg-indigo-50 text-indigo-800 px-2 py-0.5 rounded border border-indigo-200 font-bold flex items-center gap-1">
                             <span>🟢 DSS Óptimo:</span>
-                            <span id="val-dss-cadencia-badge">{dssOptimalCadence} camiones/día</span>
+                            <span id="val-dss-cadencia-badge">{dssOptimalCadence} {isRail ? 'vagones/día' : 'camiones/día'}</span>
                           </span>
                           <span id="badge-plazo-campana-dss" className="bg-amber-50 text-amber-800 px-2 py-0.5 rounded border border-amber-200 font-bold flex items-center gap-1">
                             <span>⏱️ Plazo:</span>
                             <span id="val-dss-plazo-badge">{campaignDim.plazoCampanaDias} {campaignDim.plazoCampanaDias === 1 ? 'día' : 'días'}</span>
                           </span>
                           <span className="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 font-bold">
-                            Flota: {trucksReq} Camión{trucksReq > 1 ? 'es' : ''} Tráiler
+                            {isRail ? `Convoy ferroviario: ${trucksReq} Vagones` : `Flota: ${trucksReq} Camión${trucksReq > 1 ? 'es' : ''} Tráiler`}
                           </span>
                           <span className="bg-blue-50 text-blue-800 px-2 py-0.5 rounded border border-blue-200 font-bold">
                             {calcLdm.toFixed(1)} LDM Totales
@@ -8083,13 +8270,16 @@ function ForwarderWorkspaceInner() {
                         </div>
                       </div>
 
-                      {/* SILUETA TÉCNICA VECTORIAL CONDICIONAL (SVG) */}
+                      {/* SILUETA TÉCNICA VECTORIAL CONDICIONAL (SVG) / ESQUEMA FERROVIARIO */}
                       <VisualTruckPlan
                         vehicleType={currentVT}
                         ldm={Number(ldmPerTruck)}
                         maxLdm={13.6}
                         assignedWeightKg={wtPerTruckKg}
                         maxPayloadKg={currentPayloadKg}
+                        trucksCount={trucksReq}
+                        wagonCount={trucksReq}
+                        isRail={isRail}
                       />
 
                       {/* Comparador de Paletización y Medidores LDM / Carga */}
