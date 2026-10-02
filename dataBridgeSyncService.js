@@ -306,7 +306,7 @@ export function buildRoadSyncPayload(options = {}) {
         if (effectiveTotalTrucks > 1) {
             rawServices = rawServices.map((srv) => {
                 if (!srv || typeof srv !== 'object') return srv;
-                const isTerrestre = srv.id === 'srv-auto-sync' || String(srv.id || '').startsWith('srv-auto') || /terrestre/i.test(srv.name || srv.description || srv.service_name || '');
+                const isTerrestre = srv.id === 'srv-auto-sync' || String(srv.id || '').startsWith('srv-auto') || /terrestre|ferroviario/i.test(srv.name || srv.description || srv.service_name || '');
                 if (isTerrestre) {
                     const srvCost = Number(srv.cost ?? srv.cost_eur ?? 0);
                     const srvSale = Number(srv.sale ?? srv.sale_price_eur ?? 0);
