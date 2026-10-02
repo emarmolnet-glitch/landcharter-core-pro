@@ -878,7 +878,7 @@ export async function fetchMultimodalPorts(ref) {
     const data = await safeFetchJson(url);
     if (data) {
       const list = Array.isArray(data) ? data : (data.projects || [data]);
-      const project = list.find((p) => String(p.project_ref || '').toUpperCase() === cleanRef.toUpperCase()) || list[0];
+      const project = list.find((p) => String(p?.project_ref || '').toUpperCase() === String(cleanRef || '').toUpperCase()) || list[0];
       if (project) {
         const route = project.route_and_chartering ||
           project.items?.[0]?.payload_data?.route_and_chartering ||
@@ -904,7 +904,7 @@ export async function fetchMultimodalPorts(ref) {
     const data = await safeFetchJson(url);
     if (data) {
       const list = Array.isArray(data.dossiers) ? data.dossiers : (Array.isArray(data) ? data : []);
-      const dossier = list.find((d) => String(d.reference || '').toUpperCase() === cleanRef.toUpperCase()) || list[0];
+      const dossier = list.find((d) => String(d?.reference || '').toUpperCase() === String(cleanRef || '').toUpperCase()) || list[0];
       if (dossier && (dossier.pol || dossier.pod)) {
         return { pol: String(dossier.pol || '').trim(), pod: String(dossier.pod || '').trim(), source: 'dossiers' };
       }

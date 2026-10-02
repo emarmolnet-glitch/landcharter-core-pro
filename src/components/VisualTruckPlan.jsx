@@ -22,8 +22,85 @@ export default function VisualTruckPlan({
   maxLdm = 13.6,
   assignedWeightKg = 0,
   maxPayloadKg = 24000,
-  className = ''
+  className = '',
+  trucksCount,
+  wagonCount,
+  isRail: propIsRail
 }) {
+  const vehicleLower = String(vehicleType || '').toLowerCase();
+  const isRail = propIsRail !== undefined
+    ? Boolean(propIsRail)
+    : (vehicleLower.includes('tren') || vehicleLower.includes('tolva') || vehicleLower.includes('ferroviario') || vehicleLower.includes('rail'));
+
+  if (isRail) {
+    const wagons = Math.max(1, Number(wagonCount ?? trucksCount ?? (assignedWeightKg > 0 ? Math.ceil(assignedWeightKg / (maxPayloadKg || 50000)) : 2)));
+    const convoyScheme = `[LOCOMOTORA]${'===[TOLVA]'.repeat(wagons)}`;
+    return (
+      <div
+        className={`visual-truck-plan-card visual-rail-convoy-card bg-white border border-slate-300 rounded-xl p-4 shadow-xs text-slate-800 ${className}`}
+        data-testid="visual-truck-plan"
+      >
+        {/* Header bar: Configuración Ferroviaria */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2 mb-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-emerald-600 text-white font-mono text-xs font-black">
+              🚂
+            </span>
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 leading-tight">
+                Configuración Transporte Ferroviario & Convoy
+              </h4>
+              <span className="text-[10.5px] font-bold text-emerald-700 font-mono">
+                {vehicleType} · <span className="text-slate-600 font-medium">Tracción y Arrastre Ferroviario</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Quick summary badges */}
+          <div className="flex items-center gap-2 font-mono text-[11px]">
+            <div className="bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded">
+              <span className="text-emerald-700 uppercase text-[9px] block font-sans font-bold">Composición Convoy</span>
+              <strong className="text-slate-900 font-black">{wagons} {wagons === 1 ? 'Vagón' : 'Vagones'}</strong>
+            </div>
+            <div className="bg-slate-100 border border-slate-200 px-2.5 py-1 rounded">
+              <span className="text-slate-500 uppercase text-[9px] block font-sans font-bold">Carga Útil Asignada</span>
+              <strong className="text-slate-900 font-black">{Number(assignedWeightKg || 0).toLocaleString('es-ES')} kg</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Croquis / Representación Visual Ferroviaria */}
+        <div className="relative w-full bg-slate-900 text-emerald-400 rounded-lg border border-slate-800 p-6 flex flex-col items-center justify-center overflow-x-auto shadow-inner text-center">
+          <div className="text-xs uppercase tracking-widest text-slate-300 font-bold font-mono mb-2">
+            Convoy ferroviario: {wagons} Vagones
+          </div>
+          <pre className="text-emerald-400 font-mono font-black text-sm sm:text-base tracking-wider py-3 px-4 bg-slate-950/80 rounded border border-slate-800/80 whitespace-pre overflow-x-auto shadow-sm">
+            {convoyScheme}
+          </pre>
+          <p className="mt-3 text-[11px] text-slate-400 font-sans">
+            Composición ferroviaria en bloque con tolvas para transporte a granel e industrial
+          </p>
+        </div>
+
+        {/* Footer Technical Note */}
+        <div className="mt-2.5 pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between text-[10.5px] text-slate-500 font-sans gap-2">
+          <div>
+            <span className="font-bold text-slate-700 uppercase">Esquema Operativo:</span> Convoy ferroviario: {wagons} Vagones
+          </div>
+          <div>
+            <span className="font-bold text-slate-700 uppercase">Tracción:</span> Locomotora de línea + tolvas de alta capacidad
+          </div>
+          <div>
+            <span className="font-bold text-slate-700 uppercase">Capacidad Ferroviaria:</span>{' '}
+            <span className="text-emerald-700 font-black font-mono">
+              {Number(assignedWeightKg || 0).toLocaleString('es-ES')} kg asignados
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const profileKey = getTruckProfile(vehicleType);
   const metadata = TRUCK_PROFILES_METADATA[profileKey] || TRUCK_PROFILES_METADATA.TAUTLINER;
 

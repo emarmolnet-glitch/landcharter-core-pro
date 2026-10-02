@@ -18894,8 +18894,13 @@ function renderRouteItineraryRightPanel(landData) {
     const milestones = Array.isArray(landData.tachographMilestones) ? landData.tachographMilestones : [];
     const tollList = Array.isArray(landData.tollBreakdown) ? landData.tollBreakdown : [];
 
+    const vehicleTypeItinerary = String(window.State?.vehicleType || window.State?.truckType || (typeof document !== 'undefined' ? (document.getElementById('vehicle_type')?.value || document.getElementById('nombre-buque-calculadora')?.value) : '') || '').toLowerCase();
+    const isRailItinerary = vehicleTypeItinerary.includes('tren') || vehicleTypeItinerary.includes('tolva') || vehicleTypeItinerary.includes('ferroviario') || vehicleTypeItinerary.includes('rail');
+
     let milestonesHtml = '';
-    if (milestones.length === 0) {
+    if (isRailItinerary) {
+        milestonesHtml = '<p class="text-xs text-emerald-700 italic mt-1 font-medium">Tránsito ferroviario continuo por corredor de mercancías con surcos asignados. Sin paradas de tacógrafo vial.</p>';
+    } else if (milestones.length === 0) {
         milestonesHtml = '<p class="text-xs text-slate-500 italic mt-1">Ruta continua sin paradas obligatorias (&lt; 4.5h conducción).</p>';
     } else {
         milestonesHtml = `
@@ -18914,7 +18919,9 @@ function renderRouteItineraryRightPanel(landData) {
     }
 
     let tollsHtml = '';
-    if (tollList.length === 0) {
+    if (isRailItinerary) {
+        tollsHtml = '<p class="text-xs text-emerald-700 font-medium mt-1">0,00 € (Cánones Ferroviarios / Uso de Vía incluidos en flete)</p>';
+    } else if (tollList.length === 0) {
         if (effectiveTollsCost > 0) {
             tollsHtml = `<p class="text-xs text-emerald-700 font-medium mt-1">(${effectiveTollsCost.toFixed(2)} € · Estimación tarifas HGV por kilometraje)</p>`;
         } else {
@@ -18937,7 +18944,7 @@ function renderRouteItineraryRightPanel(landData) {
         <div id="route-itinerary-header" class="flex items-center justify-between pb-2 mb-3 border-b border-slate-200 cursor-grab active:cursor-grabbing select-none" title="Arrastrar panel">
             <h3 class="font-bold text-sm text-slate-900 flex items-center gap-1.5 pointer-events-none">
                 <i class="fa-solid fa-grip-vertical text-slate-400 mr-0.5"></i>
-                <i class="fa-solid fa-route text-blue-600"></i> Itinerario de Ruta Terrestre
+                <i class="fa-solid ${isRailItinerary ? 'fa-train text-emerald-600' : 'fa-route text-blue-600'}"></i> ${isRailItinerary ? 'Itinerario Ferroviario' : 'Itinerario de Ruta Terrestre'}
             </h3>
             <button type="button" onclick="document.getElementById('route-itinerary-right-panel')?.classList.toggle('hidden')" class="text-slate-400 hover:text-slate-600 p-1 text-xs" title="Minimizar panel">
                 <i class="fa-solid fa-chevron-down"></i>
@@ -18959,33 +18966,33 @@ function renderRouteItineraryRightPanel(landData) {
         <!-- 🛣️ Distancia total y tiempo de conducción -->
         <div class="grid grid-cols-2 gap-2 mb-3">
             <div class="bg-blue-50 border border-blue-100 rounded-lg p-2 text-center">
-                <span class="block text-[10px] font-bold uppercase text-blue-600">🛣️ Distancia Total</span>
+                <span class="block text-[10px] font-bold uppercase text-blue-600">${isRailItinerary ? '🚂 Distancia Tren' : '🛣️ Distancia Total'}</span>
                 <strong class="text-sm font-extrabold text-blue-900">${distKmFormatted} km</strong>
             </div>
             <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-2 text-center">
-                <span class="block text-[10px] font-bold uppercase text-indigo-600">⏱️ Conducción</span>
+                <span class="block text-[10px] font-bold uppercase text-indigo-600">${isRailItinerary ? '⏱️ Tránsito Vía' : '⏱️ Conducción'}</span>
                 <strong class="text-sm font-extrabold text-indigo-900">${hoursDisplay}h ${minsDisplay}m</strong>
             </div>
         </div>
 
-        <!-- ☕ Hitos y alertas de tacógrafo -->
+        <!-- ☕ Hitos y alertas de tacógrafo / surcos ferroviarios -->
         <div class="mb-3">
             <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-slate-700 flex items-center gap-1">
-                    ☕ Tacógrafo (CE 561/2006)
+                    ${isRailItinerary ? '🚦 Tránsito Ferroviario / Surcos' : '☕ Tacógrafo (CE 561/2006)'}
                 </span>
-                <span class="text-[10px] font-semibold text-slate-500">${milestones.length} parada(s)</span>
+                <span class="text-[10px] font-semibold text-slate-500">${isRailItinerary ? 'Relevos de maquinista' : `${milestones.length} parada(s)`}</span>
             </div>
             ${milestonesHtml}
         </div>
 
-        <!-- 💶 Desglose y suma total de peajes -->
+        <!-- 💶 Desglose y suma total de peajes / cánones ferroviarios -->
         <div class="pt-2 border-t border-slate-100">
             <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-slate-700 flex items-center gap-1">
-                    💶 Peajes Estimados
+                    ${isRailItinerary ? '💶 Cánones / Uso de Vía' : '💶 Peajes Estimados'}
                 </span>
-                <strong class="text-xs font-extrabold text-emerald-700">${tollsTotal} €</strong>
+                <strong class="text-xs font-extrabold text-emerald-700">${isRailItinerary ? '0,00 €' : `${tollsTotal} €`}</strong>
             </div>
             ${tollsHtml}
         </div>
@@ -19301,9 +19308,11 @@ async function runOnDemandMapRouteWorkflow(button) {
             throw new Error('Origen y Destino son obligatorios para calcular la ruta terrestre.');
         }
 
-        // 2. Control de concurrencia: Evitar peticiones geojson idénticas en vuelo simultáneas
+        const vehicleTypeKey = String(window.State?.vehicleType || window.State?.truckType || (typeof document !== 'undefined' ? (document.getElementById('vehicle_type')?.value || document.getElementById('nombre-buque-calculadora')?.value) : '') || 'truck').trim().toLowerCase();
+
+        // 2. Control de concurrencia y caché de rutas: Clave que combina estrictamente origen + destino + vehicle_type
         window._inFlightLandRoutePromises = window._inFlightLandRoutePromises || new Map();
-        dedupeKey = `${pol.trim().toLowerCase()}__${pod.trim().toLowerCase()}`;
+        dedupeKey = `${pol.trim().toLowerCase()}__${pod.trim().toLowerCase()}__${vehicleTypeKey}`;
         if (window._inFlightLandRoutePromises.has(dedupeKey)) {
             console.log(`[Workflow] Petición idéntica en vuelo detectada para "${dedupeKey}". Reutilizando promesa existente.`);
             return await window._inFlightLandRoutePromises.get(dedupeKey);
@@ -19366,18 +19375,29 @@ async function runOnDemandMapRouteWorkflow(button) {
             return null;
         };
 
-        let polCoords = directPol || {
-            lat: parseFloat(polInput?.dataset?.selectedLatitude || polInput?.dataset?.lat || (typeof window !== 'undefined' && window.originCoords?.lat)),
-            lon: parseFloat(polInput?.dataset?.selectedLongitude || polInput?.dataset?.lon || (typeof window !== 'undefined' && window.originCoords?.lon)),
-            displayName: (typeof window !== 'undefined' && (window.originCoords?.displayName || window.originCoords?.name)) || pol
-        };
-        let podCoords = directPod || {
-            lat: parseFloat(podInput?.dataset?.selectedLatitude || podInput?.dataset?.lat || (typeof window !== 'undefined' && window.destinationCoords?.lat)),
-            lon: parseFloat(podInput?.dataset?.selectedLongitude || podInput?.dataset?.lon || (typeof window !== 'undefined' && window.destinationCoords?.lon)),
-            displayName: (typeof window !== 'undefined' && (window.destinationCoords?.displayName || window.destinationCoords?.name)) || pod
+        // Validación estricta para evitar reciclaje de coordenadas obsoletas (ej. Sétif cuando el usuario busca Barcelona o Madrid)
+        const isCoordStale = (coords, expectedName) => {
+            if (!coords || !expectedName) return true;
+            const cName = String(coords.displayName || coords.name || '').toLowerCase();
+            const eName = String(expectedName).toLowerCase().trim();
+            if (eName.length >= 3 && !cName.includes(eName) && !eName.includes(cName.slice(0, 5))) {
+                return true;
+            }
+            return false;
         };
 
-        if (!Number.isFinite(polCoords.lat) || !Number.isFinite(polCoords.lon) || !polCoords.displayName || polCoords.displayName.length < 20) {
+        let polCoords = (!isCoordStale(directPol, pol) ? directPol : null) || {
+            lat: parseFloat(polInput?.dataset?.selectedLatitude || polInput?.dataset?.lat || (typeof window !== 'undefined' && !isCoordStale(window.originCoords, pol) ? window.originCoords?.lat : NaN)),
+            lon: parseFloat(polInput?.dataset?.selectedLongitude || polInput?.dataset?.lon || (typeof window !== 'undefined' && !isCoordStale(window.originCoords, pol) ? window.originCoords?.lon : NaN)),
+            displayName: (typeof window !== 'undefined' && !isCoordStale(window.originCoords, pol) ? (window.originCoords?.displayName || window.originCoords?.name) : null) || pol
+        };
+        let podCoords = (!isCoordStale(directPod, pod) ? directPod : null) || {
+            lat: parseFloat(podInput?.dataset?.selectedLatitude || podInput?.dataset?.lat || (typeof window !== 'undefined' && !isCoordStale(window.destinationCoords, pod) ? window.destinationCoords?.lat : NaN)),
+            lon: parseFloat(podInput?.dataset?.selectedLongitude || podInput?.dataset?.lon || (typeof window !== 'undefined' && !isCoordStale(window.destinationCoords, pod) ? window.destinationCoords?.lon : NaN)),
+            displayName: (typeof window !== 'undefined' && !isCoordStale(window.destinationCoords, pod) ? (window.destinationCoords?.displayName || window.destinationCoords?.name) : null) || pod
+        };
+
+        if (!Number.isFinite(polCoords.lat) || !Number.isFinite(polCoords.lon) || isCoordStale(polCoords, pol) || !polCoords.displayName || polCoords.displayName.length < 20) {
             const resolvedPol = await getCoordinates(pol);
             if (resolvedPol) {
                 polCoords = {
@@ -19388,7 +19408,7 @@ async function runOnDemandMapRouteWorkflow(button) {
                 };
             }
         }
-        if (!Number.isFinite(podCoords.lat) || !Number.isFinite(podCoords.lon) || !podCoords.displayName || podCoords.displayName.length < 20) {
+        if (!Number.isFinite(podCoords.lat) || !Number.isFinite(podCoords.lon) || isCoordStale(podCoords, pod) || !podCoords.displayName || podCoords.displayName.length < 20) {
             const resolvedPod = await getCoordinates(pod);
             if (resolvedPod) {
                 podCoords = {
@@ -19791,6 +19811,8 @@ async function runOnDemandMapRouteWorkflow(button) {
 
             if (roadRoutePoints && roadRoutePoints.length > 0) {
                 const layerGroupItems = [];
+                let mainPolyline = null;
+                let railPolyline = null;
 
                 if (!isRail) {
                     // Si alternatives=true devuelve rutas secundarias, píntalas debajo en azul claro/grisáceo (color: '#93c5fd', weight: 4, opacity: 0.7)
@@ -19823,7 +19845,7 @@ async function runOnDemandMapRouteWorkflow(button) {
                     layerGroupItems.push(borderPolyline);
 
                     // Pinta la ruta principal encima en azul intenso (color: '#2563eb', weight: 5, opacity: 0.95)
-                    const mainPolyline = L.polyline(roadRoutePoints, {
+                    mainPolyline = L.polyline(roadRoutePoints, {
                         color: '#2563eb',
                         weight: 5,
                         opacity: 0.95,
@@ -19838,7 +19860,7 @@ async function runOnDemandMapRouteWorkflow(button) {
                     // MODO FERROCARRIL (TREN):
                     // a) Cambia el color de la línea a gris oscuro o negro (#333333).
                     // b) Aplica un estilo de vía de tren (línea discontinua dashArray: '10, 10').
-                    const railPolyline = L.polyline(roadRoutePoints, {
+                    railPolyline = L.polyline(roadRoutePoints, {
                         color: '#333333',
                         weight: 4,
                         opacity: 0.95,
@@ -19849,6 +19871,7 @@ async function runOnDemandMapRouteWorkflow(button) {
                         ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
                     }).addTo(mapInstance);
                     layerGroupItems.push(railPolyline);
+                    mainPolyline = railPolyline;
                 }
 
                 const routeLayer = L.featureGroup(layerGroupItems);
@@ -20166,6 +20189,8 @@ function redrawCurrentRoute(overrideVehicleType) {
 
     const routeSvgRenderer = (typeof L.svg === 'function') ? L.svg({ padding: 0.5 }).addTo(mapInstance) : undefined;
     const layerGroupItems = [];
+    let mainPolyline = null;
+    let railPolyline = null;
 
     if (!isRail) {
         const borderPolyline = L.polyline(drawState.roadRoutePoints, {
@@ -20179,7 +20204,7 @@ function redrawCurrentRoute(overrideVehicleType) {
         }).addTo(mapInstance);
         layerGroupItems.push(borderPolyline);
 
-        const mainPolyline = L.polyline(drawState.roadRoutePoints, {
+        mainPolyline = L.polyline(drawState.roadRoutePoints, {
             color: '#2563eb',
             weight: 5,
             opacity: 0.95,
@@ -20191,7 +20216,7 @@ function redrawCurrentRoute(overrideVehicleType) {
         }).addTo(mapInstance);
         layerGroupItems.push(mainPolyline);
     } else {
-        const railPolyline = L.polyline(drawState.roadRoutePoints, {
+        railPolyline = L.polyline(drawState.roadRoutePoints, {
             color: '#333333',
             weight: 4,
             opacity: 0.95,
@@ -20202,6 +20227,7 @@ function redrawCurrentRoute(overrideVehicleType) {
             ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
         }).addTo(mapInstance);
         layerGroupItems.push(railPolyline);
+        mainPolyline = railPolyline;
     }
 
     const routeLayer = L.featureGroup(layerGroupItems);
@@ -20306,7 +20332,7 @@ async function fetchMultimodalExpedientePorts(reference) {
         const data = await safeFetchJson(url);
         if (data) {
             const list = Array.isArray(data) ? data : (data.projects || [data]);
-            const project = list.find((p) => String(p.project_ref || '').toUpperCase() === cleanRef.toUpperCase()) || list[0];
+            const project = list.find((p) => String(p?.project_ref || '').toUpperCase() === String(cleanRef || '').toUpperCase()) || list[0];
             if (project) {
                 const route = project.route_and_chartering ||
                     project.items?.[0]?.payload_data?.route_and_chartering ||
@@ -20332,7 +20358,7 @@ async function fetchMultimodalExpedientePorts(reference) {
         const data = await safeFetchJson(url);
         if (data) {
             const list = Array.isArray(data.dossiers) ? data.dossiers : (Array.isArray(data) ? data : []);
-            const dossier = list.find((d) => String(d.reference || '').toUpperCase() === cleanRef.toUpperCase()) || list[0];
+            const dossier = list.find((d) => String(d?.reference || '').toUpperCase() === String(cleanRef || '').toUpperCase()) || list[0];
             if (dossier && (dossier.pol || dossier.pod)) {
                 return { pol: String(dossier.pol || '').trim(), pod: String(dossier.pod || '').trim(), source: 'dossiers' };
             }
@@ -41327,15 +41353,22 @@ function scheduleReactiveEngine() {
             const descansoDias = (pausasTacografoHoras + descansosDiariosHoras) > 0 ? ((pausasTacografoHoras + descansosDiariosHoras) / 24) : 0;
 
             // Calibración de Coste base: (distancia * 1.30 €/km) + peajes + (dietas * pernoctas)
+            // Si isRail es true, aplicar fórmula ferroviaria directa: Coste Total = distanciaKm * 0.04 * totalTonnage
+            // y los costes de peajes, dietas, diésel y CAPEX deben sumar estrictamente 0.
+            const vehicle_type_engine = State.vehicleType || (document.getElementById('nombre-buque-calculadora')?.value) || '';
+            const isRail = vehicle_type_engine?.toLowerCase().includes('tren') || vehicle_type_engine?.toLowerCase().includes('tolva') || vehicle_type_engine?.toLowerCase().includes('ferroviario') || vehicle_type_engine?.toLowerCase().includes('rail');
+            const totalTonnageRail = Number(cargo) || Number(State.cargo) || (parseFloat(document.getElementById('cargo-qty')?.value) || 24.0);
+            const costeTren = landTotalKilometers * 0.04 * totalTonnageRail;
+
             const baseKmRate = 1.30;
             const baseKmCost = landTotalKilometers * baseKmRate;
-            const tollCost = isZeroCalculation ? 0 : (Number(window.LandData?.totalTollsCost) || (landTotalKilometers * landTollCostPerKm));
-            const dietasCost = pernoctas * 65.0;
-            const totalTripCost = isZeroCalculation ? 0 : (baseKmCost + tollCost + dietasCost);
-            const landBreakEvenPerKm = (landTotalKilometers > 0 && totalTripCost > 0) ? (totalTripCost / landTotalKilometers) : baseKmRate;
+            const tollCost = isZeroCalculation ? 0 : (isRail ? 0 : (Number(window.LandData?.totalTollsCost) || (landTotalKilometers * landTollCostPerKm)));
+            const dietasCost = isRail ? 0 : (pernoctas * 65.0);
+            const totalTripCost = isZeroCalculation ? 0 : (isRail ? costeTren : (baseKmCost + tollCost + dietasCost));
+            const landBreakEvenPerKm = (landTotalKilometers > 0 && totalTripCost > 0) ? (totalTripCost / landTotalKilometers) : (isRail ? (costeTren / (landTotalKilometers || 1)) : baseKmRate);
 
-            const fuelCost = isZeroCalculation ? 0 : ((landTotalKilometers / 100) * landVehicleConsumption * landDieselPrice);
-            const fixedCost = Math.max(0, totalTripCost - fuelCost - tollCost);
+            const fuelCost = isZeroCalculation ? 0 : (isRail ? 0 : ((landTotalKilometers / 100) * landVehicleConsumption * landDieselPrice));
+            const fixedCost = isRail ? costeTren : Math.max(0, totalTripCost - fuelCost - tollCost);
             // Reference Cost-Plus model: (landDrivingHours / 24) * landFixedDailyCost; totalTripCost = isZeroCalculation ? 0 : (fuelCost + tollCost + fixedCost); // tollCostPerKm 0.19
 
             // EMISSIONS CALCULATION (CO₂):
@@ -41672,14 +41705,60 @@ function scheduleReactiveEngine() {
             });
 
             const breakEvenArmadorDisplay = landBreakEvenPerKm > 0 ? landBreakEvenPerKm : (landTotalKilometers > 0 && displayTotalTripCost > 0 ? displayTotalTripCost / landTotalKilometers : breakEven);
-            document.getElementById('res-breakeven').innerText = `€${breakEvenArmadorDisplay.toFixed(2)} /Km`;
+            document.getElementById('res-breakeven').innerText = isRail ? `€${breakEvenArmadorDisplay.toFixed(2)} /t·km` : `€${breakEvenArmadorDisplay.toFixed(2)} /Km`;
             const baseCostBreakEvenEl = document.getElementById('res-cost-base-break-even');
             if (baseCostBreakEvenEl) {
-                baseCostBreakEvenEl.innerText = `€${breakEvenArmadorDisplay.toFixed(2)} /Km · Total: €${Math.round(displayTotalTripCost).toLocaleString('es-ES')}`;
+                baseCostBreakEvenEl.innerText = isRail
+                    ? `Coste de Tracción Ferroviaria (Locomotora): €${Math.round(displayTotalTripCost).toLocaleString('es-ES')}`
+                    : `€${breakEvenArmadorDisplay.toFixed(2)} /Km · Total: €${Math.round(displayTotalTripCost).toLocaleString('es-ES')}`;
             }
             const breakEvenBreakdownEl = document.getElementById('res-breakeven-breakdown');
             if (breakEvenBreakdownEl) {
-                breakEvenBreakdownEl.innerText = `Combustible: €${Math.round(displayFuelCost).toLocaleString('es-ES')} · Peajes: €${Math.round(displayTollCost).toLocaleString('es-ES')} · Fijos: €${Math.round(displayFixedCost).toLocaleString('es-ES')}`;
+                breakEvenBreakdownEl.innerText = isRail
+                    ? `Tracción Ferroviaria (Locomotora): €${Math.round(displayTotalTripCost).toLocaleString('es-ES')} · Cánones Ferroviarios / Uso de Vía: €0`
+                    : `Combustible: €${Math.round(displayFuelCost).toLocaleString('es-ES')} · Peajes: €${Math.round(displayTollCost).toLocaleString('es-ES')} · Fijos: €${Math.round(displayFixedCost).toLocaleString('es-ES')}`;
+            }
+
+            // Adaptación condicional de etiquetas en Modo Técnico y Ejecutivo
+            const labelFuelCostBasis = document.getElementById('label-bunkers-cost-basis');
+            if (labelFuelCostBasis) {
+                labelFuelCostBasis.innerText = isRail ? 'Coste de Tracción Ferroviaria (Locomotora):' : 'Coste de Combustible (Diésel/AdBlue):';
+            }
+            const labelCostsHeader = document.getElementById('costs-header-title');
+            if (labelCostsHeader) {
+                labelCostsHeader.innerHTML = isRail
+                    ? '<i class="fa-solid fa-train mr-2"></i> 3. ESTRUCTURA DE COSTES FERROVIARIOS (TRACCIÓN Y CÁNONES)'
+                    : '<i class="fa-solid fa-gas-pump mr-2"></i> 3. ESTRUCTURA DE COSTES (DIÉSEL, PEAJES, DIETAS)';
+            }
+            const labelPdaPol = document.getElementById('label-pda-pol');
+            if (labelPdaPol) {
+                labelPdaPol.innerText = isRail ? 'Cánones Ferroviarios / Uso de Vía (€)' : 'Peajes (€)';
+            }
+            const labelPdaPod = document.getElementById('label-pda-pod');
+            if (labelPdaPod) {
+                labelPdaPod.parentElement.style.display = isRail ? 'none' : '';
+            }
+            const labelPdaCostBasis = document.getElementById('label-pda-cost-basis');
+            if (labelPdaCostBasis) {
+                labelPdaCostBasis.innerHTML = isRail ? 'Cánones Ferroviarios / Uso de Vía:' : 'Peajes y Dietas:';
+            }
+            const tacografoHeaderTitle = document.getElementById('tacografo-header-title');
+            if (tacografoHeaderTitle) {
+                tacografoHeaderTitle.innerHTML = isRail
+                    ? '<i class="fa-solid fa-train mr-2"></i> TIEMPOS DE TRÁNSITO (SURCOS FERROVIARIOS)'
+                    : '<i class="fa-solid fa-clock mr-2"></i> TIEMPOS DE CONDUCCIÓN Y TACÓGRAFO (REG. 561/2006)';
+            }
+            const labelVesselDwt = document.getElementById('label-vessel-dwt');
+            if (labelVesselDwt) {
+                labelVesselDwt.innerText = isRail ? 'Carga Útil por Vagón (aprox. 50 MT)' : 'Carga Útil (TM)';
+            }
+            const labelCargoQty = document.getElementById('label-cargo-qty');
+            if (labelCargoQty) {
+                labelCargoQty.innerText = isRail ? 'Carga Neta Total / Peso Mercancía (TM)' : 'Peso Bruto (KG) / Carga (TM)';
+            }
+            const labelGrabCapacity = document.getElementById('label-grab-capacity');
+            if (labelGrabCapacity) {
+                labelGrabCapacity.innerText = isRail ? 'Peso Bruto del Convoy (KG)' : 'Peso Bruto (KG)';
             }
 
             State.totalKilometers = landTotalKilometers;
@@ -42098,16 +42177,21 @@ function scheduleReactiveEngine() {
             State.total_trucks = fleetTrucksNeeded;
 
             const unitaryTripCost = safeCalculationNumber(State.totalTripCost ?? State.totalCosts ?? displayTotalTripCost ?? 162);
-            const finalSharedTotalCosts = isTerrestre ? (unitaryTripCost * fleetTrucksNeeded) : sharedTotalCosts;
+            // Si isRail es true, el coste total es directamente costeTren (distancia * 0.04 * totalTonnage) y NO se multiplica por camiones
+            const finalSharedTotalCosts = isRail
+                ? costeTren
+                : (isTerrestre ? (unitaryTripCost * fleetTrucksNeeded) : sharedTotalCosts);
 
             // Fletamento Terrestre (Brokerage):
             // 1. Tarifa Transportista (Coste de Compra oficial de la agencia):
             // Lógica por Tonelada: Venta Total = Toneladas * Precio Venta/Ton; Coste Total = Toneladas * Precio Coste/Ton.
             const carrierMarkupPercent = marginOwner > 0 ? marginOwner : 15;
-            const defaultCarrierTariffUnit = unitaryTripCost * (1 + (carrierMarkupPercent / 100));
-            const carrierPurchaseUnit = (isTerrestre && freightBuy > 0 && freightBuy !== 32.50)
-                ? (freightBuy * (truckPayloadCapacity || 24))
-                : defaultCarrierTariffUnit;
+            const defaultCarrierTariffUnit = isRail ? costeTren : (unitaryTripCost * (1 + (carrierMarkupPercent / 100)));
+            const carrierPurchaseUnit = isRail
+                ? costeTren
+                : ((isTerrestre && freightBuy > 0 && freightBuy !== 32.50)
+                    ? (freightBuy * (truckPayloadCapacity || 24))
+                    : defaultCarrierTariffUnit);
 
             // 2. Margen de Agencia / Markup (por defecto 10%):
             const execAgencyMarginInput = document.getElementById('exec-agency-margin');
@@ -42119,9 +42203,11 @@ function scheduleReactiveEngine() {
 
             // 3. Precio Total del Viaje (Cliente) = Coste de Compra + Margen de Agencia:
             const defaultClientSaleUnit = carrierPurchaseUnit * agencyMarkupMultiplier;
-            const clientSaleUnit = (isTerrestre && freightSell > 0 && freightSell !== 35.00)
-                ? (freightSell * (truckPayloadCapacity || 24))
-                : defaultClientSaleUnit;
+            const clientSaleUnit = isRail
+                ? (costeTren * agencyMarkupMultiplier)
+                : ((isTerrestre && freightSell > 0 && freightSell !== 35.00)
+                    ? (freightSell * (truckPayloadCapacity || 24))
+                    : defaultClientSaleUnit);
 
             // 4. Beneficio Total Agencia = Venta al cliente - Compra al transportista:
             const agencyNetProfit = Math.max(0, clientSaleUnit - carrierPurchaseUnit);
@@ -42129,19 +42215,31 @@ function scheduleReactiveEngine() {
             const carrierRatePerKm = landTotalKilometers > 0 ? (carrierPurchaseUnit / landTotalKilometers) : (carrierPurchaseUnit / 107);
             const clientRatePerKm = landTotalKilometers > 0 ? (clientSaleUnit / landTotalKilometers) : (clientSaleUnit / 107);
 
-            const finalGrossRevCharterer = isTerrestre ? (cargo > 0 && freightSell > 0 && freightSell !== 35.00 ? (cargo * freightSell) : (clientSaleUnit * fleetTrucksNeeded)) : grossRevCharterer;
-            const finalGrossRevOwner = isTerrestre ? (cargo > 0 && freightBuy > 0 && freightBuy !== 32.50 ? (cargo * freightBuy) : (carrierPurchaseUnit * fleetTrucksNeeded)) : grossRevOwner;
-            const finalVoyageRevenues = isTerrestre ? (finalGrossRevOwner + voyageExtras) : voyageRevenues;
-            const finalChartererCommissionCost = isTerrestre ? (finalGrossRevCharterer * (commPct / 100)) : chartererCommissionCost;
-            const finalNetProfitOwner = isTerrestre ? (finalVoyageRevenues - finalSharedTotalCosts) : netProfitOwner;
-            const finalNetProfitCharterer = isTerrestre ? (finalGrossRevCharterer - finalGrossRevOwner - finalChartererCommissionCost) : netProfitCharterer;
-            const finalTceTotal = isTerrestre ? finalNetProfitOwner : tceTotal;
+            const finalGrossRevCharterer = isRail
+                ? (costeTren * agencyMarkupMultiplier)
+                : (isTerrestre ? (cargo > 0 && freightSell > 0 && freightSell !== 35.00 ? (cargo * freightSell) : (clientSaleUnit * fleetTrucksNeeded)) : grossRevCharterer);
+            const finalGrossRevOwner = isRail
+                ? costeTren
+                : (isTerrestre ? (cargo > 0 && freightBuy > 0 && freightBuy !== 32.50 ? (cargo * freightBuy) : (carrierPurchaseUnit * fleetTrucksNeeded)) : grossRevOwner);
+            const finalVoyageRevenues = isRail
+                ? (finalGrossRevOwner + voyageExtras)
+                : (isTerrestre ? (finalGrossRevOwner + voyageExtras) : voyageRevenues);
+            const finalChartererCommissionCost = isRail
+                ? (finalGrossRevCharterer * (commPct / 100))
+                : (isTerrestre ? (finalGrossRevCharterer * (commPct / 100)) : chartererCommissionCost);
+            const finalNetProfitOwner = isRail
+                ? (finalVoyageRevenues - finalSharedTotalCosts)
+                : (isTerrestre ? (finalVoyageRevenues - finalSharedTotalCosts) : netProfitOwner);
+            const finalNetProfitCharterer = isRail
+                ? (finalGrossRevCharterer - finalGrossRevOwner - finalChartererCommissionCost)
+                : (isTerrestre ? (finalGrossRevCharterer - finalGrossRevOwner - finalChartererCommissionCost) : netProfitCharterer);
+            const finalTceTotal = isRail ? finalNetProfitOwner : (isTerrestre ? finalNetProfitOwner : tceTotal);
 
-            const finalFuelCost = (isTerrestre ? displayFuelCost : totalBunkers) * (isTerrestre ? fleetTrucksNeeded : 1);
-            const finalTollCost = (isTerrestre ? displayTollCost : smartPortExpenses) * (isTerrestre ? fleetTrucksNeeded : 1);
-            const finalFixedCost = (isTerrestre ? displayFixedCost : (totalOpex + totalCapex)) * (isTerrestre ? fleetTrucksNeeded : 1);
-            const sharedVoyageCosts = isTerrestre ? (finalFuelCost + finalTollCost) : Math.max(0, finalSharedTotalCosts - ownerOperatingCapitalCosts);
-            const finalOpexCapex = isTerrestre ? finalFixedCost : ownerOperatingCapitalCosts;
+            const finalFuelCost = isRail ? 0 : ((isTerrestre ? displayFuelCost : totalBunkers) * (isTerrestre ? fleetTrucksNeeded : 1));
+            const finalTollCost = isRail ? 0 : ((isTerrestre ? displayTollCost : smartPortExpenses) * (isTerrestre ? fleetTrucksNeeded : 1));
+            const finalFixedCost = isRail ? costeTren : ((isTerrestre ? displayFixedCost : (totalOpex + totalCapex)) * (isTerrestre ? fleetTrucksNeeded : 1));
+            const sharedVoyageCosts = isRail ? 0 : (isTerrestre ? (finalFuelCost + finalTollCost) : Math.max(0, finalSharedTotalCosts - ownerOperatingCapitalCosts));
+            const finalOpexCapex = isRail ? costeTren : (isTerrestre ? finalFixedCost : ownerOperatingCapitalCosts);
 
             document.getElementById('res-net-profit-owner').innerText = `${finalNetProfitOwner.toLocaleString('es-ES', {maximumFractionDigits:0})} €`;
             document.getElementById('res-net-profit-owner').className = finalNetProfitOwner >= 0 ? "text-4xl font-bold text-emerald-400 mono leading-none" : "text-4xl font-bold text-red-500 mono leading-none";
@@ -51421,7 +51519,7 @@ Example:
             // Coste Unitario del Porte / Vehículo (Coste de Compra Transportista)
             const unitaryTripCost = totalFuelCost + totalOperatingExpenses;
 
-            // Parámetros de Carga Terrestre: Tonelaje, LDM y Camiones Necesarios
+            // Parámetros de Carga Terrestre / Ferroviaria: Tonelaje, LDM y Vehículos Necesarios
             const cargoTon = Number(State.cargo) || (parseFloat(getVal('cargo-qty')) || 24.0);
             const ldmValue = Number(State.cargo_sf || State.cargoSf || State.ldm) || (parseFloat(getVal('cargo-sf')) || 13.6);
             const truckPayloadCap = 24.0;
@@ -51429,8 +51527,16 @@ Example:
             const trucksByLdm = ldmValue > 0 ? Math.ceil(ldmValue / 13.6) : 1;
             const trucksNeeded = Math.max(1, Number(State.total_trucks || State.trucks_needed || State.trucksNeeded) || Math.max(trucksByWeight, trucksByLdm));
 
-            // Costes Totales Flota (Lado Transportista)
-            const totalTripCost = unitaryTripCost * trucksNeeded;
+            // Si isRail es true, aplicar coste ferroviario: totalKm * 0.04 * totalTonnage
+            const vehicle_type_exec = vehicleType || State.vehicleType || '';
+            const isRailExec = vehicle_type_exec?.toLowerCase().includes('tren') || vehicle_type_exec?.toLowerCase().includes('tolva') || vehicle_type_exec?.toLowerCase().includes('ferroviario') || vehicle_type_exec?.toLowerCase().includes('rail');
+            const costeTrenExec = totalKm * 0.04 * cargoTon;
+
+            // Costes Totales Flota (Lado Transportista / Ferroviario)
+            const totalTripCost = isRailExec ? costeTrenExec : (unitaryTripCost * trucksNeeded);
+            State.totalTripCost = totalTripCost;
+            State.totalCosts = totalTripCost;
+            State.land_freight_cost = totalTripCost;
             const costPerKm = totalKm > 0 ? (totalTripCost / totalKm) : 0;
             const costPerTon = cargoTon > 0 ? (totalTripCost / cargoTon) : 0;
 
