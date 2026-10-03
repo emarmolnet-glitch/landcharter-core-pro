@@ -8522,13 +8522,39 @@
             header.app-header .module-tabs-wrapper {
                 order: initial !important;
                 display: flex !important;
-                width: auto !important;
+                flex: 1 1 auto !important;
+                width: 100% !important;
                 max-width: none !important;
+                min-width: 0 !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                gap: 0.25rem !important;
+                gap: 0.35rem !important;
                 overflow: visible !important;
-                justify-self: end !important;
+                justify-self: stretch !important;
+            }
+
+            header.app-header #header-vessel-search-container {
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
+                max-width: none !important;
+                width: 100% !important;
+            }
+
+            header.app-header #header-vessel-search-input {
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
+                width: 100% !important;
+            }
+
+            header.app-header #header-voyage-ref-container {
+                flex: 0 1 auto !important;
+                min-width: 0 !important;
+            }
+
+            header.app-header #quick-ref {
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
+                width: 100% !important;
             }
 
             header.app-header .tools-dropdown-trigger,
@@ -8980,6 +9006,144 @@
         }
 
         /* ======================================================== */
+        /* BOTONES OPERATIVOS EN SIDEBAR (REUBICADOS DE CABECERA)   */
+        /* ======================================================== */
+        .sidebar-action-tools-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.375rem;
+            width: 100%;
+        }
+
+        .app-sidebar.is-compact .sidebar-action-tools-grid,
+        .app-sidebar.is-collapsed .sidebar-action-tools-grid {
+            grid-template-columns: 1fr !important;
+            gap: 0.375rem !important;
+            padding: 0 !important;
+        }
+
+        .sidebar-action-tools-grid .tools-dropdown-container {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .sidebar-action-tools-grid .tools-dropdown-trigger {
+            width: 100% !important;
+            height: 36px !important;
+            min-height: 36px !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            background: #ffffff !important;
+            color: #475569 !important;
+            cursor: pointer !important;
+            transition: all 150ms ease !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+        }
+
+        .sidebar-action-tools-grid .tools-dropdown-trigger:hover,
+        .sidebar-action-tools-grid .tools-dropdown-trigger[aria-expanded="true"] {
+            background: #f1f5f9 !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+        }
+
+        .app-sidebar.is-compact .sidebar-action-tools-grid .tools-dropdown-trigger,
+        .app-sidebar.is-collapsed .sidebar-action-tools-grid .tools-dropdown-trigger {
+            width: 36px !important;
+            height: 36px !important;
+            min-height: 36px !important;
+            margin: 0 auto !important;
+        }
+
+        .sidebar-action-tools-grid .tools-dropdown-trigger svg {
+            width: 17px !important;
+            height: 17px !important;
+            stroke: currentColor !important;
+            stroke-width: 1.75 !important;
+        }
+
+        .sidebar-action-tools-grid .tools-dropdown-trigger i {
+            font-size: 15px !important;
+        }
+
+        .tools-dropdown-menu {
+            position: fixed !important;
+            z-index: 999999 !important;
+            width: 250px !important;
+            max-width: calc(100vw - 1rem) !important;
+            max-height: min(72vh, 30rem) !important;
+            overflow-y: auto !important;
+            display: none !important;
+            flex-direction: column !important;
+            padding: 0.5rem 0 !important;
+            margin: 0 !important;
+            list-style: none !important;
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 8px !important;
+            box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .tools-dropdown-menu.is-open,
+        #session-actions.mobile-open .tools-dropdown-menu {
+            display: flex !important;
+        }
+
+        #advanced-modules-menu {
+            width: min(92vw, 360px) !important;
+        }
+
+        .tools-dropdown-item {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .tools-dropdown-action {
+            width: 100% !important;
+            min-height: 38px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.65rem !important;
+            padding: 0.5rem 1rem !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            background: transparent !important;
+            color: #0f172a !important;
+            font-size: 0.78rem !important;
+            font-weight: 600 !important;
+            text-align: left !important;
+            text-decoration: none !important;
+            cursor: pointer !important;
+        }
+
+        .tools-dropdown-action:hover,
+        .tools-dropdown-action:focus-visible {
+            background: #f8fafc !important;
+            color: #003366 !important;
+            outline: none !important;
+        }
+
+        .tools-dropdown-action.hidden {
+            display: none !important;
+        }
+
+        .tools-dropdown-action .header-utility-icon {
+            color: #003366 !important;
+            stroke: currentColor !important;
+            width: 1rem !important;
+            height: 1rem !important;
+            flex-shrink: 0 !important;
+        }
+
+        /* ======================================================== */
         /* OCULTAMIENTO NO DESTRUCTIVO: OPCIONES MARÍTIMAS Y ECO    */
         /* ======================================================== */
         /* Menú de la tuerca (⚙️): ocultar Compatibilidad, Editor, FCL, Editor ASBATANKVOY, Dossiers y checkbox FCL */
@@ -9112,12 +9276,12 @@
         <div class="module-tabs-wrapper flex items-center">
             <div id="connection-status-root"></div>
             <!-- BUSCADOR DIRECTO DE TRANSPORTE / CONTRATO -->
-            <div id="header-vessel-search-container" class="relative inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 border border-slate-300 text-slate-700 text-xs shadow-2xs shrink-0 max-w-xs focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-sky-500 transition-all">
-                <i class="fa-solid fa-magnifying-glass text-[11px] text-slate-400"></i>
+            <div id="header-vessel-search-container" class="relative inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-300 text-slate-700 text-xs shadow-2xs flex-1 min-w-0 w-full sm:max-w-xs focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-sky-500 transition-all">
+                <i class="fa-solid fa-magnifying-glass text-[11px] text-slate-400 shrink-0"></i>
                 <input
                     type="text"
                     id="header-vessel-search-input"
-                    class="bg-transparent font-sans text-xs font-semibold text-slate-800 focus:outline-none w-36 sm:w-44 placeholder:text-slate-400"
+                    class="bg-transparent font-sans text-xs font-semibold text-slate-800 focus:outline-none flex-1 min-w-0 w-full placeholder:text-slate-400"
                     placeholder="Buscar transporte / contrato (ID / Ref)..."
                     aria-label="Buscar en base de datos"
                     onkeydown="if (event.key === 'Enter') handleHeaderVesselSearch(this.value);"
@@ -9132,43 +9296,12 @@
                     <i class="fa-solid fa-arrow-right"></i>
                 </button>
             </div>
-            <div id="header-voyage-ref-container" translate="no" class="notranslate inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-600 text-xs font-mono shadow-2xs shrink-0" title="Referencia Única del Viaje / Contrato">
-                <i class="fa-solid fa-hashtag text-[10px] text-slate-400"></i>
-                <span translate="no" class="notranslate text-slate-400 font-sans text-[10px] uppercase font-bold tracking-wider">Ref:</span>
-                <input type="text" id="quick-ref" translate="no" class="notranslate bg-transparent font-mono text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1 w-36 transition-all" value="" oninput="syncQuickRef(this.value)" title="Referencia Única del Viaje / Contrato">
-                <span id="header-sync-status-badge" class="hidden items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shadow-2xs transition-all" title="Data Bridge Sincronizado"><i class="fa-solid fa-check text-emerald-600 text-[10px]"></i> Sincronizado</span>
+            <div id="header-voyage-ref-container" translate="no" class="notranslate inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-600 text-xs font-mono shadow-2xs flex-1 sm:flex-initial min-w-0" title="Referencia Única del Viaje / Contrato">
+                <i class="fa-solid fa-hashtag text-[10px] text-slate-400 shrink-0"></i>
+                <span translate="no" class="notranslate text-slate-400 font-sans text-[10px] uppercase font-bold tracking-wider shrink-0">Ref:</span>
+                <input type="text" id="quick-ref" translate="no" class="notranslate bg-transparent font-mono text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1 flex-1 min-w-0 w-full sm:w-36 transition-all" value="" oninput="syncQuickRef(this.value)" title="Referencia Única del Viaje / Contrato">
+                <span id="header-sync-status-badge" class="hidden items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shadow-2xs transition-all shrink-0" title="Data Bridge Sincronizado"><i class="fa-solid fa-check text-emerald-600 text-[10px]"></i> Sincronizado</span>
             </div>
-            <div class="tools-dropdown-container">
-                <button
-                    type="button"
-                    id="advanced-modules-btn"
-                    class="tools-dropdown-trigger"
-                    onclick="toggleAdvancedModulesMenu(event)"
-                    aria-controls="advanced-modules-menu"
-                    aria-expanded="false"
-                    title="Herramientas Avanzadas"
-                    aria-label="Herramientas Avanzadas"
-                >
-                    <i class="fa-solid fa-gear text-base" aria-hidden="true"></i>
-                </button>
-                <ul id="advanced-modules-menu" class="tools-dropdown-menu" aria-label="Herramientas Avanzadas"></ul>
-            </div>
-            <button
-                type="button"
-                id="btn-master-executive-report"
-                onclick="generarInformeMasterOnClick()"
-                class="tools-dropdown-trigger"
-                title="Generar Informe Master"
-                aria-label="Generar Informe Master"
-            >
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <path d="M14 2v6h6" />
-                    <path d="M8 13h8" />
-                    <path d="M8 17h5" />
-                    <path d="M8 9h2" />
-                </svg>
-            </button>
             <div class="mobile-module-nav" aria-label="Navegación móvil de módulos principales">
                 <button
                     type="button"
@@ -9192,136 +9325,6 @@
         </div>
 
         <div class="header-actions-right flex items-center">
-            <!-- Session Actions Container -->
-            <div class="flex items-center gap-2" id="session-actions">
-                <button
-                    id="new-estimation-btn"
-                    type="button"
-                    onclick="window.DossierManager?.requestNewEstimation(); closeMobileSessionMenu();"
-                    class="tools-dropdown-trigger flex items-center justify-center"
-                    title="Nueva Estimación"
-                    aria-label="Nueva Estimación"
-                >
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 5v14" />
-                        <path d="M5 12h14" />
-                    </svg>
-                </button>
-                <div class="tools-dropdown-container">
-                    <input
-                        type="file"
-                        id="load-session-file-input"
-                        accept=".json,application/json"
-                        onchange="handleImport(event)"
-                        style="display: none;"
-                    />
-                    <button
-                        id="mobile-session-menu-btn"
-                        type="button"
-                        onclick="toggleMobileSessionMenu(event)"
-                        class="tools-dropdown-trigger"
-                        aria-controls="tools-dropdown-menu"
-                        aria-expanded="false"
-                        title="Utilidades"
-                        aria-label="Utilidades"
-                    >
-                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="5" r="1.5" />
-                            <circle cx="12" cy="12" r="1.5" />
-                            <circle cx="12" cy="19" r="1.5" />
-                        </svg>
-                    </button>
-                    <ul id="tools-dropdown-menu" class="tools-dropdown-menu" aria-label="Utilidades de sesión" onclick="if (event.target.closest('button, a')) setTimeout(closeMobileSessionMenu, 0);">
-                        <li class="tools-dropdown-item hidden" style="display: none !important;">
-                            <button id="btn-market-report-nav" type="button" onclick="generateMarketReport(); closeMobileSessionMenu();" class="tools-dropdown-action" title="Generar Reporte de Mercado Actual" aria-label="Generar Reporte de Mercado Actual">
-                                <svg class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                    <polyline points="14 2 14 8 20 8"/>
-                                    <line x1="16" y1="13" x2="8" y2="13"/>
-                                    <line x1="16" y1="17" x2="8" y2="17"/>
-                                    <polyline points="10 9 9 9 8 9"/>
-                                </svg>
-                                <span>Reporte de Mercado</span>
-                            </button>
-                        </li>
-                        <li class="tools-dropdown-item">
-                            <button onclick="saveAuditSession(); closeMobileSessionMenu();" class="tools-dropdown-action" title="Guardar Sesión" aria-label="Guardar Sesión">
-                                <svg class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M5 3h12l2 2v16H5z" />
-                                    <path d="M8 3v6h8V3" />
-                                    <path d="M8 21v-7h8v7" />
-                                    <path d="M10 17h4" />
-                                </svg>
-                                <span>Guardar Sesión</span>
-                            </button>
-                        </li>
-                        <li class="tools-dropdown-item">
-                            <button id="load-session-btn" onclick="loadAuditSession()" class="tools-dropdown-action" title="Cargar Sesión" aria-label="Cargar Sesión">
-                                <svg class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M3 7.5V19a2 2 0 0 0 2 2h14.2a2 2 0 0 0 1.95-1.55l1.3-6A2 2 0 0 0 20.5 11H7.2a2 2 0 0 0-1.95 1.55L3 19" />
-                                    <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6a2 2 0 0 1 2 2v2" />
-                                </svg>
-                                <span>Cargar Sesión</span>
-                            </button>
-                        </li>
-                        <li class="tools-dropdown-item hidden" style="display: none !important;">
-                            <a id="btn-toggle-databridge" href="https://calm-shortbread-55bcfc.netlify.app/" target="_blank" rel="noopener noreferrer" onclick="openDataBridgeDashboard(event); closeMobileSessionMenu();" class="hidden tools-dropdown-action" title="Abrir Data Bridge" aria-label="Abrir Data Bridge">
-                                <svg id="icon-toggle-databridge" class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                                    <ellipse cx="12" cy="5" rx="7" ry="3" />
-                                    <path d="M5 5v6c0 1.66 3.13 3 7 3s7-1.34 7-3V5" />
-                                    <path d="M5 11v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6" />
-                                    <path d="M12 14v3" />
-                                    <path d="M8 18.5l-2 2" />
-                                    <path d="M16 18.5l2 2" />
-                                </svg>
-                                <span class="inline-flex items-center gap-2">
-                                    <span id="databridge-connection-dot" class="hidden h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.75)]" aria-hidden="true"></span>
-                                    <span>Data Bridge</span>
-	                                    <span id="databridge-http-polling" class="hidden items-center gap-1 text-[9px] font-black uppercase text-slate-500" role="status" aria-live="polite">
-	                                        <i class="fa-solid fa-hand-pointer" aria-hidden="true"></i>
-	                                        <span data-databridge-transport-label>Bajo demanda</span>
-                                    </span>
-                                </span>
-                            </a>
-                        </li>
-                        <li class="tools-dropdown-item hidden" style="display: none !important;">
-                            <button id="btn-open-databridge-direct" type="button" class="tools-dropdown-action" title="Conectar Data Bridge" aria-label="Conectar Data Bridge">
-                                <svg class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M7 7h10v10" />
-                                    <path d="M7 17 17 7" />
-                                    <path d="M5 21h14a2 2 0 0 0 2-2V5" />
-                                </svg>
-                                <span>Data Bridge Link</span>
-                            </button>
-                        </li>
-                        <li class="tools-dropdown-item hidden" style="display: none !important;">
-                            <a
-                                id="link-seacharter-core-pro"
-                                href="https://neon-seachartercorepro-4ce09d.netlify.app/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="tools-dropdown-action"
-                                title="SeaCharter Core PRO"
-                                aria-label="SeaCharter Core PRO"
-                                onclick="updateAppSwitcherLinks(); if (typeof closeMobileSessionMenu === 'function') closeMobileSessionMenu();"
-                            >
-                                <span>SeaCharter Core PRO</span>
-                            </a>
-                        </li>
-                        <li class="tools-dropdown-item">
-                            <button onclick="exitAuditSession(); closeMobileSessionMenu();" class="tools-dropdown-action" title="Salir" aria-label="Salir">
-                                <svg class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M10 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
-                                    <path d="M16 17l5-5-5-5" />
-                                    <path d="M21 12H9" />
-                                </svg>
-                                <span>Salir</span>
-                            </button>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-
             <!-- Botón FAQ / Manual -->
             <button
                 id="btn-open-faq-modal"
@@ -9526,6 +9529,179 @@
 
             <!-- Parte Inferior Fija: Ecosistema (separada por una línea divisoria fina) -->
             <div class="sidebar-content-bottom border-t border-slate-200/80 p-2 space-y-1 bg-slate-50/50">
+                <!-- Barra de Botones de Acción Operativa Reubicados (Tuerca, Informe Master, Nueva Estimación, Sesión) -->
+                <div id="sidebar-operational-tools" class="sidebar-operational-tools pb-1 mb-1 border-b border-slate-200/60">
+                    <div class="sidebar-section-title px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-400 sidebar-label">
+                        Operaciones
+                    </div>
+                    <div id="sidebar-action-tools-grid" class="sidebar-action-tools-grid grid grid-cols-2 gap-1.5 p-0.5">
+                        <!-- a) Botón de la Tuerca (Ajustes/Configuración con su desplegable) -->
+                        <div class="tools-dropdown-container">
+                            <button
+                                type="button"
+                                id="advanced-modules-btn"
+                                class="tools-dropdown-trigger flex items-center justify-center"
+                                onclick="toggleAdvancedModulesMenu(event)"
+                                aria-controls="advanced-modules-menu"
+                                aria-expanded="false"
+                                title="Herramientas Avanzadas"
+                                aria-label="Herramientas Avanzadas"
+                            >
+                                <i class="fa-solid fa-gear text-sm" aria-hidden="true"></i>
+                            </button>
+                            <ul id="advanced-modules-menu" class="tools-dropdown-menu" aria-label="Herramientas Avanzadas"></ul>
+                        </div>
+
+                        <!-- b) Botón del Documento (Generar Informe Master) -->
+                        <button
+                            type="button"
+                            id="btn-master-executive-report"
+                            onclick="generarInformeMasterOnClick()"
+                            class="tools-dropdown-trigger flex items-center justify-center"
+                            title="Generar Informe Master"
+                            aria-label="Generar Informe Master"
+                        >
+                            <svg class="w-4 h-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <path d="M14 2v6h6" />
+                                <path d="M8 13h8" />
+                                <path d="M8 17h5" />
+                                <path d="M8 9h2" />
+                            </svg>
+                        </button>
+
+                        <!-- c) Botón del símbolo "+" (Refrescar/Nueva estimación) -->
+                        <button
+                            id="new-estimation-btn"
+                            type="button"
+                            onclick="window.DossierManager?.requestNewEstimation(); closeMobileSessionMenu();"
+                            class="tools-dropdown-trigger flex items-center justify-center"
+                            title="Nueva Estimación"
+                            aria-label="Nueva Estimación"
+                        >
+                            <svg class="w-4 h-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 5v14" />
+                                <path d="M5 12h14" />
+                            </svg>
+                        </button>
+
+                        <!-- d) Botón de los 3 puntos verticales (Guardar/Cargar sesión y salir) -->
+                        <div class="tools-dropdown-container" id="session-actions">
+                            <input
+                                type="file"
+                                id="load-session-file-input"
+                                accept=".json,application/json"
+                                onchange="handleImport(event)"
+                                style="display: none;"
+                            />
+                            <button
+                                id="mobile-session-menu-btn"
+                                type="button"
+                                onclick="toggleMobileSessionMenu(event)"
+                                class="tools-dropdown-trigger flex items-center justify-center"
+                                aria-controls="tools-dropdown-menu"
+                                aria-expanded="false"
+                                title="Utilidades"
+                                aria-label="Utilidades"
+                            >
+                                <svg class="w-4 h-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="5" r="1.5" />
+                                    <circle cx="12" cy="12" r="1.5" />
+                                    <circle cx="12" cy="19" r="1.5" />
+                                </svg>
+                            </button>
+                            <ul id="tools-dropdown-menu" class="tools-dropdown-menu" aria-label="Utilidades de sesión" onclick="if (event.target.closest('button, a')) setTimeout(closeMobileSessionMenu, 0);">
+                                <li class="tools-dropdown-item hidden" style="display: none !important;">
+                                    <button id="btn-market-report-nav" type="button" onclick="generateMarketReport(); closeMobileSessionMenu();" class="tools-dropdown-action" title="Generar Reporte de Mercado Actual" aria-label="Generar Reporte de Mercado Actual">
+                                        <svg class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                            <polyline points="14 2 14 8 20 8"/>
+                                            <line x1="16" y1="13" x2="8" y2="13"/>
+                                            <line x1="16" y1="17" x2="8" y2="17"/>
+                                            <polyline points="10 9 9 9 8 9"/>
+                                        </svg>
+                                        <span>Reporte de Mercado</span>
+                                    </button>
+                                </li>
+                                <li class="tools-dropdown-item">
+                                    <button onclick="saveAuditSession(); closeMobileSessionMenu();" class="tools-dropdown-action" title="Guardar Sesión" aria-label="Guardar Sesión">
+                                        <svg class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M5 3h12l2 2v16H5z" />
+                                            <path d="M8 3v6h8V3" />
+                                            <path d="M8 21v-7h8v7" />
+                                            <path d="M10 17h4" />
+                                        </svg>
+                                        <span>Guardar Sesión</span>
+                                    </button>
+                                </li>
+                                <li class="tools-dropdown-item">
+                                    <button id="load-session-btn" onclick="loadAuditSession()" class="tools-dropdown-action" title="Cargar Sesión" aria-label="Cargar Sesión">
+                                        <svg class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M3 7.5V19a2 2 0 0 0 2 2h14.2a2 2 0 0 0 1.95-1.55l1.3-6A2 2 0 0 0 20.5 11H7.2a2 2 0 0 0-1.95 1.55L3 19" />
+                                            <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6a2 2 0 0 1 2 2v2" />
+                                        </svg>
+                                        <span>Cargar Sesión</span>
+                                    </button>
+                                </li>
+                                <li class="tools-dropdown-item hidden" style="display: none !important;">
+                                    <a id="btn-toggle-databridge" href="https://calm-shortbread-55bcfc.netlify.app/" target="_blank" rel="noopener noreferrer" onclick="openDataBridgeDashboard(event); closeMobileSessionMenu();" class="hidden tools-dropdown-action" title="Abrir Data Bridge" aria-label="Abrir Data Bridge">
+                                        <svg id="icon-toggle-databridge" class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                                            <ellipse cx="12" cy="5" rx="7" ry="3" />
+                                            <path d="M5 5v6c0 1.66 3.13 3 7 3s7-1.34 7-3V5" />
+                                            <path d="M5 11v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6" />
+                                            <path d="M12 14v3" />
+                                            <path d="M8 18.5l-2 2" />
+                                            <path d="M16 18.5l2 2" />
+                                        </svg>
+                                        <span class="inline-flex items-center gap-2">
+                                            <span id="databridge-connection-dot" class="hidden h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.75)]" aria-hidden="true"></span>
+                                            <span>Data Bridge</span>
+                                            <span id="databridge-http-polling" class="hidden items-center gap-1 text-[9px] font-black uppercase text-slate-500" role="status" aria-live="polite">
+                                                <i class="fa-solid fa-hand-pointer" aria-hidden="true"></i>
+                                                <span data-databridge-transport-label>Bajo demanda</span>
+                                            </span>
+                                        </span>
+                                    </a>
+                                </li>
+                                <li class="tools-dropdown-item hidden" style="display: none !important;">
+                                    <button id="btn-open-databridge-direct" type="button" class="tools-dropdown-action" title="Conectar Data Bridge" aria-label="Conectar Data Bridge">
+                                        <svg class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M7 7h10v10" />
+                                            <path d="M7 17 17 7" />
+                                            <path d="M5 21h14a2 2 0 0 0 2-2V5" />
+                                        </svg>
+                                        <span>Data Bridge Link</span>
+                                    </button>
+                                </li>
+                                <li class="tools-dropdown-item hidden" style="display: none !important;">
+                                    <a
+                                        id="link-seacharter-core-pro"
+                                        href="https://neon-seachartercorepro-4ce09d.netlify.app/"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="tools-dropdown-action"
+                                        title="SeaCharter Core PRO"
+                                        aria-label="SeaCharter Core PRO"
+                                        onclick="updateAppSwitcherLinks(); if (typeof closeMobileSessionMenu === 'function') closeMobileSessionMenu();"
+                                    >
+                                        <span>SeaCharter Core PRO</span>
+                                    </a>
+                                </li>
+                                <li class="tools-dropdown-item">
+                                    <button onclick="exitAuditSession(); closeMobileSessionMenu();" class="tools-dropdown-action" title="Salir" aria-label="Salir">
+                                        <svg class="header-utility-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M10 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+                                            <path d="M16 17l5-5-5-5" />
+                                            <path d="M21 12H9" />
+                                        </svg>
+                                        <span>Salir</span>
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="sidebar-section-title px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
                     Ecosistema
                 </div>
@@ -31721,6 +31897,12 @@ function createRouteAnchorElement(type) {
             if (!menu) return;
             const isOpen = menu.classList.toggle('is-open');
             if (button) button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            if (isOpen && button) {
+                const rect = button.getBoundingClientRect();
+                const bottomOffset = Math.max(10, window.innerHeight - rect.top + 6);
+                menu.style.bottom = `${bottomOffset}px`;
+                menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - (menu.offsetWidth || 340) - 8))}px`;
+            }
         }
 
         function toggleNplModuleMenu(event) {
@@ -32166,6 +32348,12 @@ function createRouteAnchorElement(type) {
             const isOpen = menu.classList.toggle('is-open');
             if (legacyMenu) legacyMenu.classList.toggle('mobile-open', isOpen);
             if (button) button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            if (isOpen && button) {
+                const rect = button.getBoundingClientRect();
+                const bottomOffset = Math.max(10, window.innerHeight - rect.top + 6);
+                menu.style.bottom = `${bottomOffset}px`;
+                menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - (menu.offsetWidth || 250) - 8))}px`;
+            }
         }
 
         document.addEventListener('click', function(event) {
