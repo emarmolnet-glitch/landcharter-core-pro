@@ -3,19 +3,13 @@
 
 const DEFAULT_DATA_BRIDGE_ORIGIN = "https://calm-shortbread-55bcfc.netlify.app";
 
-function resolveBackendUrl() {
-  const configured = (process.env.MADRE_BACKEND_URL || process.env.DATA_BRIDGE_URL || "").trim();
-  if (configured) {
-    if (configured.includes("/.netlify/functions/") || configured.includes("/api/")) {
-      return configured;
-    }
-    return `${configured.replace(/\/$/, '')}/.netlify/functions/madre-ia`;
-  }
-  return `${DEFAULT_DATA_BRIDGE_ORIGIN}/.netlify/functions/madre-ia`;
-}
-
 export default async function handler(request) {
-  const BACKEND_URL = resolveBackendUrl();
+  // Leer la URL base desde Netlify o usar un valor temporal para debug
+  const baseUrl = (process.env.DATA_BRIDGE_URL || process.env.MADRE_BACKEND_URL || DEFAULT_DATA_BRIDGE_ORIGIN).trim();
+  // Asegurar que la ruta final está bien construida
+  const dataBridgeEndpoint = baseUrl.includes("/.netlify/functions/") || baseUrl.includes("/api/")
+    ? baseUrl
+    : `${baseUrl.replace(/\/$/, '')}/.netlify/functions/madre-ia`;
 
   // 1. Manejo de CORS preflight
   if (request.method === "OPTIONS") {
@@ -64,7 +58,9 @@ export default async function handler(request) {
         headers["x-api-key"] = apiKey;
       }
 
-      backendResponse = await fetch(BACKEND_URL, {
+      console.log("🔍 [DEBUG RED] Intentando conectar con Data Bridge en la URL exacta:", dataBridgeEndpoint);
+
+      backendResponse = await fetch(dataBridgeEndpoint, {
         method: "POST",
         headers,
         body: JSON.stringify(enrichedPayload)
@@ -72,11 +68,11 @@ export default async function handler(request) {
 
       if (!backendResponse.ok) {
         const errorText = await backendResponse.text().catch(() => "");
-        console.error(`[madre-ia] Error devuelto por Data Bridge en ${BACKEND_URL}: Código HTTP ${backendResponse.status} (${backendResponse.statusText}). Detalle: ${errorText.slice(0, 500)}`);
+        console.error(`[madre-ia] Error devuelto por Data Bridge en ${dataBridgeEndpoint}: Código HTTP ${backendResponse.status} (${backendResponse.statusText}). Detalle: ${errorText.slice(0, 500)}`);
         backendErrorDetails = `HTTP ${backendResponse.status}: ${errorText.slice(0, 100)}`;
       }
     } catch (networkError) {
-      console.error(`[madre-ia] Error exacto de red al conectar con Data Bridge en ${BACKEND_URL}:`, networkError?.message || networkError, networkError?.cause ? `Causa: ${networkError.cause}` : "");
+      console.error(`[madre-ia] Error exacto de red al conectar con Data Bridge en ${dataBridgeEndpoint}:`, networkError?.message || networkError, networkError?.cause ? `Causa: ${networkError.cause}` : "");
       backendErrorDetails = networkError?.message || String(networkError);
       backendResponse = null;
     }
