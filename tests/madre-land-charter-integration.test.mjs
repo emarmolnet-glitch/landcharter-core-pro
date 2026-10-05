@@ -81,6 +81,19 @@ function createDomEnvironment() {
         this.dispatchEvent({ type: 'click' });
       },
       focus() {},
+      closest(sel) {
+        const selectors = sel.split(',').map(s => s.trim().toLowerCase());
+        let cur = this;
+        while (cur) {
+          for (const s of selectors) {
+            if (s.startsWith('#') && cur.id === s.slice(1)) return cur;
+            if (s.startsWith('.') && cur.classList?.contains(s.slice(1))) return cur;
+            if (cur.tagName?.toLowerCase() === s) return cur;
+          }
+          cur = cur.parentNode;
+        }
+        return null;
+      },
       querySelector(sel) {
         return null;
       },
@@ -91,6 +104,7 @@ function createDomEnvironment() {
     return el;
   }
 
+  const docListeners = new Map();
   const doc = {
     createElement,
     getElementById(id) {
@@ -99,10 +113,21 @@ function createDomEnvironment() {
     querySelector(selector) {
       if (selector === '.header-actions-right') return elements.get('header-actions-right');
       if (selector === '.sca-input') return elements.get('sca-input');
+      if (selector === '#toggle-madre-btn div') return elements.get('toggle-madre-btn-dot');
+      if (selector === '#toggle-madre-btn span') return elements.get('toggle-madre-btn-text');
       return null;
     },
     querySelectorAll() {
       return [];
+    },
+    addEventListener(type, fn) {
+      if (!docListeners.has(type)) docListeners.set(type, []);
+      docListeners.get(type).push(fn);
+    },
+    dispatchEvent(evt) {
+      const list = docListeners.get(evt.type) || [];
+      for (const fn of list) fn(evt);
+      return true;
     },
     body: createElement('body')
   };
@@ -162,6 +187,20 @@ function createDomEnvironment() {
     <div class="w-2 h-2 rounded-full bg-red-500 border border-red-200"></div>
     <span class="text-xs font-bold tracking-wide">APAGADA</span>
   `;
+  const toggleBtnDot = createElement('div');
+  toggleBtnDot.className = 'w-2 h-2 rounded-full bg-red-500 border border-red-200';
+  elements.set('toggle-madre-btn-dot', toggleBtnDot);
+
+  const toggleBtnText = createElement('span');
+  toggleBtnText.textContent = 'APAGADA';
+  elements.set('toggle-madre-btn-text', toggleBtnText);
+
+  toggleMadreBtn.querySelector = (sel) => {
+    if (sel === 'div') return toggleBtnDot;
+    if (sel === 'span') return toggleBtnText;
+    return null;
+  };
+
   headerRight.appendChild(toggleMadreBtn);
 
   const madrePanel = createElement('div');
@@ -212,7 +251,7 @@ global.CustomEvent = global.window.CustomEvent;
 // Carga evaluada de src/madre-agent.js
 const madreAgentSource = await readFile(new URL('../src/madre-agent.js', import.meta.url), 'utf8');
 const madreAgentModule = await import(`data:text/javascript;base64,${Buffer.from(madreAgentSource).toString('base64')}`);
-const { mountMadreUI, extractLandCharterTelemetry, handleMadreResponse } = madreAgentModule;
+const { mountMadreUI, extractLandCharterTelemetry, handleMadreResponse, appendMadreMessage, getUserHasInteracted } = madreAgentModule;
 
 // Carga evaluada de netlify/functions/madre-ia.js
 const madreBackendSource = await readFile(new URL('../netlify/functions/madre-ia.js', import.meta.url), 'utf8');
@@ -354,16 +393,230 @@ test('MADRE Navegación UI por Voz: Backend y Frontend', async () => {
   const mockCalcBtn = doc.createElement('button');
   mockCalcBtn.setAttribute('data-module-id', 'calculadora');
   mockCalcBtn.addEventListener('click', () => { calcClicked = true; });
+  const savedQuerySelector = doc.querySelector;
   doc.querySelector = (sel) => {
     if (sel.includes('calculadora')) return mockCalcBtn;
-    return null;
+    return savedQuerySelector.call(doc, sel);
   };
 
-  await handleMadreResponse({
-    reply: "Entendido. Abriendo calculadora.",
-    accion_ui: "navegar_vista",
-    delegation_payload: { vista: "calculadora" }
-  });
+  try {
+    await handleMadreResponse({
+      reply: "Entendido. Abriendo calculadora.",
+      accion_ui: "navegar_vista",
+      delegation_payload: { vista: "calculadora" }
+    });
+  } finally {
+    doc.querySelector = savedQuerySelector;
+  }
 
   assert.equal(calcClicked, true, 'Debe hacer click en el botón de la calculadora');
 });
+
+test('MADRE Corrección 1: CSS de burbujas (Texto blanco en usuario, fondo claro en MADRE)', () => {
+  const dialogLog = doc.createElement('div');
+  dialogLog.id = 'madre-dialog-log';
+  doc.body.appendChild(dialogLog);
+
+  appendMadreMessage('user', 'Hola MADRE, calcula la ruta');
+  assert.equal(dialogLog.children.length, 1, 'Debe añadir mensaje del usuario');
+  const userMsg = dialogLog.children[0];
+  assert.equal(
+    userMsg.className,
+    'flex flex-col items-end',
+    'El wrapper exterior debe alinear a la derecha'
+  );
+  assert.ok(
+    userMsg.innerHTML.includes('bg-blue-600 text-white') && userMsg.innerHTML.includes('font-medium'),
+    'El div interior debe contener las clases forzando texto blanco y estilo blue-600'
+  );
+  assert.ok(userMsg.innerHTML.includes('Hola MADRE, calcula la ruta'), 'Debe contener el texto del usuario');
+
+  appendMadreMessage('madre', 'Calculando escenario...');
+  assert.equal(dialogLog.children.length, 2, 'Debe añadir respuesta de MADRE');
+  const madreMsg = dialogLog.children[1];
+  assert.equal(
+    madreMsg.className,
+    'flex flex-col items-start',
+    'El wrapper exterior de MADRE debe alinear a la izquierda'
+  );
+  assert.ok(
+    madreMsg.innerHTML.includes('bg-slate-50 border border-slate-200 text-slate-800'),
+    'El div interior de MADRE debe tener fondo claro slate-50 y texto oscuro'
+  );
+  assert.ok(madreMsg.innerHTML.includes('Calculando escenario...'), 'Debe contener el texto de MADRE');
+});
+
+test('MADRE Corrección 2: Navegación UI agresiva con selector genérico de pestañas', async () => {
+  let clickedTarget = null;
+  const mockTabs = [
+    {
+      textContent: 'Calculadora LDM',
+      dataset: { moduleId: 'calculadora' },
+      click() { clickedTarget = 'calculadora'; }
+    },
+    {
+      textContent: 'Forwarder Proyectos',
+      dataset: { moduleId: 'proyectos' },
+      click() { clickedTarget = 'proyectos'; }
+    },
+    {
+      textContent: 'Rutas Terrestres',
+      dataset: { moduleId: 'rutas' },
+      click() { clickedTarget = 'rutas'; }
+    }
+  ];
+
+  doc.querySelectorAll = (sel) => {
+    if (sel.includes('button, li, a, .module-tab')) {
+      return mockTabs;
+    }
+    return [];
+  };
+
+  // Navegación hacia forwarder / proyectos con cambiar_pestana
+  await handleMadreResponse({
+    reply: "Cambiando a proyectos.",
+    accion_ui: "cambiar_pestana",
+    delegation_payload: { target: "proyecto" }
+  });
+  assert.equal(clickedTarget, 'proyectos', 'Debe pulsar la pestaña de proyectos');
+
+  // Navegación hacia rutas con navegar_vista
+  await handleMadreResponse({
+    reply: "Mostrando mapa de rutas.",
+    accion_ui: "navegar_vista",
+    delegation_payload: { vista: "terrestre" }
+  });
+  assert.equal(clickedTarget, 'rutas', 'Debe pulsar la pestaña de rutas');
+
+  // Navegación hacia calculadora
+  await handleMadreResponse({
+    reply: "Abriendo calculadora.",
+    accion_ui: "cambiar_pestana",
+    delegation_payload: { vista: "ldm" }
+  });
+  assert.equal(clickedTarget, 'calculadora', 'Debe pulsar la pestaña de calculadora');
+});
+
+test('MADRE Corrección 2b: Delegación a Asistente Core con ai-model-selector y sca-send-btn', async () => {
+  let toggleClicked = false;
+  let sendBtnClicked = false;
+  let selectorDispatched = false;
+
+  const mockAiSelector = doc.createElement('select');
+  mockAiSelector.id = 'ai-model-selector';
+  mockAiSelector.addEventListener('change', () => { selectorDispatched = true; });
+
+  const mockToggleBtn = doc.createElement('button');
+  mockToggleBtn.id = 'sea-assistant-toggle';
+  mockToggleBtn.addEventListener('click', () => { toggleClicked = true; });
+
+  const mockInput = doc.createElement('input');
+  mockInput.className = 'sca-input';
+
+  const mockSendBtn = doc.createElement('button');
+  mockSendBtn.className = 'sca-send-btn';
+  mockSendBtn.addEventListener('click', () => { sendBtnClicked = true; });
+
+  const originalGetElementById = doc.getElementById;
+  const originalQuerySelector = doc.querySelector;
+
+  doc.getElementById = (id) => {
+    if (id === 'ai-model-selector') return mockAiSelector;
+    if (id === 'sea-assistant-toggle') return mockToggleBtn;
+    return originalGetElementById.call(doc, id);
+  };
+
+  doc.querySelector = (sel) => {
+    if (sel === '.sca-input') return mockInput;
+    if (sel === '.sca-send-btn') return mockSendBtn;
+    return originalQuerySelector.call(doc, sel);
+  };
+
+  try {
+    await handleMadreResponse({
+      reply: "Transfiriendo consulta a Asistente Core.",
+      accion_ui: "delegar_asistente_core",
+      delegation_payload: {
+        query: "Verificar demurrage y flete spot"
+      }
+    });
+
+    assert.equal(mockAiSelector.value, 'core', 'Debe fijar valor core en el selector de IA');
+    assert.equal(selectorDispatched, true, 'Debe disparar evento change en ai-model-selector');
+    assert.equal(toggleClicked, true, 'Debe pulsar sea-assistant-toggle');
+    assert.equal(mockInput.value, 'Verificar demurrage y flete spot', 'Debe inyectar la query en el input sca-input');
+    assert.equal(sendBtnClicked, true, 'Debe hacer click en sca-send-btn');
+  } finally {
+    doc.getElementById = originalGetElementById;
+    doc.querySelector = originalQuerySelector;
+  }
+});
+
+test('MADRE: Apertura automática global de panel y escucha en clic en mapa', () => {
+  const panel = doc.getElementById('madre-panel');
+  // Asegurar que el panel arranca con translate-x-full
+  panel.classList.add('translate-x-full');
+
+  // Clic en un input ignorado
+  const inputEl = doc.createElement('input');
+  inputEl.tagName = 'INPUT';
+  doc.dispatchEvent({ type: 'click', target: inputEl });
+  assert.ok(panel.classList.contains('translate-x-full'), 'Clic en input no debe abrir el panel');
+
+  // Clic en el fondo o mapa
+  const mapEl = doc.createElement('div');
+  mapEl.id = 'map';
+  mapEl.tagName = 'DIV';
+  doc.dispatchEvent({ type: 'click', target: mapEl });
+
+  assert.ok(!panel.classList.contains('translate-x-full'), 'Clic en el mapa debe abrir automáticamente el panel');
+});
+
+test('MADRE Backend Function: Extraer origen y destino de ruta dinámica y fallback', async () => {
+  // Test 1: frase "calcula de Barcelona a Zaragoza"
+  const reqRuta = new Request('http://localhost/.netlify/functions/madre-ia', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: "calcula de Barcelona a Zaragoza",
+      contexto_ui: {}
+    })
+  });
+  const resRuta = await handler(reqRuta);
+  const dataRuta = await resRuta.json();
+  assert.equal(dataRuta.accion_ui, 'delegar_cerebro_ia', 'Debe delegar en Cerebro.ia');
+  assert.equal(dataRuta.delegation_payload?.pol, 'Barcelona', 'Debe extraer origen Barcelona');
+  assert.equal(dataRuta.delegation_payload?.pod, 'Zaragoza', 'Debe extraer destino Zaragoza');
+  assert.ok(dataRuta.reply.includes('Barcelona') && dataRuta.reply.includes('Zaragoza'), 'El reply verbal debe mencionar las ciudades');
+
+  // Test 2: frase "calcula la ruta desde Valencia hasta Madrid"
+  const reqRuta2 = new Request('http://localhost/.netlify/functions/madre-ia', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: "calcula la ruta desde Valencia hasta Madrid",
+      contexto_ui: {}
+    })
+  });
+  const resRuta2 = await handler(reqRuta2);
+  const dataRuta2 = await resRuta2.json();
+  assert.equal(dataRuta2.delegation_payload?.pol, 'Valencia');
+  assert.equal(dataRuta2.delegation_payload?.pod, 'Madrid');
+
+  // Test 3: frases naturales sin "calcula" ("quiero ir de Barcelona a Zaragoza", "ruta de lyon a milan", "de madrid a bilbao")
+  const reqRuta3 = new Request('http://localhost/.netlify/functions/madre-ia', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: "quiero ir de bilbao a sevilla",
+      contexto_ui: {}
+    })
+  });
+  const resRuta3 = await handler(reqRuta3);
+  const dataRuta3 = await resRuta3.json();
+  assert.equal(dataRuta3.accion_ui, 'delegar_cerebro_ia');
+  assert.equal(dataRuta3.delegation_payload?.pol, 'Bilbao');
+  assert.equal(dataRuta3.delegation_payload?.pod, 'Sevilla');
+});
+

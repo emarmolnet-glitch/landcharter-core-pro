@@ -111,24 +111,26 @@ export async function handleMadreResponse(data) {
     }
 
     case "delegar_asistente_core": {
-      console.log("🤖 [MADRE -> Asistente Core] Cambiando a Asistente Core y pasando consulta...", delegation);
+      console.log("🤖 [MADRE -> Asistente Core] Transfiriendo consulta...", delegation);
       if (typeof window.setActiveAgent === "function") {
         window.setActiveAgent("core");
       }
       if (typeof window.setSelectedModel === "function") {
         window.setSelectedModel("Asistente Core");
       }
-      // Abrir panel si estuviera cerrado
-      const fabBtn = document.getElementById("sea-assistant-toggle");
-      const panel = document.getElementById("sea-assistant-panel");
-      if (panel && panel.hidden && fabBtn) {
-        fabBtn.click();
+      // Cambiar modelo activo en el UI del Asistente del Mar
+      const aiSelector = document.getElementById("ai-model-selector");
+      if (aiSelector) {
+        aiSelector.value = "core";
+        aiSelector.dispatchEvent(new Event("change", { bubbles: true }));
       }
-      // Inyectar texto en el input del chat
-      const chatInput = document.querySelector(".sca-input");
-      if (chatInput && delegation.query) {
-        chatInput.value = delegation.query;
-        chatInput.dispatchEvent(new Event("input", { bubbles: true }));
+      // Abrir panel lateral izquierdo si existe
+      document.getElementById("sea-assistant-toggle")?.click();
+      // Inyectar prompt
+      const inputCore = document.querySelector(".sca-input");
+      if (inputCore && delegation.query) {
+        inputCore.value = delegation.query;
+        document.querySelector(".sca-send-btn")?.click();
       }
       break;
     }
@@ -148,19 +150,26 @@ export async function handleMadreResponse(data) {
       break;
     }
 
-    case "navegar_vista": {
-      const destino = (delegation.vista || "").toLowerCase();
-      console.log("🧭 [MADRE] Navegando a vista:", destino);
+    case "navegar_vista":
+    case "cambiar_pestana": {
+      const destino = (delegation.vista || delegation.target || "").toLowerCase();
+      console.log("🧭 [MADRE] Ejecutando navegación UI hacia:", destino);
+      
+      // Buscar botones en el menú lateral o en las pestañas móviles que coincidan con el destino
+      const tabs = typeof document.querySelectorAll === "function" ? Array.from(document.querySelectorAll('button, li, a, .module-tab')) : [];
       
       if (destino.includes("calculadora") || destino.includes("ldm")) {
-        const btnCalc = document.querySelector("[data-module-id='calculadora']") || document.querySelector("button:contains('Calculadora')");
-        if (btnCalc) btnCalc.click();
+        const btn = tabs.find(el => (el.textContent && el.textContent.toLowerCase().includes("calculadora")) || el.dataset?.moduleId === "calculadora" || el.dataset?.["module-id"] === "calculadora")
+          || (typeof document.querySelector === "function" && (document.querySelector("[data-module-id='calculadora']") || document.querySelector("button[data-module-id='calculadora']")));
+        if (btn) btn.click();
       } else if (destino.includes("proyecto") || destino.includes("forwarder")) {
-        const btnProj = document.querySelector("[data-module-id='proyectos']") || document.querySelector("button:contains('Proyectos')");
-        if (btnProj) btnProj.click();
-      } else if (destino.includes("ruta") || destino.includes("mapa")) {
-        const btnRuta = document.querySelector("[data-module-id='rutas']") || document.querySelector("button:contains('Rutas')");
-        if (btnRuta) btnRuta.click();
+        const btn = tabs.find(el => (el.textContent && el.textContent.toLowerCase().includes("proyecto")) || el.dataset?.moduleId === "proyectos" || el.dataset?.["module-id"] === "proyectos")
+          || (typeof document.querySelector === "function" && (document.querySelector("[data-module-id='proyectos']") || document.querySelector("button[data-module-id='proyectos']")));
+        if (btn) btn.click();
+      } else if (destino.includes("ruta") || destino.includes("mapa") || destino.includes("terrestre")) {
+        const btn = tabs.find(el => (el.textContent && el.textContent.toLowerCase().includes("ruta")) || el.dataset?.moduleId === "rutas" || el.dataset?.["module-id"] === "rutas")
+          || (typeof document.querySelector === "function" && (document.querySelector("[data-module-id='rutas']") || document.querySelector("button[data-module-id='rutas']")));
+        if (btn) btn.click();
       }
       break;
     }
@@ -443,16 +452,21 @@ function updateHudDisplay() {
   if (hudVehicle) hudVehicle.textContent = (t.vehicle_type || "Camión").substring(0, 16);
 }
 
-function appendMadreMessage(sender, text) {
+export function appendMadreMessage(sender, text) {
   const log = document.getElementById("madre-dialog-log") || document.getElementById("madre-chat-log") || document.getElementById("madre-chat-container");
   if (!log) return;
 
   const msgDiv = document.createElement("div");
   msgDiv.className = sender === "user" ? "flex flex-col items-end" : "flex flex-col items-start";
+  
+  // APLICAR LAS CLASES DE COLOR DIRECTAMENTE AL DIV INTERIOR
   const innerClass = sender === "user" 
-    ? "p-3 rounded-2xl rounded-tr-none max-w-[85%] text-xs bg-blue-600 text-white shadow-sm" 
-    : "p-3 rounded-2xl rounded-tl-none max-w-[85%] text-xs bg-slate-50 border border-slate-200 text-slate-800 shadow-2xs";
-  msgDiv.innerHTML = `<div class="${innerClass}"><p>${escapeHtml(text)}</p></div>`;
+    ? "p-3 rounded-2xl rounded-tr-none max-w-[85%] text-sm bg-blue-600 text-white shadow-sm font-medium" 
+    : "p-3 rounded-2xl rounded-tl-none max-w-[85%] text-sm bg-slate-50 border border-slate-200 text-slate-800 shadow-2xs";
+  
+  const safeText = String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  msgDiv.innerHTML = `<div class="${innerClass}"><p>${safeText}</p></div>`;
+  
   log.appendChild(msgDiv);
   log.scrollTop = log.scrollHeight;
 }
@@ -471,7 +485,11 @@ function toggleVoiceRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
-    alert("Tu navegador no soporta reconocimiento de voz nativo Web Speech API.");
+    if (typeof alert === "function") {
+      alert("Tu navegador no soporta reconocimiento de voz nativo Web Speech API.");
+    } else {
+      console.warn("[MADRE] Tu navegador no soporta reconocimiento de voz nativo Web Speech API.");
+    }
     return;
   }
 
@@ -572,28 +590,38 @@ if (typeof window !== "undefined") {
     handleMadreResponse,
     toggleAudio,
     iniciarReconocimientoVoz,
-    enviarMensaje
+    enviarMensaje,
+    appendMadreMessage,
+    getUserHasInteracted: () => userHasInteracted
   };
 }
 
-// Activación Global por Clic (Modo Escucha en Background)
-if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+// Almacenar estado de inicialización
+let userHasInteracted = false;
+
+export function getUserHasInteracted() {
+  return userHasInteracted;
+}
+
+// Activación Global y Apertura Automática de Panel (SIN RESTRICCIONES LOCALES DE BLOQUEO)
+if (typeof document !== "undefined") {
   document.addEventListener("click", (e) => {
-    // 1. Ignorar clics si el usuario está interactuando con inputs, botones, enlaces o el propio panel de la IA
+    // 1. Ignorar clics si el usuario está interactuando con inputs, botones, enlaces o el propio panel
     if (e.target && typeof e.target.closest === "function" && e.target.closest("input, textarea, button, a, #madre-panel, .module-tabs-wrapper")) {
       return;
     }
 
-    // 2. Si MADRE no está escuchando, activar micrófono en background
+    const panel = document.getElementById("madre-panel");
+    
+    // Si el panel está cerrado, lo abrimos
+    if (panel && panel.classList.contains("translate-x-full")) {
+      console.log("🎙️ [MADRE] Interacción global detectada. Abriendo panel...");
+      if (typeof toggleMadrePanel === "function") toggleMadrePanel(true);
+    }
+    
+    // Encender el micrófono incondicionalmente (requerimiento de Web Speech API síncrona)
     if (typeof toggleVoiceRecognition === "function" && typeof isListening !== "undefined" && !isListening) {
-      console.log("🎙️ [MADRE] Despertando escucha global por interacción en el mapa/fondo...");
-      
-      // Forzamos un feedback visual en el header aunque el panel esté cerrado
-      const toggleBtnDot = document.querySelector("#toggle-madre-btn div");
-      const toggleBtnText = document.querySelector("#toggle-madre-btn span");
-      if (toggleBtnDot) toggleBtnDot.className = "w-2 h-2 rounded-full bg-blue-500 border border-blue-200 animate-pulse";
-      if (toggleBtnText) toggleBtnText.textContent = "ESCUCHANDO";
-
+      console.log("🎙️ [MADRE] Encendiendo micrófono al instante.");
       toggleVoiceRecognition();
     }
   });
