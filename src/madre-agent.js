@@ -457,15 +457,20 @@ export function appendMadreMessage(sender, text) {
   if (!log) return;
 
   const msgDiv = document.createElement("div");
-  msgDiv.className = sender === "user" ? "flex flex-col items-end" : "flex flex-col items-start";
-  
-  // APLICAR LAS CLASES DE COLOR DIRECTAMENTE AL DIV INTERIOR
-  const innerClass = sender === "user" 
-    ? "p-3 rounded-2xl rounded-tr-none max-w-[85%] text-sm bg-blue-600 text-white shadow-sm font-medium" 
-    : "p-3 rounded-2xl rounded-tl-none max-w-[85%] text-sm bg-slate-50 border border-slate-200 text-slate-800 shadow-2xs";
-  
   const safeText = String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  msgDiv.innerHTML = `<div class="${innerClass}"><p>${safeText}</p></div>`;
+
+  if (sender === "user") {
+    msgDiv.className = "flex flex-col items-end mb-3";
+    // FUERZA BRUTA: style color white important para saltarse cualquier herencia o fallo de Tailwind JIT
+    msgDiv.innerHTML = `<div class="p-3 rounded-2xl rounded-tr-none max-w-[85%] text-sm bg-blue-600 shadow-sm" style="background-color: #2563eb !important; color: #ffffff !important;">
+      <p style="color: #ffffff !important; margin: 0; font-weight: 500;">${safeText}</p>
+    </div>`;
+  } else {
+    msgDiv.className = "flex flex-col items-start mb-3";
+    msgDiv.innerHTML = `<div class="p-3 rounded-2xl rounded-tl-none max-w-[85%] text-sm bg-slate-50 border border-slate-200 text-slate-800 shadow-sm">
+      <p style="margin: 0;">${safeText}</p>
+    </div>`;
+  }
   
   log.appendChild(msgDiv);
   log.scrollTop = log.scrollHeight;
@@ -603,7 +608,7 @@ export function getUserHasInteracted() {
   return userHasInteracted;
 }
 
-// Activación Global y Apertura Automática de Panel (SIN RESTRICCIONES LOCALES DE BLOQUEO)
+// Activación Global (MODO INVISIBLE - SIN ABRIR PANEL)
 if (typeof document !== "undefined") {
   document.addEventListener("click", (e) => {
     // 1. Ignorar clics si el usuario está interactuando con inputs, botones, enlaces o el propio panel
@@ -611,17 +616,17 @@ if (typeof document !== "undefined") {
       return;
     }
 
-    const panel = document.getElementById("madre-panel");
-    
-    // Si el panel está cerrado, lo abrimos
-    if (panel && panel.classList.contains("translate-x-full")) {
-      console.log("🎙️ [MADRE] Interacción global detectada. Abriendo panel...");
-      if (typeof toggleMadrePanel === "function") toggleMadrePanel(true);
-    }
-    
-    // Encender el micrófono incondicionalmente (requerimiento de Web Speech API síncrona)
+    // 2. Encender el micrófono silenciosamente en background SIN abrir el panel
     if (typeof toggleVoiceRecognition === "function" && typeof isListening !== "undefined" && !isListening) {
-      console.log("🎙️ [MADRE] Encendiendo micrófono al instante.");
+      console.log("🎙️ [MADRE] Encendiendo micrófono en background por interacción en el mapa.");
+      
+      // Feedback visual sutil en el botón del header
+      const toggleBtnDot = document.querySelector("#toggle-madre-btn div");
+      const toggleBtnText = document.querySelector("#toggle-madre-btn span");
+      if (toggleBtnDot) toggleBtnDot.className = "w-2 h-2 rounded-full bg-blue-500 border border-blue-200 animate-pulse";
+      if (toggleBtnText) toggleBtnText.textContent = "ESCUCHANDO";
+
+      // Activar voz síncrona
       toggleVoiceRecognition();
     }
   });
