@@ -266,6 +266,15 @@ const madreBackendSource = await readFile(new URL('../netlify/functions/madre-ia
 const madreBackendModule = await import(`data:text/javascript;base64,${Buffer.from(madreBackendSource).toString('base64')}`);
 const handler = madreBackendModule.default;
 
+// Mock default fetch para aislar tests unitarios de fallback/modo local y evitar llamadas de red reales a producción
+const defaultFallbackFetch = async () => ({
+  ok: false,
+  status: 503,
+  text: async () => 'Service Unavailable (Offline Unit Test)'
+});
+global.fetch = defaultFallbackFetch;
+
+
 test('MADRE Land Charter: UI Injection in Header & z-index: 99999 (Light Theme Design)', () => {
   mountMadreUI();
 
@@ -772,7 +781,7 @@ test('MADRE Backend Function: Diagnóstico detallado con console.error al fallar
   }
 });
 
-test('MADRE Backend Function: Registra log de DEBUG RED con la URL exacta y respeta DATA_BRIDGE_URL', async () => {
+test('MADRE Backend Function: Registra log de DEBUG RED con la URL exacta y respeta DATA_BRIDGE_URL (endpoint madre-chat)', async () => {
   const originalConsoleLog = console.log;
   const originalEnv = process.env.DATA_BRIDGE_URL;
   const logs = [];
@@ -794,10 +803,11 @@ test('MADRE Backend Function: Registra log de DEBUG RED con la URL exacta y resp
     await handler(req);
 
     const loggedDebugRed = logs.some(log =>
-      log.includes('🔍 [DEBUG RED] Intentando conectar con Data Bridge en la URL exacta:') &&
-      log.includes('https://custom-databridge.netlify.app/.netlify/functions/madre-ia')
+      (log.includes('🔍 [DEBUG RED] Intentando conectar con Data Bridge en la URL exacta:') ||
+       log.includes('puenteeando hacia Data Bridge ->')) &&
+      log.includes('https://custom-databridge.netlify.app/.netlify/functions/madre-chat')
     );
-    assert.ok(loggedDebugRed, 'Debe registrar el log de [DEBUG RED] con la URL exacta construida a partir de DATA_BRIDGE_URL');
+    assert.ok(loggedDebugRed, 'Debe registrar el log con la URL madre-chat construida a partir de DATA_BRIDGE_URL');
   } finally {
     console.log = originalConsoleLog;
     if (originalEnv !== undefined) {
@@ -807,4 +817,55 @@ test('MADRE Backend Function: Registra log de DEBUG RED con la URL exacta y resp
     }
   }
 });
+
+test('MADRE Backend Function: Formatea remotePayload correctamente y devuelve respuesta de Data Bridge cuando responde OK', async () => {
+  const originalFetch = global.fetch;
+  let interceptedUrl = null;
+  let interceptedOptions = null;
+
+  global.fetch = async (url, options) => {
+    interceptedUrl = url;
+    interceptedOptions = options;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        success: true,
+        reply: "Hola desde Data Bridge Gemini",
+        accion_ui: "informar",
+        mensaje_voz: "Hola desde Data Bridge Gemini"
+      })
+    };
+  };
+
+  try {
+    const req = new Request('http://localhost/.netlify/functions/madre-ia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: "Hola MADRE",
+        contexto_ui: { active_tab: "calculadora" },
+        history: [{ role: "user", text: "mensaje previo" }]
+      })
+    });
+
+    const res = await handler(req);
+    assert.equal(res.status, 200, 'Debe responder con status 200');
+
+    const data = await res.json();
+    assert.equal(data.reply, "Hola desde Data Bridge Gemini");
+    assert.equal(data.mensaje_voz, "Hola desde Data Bridge Gemini");
+
+    assert.ok(interceptedUrl.endsWith('/.netlify/functions/madre-chat'), 'Debe llamar al endpoint madre-chat');
+    const parsedPayload = JSON.parse(interceptedOptions.body);
+    assert.equal(parsedPayload.mensajeUsuario, "Hola MADRE", 'Debe mapear prompt a mensajeUsuario');
+    assert.equal(parsedPayload.origen, "Land Charter", 'Debe incluir origen: Land Charter');
+    assert.equal(parsedPayload.current_module, "land_charter", 'Debe incluir current_module: land_charter');
+    assert.equal(parsedPayload.contexto_ui.active_tab, "calculadora", 'Debe reenviar contexto_ui');
+    assert.equal(parsedPayload.history.length, 1, 'Debe reenviar history');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 
