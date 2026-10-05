@@ -67,8 +67,45 @@ export default async function handler(request) {
     });
 
     if (backendResponse.ok) {
-      const data = await backendResponse.json();
-      // Data Bridge ya devuelve el formato correcto (accion_ui, mensaje_voz, etc.)
+      let data = await backendResponse.json();
+      
+      // --- CAPA DE ADAPTACIÓN: DATA BRIDGE (LLM) -> LAND CHARTER (FRONTEND) ---
+      
+      // 1. Mapeo de navegación directa (Data Bridge devuelve "navegar" y "destino")
+      if (data.accion_ui === "navegar") {
+        data.accion_ui = "navegar_vista";
+        data.delegation_payload = { vista: data.destino };
+      }
+      
+      // 2. Mapeo de herramientas ejecutadas en background (Cerebro IA, Asistente Core)
+      if (!data.accion_ui && data.herramientasEjecutadas && data.herramientasEjecutadas.length > 0) {
+        const ultimaHerramienta = data.herramientasEjecutadas[data.herramientasEjecutadas.length - 1];
+        const nombre = ultimaHerramienta.herramienta;
+        const args = ultimaHerramienta.argumentos || {};
+        const res = ultimaHerramienta.resultado || {};
+
+        if (nombre === "delegar_cerebro_ia") {
+          data.accion_ui = "delegar_cerebro_ia";
+          data.delegation_payload = {
+            pol: res.origen || args.origen || "Sétif",
+            pod: res.destino || args.destino || "Béjaïa",
+            tonnage: 8000,
+            vehicle_type: res.tipo_vehiculo || args.tipo_vehiculo || "Camión Plataforma"
+          };
+        } else if (nombre === "delegar_asistente_core") {
+          data.accion_ui = "delegar_asistente_core";
+          data.delegation_payload = { query: args.consulta || args.query };
+        } else if (nombre === "delegar_agente_proyectos") {
+          data.accion_ui = "delegar_agente_proyectos";
+          data.delegation_payload = { operacion: args.operacion, expediente_id: args.expediente_id };
+        }
+      }
+
+      // Asegurar que el remitente sea MADRE para los estilos de chat
+      data.sender = "MADRE";
+      // Asegurar que el mensaje de voz se renderice en el chat si viene como 'respuesta'
+      data.reply = data.mensaje_voz || data.respuesta || data.reply || "Operación completada.";
+
       return new Response(JSON.stringify(data), {
         status: 200,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }

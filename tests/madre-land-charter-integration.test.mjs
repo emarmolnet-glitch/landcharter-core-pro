@@ -868,4 +868,142 @@ test('MADRE Backend Function: Formatea remotePayload correctamente y devuelve re
   }
 });
 
+test('MADRE Backend Function: Capa de adaptación mapea navegación directa (navegar -> navegar_vista)', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      success: true,
+      accion_ui: "navegar",
+      destino: "calculadora",
+      mensaje_voz: "Navegando a calculadora"
+    })
+  });
+
+  try {
+    const req = new Request('http://localhost/.netlify/functions/madre-ia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: "ir a calculadora" })
+    });
+
+    const res = await handler(req);
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.accion_ui, "navegar_vista");
+    assert.deepEqual(data.delegation_payload, { vista: "calculadora" });
+    assert.equal(data.sender, "MADRE");
+    assert.equal(data.reply, "Navegando a calculadora");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('MADRE Backend Function: Capa de adaptación mapea herramientasEjecutadas (delegar_cerebro_ia, delegar_asistente_core, delegar_agente_proyectos)', async () => {
+  const originalFetch = global.fetch;
+
+  // 1. delegar_cerebro_ia
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      success: true,
+      respuesta: "Ruta calculada a Argel",
+      herramientasEjecutadas: [
+        {
+          herramienta: "delegar_cerebro_ia",
+          argumentos: { origen: "Orán", destino: "Argel" },
+          resultado: { origen: "Orán", destino: "Argel", tipo_vehiculo: "Tráiler Lona" }
+        }
+      ]
+    })
+  });
+
+  try {
+    const req = new Request('http://localhost/.netlify/functions/madre-ia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: "calcular ruta oran argel" })
+    });
+
+    const res = await handler(req);
+    const data = await res.json();
+    assert.equal(data.accion_ui, "delegar_cerebro_ia");
+    assert.deepEqual(data.delegation_payload, {
+      pol: "Orán",
+      pod: "Argel",
+      tonnage: 8000,
+      vehicle_type: "Tráiler Lona"
+    });
+    assert.equal(data.sender, "MADRE");
+    assert.equal(data.reply, "Ruta calculada a Argel");
+  } finally {
+    global.fetch = originalFetch;
+  }
+
+  // 2. delegar_asistente_core
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      success: true,
+      herramientasEjecutadas: [
+        {
+          herramienta: "delegar_asistente_core",
+          argumentos: { consulta: "Precio gasoil" }
+        }
+      ]
+    })
+  });
+
+  try {
+    const req = new Request('http://localhost/.netlify/functions/madre-ia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: "consulta de gasoil" })
+    });
+
+    const res = await handler(req);
+    const data = await res.json();
+    assert.equal(data.accion_ui, "delegar_asistente_core");
+    assert.deepEqual(data.delegation_payload, { query: "Precio gasoil" });
+    assert.equal(data.sender, "MADRE");
+    assert.equal(data.reply, "Operación completada.");
+  } finally {
+    global.fetch = originalFetch;
+  }
+
+  // 3. delegar_agente_proyectos
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      success: true,
+      herramientasEjecutadas: [
+        {
+          herramienta: "delegar_agente_proyectos",
+          argumentos: { operacion: "actualizar", expediente_id: "EXP-123" }
+        }
+      ]
+    })
+  });
+
+  try {
+    const req = new Request('http://localhost/.netlify/functions/madre-ia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: "actualizar expediente" })
+    });
+
+    const res = await handler(req);
+    const data = await res.json();
+    assert.equal(data.accion_ui, "delegar_agente_proyectos");
+    assert.deepEqual(data.delegation_payload, { operacion: "actualizar", expediente_id: "EXP-123" });
+    assert.equal(data.sender, "MADRE");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 
