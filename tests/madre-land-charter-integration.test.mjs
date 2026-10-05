@@ -772,3 +772,39 @@ test('MADRE Backend Function: Diagnóstico detallado con console.error al fallar
   }
 });
 
+test('MADRE Backend Function: Registra log de DEBUG RED con la URL exacta y respeta DATA_BRIDGE_URL', async () => {
+  const originalConsoleLog = console.log;
+  const originalEnv = process.env.DATA_BRIDGE_URL;
+  const logs = [];
+  console.log = (...args) => {
+    logs.push(args.join(' '));
+  };
+
+  try {
+    process.env.DATA_BRIDGE_URL = 'https://custom-databridge.netlify.app/';
+    const req = new Request('http://localhost/.netlify/functions/madre-ia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: "prueba de log de red",
+        contexto_ui: {}
+      })
+    });
+
+    await handler(req);
+
+    const loggedDebugRed = logs.some(log =>
+      log.includes('🔍 [DEBUG RED] Intentando conectar con Data Bridge en la URL exacta:') &&
+      log.includes('https://custom-databridge.netlify.app/.netlify/functions/madre-ia')
+    );
+    assert.ok(loggedDebugRed, 'Debe registrar el log de [DEBUG RED] con la URL exacta construida a partir de DATA_BRIDGE_URL');
+  } finally {
+    console.log = originalConsoleLog;
+    if (originalEnv !== undefined) {
+      process.env.DATA_BRIDGE_URL = originalEnv;
+    } else {
+      delete process.env.DATA_BRIDGE_URL;
+    }
+  }
+});
+
