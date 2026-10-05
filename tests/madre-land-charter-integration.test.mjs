@@ -251,7 +251,15 @@ global.CustomEvent = global.window.CustomEvent;
 // Carga evaluada de src/madre-agent.js
 const madreAgentSource = await readFile(new URL('../src/madre-agent.js', import.meta.url), 'utf8');
 const madreAgentModule = await import(`data:text/javascript;base64,${Buffer.from(madreAgentSource).toString('base64')}`);
-const { mountMadreUI, extractLandCharterTelemetry, handleMadreResponse, appendMadreMessage, getUserHasInteracted } = madreAgentModule;
+const {
+  mountMadreUI,
+  extractLandCharterTelemetry,
+  handleMadreResponse,
+  appendMadreMessage,
+  getUserHasInteracted,
+  toggleVoiceRecognition,
+  detenerReconocimientoVoz
+} = madreAgentModule;
 
 // Carga evaluada de netlify/functions/madre-ia.js
 const madreBackendSource = await readFile(new URL('../netlify/functions/madre-ia.js', import.meta.url), 'utf8');
@@ -374,12 +382,12 @@ test('MADRE Backend Function: Valida current_module land_charter', async () => {
 });
 
 test('MADRE Navegación UI por Voz: Backend y Frontend', async () => {
-  // Test Backend: comando "llévame a la calculadora"
+  // Test Backend: comando de navegación a calculadora ("ir al calculo" / "ldm")
   const reqCalc = new Request('http://localhost/.netlify/functions/madre-ia', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      prompt: "Llévame a la calculadora",
+      prompt: "Ir al cálculo",
       contexto_ui: {}
     })
   });
@@ -410,6 +418,70 @@ test('MADRE Navegación UI por Voz: Backend y Frontend', async () => {
   }
 
   assert.equal(calcClicked, true, 'Debe hacer click en el botón de la calculadora');
+});
+
+test('MADRE Backend Function: Saludos y respuestas conversacionales locales', async () => {
+  const reqHola = new Request('http://localhost/.netlify/functions/madre-ia', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: "Hola MADRE",
+      contexto_ui: {}
+    })
+  });
+  const resHola = await handler(reqHola);
+  assert.equal(resHola.status, 200, 'Debe responder HTTP 200');
+  const dataHola = await resHola.json();
+  assert.equal(dataHola.success, true, 'Debe ser exitoso');
+  assert.equal(dataHola.accion_ui, 'informar', 'Debe tener accion_ui informar');
+  assert.ok(dataHola.reply.includes('Hola, Esteban'), 'Debe saludar a Esteban');
+  assert.ok(dataHola.reply.includes('Modo Local'), 'Debe indicar que opera en Modo Local');
+
+  // Test con buenos días
+  const reqBuenosDias = new Request('http://localhost/.netlify/functions/madre-ia', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: "Buenos días",
+      contexto_ui: {}
+    })
+  });
+  const resBuenosDias = await handler(reqBuenosDias);
+  const dataBuenosDias = await resBuenosDias.json();
+  assert.equal(dataBuenosDias.accion_ui, 'informar');
+  assert.ok(dataBuenosDias.reply.includes('Hola, Esteban'));
+});
+
+test('MADRE Backend Function: Derivación analítica al Asistente Core para cálculos y márgenes', async () => {
+  const userQuery = "¿Cuánto margen y camiones necesitamos?";
+  const reqCore = new Request('http://localhost/.netlify/functions/madre-ia', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: userQuery,
+      contexto_ui: {}
+    })
+  });
+  const resCore = await handler(reqCore);
+  assert.equal(resCore.status, 200, 'Debe responder HTTP 200');
+  const dataCore = await resCore.json();
+  assert.equal(dataCore.success, true, 'Debe ser exitoso');
+  assert.equal(dataCore.accion_ui, 'delegar_asistente_core', 'Debe activar accion delegar_asistente_core');
+  assert.equal(dataCore.delegation_payload?.query, userQuery, 'Debe preservar el query original');
+  assert.ok(dataCore.reply.includes('Asistente Core'), 'Debe confirmar transferencia al Asistente Core');
+
+  // Test con palabras clave como coste o precio
+  const reqPrecio = new Request('http://localhost/.netlify/functions/madre-ia', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: "analiza el coste del viaje",
+      contexto_ui: {}
+    })
+  });
+  const resPrecio = await handler(reqPrecio);
+  const dataPrecio = await resPrecio.json();
+  assert.equal(dataPrecio.accion_ui, 'delegar_asistente_core');
 });
 
 test('MADRE Corrección 1: CSS de burbujas (Texto blanco en usuario con estilos en línea, fondo claro en MADRE)', () => {
@@ -619,5 +691,84 @@ test('MADRE Backend Function: Extraer origen y destino de ruta dinámica y fallb
   assert.equal(dataRuta3.accion_ui, 'delegar_cerebro_ia');
   assert.equal(dataRuta3.delegation_payload?.pol, 'Bilbao');
   assert.equal(dataRuta3.delegation_payload?.pod, 'Sevilla');
+});
+
+test('MADRE Reconocimiento de Voz: Escucha activa continua persistente (continuous = true, interimResults = true y bucle onend)', () => {
+  let startCount = 0;
+  let lastInstance = null;
+
+  class MockSpeechRecognition {
+    constructor() {
+      this.continuous = false;
+      this.interimResults = false;
+      this.lang = '';
+      this.onstart = null;
+      this.onresult = null;
+      this.onerror = null;
+      this.onend = null;
+      lastInstance = this;
+    }
+    start() {
+      startCount++;
+      if (this.onstart) this.onstart();
+    }
+    stop() {
+      if (this.onend) this.onend();
+    }
+    abort() {}
+  }
+
+  global.window.SpeechRecognition = MockSpeechRecognition;
+
+  try {
+    // 1. Iniciar reconocimiento
+    toggleVoiceRecognition();
+    assert.ok(lastInstance, 'Debe instanciar SpeechRecognition');
+    assert.equal(lastInstance.continuous, true, 'Debe tener continuous = true');
+    assert.equal(lastInstance.interimResults, true, 'Debe tener interimResults = true');
+    assert.equal(startCount, 1, 'Debe llamar a start() al iniciar');
+
+    // 2. Simular evento onend cuando el usuario NO ha cerrado explícitamente el asistente
+    lastInstance.onend();
+    assert.equal(startCount, 2, 'Debe reiniciar automáticamente con start() tras onend');
+
+    // 3. Simular detención explícita (usuario apaga el micrófono o cierra el panel)
+    detenerReconocimientoVoz();
+    const currentStartCount = startCount;
+    // Si onend se dispara tras detener explícitamente, NO debe reiniciar
+    if (lastInstance.onend) lastInstance.onend();
+    assert.equal(startCount, currentStartCount, 'NO debe reiniciar la escucha tras detención explícita');
+  } finally {
+    delete global.window.SpeechRecognition;
+  }
+});
+
+test('MADRE Backend Function: Diagnóstico detallado con console.error al fallar conexión con Data Bridge', async () => {
+  const originalConsoleError = console.error;
+  const errorLogs = [];
+  console.error = (...args) => {
+    errorLogs.push(args.join(' '));
+  };
+
+  try {
+    const req = new Request('http://localhost/.netlify/functions/madre-ia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: "prueba de diagnostico con backend",
+        contexto_ui: {}
+      })
+    });
+
+    const res = await handler(req);
+    assert.equal(res.status, 200);
+
+    const loggedDataBridgeError = errorLogs.some(log =>
+      log.includes('[madre-ia]') && (log.includes('Data Bridge') || log.includes('Código HTTP') || log.includes('Error exacto de red'))
+    );
+    assert.ok(loggedDataBridgeError, 'Debe registrar con console.error el código de estado o error de red hacia Data Bridge');
+  } finally {
+    console.error = originalConsoleError;
+  }
 });
 
