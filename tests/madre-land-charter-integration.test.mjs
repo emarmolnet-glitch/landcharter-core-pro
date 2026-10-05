@@ -702,13 +702,14 @@ test('MADRE Backend Function: Extraer origen y destino de ruta dinámica y fallb
   assert.equal(dataRuta3.delegation_payload?.pod, 'Sevilla');
 });
 
-test('MADRE Reconocimiento de Voz: Escucha activa continua persistente (continuous = true, interimResults = true y bucle onend)', () => {
+test('MADRE Reconocimiento de Voz: Escucha bajo demanda controlada desde el botón del Header (continuous = false, sin bucle onend y sincronización visual)', () => {
   let startCount = 0;
+  let stopCount = 0;
   let lastInstance = null;
 
   class MockSpeechRecognition {
     constructor() {
-      this.continuous = false;
+      this.continuous = true;
       this.interimResults = false;
       this.lang = '';
       this.onstart = null;
@@ -722,6 +723,7 @@ test('MADRE Reconocimiento de Voz: Escucha activa continua persistente (continuo
       if (this.onstart) this.onstart();
     }
     stop() {
+      stopCount++;
       if (this.onend) this.onend();
     }
     abort() {}
@@ -730,23 +732,48 @@ test('MADRE Reconocimiento de Voz: Escucha activa continua persistente (continuo
   global.window.SpeechRecognition = MockSpeechRecognition;
 
   try {
-    // 1. Iniciar reconocimiento
-    toggleVoiceRecognition();
+    const statusBtn = doc.getElementById('toggle-madre-btn');
+    const textSpan = statusBtn.querySelector('span');
+    const dot = statusBtn.querySelector('div');
+
+    mountMadreUI();
+
+    // 1. Estado inicial
+    assert.equal(textSpan.textContent, 'APAGADA');
+    assert.ok(dot.className.includes('bg-red-500'));
+
+    // 2. Pulsar botón del Header para iniciar (Toggle ON)
+    statusBtn.click();
     assert.ok(lastInstance, 'Debe instanciar SpeechRecognition');
-    assert.equal(lastInstance.continuous, true, 'Debe tener continuous = true');
-    assert.equal(lastInstance.interimResults, true, 'Debe tener interimResults = true');
-    assert.equal(startCount, 1, 'Debe llamar a start() al iniciar');
+    assert.equal(lastInstance.continuous, false, 'Debe configurar continuous = false (escucha única)');
+    assert.equal(lastInstance.interimResults, true, 'Debe mantener interimResults = true');
+    assert.equal(startCount, 1, 'Debe llamar a start() al pulsar el botón');
+    assert.equal(textSpan.textContent, 'ESCUCHANDO', 'El botón de la cabecera debe cambiar a ESCUCHANDO en onstart');
+    assert.ok(dot.className.includes('bg-emerald-500'), 'El botón debe tener estilo activo/verde');
 
-    // 2. Simular evento onend cuando el usuario NO ha cerrado explícitamente el asistente
+    // 3. Simular evento onend (por final de locución) - NO DEBE auto-reiniciar
     lastInstance.onend();
-    assert.equal(startCount, 2, 'Debe reiniciar automáticamente con start() tras onend');
+    assert.equal(startCount, 1, 'NO debe llamar a start() en onend (auto-restart eliminado)');
+    assert.equal(textSpan.textContent, 'APAGADA', 'El botón de la cabecera debe volver a APAGADA en onend');
+    assert.ok(dot.className.includes('bg-red-500'), 'El botón debe tener estilo inactivo/rojo');
 
-    // 3. Simular detención explícita (usuario apaga el micrófono o cierra el panel)
-    detenerReconocimientoVoz();
-    const currentStartCount = startCount;
-    // Si onend se dispara tras detener explícitamente, NO debe reiniciar
-    if (lastInstance.onend) lastInstance.onend();
-    assert.equal(startCount, currentStartCount, 'NO debe reiniciar la escucha tras detención explícita');
+    // 4. Parada manual desde el botón del Header (Toggle OFF)
+    statusBtn.click(); // Enciende
+    assert.equal(startCount, 2);
+    assert.equal(textSpan.textContent, 'ESCUCHANDO');
+    assert.ok(dot.className.includes('bg-emerald-500'));
+
+    statusBtn.click(); // Apaga manualmente
+    assert.equal(stopCount, 1, 'Debe llamar a stop() al hacer click cuando está escuchando');
+    assert.equal(textSpan.textContent, 'APAGADA', 'El botón debe volver a APAGADA');
+    assert.ok(dot.className.includes('bg-red-500'));
+
+    // 5. Simular evento onerror: debe restaurar inmediatamente el estado APAGADA
+    statusBtn.click(); // Enciende
+    assert.equal(textSpan.textContent, 'ESCUCHANDO');
+    lastInstance.onerror({ error: 'audio-capture' });
+    assert.equal(textSpan.textContent, 'APAGADA', 'El botón de la cabecera debe volver a APAGADA en onerror');
+    assert.ok(dot.className.includes('bg-red-500'), 'El botón debe tener estilo inactivo/rojo en onerror');
   } finally {
     delete global.window.SpeechRecognition;
   }
