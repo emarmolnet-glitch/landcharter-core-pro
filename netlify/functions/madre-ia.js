@@ -62,46 +62,53 @@ export default async function handler(request) {
       });
     }
 
-    // Si el backend remoto no está disponible o falla, responder con orquestación ejecutiva HAL 9000 local
+    // --- LÓGICA DE ORQUESTACIÓN LOCAL (FALLBACK) ---
     const userPrompt = String(enrichedPayload.prompt || enrichedPayload.message || enrichedPayload.texto || "").trim();
-    const contextoUI = enrichedPayload.contexto_ui || {};
-    
-    // Evaluar intención para delegar en la arquitectura local de 3 sub-agentes
+    const promptLower = userPrompt.toLowerCase();
     let fallbackAction = "informar";
     let delegationPayload = {};
-    let halReply = "Afirmativo. Todos mis sistemas están plenamente operativos.";
+    let halReply = "Entendido. Procesando solicitud.";
 
-    const promptLower = userPrompt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    // Regex ultra-flexible: captura "[cualquier cosa] de [Origen] a [Destino]"
+    // Usa normalización para evitar problemas de tildes
+    const normalizedPrompt = userPrompt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    // Captura: "de barcelona a zaragoza", "ir desde madrid hasta paris", "ruta de lyon a milan"
+    const rutaRegex = /(?:de|desde)\s+([a-z\s]+?)\s+(?:a|hasta)\s+([a-z\s]+)/i;
+    const rutaMatch = normalizedPrompt.match(rutaRegex);
 
-    if (/recalcula|calcula.*ruta|distancia|origen|destino|setif|bugia|bejaia|camion|toneladas|carga/i.test(promptLower)) {
+    if (rutaMatch) {
+      // Capitalizar nombres de ciudades (opcional, pero mejora la salida)
+      const cap = str => str.charAt(0).toUpperCase() + str.slice(1);
       fallbackAction = "delegar_cerebro_ia";
       delegationPayload = {
-        pol: contextoUI.pol || "Sétif",
-        pod: contextoUI.pod || "Béjaïa",
-        tonnage: contextoUI.tonnage || 8000,
-        vehicle_type: contextoUI.vehicle_type || "Camión Plataforma con Grúa Autocarga"
+        pol: cap(rutaMatch[1].trim()),
+        pod: cap(rutaMatch[2].trim()),
+        tonnage: 8000,
+        vehicle_type: "Camión Plataforma"
       };
-      halReply = "Entendido. He transferido las coordenadas y parámetros de ruta a Cerebro.ia para recálculo inmediato en OSRM.";
-    } else if (/busca|mercado|precio|gasoil|bunker|noticias|terminal|puerto|barco|spot/i.test(promptLower)) {
-      fallbackAction = "delegar_asistente_core";
-      delegationPayload = {
-        query: userPrompt
-      };
-      halReply = "Conmutando al Asistente Core para consultar Data Bridge y fuentes de mercado.";
-    } else if (/llevame|abre|ir a|calculadora|calculo|ldm/i.test(promptLower)) {
+      halReply = `Entendido. He transferido los parámetros a Cerebro.ia para calcular la ruta de ${delegationPayload.pol} a ${delegationPayload.pod}.`;
+    } else if (/llevame|llévame|abre|ir a|calculadora|calculo|cálculo|ldm/i.test(promptLower)) {
       fallbackAction = "navegar_vista";
       delegationPayload = { vista: "calculadora" };
-      halReply = "Entendido. Abriendo la calculadora de Land Charter.";
+      halReply = "Abriendo la calculadora.";
     } else if (/proyecto|expediente|transitario/i.test(promptLower)) {
       fallbackAction = "navegar_vista";
       delegationPayload = { vista: "proyectos" };
-      halReply = "Cambiando a la vista de gestión de proyectos.";
-    } else if (/ruta|mapa/i.test(promptLower)) {
+      halReply = "Cambiando a gestión de proyectos.";
+    } else if (/\bruta\b|mapa/i.test(promptLower) && !/calcula/i.test(promptLower)) {
       fallbackAction = "navegar_vista";
       delegationPayload = { vista: "rutas" };
-      halReply = "Volviendo al mapa de rutas terrestres.";
+      halReply = "Mostrando el mapa de rutas.";
+    } else if (/recalcula|calcula|ruta|distancia/i.test(promptLower)) {
+      fallbackAction = "delegar_cerebro_ia";
+      delegationPayload = { pol: "Sétif", pod: "Béjaïa" };
+      halReply = "Calculando ruta predeterminada.";
     } else {
-      halReply = `Buenas tardes. Soy MADRE. Estoy monitorizando la operación en Land Charter. Origen: ${contextoUI.pol || 'Sin fijar'}, Destino: ${contextoUI.pod || 'Sin fijar'}. Distancia: ${contextoUI.distance_km || 0} km. ¿Qué parámetros deseas que ajuste?`;
+        if (!backendResponse || !backendResponse.ok) {
+             halReply = "Se ha perdido la conexión con el Cerebro Central en Data Bridge. Reinténtalo más tarde.";
+             fallbackAction = "error_conexion";
+        }
     }
 
     return new Response(JSON.stringify({
