@@ -1,18 +1,10 @@
 // netlify/functions/madre-ia.js
 // Proxy / Gateway hacia el Cerebro Central de MADRE en Data Bridge
 
-const DEFAULT_DATA_BRIDGE_ORIGIN = "https://calm-shortbread-55bcfc.netlify.app";
-
 export default async function handler(request) {
-  // Leer la URL base desde Netlify o usar un valor temporal para debug
-  const baseUrl = (process.env.DATA_BRIDGE_URL || process.env.MADRE_BACKEND_URL || DEFAULT_DATA_BRIDGE_ORIGIN).trim();
-  // Asegurar que la ruta final está bien construida
-  const dataBridgeEndpoint = baseUrl.includes("/.netlify/functions/") || baseUrl.includes("/api/")
-    ? baseUrl
-    : `${baseUrl.replace(/\/$/, '')}/.netlify/functions/madre-ia`;
-
   // 1. Manejo de CORS preflight
-  if (request.method === "OPTIONS") {
+  const method = request?.method || request?.httpMethod || "POST";
+  if (method === "OPTIONS") {
     return new Response(null, {
       status: 204,
       headers: {
@@ -23,73 +15,73 @@ export default async function handler(request) {
     });
   }
 
-  if (request.method !== "POST") {
+  if (method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
   }
 
+  // Soporte universal para Web API Request (Netlify v2) y AWS Lambda event
+  let event = request;
+  if (request && typeof request.text === "function") {
+    const rawText = await request.text().catch(() => "");
+    event = {
+      body: rawText,
+      headers: request.headers,
+      method: request.method
+    };
+  }
+
+  let body = {};
+  let userPrompt = "";
+
   try {
-    const rawBody = await request.json().catch(() => ({}));
+    body = JSON.parse(event.body || "{}");
+    userPrompt = String(body.prompt || body.message || body.texto || "").trim();
     
-    // Forzar el identificador de módulo de Land Charter para MADRE
-    const enrichedPayload = {
-      ...rawBody,
-      current_module: "land_charter"
+    // URL base por variable de entorno
+    const baseUrl = process.env.DATA_BRIDGE_URL || "https://calm-shortbread-55bcfc.netlify.app";
+    // EL ENDPOINT REAL EN DATA BRIDGE ES madre-chat
+    const dataBridgeEndpoint = `${baseUrl.replace(/\/$/, '')}/.netlify/functions/madre-chat`;
+
+    console.log(" puenteeando hacia Data Bridge ->", dataBridgeEndpoint);
+    console.log("🔍 [DEBUG RED] Intentando conectar con Data Bridge en la URL exacta:", dataBridgeEndpoint);
+
+    // Formatear el payload EXACTAMENTE como lo espera Data Bridge (madre-chat.js)
+    const remotePayload = {
+      mensajeUsuario: userPrompt,
+      origen: "Land Charter",
+      current_module: "land_charter",
+      contexto_ui: body.contexto_ui || {},
+      history: body.history || []
     };
 
-    let backendResponse = null;
-    let backendErrorDetails = null;
+    // Intentar conexión real con el Cerebro Central
+    const backendResponse = await fetch(dataBridgeEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(remotePayload)
+    });
 
-    try {
-      const headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "X-App-Context": "land_charter"
-      };
-
-      const apiSecret = process.env.DATA_BRIDGE_API_SECRET || process.env.VITE_DATA_BRIDGE_API_SECRET;
-      if (apiSecret) {
-        headers["Authorization"] = `Bearer ${apiSecret}`;
-      }
-      const apiKey = process.env.DATA_BRIDGE_API_KEY || process.env.VITE_DATA_BRIDGE_API_KEY;
-      if (apiKey) {
-        headers["x-api-key"] = apiKey;
-      }
-
-      console.log("🔍 [DEBUG RED] Intentando conectar con Data Bridge en la URL exacta:", dataBridgeEndpoint);
-
-      backendResponse = await fetch(dataBridgeEndpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(enrichedPayload)
-      });
-
-      if (!backendResponse.ok) {
-        const errorText = await backendResponse.text().catch(() => "");
-        console.error(`[madre-ia] Error devuelto por Data Bridge en ${dataBridgeEndpoint}: Código HTTP ${backendResponse.status} (${backendResponse.statusText}). Detalle: ${errorText.slice(0, 500)}`);
-        backendErrorDetails = `HTTP ${backendResponse.status}: ${errorText.slice(0, 100)}`;
-      }
-    } catch (networkError) {
-      console.error(`[madre-ia] Error exacto de red al conectar con Data Bridge en ${dataBridgeEndpoint}:`, networkError?.message || networkError, networkError?.cause ? `Causa: ${networkError.cause}` : "");
-      backendErrorDetails = networkError?.message || String(networkError);
-      backendResponse = null;
-    }
-
-    if (backendResponse && backendResponse.ok) {
+    if (backendResponse.ok) {
       const data = await backendResponse.json();
+      // Data Bridge ya devuelve el formato correcto (accion_ui, mensaje_voz, etc.)
       return new Response(JSON.stringify(data), {
-        status: backendResponse.status,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*"
-        }
+        status: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
     }
+
+    throw new Error(`Data Bridge respondió con estado: ${backendResponse.status}`);
+
+  } catch (error) {
+    console.error("⚠️ [MADRE Proxy] Fallo de conexión remota:", error.message);
+    console.error(`[madre-ia] Error devuelto por Data Bridge: ${error.message}`);
 
     // --- LÓGICA DE ORQUESTACIÓN LOCAL (FALLBACK) ---
-    const userPrompt = String(enrichedPayload.prompt || enrichedPayload.message || enrichedPayload.texto || "").trim();
     const promptLower = userPrompt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     let fallbackAction = "informar";
     let delegationPayload = {};
@@ -138,10 +130,8 @@ export default async function handler(request) {
       halReply = "Hola, Esteban. La conexión remota con Data Bridge está inactiva, pero opero en Modo Local. Cerebro.ia y Asistente Core están listos. ¿Qué necesitas?";
     
     } else {
-        if (!backendResponse || !backendResponse.ok) {
-             halReply = "Se ha perdido la conexión con el Cerebro Central remota. Intenta reformular tu petición o utiliza los comandos locales.";
-             fallbackAction = "error_conexion";
-        }
+      halReply = "Se ha perdido la conexión con el Cerebro Central remota. Intenta reformular tu petición o utiliza los comandos locales.";
+      fallbackAction = "error_conexion";
     }
 
     return new Response(JSON.stringify({
@@ -157,17 +147,6 @@ export default async function handler(request) {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*"
       }
-    });
-
-  } catch (error) {
-    console.error("[madre-ia] Error procesando solicitud:", error);
-    return new Response(JSON.stringify({
-      success: false,
-      error: "Error interno en el procesador de MADRE.",
-      details: String(error?.message || error)
-    }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
   }
 }
