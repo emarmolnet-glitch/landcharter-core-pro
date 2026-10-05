@@ -412,7 +412,7 @@ test('MADRE Navegación UI por Voz: Backend y Frontend', async () => {
   assert.equal(calcClicked, true, 'Debe hacer click en el botón de la calculadora');
 });
 
-test('MADRE Corrección 1: CSS de burbujas (Texto blanco en usuario, fondo claro en MADRE)', () => {
+test('MADRE Corrección 1: CSS de burbujas (Texto blanco en usuario con estilos en línea, fondo claro en MADRE)', () => {
   const dialogLog = doc.createElement('div');
   dialogLog.id = 'madre-dialog-log';
   doc.body.appendChild(dialogLog);
@@ -422,12 +422,13 @@ test('MADRE Corrección 1: CSS de burbujas (Texto blanco en usuario, fondo claro
   const userMsg = dialogLog.children[0];
   assert.equal(
     userMsg.className,
-    'flex flex-col items-end',
-    'El wrapper exterior debe alinear a la derecha'
+    'flex flex-col items-end mb-3',
+    'El wrapper exterior debe alinear a la derecha con margen inferior'
   );
   assert.ok(
-    userMsg.innerHTML.includes('bg-blue-600 text-white') && userMsg.innerHTML.includes('font-medium'),
-    'El div interior debe contener las clases forzando texto blanco y estilo blue-600'
+    userMsg.innerHTML.includes('style="background-color: #2563eb !important; color: #ffffff !important;"') &&
+    userMsg.innerHTML.includes('color: #ffffff !important;'),
+    'El div interior debe contener estilo en línea forzando texto blanco y color azul'
   );
   assert.ok(userMsg.innerHTML.includes('Hola MADRE, calcula la ruta'), 'Debe contener el texto del usuario');
 
@@ -436,8 +437,8 @@ test('MADRE Corrección 1: CSS de burbujas (Texto blanco en usuario, fondo claro
   const madreMsg = dialogLog.children[1];
   assert.equal(
     madreMsg.className,
-    'flex flex-col items-start',
-    'El wrapper exterior de MADRE debe alinear a la izquierda'
+    'flex flex-col items-start mb-3',
+    'El wrapper exterior de MADRE debe alinear a la izquierda con margen inferior'
   );
   assert.ok(
     madreMsg.innerHTML.includes('bg-slate-50 border border-slate-200 text-slate-800'),
@@ -553,7 +554,7 @@ test('MADRE Corrección 2b: Delegación a Asistente Core con ai-model-selector y
   }
 });
 
-test('MADRE: Apertura automática global de panel y escucha en clic en mapa', () => {
+test('MADRE: Modo Stealth - Activación de micrófono en background sin abrir panel en clic en mapa', () => {
   const panel = doc.getElementById('madre-panel');
   // Asegurar que el panel arranca con translate-x-full
   panel.classList.add('translate-x-full');
@@ -570,7 +571,7 @@ test('MADRE: Apertura automática global de panel y escucha en clic en mapa', ()
   mapEl.tagName = 'DIV';
   doc.dispatchEvent({ type: 'click', target: mapEl });
 
-  assert.ok(!panel.classList.contains('translate-x-full'), 'Clic en el mapa debe abrir automáticamente el panel');
+  assert.ok(panel.classList.contains('translate-x-full'), 'Clic en el mapa NO debe abrir el panel en Modo Stealth');
 });
 
 test('MADRE Backend Function: Extraer origen y destino de ruta dinámica y fallback', async () => {
