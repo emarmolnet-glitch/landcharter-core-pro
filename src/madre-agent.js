@@ -271,11 +271,14 @@ export function mountMadreUI() {
     oldPanel.remove();
   }
 
-  // 3. Configurar listener en el botón del Header toggle-madre-btn
+  // 3. Configurar listener en el botón del Header toggle-madre-btn (Interruptor Maestro)
   const toggleBtn = document.getElementById("toggle-madre-btn");
   if (toggleBtn && !toggleBtn.dataset.bound) {
     toggleBtn.dataset.bound = "true";
-    toggleBtn.onclick = () => toggleMadrePanel();
+    toggleBtn.addEventListener("click", (e) => {
+      if (e && typeof e.stopPropagation === "function") e.stopPropagation();
+      toggleVoiceRecognition();
+    });
   }
 
   // Actualizar referencia en la píldora de sesión
@@ -342,21 +345,6 @@ export function mountMadreUI() {
       closeBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         toggleMadrePanel(false);
-      });
-    }
-
-    // Activación de Voz por Clic Global en el panel lateral (Escucha Táctil)
-    if (!sidePanel.dataset.touchVoiceBound) {
-      sidePanel.dataset.touchVoiceBound = "true";
-      sidePanel.addEventListener("click", (e) => {
-        // No activar si se pulsa cerrar, silenciar, enviar o inputs
-        const target = e.target;
-        if (target.closest("button") || target.closest("input") || target.closest("textarea")) {
-          return;
-        }
-        if (!isListening) {
-          toggleVoiceRecognition();
-        }
       });
     }
 
@@ -435,13 +423,6 @@ export function toggleMadrePanel(forceState) {
       panel.dataset.greeted = "true";
       speakHalVoice("MADRE conectada a Land Charter. Supervisión holística activa.");
     }
-
-    // Activación automática de voz al abrir
-    setTimeout(() => {
-      if (!isListening) {
-        toggleVoiceRecognition();
-      }
-    }, 400);
   } else {
     panel.classList.add("translate-x-full");
     updateMadreStatusUI("APAGADA");
@@ -519,10 +500,11 @@ export function toggleVoiceRecognition() {
     } else {
       console.warn("[MADRE] Tu navegador no soporta reconocimiento de voz nativo Web Speech API.");
     }
+    updateMadreStatusUI("APAGADA");
     return;
   }
 
-  if (isListening && recognitionInstance) {
+  if (isListening) {
     detenerReconocimientoVoz();
     return;
   }
@@ -533,7 +515,7 @@ export function toggleVoiceRecognition() {
     const recognition = new SpeechRecognition();
     recognitionInstance = recognition;
     recognition.lang = "es-ES";
-    recognition.continuous = true;
+    recognition.continuous = false; // Escucha única bajo demanda
     recognition.interimResults = true;
 
     recognition.onstart = () => {
@@ -575,39 +557,16 @@ export function toggleVoiceRecognition() {
 
     recognition.onerror = (e) => {
       console.warn("[MADRE] Error reconocimiento de voz:", e?.error || e);
-      if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
-        isVoiceExplicitlyStopped = true;
-        isListening = false;
-        micBtn?.classList.remove("madre-listening");
-        updateMadreStatusUI("APAGADA");
-      }
+      isVoiceExplicitlyStopped = true;
+      isListening = false;
+      recognitionInstance = null;
+      micBtn?.classList.remove("madre-listening");
+      updateMadreStatusUI("APAGADA");
     };
 
     recognition.onend = () => {
-      // Si el usuario no ha cerrado explícitamente el asistente ni apagado el micrófono,
-      // reiniciamos automáticamente la escucha permanente (bucle de escucha continua)
-      if (!isVoiceExplicitlyStopped) {
-        try {
-          recognition.start();
-          return;
-        } catch (err) {
-          setTimeout(() => {
-            if (!isVoiceExplicitlyStopped) {
-              try {
-                recognition.start();
-              } catch (reErr) {
-                console.warn("[MADRE] No se pudo reiniciar reconocimiento continuo:", reErr);
-                isListening = false;
-                micBtn?.classList.remove("madre-listening");
-                updateMadreStatusUI("APAGADA");
-              }
-            }
-          }, 150);
-          return;
-        }
-      }
-
       isListening = false;
+      recognitionInstance = null;
       micBtn?.classList.remove("madre-listening");
       updateMadreStatusUI("APAGADA");
     };
@@ -616,6 +575,7 @@ export function toggleVoiceRecognition() {
   } catch (e) {
     console.error("[MADRE] No se pudo iniciar reconocimiento:", e);
     isListening = false;
+    recognitionInstance = null;
     micBtn?.classList.remove("madre-listening");
     updateMadreStatusUI("APAGADA");
   }
@@ -688,27 +648,4 @@ export function getUserHasInteracted() {
   return userHasInteracted;
 }
 
-// Activación Global (MODO INVISIBLE - SIN ABRIR PANEL)
-if (typeof document !== "undefined") {
-  document.addEventListener("click", (e) => {
-    // 1. Ignorar clics si el usuario está interactuando con inputs, botones, enlaces o el propio panel
-    if (e.target && typeof e.target.closest === "function" && e.target.closest("input, textarea, button, a, #madre-panel, .module-tabs-wrapper")) {
-      return;
-    }
-
-    // 2. Encender el micrófono silenciosamente en background SIN abrir el panel
-    if (typeof toggleVoiceRecognition === "function" && typeof isListening !== "undefined" && !isListening) {
-      console.log("🎙️ [MADRE] Encendiendo micrófono en background por interacción en el mapa.");
-      
-      // Feedback visual sutil en el botón del header
-      const toggleBtnDot = document.querySelector("#toggle-madre-btn div");
-      const toggleBtnText = document.querySelector("#toggle-madre-btn span");
-      if (toggleBtnDot) toggleBtnDot.className = "w-2 h-2 rounded-full bg-blue-500 border border-blue-200 animate-pulse";
-      if (toggleBtnText) toggleBtnText.textContent = "ESCUCHANDO";
-
-      // Activar voz síncrona
-      toggleVoiceRecognition();
-    }
-  });
-}
 
