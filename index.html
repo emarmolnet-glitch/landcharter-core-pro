@@ -19937,6 +19937,10 @@ async function runOnDemandMapRouteWorkflow(button) {
         console.log('[RoadRoute] Puntos de carretera para Leaflet [lat, lon]:', roadRoutePoints.length, 'puntos');
 
         if (mapInstance && typeof L !== 'undefined') {
+            const mapContainer = typeof mapInstance.getContainer === 'function' ? mapInstance.getContainer() : null;
+            if (!mapContainer || !mapInstance._panes || (typeof document !== 'undefined' && !document.body.contains(mapContainer))) {
+                console.warn("⚠️ [Mapa] Intento de renderizar ruta ignorado: El mapa no está montado en esta vista.");
+            } else {
             // Detener cualquier animación en progreso para evitar colisión de renderizado Canvas/SVG
             if (typeof mapInstance.stop === 'function') {
                 try { mapInstance.stop(); } catch (_) {}
@@ -20109,6 +20113,7 @@ async function runOnDemandMapRouteWorkflow(button) {
                         console.warn('Evitado crash en redraw de Leaflet', e);
                     }
                 }, 200);
+            }
             }
         }
 
@@ -20326,10 +20331,30 @@ async function runOnDemandMapRouteWorkflow(button) {
 }
 
 function redrawCurrentRoute(overrideVehicleType) {
+    const mapInstance = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
+
+    // BLINDAJE: Si el mapa no existe o está desmontado (ej. estamos en la vista Proyectos), abortar redibujado.
+    if (!mapInstance || !mapInstance.getContainer()) {
+        console.warn("⚠️ [Mapa] Intento de redibujar ruta ignorado: El mapa no está montado en esta vista.");
+        return; 
+    }
+
+    if (!mapInstance._panes || (typeof document !== 'undefined' && !document.body.contains(mapInstance.getContainer()))) {
+        console.warn("⚠️ [Mapa] Intento de redibujar ruta ignorado: El contenedor del mapa está desmontado del DOM.");
+        return;
+    }
+
+    // Si el usuario está en la vista ForwarderWorkspace (Proyectos), ignorar redibujado
+    const isForwarders = window.currentView === 'FORWARDERS' || window.currentView === 'forwarders' ||
+        (typeof document !== 'undefined' && document.getElementById('view-forwarders') && !document.getElementById('view-forwarders').classList.contains('hidden'));
+    if (isForwarders) {
+        console.warn("⚠️ [Mapa] Intento de redibujar ruta ignorado: El mapa no está montado en esta vista.");
+        return;
+    }
+
     const drawState = window._currentRouteDrawState;
     if (!drawState || !drawState.roadRoutePoints || drawState.roadRoutePoints.length === 0) return;
-    const mapInstance = window.GlobalLeafletMap || (typeof map !== 'undefined' ? map : null);
-    if (!mapInstance || typeof L === 'undefined') return;
+    if (typeof L === 'undefined') return;
 
     const vehicle_type = overrideVehicleType || window.State?.vehicleType || window.State?.truckType || (typeof document !== 'undefined' ? (document.getElementById('vehicle_type')?.value || document.getElementById('nombre-buque-calculadora')?.value) : '') || '';
     const isRail = vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva');
@@ -32250,9 +32275,10 @@ function createRouteAnchorElement(type) {
             targetView.classList.add(tabId === 'auditor' ? 'active-flex' : 'active-block');
             if (typeof updateNavigationContext === 'function') updateNavigationContext(tabId);
             if (typeof updateMobileModuleNavLabel === 'function') updateMobileModuleNavLabel(tabId);
-            const leavingRouteMap = previousContentModuleId === 'map' && tabId !== 'map';
+            const leavingRouteMap = (previousContentModuleId === 'map' || tabId === 'FORWARDERS' || tabId === 'forwarders') && tabId !== 'map';
             previousContentModuleId = tabId;
             if (leavingRouteMap) destroyRouteMap();
+            window.currentView = (tabId === 'FORWARDERS' || tabId === 'forwarders') ? 'FORWARDERS' : tabId;
 
             const sessionActions = document.getElementById('session-actions');
             if (sessionActions) {
@@ -32830,6 +32856,7 @@ if (document.readyState === 'loading') {
             }
             map = null;
             window.map = null;
+            window.GlobalLeafletMap = null;
         }
 
         async function initMap() {
@@ -39092,7 +39119,23 @@ if (document.readyState === 'loading') {
                     runEngine();
                 }
 
-                if (typeof window.redrawCurrentRoute === 'function') {
+                // BLINDAJE: Solo redibujar si la vista actual contiene el mapa (ej. Calculadora o Rutas Terrestres),
+                // ignorando el redibujado si el usuario está en el ForwarderWorkspace (Proyectos).
+                const isForwarderWorkspace = window.currentView === 'FORWARDERS' ||
+                    window.currentView === 'forwarders' ||
+                    (typeof document !== 'undefined' && document.getElementById('view-forwarders') && !document.getElementById('view-forwarders').classList.contains('hidden'));
+
+                const isMapViewActive = !isForwarderWorkspace && (
+                    window.currentView === 'map' ||
+                    window.currentView === 'estimator' ||
+                    window.currentView === 'calculadora' ||
+                    (typeof document !== 'undefined' && (
+                        (document.getElementById('view-map') && !document.getElementById('view-map').classList.contains('hidden')) ||
+                        (document.getElementById('view-estimator') && !document.getElementById('view-estimator').classList.contains('hidden'))
+                    ))
+                );
+
+                if (isMapViewActive && typeof window.redrawCurrentRoute === 'function') {
                     window.redrawCurrentRoute(matched.name);
                 }
                 window.dispatchEvent(new CustomEvent('vehicle-type-changed', { detail: { vehicleType: matched.name } }));

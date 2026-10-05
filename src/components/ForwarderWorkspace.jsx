@@ -2113,7 +2113,11 @@ function ForwarderWorkspaceInner() {
       } : prev));
     }
     if (typeof window !== 'undefined') {
-      if (typeof window.redrawCurrentRoute === 'function') {
+      const isMapMounted = window.currentView !== 'FORWARDERS' && window.currentView !== 'forwarders' && (
+        (window.GlobalLeafletMap && typeof window.GlobalLeafletMap.getContainer === 'function' && window.GlobalLeafletMap.getContainer()) ||
+        (typeof map !== 'undefined' && map && typeof map.getContainer === 'function' && map.getContainer())
+      );
+      if (isMapMounted && typeof window.redrawCurrentRoute === 'function') {
         window.redrawCurrentRoute(selectedType);
       }
       window.dispatchEvent(new CustomEvent('vehicle-type-changed', { detail: { vehicleType: selectedType } }));
@@ -6222,6 +6226,13 @@ function ForwarderWorkspaceInner() {
   const realUnitFreight = finalFooterSale / tonelajeReal;
   // --------------------------------------------------
 
+  // Asegurar que leemos el tipo de vehículo del estado o los props del proyecto actual
+  const projectData = activeProject || {};
+  const currentVehicle = projectData?.vehicle_type || projectData?.tipo_vehiculo || projectData?.truck_type || vehicleType || "";
+
+  // Declarar isRail de forma segura
+  const isRail = isRailUpper || currentVehicle.toLowerCase().includes('tren') || currentVehicle.toLowerCase().includes('ferrocarril') || currentVehicle.toLowerCase().includes('tolva');
+
   const itemsToRender = (cargoItems && cargoItems.length > 0) 
     ? cargoItems 
     : (activeProject?.cargo_items || activeProject?.items || []);
@@ -7662,6 +7673,13 @@ function ForwarderWorkspaceInner() {
         const toneladas = Number(activeReport.toneladas || activeReport.totalWeightTons || (reportRT > 0 ? reportRT : 1));
         const formatUsd = (val) => '$' + Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+        // Asegurar que leemos el tipo de vehículo del estado o los props del proyecto actual
+        const projectData = activeProject || {};
+        const currentVehicle = projectData?.vehicle_type || projectData?.tipo_vehiculo || projectData?.truck_type || activeReport?.vehicleType || activeReport?.truck_type || vehicleType || "";
+
+        // Declarar isRail de forma segura
+        const isRail = currentVehicle.toLowerCase().includes('tren') || currentVehicle.toLowerCase().includes('ferrocarril') || currentVehicle.toLowerCase().includes('tolva');
+
         return (
           <div className="fixed inset-0 bg-white z-[9000] overflow-y-auto pt-10 pb-28 px-4 sm:px-10 text-slate-900 print:bg-white print:p-0">
             {/* Compatibilidad: Ruta Marítima · Ritmos Carga / Descarga · Rotación Buque (D_total) · Gestión de Demoras */}
@@ -8884,6 +8902,10 @@ export function LandCharterMap({ containerId = 'map-container', className = '' }
     const handleRouteEvent = (e) => {
       if (!localInstanceRef.current || typeof L === 'undefined') return;
       const map = localInstanceRef.current;
+      if (!map || typeof map.getContainer !== 'function' || !map.getContainer() || !map._panes) return;
+      const mapCont = map.getContainer();
+      if (!mapCont || (typeof document !== 'undefined' && !document.body.contains(mapCont))) return;
+
       const detail = (e && e.detail) ? e.detail : (cachedRouteDetail || {});
       if (e && e.detail) cachedRouteDetail = e.detail;
 
@@ -9035,5 +9057,21 @@ export function ForwarderWorkspace(props) {
     </ForwarderWorkspaceErrorBoundary>
   );
 }
+
+export const ExecutiveReport = ({ projectData = {}, isRail: propIsRail = undefined, activeReport = null, ...rest }) => {
+  // Asegurar que leemos el tipo de vehículo del estado o los props del proyecto actual
+  const currentVehicle = projectData?.vehicle_type || projectData?.tipo_vehiculo || projectData?.truck_type || activeReport?.vehicleType || "";
+
+  // Declarar isRail de forma segura
+  const isRail = typeof propIsRail === 'boolean'
+    ? propIsRail
+    : (currentVehicle.toLowerCase().includes('tren') || currentVehicle.toLowerCase().includes('ferrocarril') || currentVehicle.toLowerCase().includes('tolva'));
+
+  return (
+    <div id="executive-report-view" data-is-rail={isRail ? 'true' : 'false'} {...rest}>
+      {isRail ? 'Distancia ferroviaria' : 'Distancia por carretera'}
+    </div>
+  );
+};
 
 export default ForwarderWorkspace;
