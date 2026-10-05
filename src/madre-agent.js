@@ -7,6 +7,7 @@ const MADRE_ENDPOINT = "/.netlify/functions/madre-ia";
 let isMadreOpen = false;
 let isSpeaking = false;
 let isListening = false;
+let isVoiceExplicitlyStopped = false;
 let recognitionInstance = null;
 
 /**
@@ -335,6 +336,15 @@ export function mountMadreUI() {
       });
     }
 
+    const closeBtn = sidePanel.querySelector("button svg path[d*='M6 18L18 6']")?.closest("button");
+    if (closeBtn && !closeBtn.dataset.bound) {
+      closeBtn.dataset.bound = "true";
+      closeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleMadrePanel(false);
+      });
+    }
+
     // Activación de Voz por Clic Global en el panel lateral (Escucha Táctil)
     if (!sidePanel.dataset.touchVoiceBound) {
       sidePanel.dataset.touchVoiceBound = "true";
@@ -436,6 +446,7 @@ export function toggleMadrePanel(forceState) {
     panel.classList.add("translate-x-full");
     updateMadreStatusUI("APAGADA");
     if (window.speechSynthesis) window.speechSynthesis.cancel();
+    detenerReconocimientoVoz();
   }
 }
 
@@ -485,9 +496,22 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
-function toggleVoiceRecognition() {
+export function detenerReconocimientoVoz() {
+  isVoiceExplicitlyStopped = true;
+  if (recognitionInstance) {
+    try {
+      recognitionInstance.stop();
+    } catch (_) {}
+  }
+  isListening = false;
   const micBtn = document.getElementById("madre-mic-btn");
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  micBtn?.classList.remove("madre-listening");
+  updateMadreStatusUI("APAGADA");
+}
+
+export function toggleVoiceRecognition() {
+  const micBtn = document.getElementById("madre-mic-btn");
+  const SpeechRecognition = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
   if (!SpeechRecognition) {
     if (typeof alert === "function") {
@@ -499,49 +523,101 @@ function toggleVoiceRecognition() {
   }
 
   if (isListening && recognitionInstance) {
-    recognitionInstance.stop();
-    isListening = false;
-    micBtn?.classList.remove("madre-listening");
+    detenerReconocimientoVoz();
     return;
   }
 
-  try {
-    recognitionInstance = new SpeechRecognition();
-    recognitionInstance.lang = "es-ES";
-    recognitionInstance.interimResults = false;
-    recognitionInstance.continuous = false;
+  isVoiceExplicitlyStopped = false;
 
-    recognitionInstance.onstart = () => {
+  try {
+    const recognition = new SpeechRecognition();
+    recognitionInstance = recognition;
+    recognition.lang = "es-ES";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => {
       isListening = true;
       micBtn?.classList.add("madre-listening");
       updateMadreStatusUI("ESCUCHANDO");
     };
 
-    recognitionInstance.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      const input = document.getElementById("madre-text-input");
-      if (input) input.value = transcript;
-      document.getElementById("madre-chat-form")?.dispatchEvent(new Event("submit"));
+    recognition.onresult = (event) => {
+      if (isSpeaking) {
+        return;
+      }
+
+      let interimTranscript = "";
+      let finalTranscript = "";
+
+      for (let i = event.resultIndex || 0; i < event.results.length; ++i) {
+        const item = event.results[i];
+        if (item.isFinal) {
+          finalTranscript += item[0].transcript;
+        } else {
+          interimTranscript += item[0].transcript;
+        }
+      }
+
+      const input = document.getElementById("madre-text-input") || document.getElementById("madre-input") || document.querySelector("#madre-panel input");
+
+      if (interimTranscript && input && !finalTranscript) {
+        input.value = interimTranscript;
+      }
+
+      const transcriptToSubmit = finalTranscript.trim() || (!('isFinal' in (event.results[0] || {})) && event.results[0]?.[0]?.transcript ? event.results[0][0].transcript.trim() : "");
+
+      if (transcriptToSubmit) {
+        if (input) input.value = transcriptToSubmit;
+        document.getElementById("madre-chat-form")?.dispatchEvent(new Event("submit"));
+      }
     };
 
-    recognitionInstance.onerror = (e) => {
-      console.warn("[MADRE] Error reconocimiento de voz:", e);
+    recognition.onerror = (e) => {
+      console.warn("[MADRE] Error reconocimiento de voz:", e?.error || e);
+      if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
+        isVoiceExplicitlyStopped = true;
+        isListening = false;
+        micBtn?.classList.remove("madre-listening");
+        updateMadreStatusUI("APAGADA");
+      }
+    };
+
+    recognition.onend = () => {
+      // Si el usuario no ha cerrado explícitamente el asistente ni apagado el micrófono,
+      // reiniciamos automáticamente la escucha permanente (bucle de escucha continua)
+      if (!isVoiceExplicitlyStopped) {
+        try {
+          recognition.start();
+          return;
+        } catch (err) {
+          setTimeout(() => {
+            if (!isVoiceExplicitlyStopped) {
+              try {
+                recognition.start();
+              } catch (reErr) {
+                console.warn("[MADRE] No se pudo reiniciar reconocimiento continuo:", reErr);
+                isListening = false;
+                micBtn?.classList.remove("madre-listening");
+                updateMadreStatusUI("APAGADA");
+              }
+            }
+          }, 150);
+          return;
+        }
+      }
+
       isListening = false;
       micBtn?.classList.remove("madre-listening");
       updateMadreStatusUI("APAGADA");
     };
 
-    recognitionInstance.onend = () => {
-      isListening = false;
-      micBtn?.classList.remove("madre-listening");
-      updateMadreStatusUI("APAGADA");
-    };
-
-    recognitionInstance.start();
+    recognition.start();
   } catch (e) {
     console.error("[MADRE] No se pudo iniciar reconocimiento:", e);
     isListening = false;
     micBtn?.classList.remove("madre-listening");
+    updateMadreStatusUI("APAGADA");
   }
 }
 
@@ -574,6 +650,8 @@ export async function enviarMensaje() {
 if (typeof window !== "undefined") {
   window.toggleAudio = toggleAudio;
   window.iniciarReconocimientoVoz = iniciarReconocimientoVoz;
+  window.detenerReconocimientoVoz = detenerReconocimientoVoz;
+  window.toggleVoiceRecognition = toggleVoiceRecognition;
   window.enviarMensaje = enviarMensaje;
 
   if (typeof window.addEventListener === "function") {
@@ -595,6 +673,8 @@ if (typeof window !== "undefined") {
     handleMadreResponse,
     toggleAudio,
     iniciarReconocimientoVoz,
+    detenerReconocimientoVoz,
+    toggleVoiceRecognition,
     enviarMensaje,
     appendMadreMessage,
     getUserHasInteracted: () => userHasInteracted

@@ -3,10 +3,19 @@
 
 const DEFAULT_DATA_BRIDGE_ORIGIN = "https://calm-shortbread-55bcfc.netlify.app";
 
+function resolveBackendUrl() {
+  const configured = (process.env.MADRE_BACKEND_URL || process.env.DATA_BRIDGE_URL || "").trim();
+  if (configured) {
+    if (configured.includes("/.netlify/functions/") || configured.includes("/api/")) {
+      return configured;
+    }
+    return `${configured.replace(/\/$/, '')}/.netlify/functions/madre-ia`;
+  }
+  return `${DEFAULT_DATA_BRIDGE_ORIGIN}/.netlify/functions/madre-ia`;
+}
+
 export default async function handler(request) {
-  const BACKEND_URL = process.env.DATA_BRIDGE_URL || process.env.MADRE_BACKEND_URL 
-    ? `${(process.env.DATA_BRIDGE_URL || process.env.MADRE_BACKEND_URL).replace(/\/$/, '')}/.netlify/functions/madre-ia`
-    : `${DEFAULT_DATA_BRIDGE_ORIGIN}/.netlify/functions/madre-ia`;
+  const BACKEND_URL = resolveBackendUrl();
 
   // 1. Manejo de CORS preflight
   if (request.method === "OPTIONS") {
@@ -15,7 +24,7 @@ export default async function handler(request) {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-App-Context"
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-App-Context, x-api-key, X-Requested-With"
       }
     });
   }
@@ -36,18 +45,39 @@ export default async function handler(request) {
       current_module: "land_charter"
     };
 
-    let backendResponse;
+    let backendResponse = null;
+    let backendErrorDetails = null;
+
     try {
+      const headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-App-Context": "land_charter"
+      };
+
+      const apiSecret = process.env.DATA_BRIDGE_API_SECRET || process.env.VITE_DATA_BRIDGE_API_SECRET;
+      if (apiSecret) {
+        headers["Authorization"] = `Bearer ${apiSecret}`;
+      }
+      const apiKey = process.env.DATA_BRIDGE_API_KEY || process.env.VITE_DATA_BRIDGE_API_KEY;
+      if (apiKey) {
+        headers["x-api-key"] = apiKey;
+      }
+
       backendResponse = await fetch(BACKEND_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-App-Context": "land_charter"
-        },
+        headers,
         body: JSON.stringify(enrichedPayload)
       });
+
+      if (!backendResponse.ok) {
+        const errorText = await backendResponse.text().catch(() => "");
+        console.error(`[madre-ia] Error devuelto por Data Bridge en ${BACKEND_URL}: Código HTTP ${backendResponse.status} (${backendResponse.statusText}). Detalle: ${errorText.slice(0, 500)}`);
+        backendErrorDetails = `HTTP ${backendResponse.status}: ${errorText.slice(0, 100)}`;
+      }
     } catch (networkError) {
-      console.warn("[madre-ia] Data Bridge no alcanzable directamente, activando orquestación de contingencia local:", networkError?.message);
+      console.error(`[madre-ia] Error exacto de red al conectar con Data Bridge en ${BACKEND_URL}:`, networkError?.message || networkError, networkError?.cause ? `Causa: ${networkError.cause}` : "");
+      backendErrorDetails = networkError?.message || String(networkError);
       backendResponse = null;
     }
 
@@ -64,21 +94,16 @@ export default async function handler(request) {
 
     // --- LÓGICA DE ORQUESTACIÓN LOCAL (FALLBACK) ---
     const userPrompt = String(enrichedPayload.prompt || enrichedPayload.message || enrichedPayload.texto || "").trim();
-    const promptLower = userPrompt.toLowerCase();
+    const promptLower = userPrompt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     let fallbackAction = "informar";
     let delegationPayload = {};
-    let halReply = "Entendido. Procesando solicitud.";
+    let halReply = "Procesando solicitud.";
 
-    // Regex ultra-flexible: captura "[cualquier cosa] de [Origen] a [Destino]"
-    // Usa normalización para evitar problemas de tildes
-    const normalizedPrompt = userPrompt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    
-    // Captura: "de barcelona a zaragoza", "ir desde madrid hasta paris", "ruta de lyon a milan"
+    // Captura: "de barcelona a zaragoza", "ir desde madrid hasta paris"
     const rutaRegex = /(?:de|desde)\s+([a-z\s]+?)\s+(?:a|hasta)\s+([a-z\s]+)/i;
-    const rutaMatch = normalizedPrompt.match(rutaRegex);
+    const rutaMatch = promptLower.match(rutaRegex);
 
     if (rutaMatch) {
-      // Capitalizar nombres de ciudades (opcional, pero mejora la salida)
       const cap = str => str.charAt(0).toUpperCase() + str.slice(1);
       fallbackAction = "delegar_cerebro_ia";
       delegationPayload = {
@@ -88,7 +113,11 @@ export default async function handler(request) {
         vehicle_type: "Camión Plataforma"
       };
       halReply = `Entendido. He transferido los parámetros a Cerebro.ia para calcular la ruta de ${delegationPayload.pol} a ${delegationPayload.pod}.`;
-    } else if (/llevame|llévame|abre|ir a|calculadora|calculo|cálculo|ldm/i.test(promptLower)) {
+    } else if (/recalcula|calcula|ruta|distancia/i.test(promptLower)) {
+      fallbackAction = "delegar_cerebro_ia";
+      delegationPayload = { pol: "Sétif", pod: "Béjaïa" };
+      halReply = "Calculando ruta predeterminada.";
+    } else if (/llevame|abre|ir a|calculadora|calculo|ldm/i.test(promptLower)) {
       fallbackAction = "navegar_vista";
       delegationPayload = { vista: "calculadora" };
       halReply = "Abriendo la calculadora.";
@@ -96,17 +125,25 @@ export default async function handler(request) {
       fallbackAction = "navegar_vista";
       delegationPayload = { vista: "proyectos" };
       halReply = "Cambiando a gestión de proyectos.";
-    } else if (/\bruta\b|mapa/i.test(promptLower) && !/calcula/i.test(promptLower)) {
+    } else if (/ruta|mapa/i.test(promptLower)) {
       fallbackAction = "navegar_vista";
       delegationPayload = { vista: "rutas" };
       halReply = "Mostrando el mapa de rutas.";
-    } else if (/recalcula|calcula|ruta|distancia/i.test(promptLower)) {
-      fallbackAction = "delegar_cerebro_ia";
-      delegationPayload = { pol: "Sétif", pod: "Béjaïa" };
-      halReply = "Calculando ruta predeterminada.";
+    
+    // NUEVO: Derivación analítica al Asistente Core
+    } else if (/cuanto|cuanta|camion|camiones|margen|coste|precio|dime|busca|analiza/i.test(promptLower)) {
+      fallbackAction = "delegar_asistente_core";
+      delegationPayload = { query: userPrompt };
+      halReply = "Transfiriendo consulta al Asistente Core para analizar los datos del proyecto.";
+    
+    // NUEVO: Saludos y respuestas conversacionales locales
+    } else if (/hola|buenos dias|buenas tardes|que tal|madre/i.test(promptLower)) {
+      fallbackAction = "informar";
+      halReply = "Hola, Esteban. La conexión remota con Data Bridge está inactiva, pero opero en Modo Local. Cerebro.ia y Asistente Core están listos. ¿Qué necesitas?";
+    
     } else {
         if (!backendResponse || !backendResponse.ok) {
-             halReply = "Se ha perdido la conexión con el Cerebro Central en Data Bridge. Reinténtalo más tarde.";
+             halReply = "Se ha perdido la conexión con el Cerebro Central remota. Intenta reformular tu petición o utiliza los comandos locales.";
              fallbackAction = "error_conexion";
         }
     }
