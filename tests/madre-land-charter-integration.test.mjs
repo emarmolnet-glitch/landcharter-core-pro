@@ -56,6 +56,21 @@ function createDomEnvironment() {
         if (child.id) elements.set(child.id, child);
         return child;
       },
+      removeChild(child) {
+        const idx = this.children.indexOf(child);
+        if (idx !== -1) {
+          this.children.splice(idx, 1);
+        }
+        child.parentNode = null;
+        if (child.id) elements.delete(child.id);
+        return child;
+      },
+      remove() {
+        if (this.parentNode && typeof this.parentNode.removeChild === 'function') {
+          this.parentNode.removeChild(this);
+        }
+        if (this.id) elements.delete(this.id);
+      },
       insertBefore(newChild, refChild) {
         const idx = this.children.indexOf(refChild);
         if (idx !== -1) {
@@ -275,27 +290,24 @@ const defaultFallbackFetch = async () => ({
 global.fetch = defaultFallbackFetch;
 
 
-test('MADRE Land Charter: UI Injection in Header & z-index: 99999 (Light Theme Design)', () => {
+test('MADRE Land Charter: Limpieza del Header (Eliminar Chat Global e IA Conversacional)', async () => {
+  const indexHtmlContent = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+
+  // 1. No debe existir toggle-madre-btn en index.html
+  assert.doesNotMatch(indexHtmlContent, /id="toggle-madre-btn"/, 'El botón o toggle de estado de IA toggle-madre-btn debe estar eliminado del Header');
+
+  // 2. No debe existir panel flotante de chat madre-panel en index.html
+  assert.doesNotMatch(indexHtmlContent, /id="madre-panel"/, 'El panel de chat flotante #madre-panel debe estar eliminado del contenedor principal');
+
+  // 3. No debe existir hoja de estilos de chat madre-hal.css
+  assert.doesNotMatch(indexHtmlContent, /madre-hal\.css/, 'La hoja de estilos de chat madre-hal.css debe estar removida');
+
+  // 4. mountMadreUI limpia activamente cualquier elemento residual
   mountMadreUI();
-
-  // 1. Debe existir el botón de estado toggle-madre-btn con tema claro y justify-start
-  const statusBtn = document.getElementById('toggle-madre-btn');
-  assert.ok(statusBtn, 'Debe existir el botón toggle-madre-btn en el Header');
-  assert.ok(statusBtn.innerHTML.includes('APAGADA'), 'Debe mostrar el estado APAGADA por defecto');
-  assert.ok(statusBtn.className.includes('bg-white'), 'Debe tener fondo bg-white');
-  assert.ok(statusBtn.className.includes('justify-start'), 'Debe tener justify-start');
-
-  // 2. La píldora de sesión verde duplicada NO debe existir en el Header
-  const sessionBadge = document.getElementById('madre-session-badge');
-  assert.equal(sessionBadge, null, 'La píldora verde duplicada debe estar eliminada del Header');
-
-  // 3. Panel lateral off-canvas #madre-panel con z-[99999], w-[400px], bg-white y translate-x-full
-  const panel = document.getElementById('madre-panel');
-  assert.ok(panel, 'El panel off-canvas #madre-panel debe montarse en el DOM');
-  assert.ok(panel.className.includes('z-[99999]'), 'El panel debe tener z-[99999]');
-  assert.ok(panel.className.includes('w-[400px]'), 'El panel debe tener ancho w-[400px]');
-  assert.ok(panel.className.includes('bg-white'), 'El panel debe tener fondo bg-white');
-  assert.ok(panel.classList.contains('translate-x-full'), 'El panel debe comenzar cerrado con la clase translate-x-full');
+  const lingeringBtn = document.getElementById('toggle-madre-btn');
+  const lingeringPanel = document.getElementById('madre-panel');
+  assert.equal(lingeringBtn, null, 'mountMadreUI debe asegurar que no quede toggle-madre-btn en el DOM');
+  assert.equal(lingeringPanel, null, 'mountMadreUI debe asegurar que no quede madre-panel en el DOM');
 });
 
 test('MADRE Land Charter: Telemetría obligatoria y lectura de selectores DOM', () => {
@@ -635,24 +647,15 @@ test('MADRE Corrección 2b: Delegación a Asistente Core con ai-model-selector y
   }
 });
 
-test('MADRE: Modo Stealth - Activación de micrófono en background sin abrir panel en clic en mapa', () => {
-  const panel = doc.getElementById('madre-panel');
-  // Asegurar que el panel arranca con translate-x-full
-  panel.classList.add('translate-x-full');
+test('MADRE: Decisiones view contiene botón secundario outline Auditoría MADRE (Terrestre)', async () => {
+  const dssSource = await readFile(new URL('../src/DecisionSupportModule.js', import.meta.url), 'utf8');
 
-  // Clic en un input ignorado
-  const inputEl = doc.createElement('input');
-  inputEl.tagName = 'INPUT';
-  doc.dispatchEvent({ type: 'click', target: inputEl });
-  assert.ok(panel.classList.contains('translate-x-full'), 'Clic en input no debe abrir el panel');
-
-  // Clic en el fondo o mapa
-  const mapEl = doc.createElement('div');
-  mapEl.id = 'map';
-  mapEl.tagName = 'DIV';
-  doc.dispatchEvent({ type: 'click', target: mapEl });
-
-  assert.ok(panel.classList.contains('translate-x-full'), 'Clic en el mapa NO debe abrir el panel en Modo Stealth');
+  // Verificar botón en la barra de acciones principal
+  assert.match(dssSource, /id="btn-auditoria-madre"/, 'Debe existir el botón id="btn-auditoria-madre"');
+  assert.match(dssSource, /Auditoría MADRE \(Terrestre\)/, 'El botón debe tener el texto exacto "Auditoría MADRE (Terrestre)"');
+  assert.match(dssSource, /bg-transparent/, 'El botón debe tener estilo outline secundario (bg-transparent)');
+  assert.match(dssSource, /border-indigo-400/, 'El botón debe tener borde outline');
+  assert.match(dssSource, /onclick="ejecutarAuditoriaMadre\(\)"/, 'Debe llamar a ejecutarAuditoriaMadre()');
 });
 
 test('MADRE Backend Function: Extraer origen y destino de ruta dinámica y fallback', async () => {
@@ -702,81 +705,99 @@ test('MADRE Backend Function: Extraer origen y destino de ruta dinámica y fallb
   assert.equal(dataRuta3.delegation_payload?.pod, 'Sevilla');
 });
 
-test('MADRE Reconocimiento de Voz: Escucha bajo demanda controlada desde el botón del Header (continuous = false, sin bucle onend y sincronización visual)', () => {
-  let startCount = 0;
-  let stopCount = 0;
-  let lastInstance = null;
+test('MADRE Backend Function: Procesa Auditoría Estratégica con modulo: land_charter, vista_activa: decisiones y contexto_ui', async () => {
+  const req = new Request('http://localhost/.netlify/functions/madre-ia', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      modulo: "land_charter",
+      vista_activa: "decisiones",
+      contexto_ui: {
+        porte: {
+          fleteEstimado: 1450,
+          breakEven: 1100,
+          margenBruto: 24.1,
+          tipoCarga: "Bobinas de Acero",
+          pesoKg: 24000
+        },
+        ruta: {
+          origen: "Sagunto",
+          destino: "Zaragoza",
+          distanciaKm: 295
+        },
+        ldm: 13.6,
+        costes: {
+          costeTotal: 1100,
+          breakEvenKm: 1100,
+          combustible: 420,
+          dietas: 80
+        },
+        peajes: 95
+      }
+    })
+  });
 
-  class MockSpeechRecognition {
-    constructor() {
-      this.continuous = true;
-      this.interimResults = false;
-      this.lang = '';
-      this.onstart = null;
-      this.onresult = null;
-      this.onerror = null;
-      this.onend = null;
-      lastInstance = this;
-    }
-    start() {
-      startCount++;
-      if (this.onstart) this.onstart();
-    }
-    stop() {
-      stopCount++;
-      if (this.onend) this.onend();
-    }
-    abort() {}
-  }
+  const res = await handler(req);
+  assert.equal(res.status, 200, 'Debe devolver status 200');
+  const data = await res.json();
 
-  global.window.SpeechRecognition = MockSpeechRecognition;
+  // Veredicto General
+  assert.ok(data.veredicto_general, 'Debe incluir veredicto_general');
+  assert.ok(['🟢', '🟡', '🔴'].some(icon => data.veredicto_general.includes(icon)), 'El veredicto debe ser 🟢, 🟡 o 🔴');
 
-  try {
-    const statusBtn = doc.getElementById('toggle-madre-btn');
-    const textSpan = statusBtn.querySelector('span');
-    const dot = statusBtn.querySelector('div');
+  // Reporte Estratégico
+  assert.ok(data.reporte_estrategico, 'Debe incluir reporte_estrategico');
+  assert.ok(data.reporte_estrategico.length > 20, 'El reporte estratégico debe tener contenido sustancial');
 
-    mountMadreUI();
+  // Variables Perjudiciales
+  assert.ok(Array.isArray(data.variables_perjudiciales), 'variables_perjudiciales debe ser un array');
+  assert.ok(data.variables_perjudiciales.length > 0, 'Debe contener variables perjudiciales detectadas');
 
-    // 1. Estado inicial
-    assert.equal(textSpan.textContent, 'APAGADA');
-    assert.ok(dot.className.includes('bg-red-500'));
+  // Recomendaciones
+  assert.ok(Array.isArray(data.recomendaciones), 'recomendaciones debe ser un array');
+  assert.ok(data.recomendaciones.length > 0, 'Debe contener recomendaciones');
+  assert.ok(data.recomendaciones.some(r => r.tipo === 'pro'), 'Debe incluir recomendaciones de tipo pro (verde)');
+  assert.ok(data.recomendaciones.some(r => r.tipo === 'contra'), 'Debe incluir advertencias de tipo contra (rojo)');
 
-    // 2. Pulsar botón del Header para iniciar (Toggle ON)
-    statusBtn.click();
-    assert.ok(lastInstance, 'Debe instanciar SpeechRecognition');
-    assert.equal(lastInstance.continuous, false, 'Debe configurar continuous = false (escucha única)');
-    assert.equal(lastInstance.interimResults, true, 'Debe mantener interimResults = true');
-    assert.equal(startCount, 1, 'Debe llamar a start() al pulsar el botón');
-    assert.equal(textSpan.textContent, 'ESCUCHANDO', 'El botón de la cabecera debe cambiar a ESCUCHANDO en onstart');
-    assert.ok(dot.className.includes('bg-emerald-500'), 'El botón debe tener estilo activo/verde');
+  // Modificaciones Recap
+  assert.ok(data.modificaciones_recap, 'Debe incluir modificaciones_recap');
+  assert.ok(data.modificaciones_recap.clausulaParalizacion, 'Debe incluir cláusula de paralización');
+});
 
-    // 3. Simular evento onend (por final de locución) - NO DEBE auto-reiniciar
-    lastInstance.onend();
-    assert.equal(startCount, 1, 'NO debe llamar a start() en onend (auto-restart eliminado)');
-    assert.equal(textSpan.textContent, 'APAGADA', 'El botón de la cabecera debe volver a APAGADA en onend');
-    assert.ok(dot.className.includes('bg-red-500'), 'El botón debe tener estilo inactivo/rojo');
+test('MADRE Decisiones UI: Nivel 1 y Nivel 2 Offcanvas (Estricto bg-white, text-slate-900 y Sin Modo Oscuro)', async () => {
+  const dssSource = await readFile(new URL('../src/DecisionSupportModule.js', import.meta.url), 'utf8');
 
-    // 4. Parada manual desde el botón del Header (Toggle OFF)
-    statusBtn.click(); // Enciende
-    assert.equal(startCount, 2);
-    assert.equal(textSpan.textContent, 'ESCUCHANDO');
-    assert.ok(dot.className.includes('bg-emerald-500'));
+  // 1. Nivel 1: Tarjeta inferior con veredicto y botón "Ver Auditoría Completa"
+  assert.match(dssSource, /id="madre-audit-level1-card"/, 'Debe contener la tarjeta inferior de Nivel 1 id="madre-audit-level1-card"');
+  assert.match(dssSource, /id="madre-audit-veredicto-badge"/, 'Debe contener el badge del veredicto_general');
+  assert.match(dssSource, /id="btn-ver-auditoria-completa"/, 'Debe contener el botón id="btn-ver-auditoria-completa"');
+  assert.match(dssSource, /Ver Auditoría Completa/, 'El botón debe decir "Ver Auditoría Completa"');
 
-    statusBtn.click(); // Apaga manualmente
-    assert.equal(stopCount, 1, 'Debe llamar a stop() al hacer click cuando está escuchando');
-    assert.equal(textSpan.textContent, 'APAGADA', 'El botón debe volver a APAGADA');
-    assert.ok(dot.className.includes('bg-red-500'));
+  // 2. Nivel 2: Offcanvas panel lateral derecho con diseño corporativo estricto
+  assert.match(dssSource, /id="madre-audit-offcanvas"/, 'Debe existir el panel lateral offcanvas id="madre-audit-offcanvas"');
+  assert.match(dssSource, /bg-white/, 'El panel lateral debe tener fondo blanco estricto bg-white');
+  assert.match(dssSource, /text-slate-900/, 'El panel lateral debe tener textos oscuros text-slate-900');
+  assert.doesNotMatch(dssSource, /id="madre-audit-offcanvas"[^>]*dark:/, 'El panel offcanvas no debe usar modo oscuro');
 
-    // 5. Simular evento onerror: debe restaurar inmediatamente el estado APAGADA
-    statusBtn.click(); // Enciende
-    assert.equal(textSpan.textContent, 'ESCUCHANDO');
-    lastInstance.onerror({ error: 'audio-capture' });
-    assert.equal(textSpan.textContent, 'APAGADA', 'El botón de la cabecera debe volver a APAGADA en onerror');
-    assert.ok(dot.className.includes('bg-red-500'), 'El botón debe tener estilo inactivo/rojo en onerror');
-  } finally {
-    delete global.window.SpeechRecognition;
-  }
+  // 3. Renderiza reporte_estrategico, variables_perjudiciales y recomendaciones
+  assert.match(dssSource, /id="offcanvas-reporte-estrategico"/, 'Debe tener contenedor para reporte_estrategico');
+  assert.match(dssSource, /id="offcanvas-variables-container"/, 'Debe tener contenedor para variables_perjudiciales');
+  assert.match(dssSource, /id="offcanvas-recomendaciones-container"/, 'Debe tener contenedor para recomendaciones');
+  assert.match(dssSource, /fa-triangle-exclamation/, 'Debe mostrar iconos de alerta en variables_perjudiciales');
+});
+
+test('MADRE Cierre Contrato: Botón "Generar Orden de Carga Estratégica (Opción B)" sobrescribe formulario y llama al generador PDF', async () => {
+  const dssSource = await readFile(new URL('../src/DecisionSupportModule.js', import.meta.url), 'utf8');
+
+  // 1. Botón de acción principal renombrado a Generar Orden de Carga Estratégica (Opción B)
+  assert.match(dssSource, /id="btn-generar-orden-carga-estrategica"/, 'Debe existir el botón id="btn-generar-orden-carga-estrategica"');
+  assert.match(dssSource, /Generar Orden de Carga Estratégica \(Opción B\)/, 'El botón debe decir "Generar Orden de Carga Estratégica (Opción B)"');
+  assert.doesNotMatch(dssSource, /id="btn-generar-orden-carga-estrategica"[^>]*Fixture Recap/, 'No debe decir Fixture Recap');
+
+  // 2. Función aplicarModificacionesYGenerarOrdenCarga exportada y definida
+  assert.match(dssSource, /export async function aplicarModificacionesYGenerarOrdenCarga/, 'Debe exportar aplicarModificacionesYGenerarOrdenCarga');
+  assert.match(dssSource, /modificaciones_recap/, 'Debe extraer modificaciones_recap del JSON de MADRE');
+  assert.match(dssSource, /generateOrdenDeCargaPDF/, 'Debe llamar al generador de PDF de la orden de carga');
 });
 
 test('MADRE Backend Function: Diagnóstico detallado con console.error al fallar conexión con Data Bridge', async () => {
