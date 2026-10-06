@@ -255,120 +255,70 @@ function speakHalVoice(text) {
   }
 }
 
+function safeRemove(el) {
+  if (!el) return;
+  if (typeof el.remove === 'function') {
+    el.remove();
+  } else if (el.parentNode && typeof el.parentNode.removeChild === 'function') {
+    el.parentNode.removeChild(el);
+  }
+}
+
 /**
- * 3. Inyección de la UI en el Header y Panel Lateral Off-canvas con z-[9999]
+ * 3. Limpieza Estricta del Header y Panel Flotante en Land Charter
+ * En Land Charter, la IA ya no es conversacional, no debe haber interfaz de chat.
  */
 export function mountMadreUI() {
-  // 1. Eliminar botón erróneo anterior si existiera en el DOM
+  // Eliminar cualquier botón o toggle de IA del Header si existiera
+  const toggleBtn = document.getElementById("toggle-madre-btn");
+  if (toggleBtn) {
+    const wrapper = typeof toggleBtn.closest === 'function' ? toggleBtn.closest(".flex.items-center.mr-2") : null;
+    safeRemove(wrapper || toggleBtn);
+  }
+
   const oldBtn = document.getElementById("btn-open-madre");
   if (oldBtn) {
-    oldBtn.remove();
+    safeRemove(oldBtn);
   }
 
-  // 2. Eliminar panel flotante anterior si existiera
+  // Eliminar cualquier panel de chat flotante de MADRE
   const oldPanel = document.getElementById("madre-executive-panel");
   if (oldPanel) {
-    oldPanel.remove();
+    safeRemove(oldPanel);
   }
 
-  // 3. Configurar listener en el botón del Header toggle-madre-btn (Interruptor Maestro)
-  const toggleBtn = document.getElementById("toggle-madre-btn");
-  if (toggleBtn && !toggleBtn.dataset.bound) {
-    toggleBtn.dataset.bound = "true";
-    toggleBtn.addEventListener("click", (e) => {
-      if (e && typeof e.stopPropagation === "function") e.stopPropagation();
-      toggleVoiceRecognition();
-    });
-  }
-
-  // Actualizar referencia en la píldora de sesión
-  updateActiveSessionReference();
-
-  // 4. Configurar listeners del Panel Lateral Off-canvas #madre-panel
   const sidePanel = document.getElementById("madre-panel");
   if (sidePanel) {
-    const inputEl = sidePanel.querySelector("input");
-    const sendBtn = sidePanel.querySelector("button[type='submit']") || sidePanel.querySelector("button.bg-blue-600") || sidePanel.querySelector("button.bg-slate-900");
-    const micBtn = document.getElementById("madre-mic-btn") || sidePanel.querySelector("button svg path[d*='M19 11']")?.closest("button");
-
-    const submitChat = async () => {
-      const text = inputEl?.value?.trim();
-      if (!text) return;
-      inputEl.value = "";
-      appendMadreMessage("user", text);
-      const response = await sendPromptToMadre(text);
-      if (response && response.reply) {
-        appendMadreMessage("madre", response.reply);
-      }
-    };
-
-    if (sendBtn && !sendBtn.dataset.bound) {
-      sendBtn.dataset.bound = "true";
-      sendBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        submitChat();
-      });
-    }
-
-    const chatForm = document.getElementById("madre-chat-form") || sidePanel.querySelector("form");
-    if (chatForm && !chatForm.dataset.bound) {
-      chatForm.dataset.bound = "true";
-      chatForm.addEventListener("submit", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        submitChat();
-      });
-    }
-
-    if (inputEl && !inputEl.dataset.bound) {
-      inputEl.dataset.bound = "true";
-      inputEl.addEventListener("click", (e) => e.stopPropagation());
-      inputEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          submitChat();
-        }
-      });
-    }
-
-    if (micBtn && !micBtn.dataset.bound) {
-      micBtn.dataset.bound = "true";
-      micBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        toggleVoiceRecognition();
-      });
-    }
-
-    const closeBtn = sidePanel.querySelector("button svg path[d*='M6 18L18 6']")?.closest("button");
-    if (closeBtn && !closeBtn.dataset.bound) {
-      closeBtn.dataset.bound = "true";
-      closeBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        toggleMadrePanel(false);
-      });
-    }
-
-    // Comandos rápidos: Genera los 3 escenarios & Redacta el escudo preventivo
-    const quickButtons = sidePanel.querySelectorAll("button");
-    quickButtons.forEach((btn) => {
-      const txt = btn.textContent || "";
-      if (txt.includes("Genera los 3 escenarios") && !btn.dataset.bound) {
-        btn.dataset.bound = "true";
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          if (inputEl) inputEl.value = "Genera los 3 escenarios";
-          submitChat();
-        });
-      } else if (txt.includes("Redacta el escudo preventivo") && !btn.dataset.bound) {
-        btn.dataset.bound = "true";
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          if (inputEl) inputEl.value = "Redacta el escudo preventivo";
-          submitChat();
-        });
-      }
-    });
+    safeRemove(sidePanel);
   }
+}
+
+/**
+ * Envía una solicitud de Auditoría Estratégica Terrestre a MADRE
+ */
+export async function requestLandStrategicAudit(contextoUi = {}) {
+  const payload = {
+    modulo: "land_charter",
+    vista_activa: "decisiones",
+    contexto_ui: contextoUi,
+    mensajeUsuario: "Auditoría estratégica terrestre para porte actual",
+    timestamp: new Date().toISOString()
+  };
+
+  const res = await fetch(MADRE_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-App-Context": "land_charter"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  return await res.json();
 }
 
 export function updateActiveSessionReference(ref) {
