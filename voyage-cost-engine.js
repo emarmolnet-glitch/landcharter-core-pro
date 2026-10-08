@@ -412,6 +412,21 @@
             toNumber(calcResults.cargoQty) > 0
         );
 
+        const setReportButtonState = (enabled) => {
+            const summaryBtn = documentRef.getElementById('btn-executive-report-summary');
+            const sec5Btn = documentRef.getElementById('btn-executive-report');
+            [summaryBtn, sec5Btn].forEach((btn) => {
+                if (!btn) return;
+                btn.disabled = !enabled;
+                if (btn.classList && typeof btn.classList.toggle === 'function') {
+                    btn.classList.toggle('opacity-50', !enabled);
+                    btn.classList.toggle('cursor-not-allowed', !enabled);
+                    btn.classList.toggle('cursor-pointer', enabled);
+                }
+                btn.title = enabled ? 'Ver Reporte Ejecutivo del Viaje' : 'Calcula una ruta terrestre antes de generar el reporte.';
+            });
+        };
+
         if (!hasVoyageDefinition) {
             setText('exec-operation-icon', '⚪');
             setText('exec-operation-status', 'OPERACIÓN PENDIENTE');
@@ -440,12 +455,24 @@
             setText('exec-agency-spread-total', formatCurrency(0));
             setText('exec-risk-level', 'N/D');
             setText('exec-insight-text', 'Introduce POL, POD y volumen de carga para generar el análisis ejecutivo.');
+            setReportButtonState(false);
             return true;
         }
 
         const isProfitable = toNumber(calcResults.totalProfit) >= 0;
         setText('exec-operation-icon', isProfitable ? '🟢' : '🟠');
         setText('exec-operation-status', isProfitable ? 'OPERACIÓN RENTABLE' : 'OPERACIÓN A REVISAR');
+        const hasValidCalculation = Boolean(
+            calcResults.hasCalculated === true ||
+            toNumber(calcResults.tarifaTransportista) > 0 ||
+            toNumber(calcResults.precioTotal) > 0 ||
+            toNumber(calcResults.buyFreightTotal) > 0 ||
+            toNumber(calcResults.sellFreightTotal) > 0 ||
+            toNumber(calcResults.totalTripCost) > 0 ||
+            toNumber(calcResults.totalProfit) !== 0 ||
+            (calcResults.pol && calcResults.pod && toNumber(calcResults.cargoQty) > 0)
+        );
+        setReportButtonState(hasValidCalculation);
         setText('exec-pol', calcResults.pol);
         setText('exec-pod', calcResults.pod);
         setText('exec-total-margin', formatMoney(calcResults.totalProfit));

@@ -3295,6 +3295,21 @@
             transform: translateY(-2px) !important;
         }
 
+        #btn-executive-report:disabled,
+        #btn-executive-report-summary:disabled {
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        #btn-executive-report:not(:disabled),
+        #btn-executive-report-summary:not(:disabled) {
+            cursor: pointer !important;
+            pointer-events: auto !important;
+        }
+
         #btn-viability-ai:hover,
         #analyzeBtn:hover {
             background-color: #172554 !important; /* Darker navy blue on hover */
@@ -40260,13 +40275,80 @@ function scheduleReactiveEngine() {
                     : 'ADVERTENCIA DE COSTE: ALTO PESO DE COMBUSTIBLE';
             }
             if (list) list.innerHTML = visibleMessages.map((message) => `<li>${String(message).replace(/[<>&]/g, '')}</li>`).join('');
+
+            // Modificación condicional: habilitar automáticamente en cuanto exista un resultado de cálculo válido
+            const hasValidCalculation = Boolean(
+                State?.hasCalculated === true ||
+                (typeof hasCalculated !== 'undefined' && hasCalculated === true) ||
+                (Number(State?.tarifaTransportista) > 0) ||
+                (Number(State?.precioTotal) > 0) ||
+                (typeof tarifaTransportista !== 'undefined' && Number(tarifaTransportista) > 0) ||
+                (typeof precioTotal !== 'undefined' && Number(precioTotal) > 0) ||
+                (Number(State?.carrierPurchaseUnit) > 0) ||
+                (Number(State?.clientSaleUnit) > 0) ||
+                (Number(State?.totalTripCost) > 0) ||
+                (Number(State?.totalCosts) > 0 && (Number(State?.totalKilometers) > 0 || Number(State?.distLaden) > 0)) ||
+                (Boolean(State?.pol && State?.pod && Number(State?.cargoQty) > 0))
+            );
+
+            const isBlocked = blocked && !hasValidCalculation;
+
             reportButtons.forEach((reportBtn) => {
-                reportBtn.disabled = blocked;
-                reportBtn.classList.toggle('opacity-50', blocked);
-                reportBtn.classList.toggle('cursor-not-allowed', blocked);
-                reportBtn.title = blocked ? 'Bloqueado por validación activa. Corrige los campos en rojo.' : 'Reporte Ejecutivo';
+                reportBtn.disabled = isBlocked;
+                reportBtn.classList.toggle('opacity-50', isBlocked);
+                reportBtn.classList.toggle('cursor-not-allowed', isBlocked);
+                if (isBlocked) {
+                    reportBtn.classList.remove('cursor-pointer');
+                    reportBtn.title = 'Bloqueado por validación activa. Corrige los campos en rojo.';
+                } else {
+                    reportBtn.classList.add('cursor-pointer');
+                    reportBtn.title = 'Ver Reporte Ejecutivo del Viaje';
+                    if (!reportBtn.onclick && typeof generateExecutiveReport === 'function') {
+                        reportBtn.onclick = function() { generateExecutiveReport(); };
+                    }
+                }
             });
-            State.coreValidation = { blocked, messages, warnings };
+            State.coreValidation = { blocked: isBlocked, messages: isBlocked ? messages : [], warnings };
+        }
+
+        function updateExecutiveReportButtonState(forcedState = null) {
+            const hasValidCalculation = forcedState !== null ? Boolean(forcedState) : Boolean(
+                State?.hasCalculated === true ||
+                (typeof hasCalculated !== 'undefined' && hasCalculated === true) ||
+                (Number(State?.tarifaTransportista) > 0) ||
+                (Number(State?.precioTotal) > 0) ||
+                (typeof tarifaTransportista !== 'undefined' && Number(tarifaTransportista) > 0) ||
+                (typeof precioTotal !== 'undefined' && Number(precioTotal) > 0) ||
+                (Number(State?.carrierPurchaseUnit) > 0) ||
+                (Number(State?.clientSaleUnit) > 0) ||
+                (Number(State?.totalTripCost) > 0) ||
+                (Number(State?.totalCosts) > 0 && (Number(State?.totalKilometers) > 0 || Number(State?.distLaden) > 0)) ||
+                (Boolean(State?.pol && State?.pod && Number(State?.cargoQty) > 0))
+            );
+
+            const reportButtons = document.querySelectorAll('[data-executive-report-action]');
+            reportButtons.forEach((reportBtn) => {
+                if (!reportBtn) return;
+                reportBtn.disabled = !hasValidCalculation;
+                reportBtn.classList.toggle('opacity-50', !hasValidCalculation);
+                reportBtn.classList.toggle('cursor-not-allowed', !hasValidCalculation);
+                if (hasValidCalculation) {
+                    reportBtn.classList.add('cursor-pointer');
+                    reportBtn.title = 'Ver Reporte Ejecutivo del Viaje';
+                    if (!reportBtn.onclick && typeof generateExecutiveReport === 'function') {
+                        reportBtn.onclick = function() { generateExecutiveReport(); };
+                    }
+                } else {
+                    reportBtn.classList.remove('cursor-pointer');
+                    reportBtn.title = 'Calcula una ruta terrestre antes de generar el reporte.';
+                }
+            });
+            if (hasValidCalculation && State?.coreValidation) {
+                State.coreValidation.blocked = false;
+            }
+        }
+        if (typeof window !== 'undefined') {
+            window.updateExecutiveReportButtonState = updateExecutiveReportButtonState;
         }
 
         const MARKET_BENCHMARK_RECENCY_DAYS = 90;
@@ -40615,46 +40697,64 @@ function scheduleReactiveEngine() {
             markIds.forEach((id) => setCoreValidationMark(id, false));
             ['cons-sea', 'cons-port', 'cons-anchorage', 'price-sea', 'price-port', 'margin-owner', 'margin-charterer'].forEach((id) => setCoreFuelWarningMark(id, false));
 
-            const fuelShare = metrics.adjustedCostTotal > 0 ? (metrics.totalBunkers / metrics.adjustedCostTotal) : 0;
-            if (fuelShare > 0.25) {
-                warnings.push(`Consumo de combustible supera el 25% del total de gastos (${(fuelShare * 100).toFixed(1)}%). Puedes continuar y generar el informe.`);
-                ['cons-sea', 'cons-port', 'cons-anchorage', 'price-sea', 'price-port'].forEach((id) => setCoreFuelWarningMark(id, true));
-            }
-            if (metrics.smartOperationalDays < 0 || metrics.totalDays < 0) {
-                messages.push('Duración estimada del viaje negativa. Revisa distancias, velocidades y días de ajuste.');
-                ['dist-ballast', 'dist-laden', 'spd-ballast', 'spd-laden'].forEach((id) => setCoreValidationMark(id, true));
-            }
-            if (!(metrics.marginOwner > 0)) {
-                warnings.push('Margen Armador no definido o igual a 0%. Se mantiene como aviso informativo; revisa el precio de venta antes de cerrar la operación.');
-                setCoreFuelWarningMark('margin-owner', true);
-            }
-            if (!(metrics.marginChart > 0)) {
-                warnings.push('Margen Fletador no definido o igual a 0%. Se mantiene como aviso informativo; revisa el precio de venta antes de cerrar la operación.');
-                setCoreFuelWarningMark('margin-charterer', true);
-            }
-            if ((metrics.pol || metrics.pod) && (!metrics.polData || !metrics.podData)) {
-                messages.push('Datos de puertos incompatibles con la ruta seleccionada.');
-                if (!metrics.polData) setCoreValidationMark('port-pol', true);
-                if (!metrics.podData) setCoreValidationMark('port-pod', true);
-            }
-            if (metrics.cargo > 0 && (metrics.rateLoad <= 0 || metrics.rateDisch <= 0)) {
-                messages.push('Datos operativos de puerto incompatibles: ritmos de carga/descarga deben ser mayores que 0.');
-                if (metrics.rateLoad <= 0) setCoreValidationMark('rate-load', true);
-                if (metrics.rateDisch <= 0) setCoreValidationMark('rate-disch', true);
-            }
-            if (!(metrics.cargo > 0)) {
-                messages.push('Datos incompletos: cantidad de carga debe ser mayor que 0.');
-                setCoreValidationMark('cargo-qty', true);
-            }
-            if (!(metrics.totalMiles > 0)) {
-                messages.push('Datos incompletos: distancia marítima total no calculada.');
-                ['dist-ballast', 'dist-laden'].forEach((id) => setCoreValidationMark(id, true));
-            }
-            if (!(metrics.opex > 0) || !(metrics.pSea > 0) || !(metrics.pPort > 0)) {
-                messages.push('Datos incompletos: OPEX y precios de búnker deben estar definidos.');
-                if (!(metrics.opex > 0)) setCoreValidationMark('opex-daily', true);
-                if (!(metrics.pSea > 0)) setCoreValidationMark('price-sea', true);
-                if (!(metrics.pPort > 0)) setCoreValidationMark('price-port', true);
+            const isTerrestre = typeof isTerrestreMode === 'function' ? isTerrestreMode() : true;
+
+            if (isTerrestre) {
+                const effectiveCargo = metrics.cargo > 0 ? metrics.cargo : (parseFloat(document.getElementById('cargo-qty')?.value) || State?.cargoQty || 0);
+                const effectiveDist = metrics.totalMiles > 0
+                    ? metrics.totalMiles
+                    : (parseFloat(document.getElementById('dist-total')?.value) || parseFloat(document.getElementById('dist-laden')?.value) || State?.totalKilometers || 0);
+
+                if (!(effectiveCargo > 0)) {
+                    messages.push('Datos incompletos: cantidad de carga debe ser mayor que 0.');
+                    setCoreValidationMark('cargo-qty', true);
+                }
+                if (!(effectiveDist > 0)) {
+                    messages.push('Datos incompletos: distancia terrestre total no calculada.');
+                    ['dist-ballast', 'dist-laden'].forEach((id) => setCoreValidationMark(id, true));
+                }
+            } else {
+                const fuelShare = metrics.adjustedCostTotal > 0 ? (metrics.totalBunkers / metrics.adjustedCostTotal) : 0;
+                if (fuelShare > 0.25) {
+                    warnings.push(`Consumo de combustible supera el 25% del total de gastos (${(fuelShare * 100).toFixed(1)}%). Puedes continuar y generar el informe.`);
+                    ['cons-sea', 'cons-port', 'cons-anchorage', 'price-sea', 'price-port'].forEach((id) => setCoreFuelWarningMark(id, true));
+                }
+                if (metrics.smartOperationalDays < 0 || metrics.totalDays < 0) {
+                    messages.push('Duración estimada del viaje negativa. Revisa distancias, velocidades y días de ajuste.');
+                    ['dist-ballast', 'dist-laden', 'spd-ballast', 'spd-laden'].forEach((id) => setCoreValidationMark(id, true));
+                }
+                if (!(metrics.marginOwner > 0)) {
+                    warnings.push('Margen Armador no definido o igual a 0%. Se mantiene como aviso informativo; revisa el precio de venta antes de cerrar la operación.');
+                    setCoreFuelWarningMark('margin-owner', true);
+                }
+                if (!(metrics.marginChart > 0)) {
+                    warnings.push('Margen Fletador no definido o igual a 0%. Se mantiene como aviso informativo; revisa el precio de venta antes de cerrar la operación.');
+                    setCoreFuelWarningMark('margin-charterer', true);
+                }
+                if ((metrics.pol || metrics.pod) && (!metrics.polData || !metrics.podData)) {
+                    messages.push('Datos de puertos incompatibles con la ruta seleccionada.');
+                    if (!metrics.polData) setCoreValidationMark('port-pol', true);
+                    if (!metrics.podData) setCoreValidationMark('port-pod', true);
+                }
+                if (metrics.cargo > 0 && (metrics.rateLoad <= 0 || metrics.rateDisch <= 0)) {
+                    messages.push('Datos operativos de puerto incompatibles: ritmos de carga/descarga deben ser mayores que 0.');
+                    if (metrics.rateLoad <= 0) setCoreValidationMark('rate-load', true);
+                    if (metrics.rateDisch <= 0) setCoreValidationMark('rate-disch', true);
+                }
+                if (!(metrics.cargo > 0)) {
+                    messages.push('Datos incompletos: cantidad de carga debe ser mayor que 0.');
+                    setCoreValidationMark('cargo-qty', true);
+                }
+                if (!(metrics.totalMiles > 0)) {
+                    messages.push('Datos incompletos: distancia marítima total no calculada.');
+                    ['dist-ballast', 'dist-laden'].forEach((id) => setCoreValidationMark(id, true));
+                }
+                if (!(metrics.opex > 0) || !(metrics.pSea > 0) || !(metrics.pPort > 0)) {
+                    messages.push('Datos incompletos: OPEX y precios de búnker deben estar definidos.');
+                    if (!(metrics.opex > 0)) setCoreValidationMark('opex-daily', true);
+                    if (!(metrics.pSea > 0)) setCoreValidationMark('price-sea', true);
+                    if (!(metrics.pPort > 0)) setCoreValidationMark('price-port', true);
+                }
             }
 
             setCoreReportBlocked(messages.length > 0, messages, warnings);
@@ -42505,6 +42605,21 @@ function scheduleReactiveEngine() {
             const carrierRatePerKm = landTotalKilometers > 0 ? (carrierPurchaseUnit / landTotalKilometers) : (carrierPurchaseUnit / 107);
             const clientRatePerKm = landTotalKilometers > 0 ? (clientSaleUnit / landTotalKilometers) : (clientSaleUnit / 107);
 
+            const tarifaTransportista = carrierPurchaseUnit;
+            const precioTotal = clientSaleUnit;
+            const hasCalculated = Boolean(tarifaTransportista > 0 || precioTotal > 0 || totalTripCost > 0);
+
+            State.tarifaTransportista = tarifaTransportista;
+            State.precioTotal = precioTotal;
+            State.carrierPurchaseUnit = carrierPurchaseUnit;
+            State.clientSaleUnit = clientSaleUnit;
+            State.hasCalculated = hasCalculated;
+            if (typeof window !== 'undefined') {
+                window.tarifaTransportista = tarifaTransportista;
+                window.precioTotal = precioTotal;
+                window.hasCalculated = hasCalculated;
+            }
+
             const finalGrossRevCharterer = isRail
                 ? (costeTren * agencyMarkupMultiplier)
                 : (isTerrestre ? (cargo > 0 && freightSell > 0 && freightSell !== 35.00 ? (cargo * freightSell) : (clientSaleUnit * fleetTrucksNeeded)) : grossRevCharterer);
@@ -43139,9 +43254,16 @@ function scheduleReactiveEngine() {
                     agencyMargin: agencyMarkupPercent,
                     modeNarrative: 'terrestre',
                     mode: 'terrestre',
+                    tarifaTransportista,
+                    precioTotal,
+                    hasCalculated: true,
                     pdaIncrementalCost: operationalPenaltyAmount,
                     projectCargoAssessment
                 }, operationalRisk);
+            }
+
+            if (typeof updateExecutiveReportButtonState === 'function') {
+                updateExecutiveReportButtonState(true);
             }
 
             // Actualizar el aviso de cumplimiento CBAM (encapsulado: nunca interrumpe el motor)
@@ -51609,7 +51731,8 @@ Example:
             }
 
             if (typeof runEngine === 'function') runEngine();
-            if (State.coreValidation?.blocked) {
+            const isTerrestreReport = typeof isTerrestreMode === 'function' ? isTerrestreMode() : true;
+            if (State.coreValidation?.blocked && !isTerrestreReport) {
                 alert(`Kill-switch activo:\n- ${State.coreValidation.messages.join('\n- ')}`);
                 return;
             }
@@ -51642,7 +51765,7 @@ Example:
             }
 
             runEngine(); // Forzar un último recálculo antes de leer las variables
-            if (State.coreValidation?.blocked) {
+            if (State.coreValidation?.blocked && !isTerrestreReport) {
                 alert(`Kill-switch activo:\n- ${State.coreValidation.messages.join('\n- ')}`);
                 return;
             }
