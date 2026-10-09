@@ -19,12 +19,26 @@ import {
   calculateFleetCampaignDimensioning,
   parseSafeNumber,
 } from '../../shared/land-project-policy.mjs';
+import {
+  isUSLocation,
+  detectUnitSystem,
+  convertDistance,
+  formatDistance,
+  getUnitLabels,
+  KM_TO_MILES,
+} from '../utils/unitSystemDetector.js';
 
 export {
   isNonEURoute,
   getDssOptimalTrucksPerDay,
   calculateFleetCampaignDimensioning,
   parseSafeNumber,
+  isUSLocation,
+  detectUnitSystem,
+  convertDistance,
+  formatDistance,
+  getUnitLabels,
+  KM_TO_MILES,
 };
 
 const COMMODITY_TARIFFS = {};
@@ -1978,6 +1992,24 @@ function ForwarderWorkspaceInner() {
   const [safeLoadHours, setSafeLoadHours] = useState(2);
   const [safeDischHours, setSafeDischHours] = useState(2);
 
+  // Auto-Detección Geográfica del Sistema Imperial vs Métrico en Land Charter (Presentación visual)
+  const unitSystem = detectUnitSystem(landOrigin, landDestination);
+  const isImperial = unitSystem === 'IMPERIAL';
+  const unitLabels = getUnitLabels(unitSystem);
+  const { distanceUnit, weightUnit, weightInputLabel } = unitLabels;
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.LandCharterUnitSystem = unitSystem;
+      window.LandCharterIsImperial = isImperial;
+      try {
+        window.dispatchEvent(new CustomEvent('land-charter:unit-system-changed', {
+          detail: { unitSystem, isImperial, origin: landOrigin, destination: landDestination }
+        }));
+      } catch (_) {}
+    }
+  }, [unitSystem, isImperial, landOrigin, landDestination]);
+
   const [subtotalFreight, setSubtotalFreight] = useState('0.00');
   const [subtotalFobOperations, setSubtotalFobOperations] = useState('0.00');
   const [isBreakdownVisible, setIsBreakdownVisible] = useState(true);
@@ -2756,14 +2788,10 @@ function ForwarderWorkspaceInner() {
         const vehicleCountLabel = isRail ? (requiredTrucks === 1 ? 'Vagón' : 'Vagones') : (requiredTrucks === 1 ? 'Camión' : 'Camiones');
 
         // 1. Creas la constante con el cálculo final:
-        const finalCargoItems = [{
-          id: 'sync-land-charter-fixed-row',
-          category: 'Carga Unificada / Envasada',
-          type: isRail ? `${servicePrefix} (${requiredTrucks} ${vehicleCountLabel})` : `Flete Terrestre (${requiredTrucks} Camiones)`,
-          quantity: requiredTrucks,
-          unit_weight_kg: truckPayloadMT * 1000,
-          weight: truckPayloadMT * 1000
-        }];
+        const finalCargoItems = [{ id: 'sync-land-charter-fixed-row', category: 'Carga Unificada / Envasada', type: `Flete Terrestre (${requiredTrucks} Camiones)`, quantity: requiredTrucks, unit_weight_kg: truckPayloadMT * 1000, weight: truckPayloadMT * 1000 }];
+        if (isRail) {
+          finalCargoItems[0].type = `${servicePrefix} (${requiredTrucks} ${vehicleCountLabel})`;
+        }
 
         // 2. Actualizas la interfaz:
         setCargoItems(finalCargoItems);
@@ -3498,8 +3526,8 @@ function ForwarderWorkspaceInner() {
         land_freight_cost: Number(projectToSave.land_freight_cost) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDeCosteTotalTerrestre || 0)),
         land_freight_sale: Number(projectToSave.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDePrecioVentaTerrestre || 0)),
         valor_total_mercancia_usd: estadoDelValorFobCalculado,
-        land_origin: projectToSave?.land_origin || activeProject?.land_origin || landOrigin || '',
-        land_destination: projectToSave?.land_destination || activeProject?.land_destination || landDestination || '',
+        land_origin: pol || origin || projectToSave.land_origin || projectToSave.pol || activeProject?.land_origin || landOrigin || '',
+        land_destination: pod || destination || projectToSave.land_destination || projectToSave.pod || activeProject?.land_destination || landDestination || '',
         land_distance: distanceKm,
         total_trucks: Number(projectToSave?.total_trucks) > 0 ? Number(projectToSave.total_trucks) : (trucksNeeded || activeProject?.total_trucks),
         dss_optimal_cadence: dssOptimalTrucksPerDay,
@@ -6498,7 +6526,7 @@ function ForwarderWorkspaceInner() {
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Distancia (km)</span>
+                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Distancia ({isImperial ? 'mi' : 'km'})</span>
                               {rDistKm > 0 ? (
                                 <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
                                   ✅ OK
@@ -6512,7 +6540,7 @@ function ForwarderWorkspaceInner() {
                             <span className="text-base">📍</span>
                           </div>
                           <div className="text-xl font-mono font-black text-slate-900">
-                            {rDistKm.toLocaleString('es-ES')} <span className="text-xs font-semibold text-slate-500">km</span>
+                            {Math.round(isImperial ? rDistKm * 0.621371 : rDistKm).toLocaleString('es-ES')} <span className="text-xs font-semibold text-slate-500">{isImperial ? 'mi' : 'km'}</span>
                           </div>
                         </div>
                         <div className="text-[11px] font-medium text-slate-600 mt-3 pt-2 border-t border-slate-100">
@@ -6872,7 +6900,7 @@ function ForwarderWorkspaceInner() {
                           <th className="px-2 py-3 w-[7%] text-center">Largo (m)</th>
                           <th className="px-2 py-3 w-[7%] text-center">Ancho (m)</th>
                           <th className="px-2 py-3 w-[7%] text-center">Alto (m)</th>
-                          <th className="px-2 py-3 w-[10%] text-right">Peso Unitario (kg)</th>
+                          <th className="px-2 py-3 w-[10%] text-right">{isImperial ? 'Peso Unitario (lbs)' : 'Peso Unitario (kg)'}</th>
                           <th className="px-2 py-3 w-[7%] text-right font-mono">M2</th>
                           <th className="px-2 py-3 w-[7%] text-right font-mono">M3</th>
                           <th className="px-2 py-3 w-[12%]">Modo Envío</th>
@@ -6913,7 +6941,7 @@ function ForwarderWorkspaceInner() {
                           <td colSpan={2} className="px-3 py-2 text-left uppercase text-[10px]">Totales:</td>
                           <td className="px-2 py-2 text-center font-mono">{totals.quantity}</td>
                           <td colSpan={3} className="px-2 py-2 text-center text-[10px] text-slate-500">-</td>
-                          <td className="px-2 py-2 text-right font-mono">{Number(totals.weight).toLocaleString('es-ES')} kg</td>
+                          <td className="px-2 py-2 text-right font-mono">{Number(isImperial ? Math.round(totals.weight * 2.20462) : totals.weight).toLocaleString('es-ES')} {isImperial ? 'lbs' : 'kg'}</td>
                           <td className="px-2 py-2 text-right font-mono">{Number(totals.m2).toFixed(2)} m²</td>
                           <td className="px-2 py-2 text-right font-mono">{Number(totals.m3).toFixed(2)} m³</td>
                           <td colSpan={2}></td>
@@ -7161,7 +7189,7 @@ function ForwarderWorkspaceInner() {
 
                       <div>
                         <label htmlFor="input-distance-nm" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
-                          Distancia Ruta (KM) * {distanceKm > 0 ? <span className="text-emerald-600 font-bold ml-1">✅ OK</span> : <span className="text-amber-600 font-bold ml-1">⚠️ Vacío</span>}
+                          {isImperial ? 'Distancia Ruta (MI)' : 'Distancia Ruta (KM)'} * {distanceKm > 0 ? <span className="text-emerald-600 font-bold ml-1">✅ OK</span> : <span className="text-amber-600 font-bold ml-1">⚠️ Vacío</span>}
                         </label>
                         <input
   id="input-distance-nm"
@@ -7365,19 +7393,19 @@ function ForwarderWorkspaceInner() {
                               <span className="text-xs font-black text-emerald-700 uppercase tracking-wide">Desglose Financiero · Transporte Terrestre por Carretera</span>
                             </div>
                             <span className="text-[10px] font-mono text-slate-600 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">
-                              Ruta: {distKm} km · {transitDays} jornada{transitDays > 1 ? 's' : ''} chófer
+                              Ruta: {isImperial ? Math.round(distKm * 0.621371) : distKm} {isImperial ? 'mi' : 'km'} · {transitDays} jornada{transitDays > 1 ? 's' : ''} chófer
                             </span>
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-3">
                             <div className="bg-white p-2.5 rounded border border-slate-200 shadow-xs">
-                              <span className="block text-[10px] uppercase font-bold text-slate-500">Coste / km (Base + Fuel)</span>
-                              <span className="text-sm font-mono font-bold text-slate-900">{totalCostKm.toFixed(2)} {currencySymbol}/km</span>
+                              <span className="block text-[10px] uppercase font-bold text-slate-500">Coste / {isImperial ? 'mi' : 'km'} (Base + Fuel)</span>
+                              <span className="text-sm font-mono font-bold text-slate-900">{totalCostKm.toFixed(2)} {currencySymbol}/{isImperial ? 'mi' : 'km'}</span>
                               <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">{runningCost.toLocaleString('es-ES')} {currencySymbol} total</span>
                             </div>
                             <div className="bg-white p-2.5 rounded border border-slate-200 shadow-xs">
                               <span className="block text-[10px] uppercase font-bold text-slate-500">Peajes de Autopista</span>
                               <span className="text-sm font-mono font-bold text-amber-700">{displayTolls.toLocaleString('es-ES')} {currencySymbol}</span>
-                              <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">~0.18 {currencySymbol}/km medio</span>
+                              <span className="block text-[9.5px] text-slate-400 font-mono mt-0.5">~0.18 {currencySymbol}/{isImperial ? 'mi' : 'km'} medio</span>
                             </div>
                             <div className="bg-white p-2.5 rounded border border-slate-200 shadow-xs">
                               <span className="block text-[10px] uppercase font-bold text-slate-500">Dieta / Jornada Chófer</span>
@@ -7405,7 +7433,7 @@ function ForwarderWorkspaceInner() {
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] font-mono text-emerald-700 font-bold">Precio de Venta Sugerido (18% margen):</span>
                               <strong className="text-xl font-mono font-black text-emerald-600">{roadSale.toLocaleString('es-ES')} {currencySymbol}</strong>
-                              <span className="text-[11px] font-mono font-bold text-emerald-700">({roadSalePerKm} {currencySymbol}/km)</span>
+                              <span className="text-[11px] font-mono font-bold text-emerald-700">({roadSalePerKm} {currencySymbol}/{isImperial ? 'mi' : 'km'})</span>
                             </div>
                           </div>
                         </div>
@@ -7802,13 +7830,13 @@ function ForwarderWorkspaceInner() {
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">
-                      {isRail ? 'Distancia ferroviaria' : 'Distancia por carretera'}
+                      {isRail ? 'Distancia ferroviaria' : (isImperial ? 'Distancia por carretera (mi)' : 'Distancia por carretera')}
                     </span>
                     <span className="text-sm font-black text-slate-900 mt-1 block font-mono">
-                      {Math.round(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0))).toLocaleString('es-ES')} KM
+                      {Math.round(isImperial ? (Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0)) * 0.621371) : Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0))).toLocaleString('es-ES')} {isImperial ? 'MI' : 'KM'}
                     </span>
                     <span className="block text-[9px] text-slate-400 font-semibold mt-0.5">
-                      {isRail ? 'Kilómetros (Línea Ferroviaria)' : 'Kilómetros (Transporte Terrestre)'}
+                      {isRail ? 'Kilómetros (Línea Ferroviaria)' : (isImperial ? 'Millas (Transporte Terrestre)' : 'Kilómetros (Transporte Terrestre)')}
                     </span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
@@ -7829,7 +7857,7 @@ function ForwarderWorkspaceInner() {
                       {isRail ? 'Corredor Ferroviario' : 'Ruta Terrestre'}
                     </span>
                     <span className="text-xs font-black text-slate-900 mt-1 block">{activeProject?.land_origin ? `${activeProject.land_origin}${activeProject.land_destination ? ` ➔ ${activeProject.land_destination}` : ''}` : ((activeProject?.land_route?.origin) ? `${activeProject.land_route.origin}${activeProject.land_route.destination ? ` ➔ ${activeProject.land_route.destination}` : ''}` : ((landOrigin) ? `${landOrigin}${landDestination ? ` ➔ ${landDestination}` : ''}` : 'Sin ruta terrestre'))}</span>
-                    <span className="block text-[9px] text-slate-500 font-mono">{(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0))).toLocaleString('es-ES')} KM</span>
+                    <span className="block text-[9px] text-slate-500 font-mono">{(Number(isImperial ? (Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0)) * 0.621371) : Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || (Number(distanceNm) > 0 ? (Number(distanceNm) < 3000 ? Number(distanceNm) : Number(distanceNm) * 1.852) : 0)))).toLocaleString('es-ES')} {isImperial ? 'MI' : 'KM'}</span>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
                     <span className="block text-[10px] uppercase font-bold text-slate-500">Tiempos Carga / Descarga</span>
@@ -7952,7 +7980,7 @@ function ForwarderWorkspaceInner() {
                     <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 mb-3 border-b-2 border-slate-200 pb-2 flex items-center justify-between">
                       <span>📋 Desglose de Costes Operativos del Camión y Margen de Agencia</span>
                       <span className="text-[10px] font-bold text-slate-500 font-mono">
-                        Ruta: {distKm} km · {activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner Estándar'} (40t MMA · {getVehiclePayloadKg(activeReport?.vehicleType || vehicleType || activeProject?.truck_type) / 1000}t Carga Útil)
+                        Ruta: {isImperial ? Math.round(distKm * 0.621371) : distKm} {isImperial ? 'mi' : 'km'} · {activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner Estándar'} (40t MMA · {getVehiclePayloadKg(activeReport?.vehicleType || vehicleType || activeProject?.truck_type) / 1000}t Carga Útil)
                       </span>
                     </h3>
                     <table className="border-collapse w-full text-[11px]">
@@ -7973,7 +8001,7 @@ function ForwarderWorkspaceInner() {
                           <td className="py-2.5 px-3 text-slate-600">
                             {isTariffActive
                               ? `Tarifa plana convenio FSPE (${rawType || 'Commodity'}) a ${(appliedTariff?.inlandUsdMt || 3.00).toFixed(2)} $/MT · ${totalTons.toFixed(1)} MT`
-                              : `Tracción de camión y gasóleo profesional (${distKm} km a 1.57 €/km)`
+                              : `Tracción de camión y gasóleo profesional (${isImperial ? Math.round(distKm * 0.621371) : distKm} ${isImperial ? 'mi' : 'km'} a 1.57 €/km)`
                             }
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono text-slate-800">{runningCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
@@ -8027,7 +8055,7 @@ function ForwarderWorkspaceInner() {
                       <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg">
                         <span className="block text-[10px] font-bold text-slate-500 uppercase">Coste Neto Camión / Inland</span>
                         <div className="text-lg font-black font-mono text-slate-800 mt-0.5">{totalRoadCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</div>
-                        <span className="text-[10px] text-slate-500 font-mono">{costPerKm} {currencySymbol}/km</span>
+                        <span className="text-[10px] text-slate-500 font-mono">{costPerKm} {currencySymbol}/{isImperial ? 'mi' : 'km'}</span>
                       </div>
                       <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-lg">
                         <span className="block text-[10px] font-bold text-emerald-800 uppercase">Margen Comercial Agencia (18%)</span>
@@ -8037,7 +8065,7 @@ function ForwarderWorkspaceInner() {
                       <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
                         <span className="block text-[10px] font-bold text-blue-800 uppercase">Precio Venta Terrestre All-In</span>
                         <div className="text-lg font-black font-mono text-blue-700 mt-0.5">{finalSalePrice.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</div>
-                        <span className="text-[10px] text-blue-600 font-mono font-bold">{salePerKm} {currencySymbol}/km</span>
+                        <span className="text-[10px] text-blue-600 font-mono font-bold">{salePerKm} {currencySymbol}/{isImperial ? 'mi' : 'km'}</span>
                       </div>
                     </div>
                   </section>
