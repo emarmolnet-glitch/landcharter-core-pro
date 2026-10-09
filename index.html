@@ -895,6 +895,16 @@
     <script type="module" src="./src/forwarder-workspace-entry.jsx"></script>
     <script type="module" src="./dual-mode-overlay.js"></script>
     <script type="module">
+        import { setupLandCharterUnitObserver } from './src/utils/unitSystemDetector.js';
+        if (typeof document !== 'undefined') {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => setupLandCharterUnitObserver());
+            } else {
+                setupLandCharterUnitObserver();
+            }
+        }
+    </script>
+    <script type="module">
         import { syncRoadMetricsToBridge, buildRoadSyncPayload, showSyncSuccessUI, URL_BASE_DATABRIDGE } from './dataBridgeSyncService.js';
         window.syncRoadMetricsToBridge = syncRoadMetricsToBridge;
         window.buildRoadSyncPayload = buildRoadSyncPayload;
@@ -19047,10 +19057,14 @@ function renderRouteItineraryRightPanel(landData) {
 
     const origName = landData.origin?.displayName || landData.origin?.name || landData.origin?.query || 'Origen N/D';
     const destName = landData.destination?.displayName || landData.destination?.name || landData.destination?.query || 'Destino N/D';
+    const isImperialRoute = window.LandCharterIsImperial || (typeof UnitSystemDetector !== 'undefined' && UnitSystemDetector.detectUnitSystem(origName, destName) === 'IMPERIAL');
     const rawDist = Number(landData.totalKilometers ?? landData.distanceKm ?? 0);
-    const distKmFormatted = (rawDist > 0)
-        ? (rawDist % 1 === 0 ? rawDist.toFixed(0) : rawDist.toFixed(1))
+    const convertedDist = isImperialRoute ? rawDist * 0.621371 : rawDist;
+    const distKmFormatted = (convertedDist > 0)
+        ? (convertedDist % 1 === 0 ? convertedDist.toFixed(0) : convertedDist.toFixed(1))
         : '0';
+    const distUnit = isImperialRoute ? 'mi' : 'km';
+    const currencySym = isImperialRoute ? '$' : '€';
     const hours = Number(landData.drivingHours || 0) || (rawDist > 0 ? (rawDist / 72) : 0);
     const hoursDisplay = Math.floor(hours);
     const minsDisplay = Math.round((hours % 1) * 60);
@@ -19139,7 +19153,7 @@ function renderRouteItineraryRightPanel(landData) {
         <div class="grid grid-cols-2 gap-2 mb-3">
             <div class="bg-blue-50 border border-blue-100 rounded-lg p-2 text-center">
                 <span class="block text-[10px] font-bold uppercase text-blue-600">${isRailItinerary ? '🚂 Distancia Tren' : '🛣️ Distancia Total'}</span>
-                <strong class="text-sm font-extrabold text-blue-900">${distKmFormatted} km</strong>
+                <strong class="text-sm font-extrabold text-blue-900">${distKmFormatted} ${distUnit}</strong>
             </div>
             <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-2 text-center">
                 <span class="block text-[10px] font-bold uppercase text-indigo-600">${isRailItinerary ? '⏱️ Tránsito Vía' : '⏱️ Conducción'}</span>
@@ -19164,7 +19178,7 @@ function renderRouteItineraryRightPanel(landData) {
                 <span class="text-xs font-bold text-slate-700 flex items-center gap-1">
                     ${isRailItinerary ? '💶 Cánones / Uso de Vía' : '💶 Peajes Estimados'}
                 </span>
-                <strong class="text-xs font-extrabold text-emerald-700">${isRailItinerary ? '0,00 €' : `${tollsTotal} €`}</strong>
+                <strong class="text-xs font-extrabold text-emerald-700">${isRailItinerary ? `0,00 ${currencySym}` : `${tollsTotal} ${currencySym}`}</strong>
             </div>
             ${tollsHtml}
         </div>
@@ -20214,12 +20228,19 @@ async function runOnDemandMapRouteWorkflow(button) {
         }
 
         // Actualizar visualmente la tarjeta de "KILÓMETROS" (#sync-miles-card) del ecosistema unificado
+        const isImperialSync = window.LandCharterIsImperial || (typeof UnitSystemDetector !== 'undefined' && UnitSystemDetector.detectUnitSystem(polDisplayName, podDisplayName) === 'IMPERIAL');
+        const displayDistSync = isImperialSync ? Math.round(distanceKm * 0.621371) : Math.round(distanceKm);
+        const distUnitSync = isImperialSync ? 'mi' : 'km';
         const syncMilesLabel = document.getElementById('sync-miles-label');
-        if (syncMilesLabel) syncMilesLabel.textContent = `${Math.round(distanceKm).toLocaleString('es-ES')} km`;
+        if (syncMilesLabel) syncMilesLabel.textContent = `${displayDistSync.toLocaleString('es-ES')} ${distUnitSync}`;
         const syncMilesBreakdown = document.getElementById('sync-miles-breakdown');
-        if (syncMilesBreakdown) syncMilesBreakdown.textContent = `${Math.round(distanceKm).toLocaleString('es-ES')} km`;
+        if (syncMilesBreakdown) syncMilesBreakdown.textContent = `${displayDistSync.toLocaleString('es-ES')} ${distUnitSync}`;
         const syncMilesCard = document.getElementById('sync-miles-card');
-        if (syncMilesCard) syncMilesCard.title = `Distancia total: ${Math.round(distanceKm).toLocaleString('es-ES')} km`;
+        if (syncMilesCard) {
+            syncMilesCard.title = `Distancia total: ${displayDistSync.toLocaleString('es-ES')} ${distUnitSync}`;
+            const syncSpan = syncMilesCard.querySelector('span');
+            if (syncSpan) syncSpan.textContent = isImperialSync ? 'Millas' : 'Kilómetros';
+        }
         const syncPolLabel = document.getElementById('sync-pol-label');
         if (syncPolLabel) syncPolLabel.textContent = polDisplayName;
         const syncPodLabel = document.getElementById('sync-pod-label');
@@ -42068,9 +42089,10 @@ function scheduleReactiveEngine() {
             document.getElementById('res-breakeven').innerText = isRail ? `€${breakEvenArmadorDisplay.toFixed(2)} /t·km` : `€${breakEvenArmadorDisplay.toFixed(2)} /Km`;
             const baseCostBreakEvenEl = document.getElementById('res-cost-base-break-even');
             if (baseCostBreakEvenEl) {
-                baseCostBreakEvenEl.innerText = isRail
-                    ? `Coste de Tracción Ferroviaria (Locomotora): €${Math.round(displayTotalTripCost).toLocaleString('es-ES')}`
-                    : `€${breakEvenArmadorDisplay.toFixed(2)} /Km · Total: €${Math.round(displayTotalTripCost).toLocaleString('es-ES')}`;
+                baseCostBreakEvenEl.innerText = `€${breakEvenArmadorDisplay.toFixed(2)} /Km · Total: €${Math.round(displayTotalTripCost).toLocaleString('es-ES')}`;
+                if (isRail) {
+                    baseCostBreakEvenEl.innerText = `Coste de Tracción Ferroviaria (Locomotora): €${Math.round(displayTotalTripCost).toLocaleString('es-ES')}`;
+                }
             }
             const breakEvenBreakdownEl = document.getElementById('res-breakeven-breakdown');
             if (breakEvenBreakdownEl) {
@@ -43360,7 +43382,9 @@ function scheduleReactiveEngine() {
             // Renderizado interno del panel
             const distDisplayEl = document.getElementById('tacografo-distance-display');
             if (distDisplayEl) {
-                distDisplayEl.value = `${Math.round(distancia_total).toLocaleString('es-ES')} km`;
+                const isImpTaco = window.LandCharterIsImperial || (typeof UnitSystemDetector !== 'undefined' && UnitSystemDetector.detectUnitSystem(document.getElementById('port-pol')?.value, document.getElementById('port-pod')?.value) === 'IMPERIAL');
+                const dispDistTaco = isImpTaco ? Math.round(distancia_total * 0.621371) : Math.round(distancia_total);
+                distDisplayEl.value = `${dispDistTaco.toLocaleString('es-ES')} ${isImpTaco ? 'mi' : 'km'}`;
             }
 
             const drivingEl = document.getElementById('tacografo-driving-hours');
