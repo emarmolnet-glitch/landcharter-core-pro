@@ -8001,7 +8001,7 @@ function ForwarderWorkspaceInner() {
                           <td className="py-2.5 px-3 text-slate-600">
                             {isTariffActive
                               ? `Tarifa plana convenio FSPE (${rawType || 'Commodity'}) a ${(appliedTariff?.inlandUsdMt || 3.00).toFixed(2)} $/MT · ${totalTons.toFixed(1)} MT`
-                              : `Tracción de camión y gasóleo profesional (${isImperial ? Math.round(distKm * 0.621371) : distKm} ${isImperial ? 'mi' : 'km'} a 1.57 €/km)`
+                              : `Tracción de camión y gasóleo profesional (${isImperial ? Math.round(distKm * 0.621371) : distKm} ${isImperial ? 'mi' : 'km'} a 1.57 ${currencySymbol}/${isImperial ? 'mi' : 'km'})`
                             }
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono text-slate-800">{runningCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>
@@ -8013,7 +8013,7 @@ function ForwarderWorkspaceInner() {
                           <td className="py-2.5 px-3 text-slate-600">
                             {isTariffActive
                               ? 'Blindaje FSPE: Peajes y euroviñetas absorbidos en tarifa plana oficial (0,00 €)'
-                              : 'Autopistas de peaje y tasas de tránsito en corredores europeos (~0.18 €/km)'
+                              : `Autopistas de peaje y tasas de tránsito en corredores (${isImperial ? '~0.29 $/mi' : `~0.18 ${currencySymbol}/km`})`
                             }
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono text-slate-800">{tollsCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}</td>

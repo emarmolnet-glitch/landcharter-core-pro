@@ -346,6 +346,100 @@
     function updateExecutiveDashboard(calcResults = {}, riskData = {}, documentRef = root.document) {
         if (!documentRef || typeof documentRef.getElementById !== 'function') return false;
 
+        const polStr = toText(calcResults.pol || calcResults.origin || (documentRef.getElementById && documentRef.getElementById('port-pol')?.value) || '');
+        const podStr = toText(calcResults.pod || calcResults.destination || (documentRef.getElementById && documentRef.getElementById('port-pod')?.value) || '');
+        const polCountryStr = toText(calcResults.polCountry || riskData.polCountry || riskData.portCountry || '');
+        const podCountryStr = toText(calcResults.podCountry || riskData.podCountry || '');
+
+        const checkIsUS = (str) => {
+            if (!str || typeof str !== 'string') return false;
+            const norm = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+            return /\b(estados unidos|united states|usa|u\.s\.a|u\.s\.|ee\.?uu\.?)\b/i.test(str)
+                || norm.includes('estados unidos')
+                || norm.includes('united states')
+                || norm.includes('usa')
+                || norm.includes('ee.uu')
+                || norm.includes('eeuu');
+        };
+
+        const EUROPEAN_CODES = new Set([
+            'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI',
+            'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT',
+            'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK', 'GB', 'UK', 'NO',
+            'CH', 'IS', 'AL', 'AD', 'BA', 'ME', 'MK', 'RS', 'MD', 'UA',
+            'BY', 'LI', 'MC', 'SM', 'VA'
+        ]);
+
+        const NON_EU_INDICATORS = [
+            'estados unidos', 'united states', 'usa', 'u.s.a', 'u.s.', 'ee.uu', 'eeuu',
+            'argelia', 'algeria', 'alger', 'setif', 'sétif', 'bugia', 'bugía', 'bejaia', 'oran', 'annaba',
+            'marruecos', 'morocco', 'casablanca', 'tanger', 'tangier', 'rabat',
+            'tunez', 'tunisia', 'tunis', 'egipto', 'egypt', 'cairo',
+            'china', 'japon', 'japan', 'brasil', 'brazil', 'mexico', 'colombia', 'argentina',
+            'chile', 'peru', 'canada', 'australia', 'india', 'dubai', 'uae', 'singapur', 'singapore'
+        ];
+
+        const checkIsEuropean = (str, countryCode) => {
+            if (countryCode && typeof countryCode === 'string') {
+                const codeUpper = countryCode.trim().toUpperCase();
+                if (EUROPEAN_CODES.has(codeUpper)) return true;
+                if (['US', 'USA', 'DZ', 'MA', 'TN', 'EG', 'CN', 'BR', 'MX', 'CA', 'AU', 'IN', 'RU', 'TR', 'AE', 'SG'].includes(codeUpper)) return false;
+            }
+            if (!str || typeof str !== 'string' || !str.trim()) return true;
+            const norm = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+            if (checkIsUS(str)) return false;
+            if (NON_EU_INDICATORS.some(ind => norm.includes(ind))) return false;
+            return true;
+        };
+
+        const isEuropeanRoute = Boolean(
+            calcResults.isEuropeanRoute !== undefined
+                ? calcResults.isEuropeanRoute
+                : (typeof root.UnitSystemDetector?.isEuropeanRoute === 'function'
+                    ? root.UnitSystemDetector.isEuropeanRoute(polStr, podStr, polCountryStr, podCountryStr)
+                    : (checkIsEuropean(polStr, polCountryStr) && checkIsEuropean(podStr, podCountryStr))
+                )
+        );
+
+        const isUSRoute = Boolean(
+            calcResults.isUSRoute === true ||
+            checkIsUS(polStr) ||
+            checkIsUS(podStr) ||
+            checkIsUS(polCountryStr) ||
+            checkIsUS(podCountryStr) ||
+            ['US', 'USA'].includes(polCountryStr.trim().toUpperCase()) ||
+            ['US', 'USA'].includes(podCountryStr.trim().toUpperCase()) ||
+            calcResults.unitSystem === 'IMPERIAL' ||
+            calcResults.isImperial === true ||
+            (typeof root.LandCharterIsImperial !== 'undefined' && root.LandCharterIsImperial) ||
+            (typeof root.LandCharterUnitSystem !== 'undefined' && root.LandCharterUnitSystem === 'IMPERIAL') ||
+            (typeof root.UnitSystemDetector?.isUSLocation === 'function' && (root.UnitSystemDetector.isUSLocation(polStr) || root.UnitSystemDetector.isUSLocation(podStr)))
+        );
+
+        const currency = calcResults.currency || (isEuropeanRoute ? "€" : "$");
+        const unit = calcResults.distanceUnit || calcResults.unit || (isUSRoute ? "mi" : "km");
+
+        const updatePresentationTitles = () => {
+            const titlePurchase = documentRef.getElementById('exec-carrier-purchase-title');
+            if (titlePurchase) {
+                titlePurchase.textContent = `Tarifa Cerrada de Compra (${currency})`;
+            } else if (typeof documentRef.querySelectorAll === 'function') {
+                try {
+                    const spans = documentRef.querySelectorAll('span, h4, div');
+                    spans.forEach(el => {
+                        if (el.textContent && /Tarifa Cerrada de Compra \([€$]\)/i.test(el.textContent.trim())) {
+                            el.textContent = `Tarifa Cerrada de Compra (${currency})`;
+                        }
+                    });
+                } catch (_) {}
+            }
+
+            const rateUnitLabel = documentRef.getElementById('exec-carrier-rate-unit-label');
+            if (rateUnitLabel) {
+                rateUnitLabel.textContent = `Tarifa/${unit}:`;
+            }
+        };
+
         const setText = (id, value) => {
             const element = documentRef.getElementById(id);
             if (!element || value === undefined || value === null) return;
@@ -353,26 +447,23 @@
         };
         const formatMoney = (value, decimals = 0) => {
             const amount = Number(value);
-            if (!Number.isFinite(amount)) return '0 €';
-            const sign = amount > 0 ? '+' : '';
-            return `${sign}${amount.toLocaleString('es-ES', {
-                style: 'currency',
-                currency: 'EUR',
-                minimumFractionDigits: decimals,
-                maximumFractionDigits: decimals
-            })}`;
-        };
-        const formatCurrency = (value, decimals = 0) => {
-            const amount = Number(value);
-            if (!Number.isFinite(amount)) return '0 €';
-            return amount.toLocaleString('es-ES', {
-                style: 'currency',
-                currency: 'EUR',
+            if (!Number.isFinite(amount)) return `0 ${currency}`;
+            const sign = amount > 0 ? '+' : (amount < 0 ? '-' : '');
+            const absFormatted = Math.abs(amount).toLocaleString('es-ES', {
                 minimumFractionDigits: decimals,
                 maximumFractionDigits: decimals
             });
+            return `${sign}${absFormatted} ${currency}`;
         };
-        const formatRate = (value) => `${Math.max(0, toNumber(value)).toFixed(2)} €/km`;
+        const formatCurrency = (value, decimals = 0) => {
+            const amount = Number(value);
+            if (!Number.isFinite(amount)) return `0 ${currency}`;
+            return `${amount.toLocaleString('es-ES', {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            })} ${currency}`;
+        };
+        const formatRate = (value) => `${Math.max(0, toNumber(value)).toFixed(2)} ${currency}/${unit}`;
         const formatDays = (value) => `${Math.max(0, toNumber(value)).toFixed(1)} días`;
         const formatTons = (value) => `${Math.max(0, toNumber(value)).toLocaleString('es-ES', { maximumFractionDigits: 0 })} t`;
         const formatDailyRate = (value) => Math.max(0, toNumber(value)).toLocaleString('es-ES', { maximumFractionDigits: 0 });
@@ -428,6 +519,7 @@
         };
 
         if (!hasVoyageDefinition) {
+            updatePresentationTitles();
             setText('exec-operation-icon', '⚪');
             setText('exec-operation-status', 'OPERACIÓN PENDIENTE');
             setText('exec-pol', 'N/D');
@@ -444,14 +536,14 @@
             setText('exec-buy-freight-total', formatCurrency(0));
             setText('exec-carrier-sell-freight', formatRate(0));
             setText('exec-carrier-sell-total', formatCurrency(0));
-            setText('exec-tce', `${formatMoney(0)} / día`);
+            setText('exec-tce', (calcResults.modeNarrative === 'terrestre' || calcResults.mode === 'terrestre' || typeof isTerrestreModeContext === 'function') ? formatCurrency(0) : `${formatCurrency(0)} / día`);
             setText('exec-carrier-margin-km', formatRate(0));
             setText('exec-sell-freight', formatRate(0));
             setText('exec-sell-freight-total', formatCurrency(0));
             setText('exec-agency-cost-freight', formatRate(0));
             setText('exec-agency-cost-total', formatCurrency(0));
-            setText('exec-charterer-profit', formatMoney(0));
-            setText('exec-spread-mt', `${formatMoney(0, 2)} / km`);
+            setText('exec-charterer-profit', formatCurrency(0));
+            setText('exec-spread-mt', formatRate(0));
             setText('exec-agency-spread-total', formatCurrency(0));
             setText('exec-risk-level', 'N/D');
             setText('exec-insight-text', 'Introduce POL, POD y volumen de carga para generar el análisis ejecutivo.');
@@ -556,6 +648,7 @@
             : effectiveBuyTotal;
         const carrierMarginKm = kmTotal > 0 && carrierMargin > 0 ? (carrierMargin / kmTotal) : effectiveBuyFreight;
 
+        updatePresentationTitles();
         setText('exec-vessel-type', resolvedVesselType);
         setText('exec-sea-days', formatDays(effectiveSeaDays));
         setText('exec-port-days', formatDays(effectivePortDays));
@@ -566,7 +659,7 @@
         setText('exec-buy-freight-total', formatCurrency(effectiveBuyTotal));
         setText('exec-carrier-sell-freight', formatRate(effectiveSellFreight));
         setText('exec-carrier-sell-total', formatCurrency(effectiveSellTotal));
-        setText('exec-tce', (calcResults.modeNarrative === 'terrestre' || calcResults.mode === 'terrestre' || typeof isTerrestreModeContext === 'function') ? formatMoney(carrierMargin) : `${formatMoney(calcResults.tce)} / día`);
+        setText('exec-tce', (calcResults.modeNarrative === 'terrestre' || calcResults.mode === 'terrestre' || typeof isTerrestreModeContext === 'function') ? formatCurrency(carrierMargin) : `${formatCurrency(calcResults.tce)} / día`);
         setText('exec-carrier-margin-km', formatRate(carrierMarginKm));
 
         // Lado Agencia / Cliente (Nuestra Casa): Flete de Coste Asociado = Compra, Venta = Compra + Margen, Beneficio = Venta - Compra
@@ -575,7 +668,7 @@
         setText('exec-agency-cost-freight', formatRate(effectiveBuyFreight));
         setText('exec-agency-cost-total', formatCurrency(effectiveBuyTotal));
         setText('exec-charterer-profit', formatMoney(effectiveSpreadTotal));
-        setText('exec-spread-mt', `${formatMoney(effectiveSpreadKm, 2)} / km`);
+        setText('exec-spread-mt', formatRate(effectiveSpreadKm));
         setText('exec-agency-spread-total', formatCurrency(effectiveSpreadTotal));
 
         const roadRisk = evaluateRoadOperationalRisks({
@@ -2017,10 +2110,12 @@
             const totalEl = this.el('res-cost-total');
             const breakEvenEl = this.el('res-breakeven');
             if (isTerrestreModeContext()) {
+                const activeCurr = (typeof root !== 'undefined' && root.LandCharterCurrency) || (typeof root?.State !== 'undefined' && root.State.currency) || '€';
+                const activeDistUnit = (typeof root !== 'undefined' && root.LandCharterUnit) || (typeof root?.State !== 'undefined' && root.State.unit) || 'km';
                 const tripCost = Number(root.State?.totalTripCost ?? root.State?.totalCosts) || result.coste_total_viaje;
-                if (totalEl) totalEl.textContent = `€${Math.round(tripCost).toLocaleString('es-ES')}`;
+                if (totalEl) totalEl.textContent = `${activeCurr}${Math.round(tripCost).toLocaleString('es-ES')}`;
                 if (breakEvenEl && root.State?.costPerKm) {
-                    breakEvenEl.textContent = `${Number(root.State.costPerKm).toFixed(2)} €/km`;
+                    breakEvenEl.textContent = `${Number(root.State.costPerKm).toFixed(2)} ${activeCurr}/${activeDistUnit}`;
                 }
                 return;
             }
