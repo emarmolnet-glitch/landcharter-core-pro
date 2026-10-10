@@ -20252,6 +20252,23 @@ async function runOnDemandMapRouteWorkflow(button) {
         const syncPodLabel = document.getElementById('sync-pod-label');
         if (syncPodLabel) syncPodLabel.textContent = podDisplayName;
 
+        // Publicar estado de ruta unificado de solo lectura para módulos consumidores (Proyectos / Project Cargo Builder)
+        window.currentRoute = {
+            origin: polDisplayName,
+            destination: podDisplayName,
+            distance: distanceKm,
+            distanceKm: distanceKm,
+            totalKilometers: totalKilometers,
+            drivingHours: drivingHours,
+            unit: isImperialSync ? 'mi' : 'km'
+        };
+        if (window.State) {
+            window.State.currentRoute = window.currentRoute;
+            window.State.land_origin = polDisplayName;
+            window.State.land_destination = podDisplayName;
+            window.State.land_distance = distanceKm;
+        }
+
         const dietasChofer = Math.floor(drivingHours / 9) * 55;
         const dietasInput = document.getElementById('dietas-pernocta') || document.querySelector('input[name="dietas"]');
         if (dietasInput) {

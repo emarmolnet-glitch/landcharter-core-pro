@@ -129,8 +129,8 @@ test('6. INTEGRACIÓN EN FORWARDERWORKSPACE: Detección reactiva y etiquetas ada
   // Adaptación de la etiqueta del input de distancia a MI / KM
   assert.match(
     workspaceSource,
-    /\{isImperial \? 'Distancia Ruta \(MI\)' : 'Distancia Ruta \(KM\)'\}/,
-    'Etiqueta de distancia debe alternar entre MI y KM según isImperial'
+    /DISTANCIA RUTA \(\{unit\.toUpperCase\(\)\}\)/,
+    'Etiqueta de distancia debe ser dinámica: DISTANCIA RUTA (${unit.toUpperCase()})'
   );
 
   // Adaptación de la cabecera de peso unitario a lbs / kg
