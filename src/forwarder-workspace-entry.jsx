@@ -4,7 +4,7 @@ import ForwarderWorkspace from './components/ForwarderWorkspace.jsx';
 
 let forwarderRoot = null;
 
-export function mountForwarderWorkspace(container) {
+export function mountForwarderWorkspace(container, options = {}) {
   const mountPoint = container?.querySelector?.('#forwarder-workspace-root')
     || document.getElementById('forwarder-workspace-root')
     || container;
@@ -14,7 +14,12 @@ export function mountForwarderWorkspace(container) {
   if (!forwarderRoot) {
     forwarderRoot = createRoot(mountPoint);
   }
-  forwarderRoot.render(<ForwarderWorkspace />);
+  const currentRoute = options?.currentRoute || (typeof window !== 'undefined' ? (window.currentRoute || window.State?.currentRoute) : null);
+  if (currentRoute) {
+    forwarderRoot.render(<ForwarderWorkspace currentRoute={currentRoute} />);
+  } else {
+    forwarderRoot.render(<ForwarderWorkspace />);
+  }
   return forwarderRoot;
 }
 

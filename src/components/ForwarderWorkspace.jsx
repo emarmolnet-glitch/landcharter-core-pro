@@ -1820,7 +1820,13 @@ export function mapMaritimeDossierToLandCharter(dossier) {
   };
 }
 
-function ForwarderWorkspaceInner() {
+function ForwarderWorkspaceInner(props = {}) {
+  const currentRouteProp = props.currentRoute
+    || (typeof window !== 'undefined' ? (window.currentRoute || window.State?.currentRoute) : null);
+  const routeOriginFromProp = currentRouteProp?.origin || '';
+  const routeDestinationFromProp = currentRouteProp?.destination || '';
+  const rawDistFromProp = Number(currentRouteProp?.distanceKm || currentRouteProp?.distance || currentRouteProp?.totalKilometers || 0);
+  const routeUnitFromProp = props.unit || currentRouteProp?.unit || '';
 
   const [projects, setProjects] = useState([]);
   const [referenciaActivaGlobal, setReferenciaActivaGlobal] = useState(() => getActiveGlobalReference());
@@ -1986,9 +1992,15 @@ function ForwarderWorkspaceInner() {
   const [charteringAssessment, setCharteringAssessment] = useState(null);
 
   // Aislamiento total del estado terrestre (Cero Data Bleed)
-  const [landOrigin, setLandOrigin] = useState(activeProject?.land_route?.origin || activeProject?.land_origin || '');
-  const [landDestination, setLandDestination] = useState(activeProject?.land_route?.destination || activeProject?.land_destination || '');
-  const [distanceKm, setDistanceKm] = useState(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0);
+  const [landOrigin, setLandOrigin] = useState(
+    routeOriginFromProp || activeProject?.land_route?.origin || activeProject?.land_origin || (typeof window !== 'undefined' ? (window.State?.land_origin || window.currentRoute?.origin || '') : '')
+  );
+  const [landDestination, setLandDestination] = useState(
+    routeDestinationFromProp || activeProject?.land_route?.destination || activeProject?.land_destination || (typeof window !== 'undefined' ? (window.State?.land_destination || window.currentRoute?.destination || '') : '')
+  );
+  const [distanceKm, setDistanceKm] = useState(
+    rawDistFromProp || activeProject?.land_route?.distance_km || activeProject?.land_distance || (typeof window !== 'undefined' ? (window.State?.land_distance || window.currentRoute?.distanceKm || window.currentRoute?.distance || 0) : 0)
+  );
   const [safeLoadHours, setSafeLoadHours] = useState(2);
   const [safeDischHours, setSafeDischHours] = useState(2);
 
@@ -1997,6 +2009,7 @@ function ForwarderWorkspaceInner() {
   const isImperial = unitSystem === 'IMPERIAL';
   const unitLabels = getUnitLabels(unitSystem);
   const { distanceUnit, weightUnit, weightInputLabel } = unitLabels;
+  const unit = routeUnitFromProp || (typeof window !== 'undefined' && (window.currentRoute?.unit || window.State?.currentRoute?.unit || window.State?.unit)) || distanceUnit || (isImperial ? 'mi' : 'km');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -5677,9 +5690,12 @@ function ForwarderWorkspaceInner() {
       setShippingMode('Lo-Lo'); setVesselType('Geared Breakbulk (Lo-Lo)');
       setStorageDays(0); setSurveyorCost(0); setInlandCost(0); setCustomsCost(0); setInsuranceCost(0);
       userEditedSurveyor.current = false; // setEstimatedCost(''); setSalePrice('');
-      setLandOrigin(activeProject?.land_route?.origin || activeProject?.land_origin || '');
-      setLandDestination(activeProject?.land_route?.destination || activeProject?.land_destination || '');
-      setDistanceKm(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0));
+      const defaultOrigin = activeProject?.land_route?.origin || activeProject?.land_origin || routeOriginFromProp || (typeof window !== 'undefined' ? (window.currentRoute?.origin || window.State?.currentRoute?.origin || window.State?.land_origin) : '') || '';
+      const defaultDest = activeProject?.land_route?.destination || activeProject?.land_destination || routeDestinationFromProp || (typeof window !== 'undefined' ? (window.currentRoute?.destination || window.State?.currentRoute?.destination || window.State?.land_destination) : '') || '';
+      const defaultDist = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || rawDistFromProp || (typeof window !== 'undefined' ? (window.currentRoute?.distanceKm || window.currentRoute?.distance || window.State?.currentRoute?.distanceKm || window.State?.land_distance) : 0) || 0);
+      setLandOrigin(defaultOrigin);
+      setLandDestination(defaultDest);
+      setDistanceKm(defaultDist);
       setIsCargoModalOpen(true);
     } catch (err) {
       console.error('[ForwarderWorkspace] Error al abrir creador de servicios:', err);
@@ -7189,16 +7205,18 @@ function ForwarderWorkspaceInner() {
 
                       <div>
                         <label htmlFor="input-distance-nm" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
-                          {isImperial ? 'Distancia Ruta (MI)' : 'Distancia Ruta (KM)'} * {distanceKm > 0 ? <span className="text-emerald-600 font-bold ml-1">✅ OK</span> : <span className="text-amber-600 font-bold ml-1">⚠️ Vacío</span>}
+                          DISTANCIA RUTA ({unit.toUpperCase()}) * {distanceKm > 0 ? <span className="text-emerald-600 font-bold ml-1">✅ OK</span> : <span className="text-amber-600 font-bold ml-1">⚠️ Vacío</span>}
                         </label>
                         <input
   id="input-distance-nm"
   type="number"
-  min={10}
-  value={distanceKm || ''}
+  min={1}
+  value={distanceKm ? (isImperial ? Math.round((Number(distanceKm) / 1.60934) * 10) / 10 : distanceKm) : ''}
   onChange={(e) => {
-    const val = e.target.value;
-    setDistanceKm(val);
+    const rawVal = e.target.value;
+    const num = Number(rawVal);
+    const convertedKm = isImperial && num > 0 ? Math.round(num * 1.60934) : num;
+    setDistanceKm(convertedKm);
   }}
   className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-900 shadow-sm"
 />
