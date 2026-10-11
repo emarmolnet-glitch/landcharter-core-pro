@@ -30,7 +30,7 @@ export default function VisualTruckPlan({
   const vehicleLower = String(vehicleType || '').toLowerCase();
   const isRail = propIsRail !== undefined
     ? Boolean(propIsRail)
-    : (vehicleLower.includes('tren') || vehicleLower.includes('tolva') || vehicleLower.includes('ferroviario') || vehicleLower.includes('rail'));
+    : (vehicleType?.includes('Tren') || vehicleType?.includes('Tolva') || vehicleType?.includes('Vagón') || vehicleLower.includes('tren') || vehicleLower.includes('tolva') || vehicleLower.includes('ferroviario') || vehicleLower.includes('rail') || vehicleLower.includes('vagon') || vehicleLower.includes('vagón'));
 
   if (isRail) {
     const wagons = Math.max(1, Number(wagonCount ?? trucksCount ?? (assignedWeightKg > 0 ? Math.ceil(assignedWeightKg / (maxPayloadKg || 50000)) : 2)));
@@ -71,8 +71,12 @@ export default function VisualTruckPlan({
 
         {/* Croquis / Representación Visual Ferroviaria */}
         <div className="relative w-full bg-slate-900 text-emerald-400 rounded-lg border border-slate-800 p-6 flex flex-col items-center justify-center overflow-x-auto shadow-inner text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/20 border border-emerald-500 text-emerald-300 font-mono text-xs font-black uppercase tracking-widest rounded-md shadow-xs mb-3">
+            <span className="text-base">🚂</span>
+            <span>CONVOY FERROVIARIO</span>
+          </div>
           <div className="text-xs uppercase tracking-widest text-slate-300 font-bold font-mono mb-2">
-            Convoy ferroviario: {wagons} Vagones
+            Convoy ferroviario: {wagons} {wagons === 1 ? 'Vagón' : 'Vagones'}
           </div>
           <pre className="text-emerald-400 font-mono font-black text-sm sm:text-base tracking-wider py-3 px-4 bg-slate-950/80 rounded border border-slate-800/80 whitespace-pre overflow-x-auto shadow-sm">
             {convoyScheme}

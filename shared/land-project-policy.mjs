@@ -216,17 +216,53 @@ export function getDssOptimalTrucksPerDay(project = null, routeParams = {}) {
     return 72; // Estrictamente 72 camiones/día para la ruta Sétif-Bugía en Escenario Óptimo
   }
 
-  // 4. Cálculo Algorítmico DSS Escenario Óptimo (+30% eficiencia operativa en ritmos de planta)
-  const baseLoadRate = Math.max(1, Number(routeParams.loadingRate || project?.loadingRate || project?.loading_rate_mt_day || 25));
-  // En DSS Escenario Óptimo se proyecta +30% de aceleración
-  const optimalLoadRate = baseLoadRate * 1.30;
-  // Factor de jornada estándar de planta: si es <= 500 se asume MT/h * 8h de turno
-  const horasJornadaPlanta = 8;
-  const ritmoDiarioCarga = optimalLoadRate <= 500 ? (optimalLoadRate * horasJornadaPlanta) : optimalLoadRate;
-  
-  // A 24 toneladas netas útiles por tráiler estándar
-  const cadenciaOptima = Math.max(1, Math.ceil(ritmoDiarioCarga / 24));
-  return cadenciaOptima;
+  // 4. Cálculo Algorítmico DSS Escenario Óptimo - Fórmula Dinámica Fase 4:
+  // Cadencia Diaria = Math.ceil(Total de Vehículos / Días de Buffer de Entrega).
+  // Si el buffer de entrega no está definido, utiliza un máximo de 7 días laborables.
+  // Elimina el valor por defecto forzado a 1.
+  const totalVehicles = Number(
+    routeParams.totalVehicles || routeParams.totalTrucks || routeParams.trucks || routeParams.trucksReq || routeParams.trucksNeeded || routeParams.trucksCount ||
+    project?.total_trucks || project?.totalTrucks || project?.trucks_needed ||
+    (typeof window !== 'undefined' ? (window.State?.total_trucks || window.State?.trucks_needed || window.State?.camionesReales) : 0) ||
+    0
+  );
+
+  const rawBuffer = Number(
+    routeParams.deliveryBufferDays || routeParams.bufferDays || routeParams.bufferEntrega || routeParams.laycanBuffer ||
+    project?.deliveryBufferDays || project?.buffer_entrega || project?.bufferEntrega || project?.laycanBuffer ||
+    (typeof window !== 'undefined' ? (window.State?.deliveryBufferDays || window.State?.bufferEntrega || window.State?.laycanBuffer) : 0) ||
+    0
+  );
+  const diasBufferEntrega = (rawBuffer > 0) ? rawBuffer : 7; // máximo de 7 días laborables si no está definido
+
+  if (totalVehicles > 0) {
+    return Math.ceil(totalVehicles / diasBufferEntrega);
+  }
+
+  // Si no hay totalVehicles explícito pero sí tonelaje:
+  const totalTonnage = Number(
+    project?.total_weight_tons || project?.cargoQuantity || routeParams.totalWeightTons || routeParams.tonnage ||
+    (typeof window !== 'undefined' ? (window.State?.cargo || window.State?.total_weight_tons) : 0) || 0
+  );
+  if (totalTonnage > 0) {
+    const isRail = Boolean(
+      project?.truck_type?.toLowerCase().includes('tren') || project?.vehicle_type?.toLowerCase().includes('tren') ||
+      routeParams.vehicleType?.toLowerCase().includes('tren') || (typeof window !== 'undefined' && window.State?.vehicle_type?.toLowerCase().includes('tren'))
+    );
+    const estimatedVehicles = Math.ceil(totalTonnage / (isRail ? 50 : 24));
+    return Math.ceil(estimatedVehicles / diasBufferEntrega);
+  }
+
+  // Fallback con ritmo de planta si se proporciona loadingRate explícito alto (> 24 MT/día)
+  const baseLoadRate = Number(routeParams.loadingRate || project?.loadingRate || project?.loading_rate_mt_day || 0);
+  if (baseLoadRate > 24) {
+    const optimalLoadRate = baseLoadRate * 1.30;
+    const horasJornadaPlanta = 8;
+    const ritmoDiarioCarga = optimalLoadRate <= 500 ? (optimalLoadRate * horasJornadaPlanta) : optimalLoadRate;
+    return Math.ceil(ritmoDiarioCarga / 24);
+  }
+
+  return Math.ceil(1 / diasBufferEntrega) || 1;
 }
 
 /**
