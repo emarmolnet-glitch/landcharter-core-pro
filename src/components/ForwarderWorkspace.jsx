@@ -1991,6 +1991,18 @@ function ForwarderWorkspaceInner(props = {}) {
   const [demurrageDailyRateUsd, setDemurrageDailyRateUsd] = useState(11500);
   const [charteringAssessment, setCharteringAssessment] = useState(null);
 
+  // 🛡️ REFS Y ESTADOS LOCALES INTERMEDIOS (Debounce & Ruptura de Ping-Pong)
+  const isSyncingFromAssessmentRef = useRef(false);
+  const lastSyncedInputsRef = useRef({
+    pol: '', pod: '', loadingRate: 0, dischargingRate: 0, distanceNm: 0,
+    vesselSpeedKnots: 0, vesselDailyHireUsd: 0, actualLoadingDays: '',
+    actualDischargingDays: '', demurrageDailyRateUsd: 0
+  });
+  const hoursDebounceTimerRef = useRef(null);
+  const cargoUpdateDebounceTimerRef = useRef(null);
+  const [loadingRateInput, setLoadingRateInput] = useState(2);
+  const [dischargingRateInput, setDischargingRateInput] = useState(2);
+
   // Aislamiento total del estado terrestre (Cero Data Bleed)
   const [landOrigin, setLandOrigin] = useState(
     routeOriginFromProp || activeProject?.land_route?.origin || activeProject?.land_origin || (typeof window !== 'undefined' ? (window.State?.land_origin || window.currentRoute?.origin || '') : '')
@@ -2003,6 +2015,14 @@ function ForwarderWorkspaceInner(props = {}) {
   );
   const [safeLoadHours, setSafeLoadHours] = useState(2);
   const [safeDischHours, setSafeDischHours] = useState(2);
+
+  useEffect(() => {
+    setLoadingRateInput(safeLoadHours);
+  }, [safeLoadHours]);
+
+  useEffect(() => {
+    setDischargingRateInput(safeDischHours);
+  }, [safeDischHours]);
 
   // Auto-Detección Geográfica del Sistema Imperial vs Métrico en Land Charter (Presentación visual)
   const unitSystem = detectUnitSystem(landOrigin, landDestination);
@@ -2742,11 +2762,17 @@ function ForwarderWorkspaceInner(props = {}) {
         const saleEur = withSrvs.land_freight_sale || withSrvs.targetSalePrice || withSrvs.sale || (withSrvs.line_items || []).reduce((acc, it) => acc + Number(it.sale_price_eur || 0), 0) ||
           pFinancials.customer_sale_price_eur || pFinancials.sale_price_eur || 0;
         
-        // BLINDAJE DEL FOOTER EN SYNC: Evitamos que los ceros de la BD borren el cálculo local.
-        setEstimatedCost(prev => (costEur === 0 && Number(prev) > 0) ? prev : costEur);
-        setSalePrice(prev => (saleEur === 0 && Number(prev) > 0) ? prev : saleEur);
-        setCost(costEur);
-        setFreightSaleState(saleEur);
+        // BLINDAJE ANTI-BOLA DE NIEVE (Separación Coste Unitario vs. Total Flota):
+        // Si el valor recibido de Neon o Data Bridge corresponde al gran total de la flota (> 1 camión),
+        // se normaliza al coste operativo base unitario para no alimentar el multiplicador exponencial.
+        const syncTruckCount = Math.max(1, Number(withSrvs.total_trucks || (withSrvs.cargo_items?.length) || 1));
+        const effectiveUnitCost = (costEur > 0 && syncTruckCount > 1) ? Number((costEur / syncTruckCount).toFixed(2)) : costEur;
+        const effectiveUnitSale = (saleEur > 0 && syncTruckCount > 1) ? Number((saleEur / syncTruckCount).toFixed(2)) : saleEur;
+
+        setEstimatedCost(prev => (effectiveUnitCost === 0 && Number(prev) > 0) ? prev : (effectiveUnitCost > 0 ? effectiveUnitCost : prev));
+        setSalePrice(prev => (effectiveUnitSale === 0 && Number(prev) > 0) ? prev : (effectiveUnitSale > 0 ? effectiveUnitSale : prev));
+        setCost(effectiveUnitCost);
+        setFreightSaleState(effectiveUnitSale);
 
         const sTolls = Number(updated.tollCost || updated.tollsCost || updated.peajes || pFinancials.tollCost || (sDist > 0 ? Math.round(sDist * 0.18) : 0));
         const isSyncOutsideEU = isNonEURoute(updated.land_origin || withSrvs.land_origin, updated.land_destination || withSrvs.land_destination, updated);
@@ -3249,50 +3275,82 @@ function ForwarderWorkspaceInner(props = {}) {
     const rot = charteringAssessment.rotationBreakdown || charteringAssessment.timeCharterEquivalent;
     if (!rot) return;
 
-    if (rot.pol && rot.pol !== pol) {
-      setPol(rot.pol);
-    }
-    if (rot.pod && rot.pod !== pod) {
-      setPod(rot.pod);
-    }
-    const loadRate = Number(rot.loadingRateMtDay || rot.loadingRate || rot.loadRate);
-    if (!isNaN(loadRate) && loadRate > 0 && loadRate !== Number(loadingRate)) {
-      setLoadingRate(loadRate);
-    }
-    const dischRate = Number(rot.dischargingRateMtDay || rot.dischargingRate || rot.dischargeRate);
-    if (!isNaN(dischRate) && dischRate > 0 && dischRate !== Number(dischargingRate)) {
-      setDischargingRate(dischRate);
-    }
-    const dist = Number(rot.distanceNm || rot.distance_nm);
-    if (!isNaN(dist) && dist > 0 && dist !== Number(distanceNm)) {
-      setDistanceNm(dist);
-    }
-    const speed = Number(rot.serviceSpeedKnots || rot.serviceSpeed || rot.speedKnots);
-    if (!isNaN(speed) && speed > 0 && speed !== Number(vesselSpeedKnots)) {
-      setVesselSpeedKnots(speed);
-    }
-    const dailyHire = Number(rot.dailyHireRateUsd || rot.vesselDailyRateUsd || rot.dailyRateUsd);
-    if (!isNaN(dailyHire) && dailyHire > 0 && dailyHire !== Number(vesselDailyHireUsd)) {
-      setVesselDailyHireUsd(dailyHire);
-    }
-    if (rot.demurrage) {
-      const dem = rot.demurrage;
-      if (dem.actualLoadingDays !== undefined && dem.actualLoadingDays !== null && String(dem.actualLoadingDays) !== String(actualLoadingDays)) {
-        setActualLoadingDays(dem.actualLoadingDays);
+    isSyncingFromAssessmentRef.current = true;
+    try {
+      if (rot.pol && rot.pol !== pol) {
+        setPol(rot.pol);
       }
-      if (dem.actualDischargingDays !== undefined && dem.actualDischargingDays !== null && String(dem.actualDischargingDays) !== String(actualDischargingDays)) {
-        setActualDischargingDays(dem.actualDischargingDays);
+      if (rot.pod && rot.pod !== pod) {
+        setPod(rot.pod);
       }
-      const demDaily = Number(dem.demurrageRateDailyUsd);
-      if (!isNaN(demDaily) && demDaily > 0 && demDaily !== Number(demurrageDailyRateUsd)) {
-        setDemurrageDailyRateUsd(demDaily);
+      const loadRate = Number(rot.loadingRateMtDay || rot.loadingRate || rot.loadRate);
+      if (!isNaN(loadRate) && loadRate > 0 && loadRate !== Number(loadingRate)) {
+        setLoadingRate(loadRate);
       }
+      const dischRate = Number(rot.dischargingRateMtDay || rot.dischargingRate || rot.dischargeRate);
+      if (!isNaN(dischRate) && dischRate > 0 && dischRate !== Number(dischargingRate)) {
+        setDischargingRate(dischRate);
+      }
+      const dist = Number(rot.distanceNm || rot.distance_nm);
+      if (!isNaN(dist) && dist > 0 && dist !== Number(distanceNm)) {
+        setDistanceNm(dist);
+      }
+      const speed = Number(rot.serviceSpeedKnots || rot.serviceSpeed || rot.speedKnots);
+      if (!isNaN(speed) && speed > 0 && speed !== Number(vesselSpeedKnots)) {
+        setVesselSpeedKnots(speed);
+      }
+      const dailyHire = Number(rot.dailyHireRateUsd || rot.vesselDailyRateUsd || rot.dailyRateUsd);
+      if (!isNaN(dailyHire) && dailyHire > 0 && dailyHire !== Number(vesselDailyHireUsd)) {
+        setVesselDailyHireUsd(dailyHire);
+      }
+      if (rot.demurrage) {
+        const dem = rot.demurrage;
+        if (dem.actualLoadingDays !== undefined && dem.actualLoadingDays !== null && String(dem.actualLoadingDays) !== String(actualLoadingDays)) {
+          setActualLoadingDays(dem.actualLoadingDays);
+        }
+        if (dem.actualDischargingDays !== undefined && dem.actualDischargingDays !== null && String(dem.actualDischargingDays) !== String(actualDischargingDays)) {
+          setActualDischargingDays(dem.actualDischargingDays);
+        }
+        const demDaily = Number(dem.demurrageRateDailyUsd);
+        if (!isNaN(demDaily) && demDaily > 0 && demDaily !== Number(demurrageDailyRateUsd)) {
+          setDemurrageDailyRateUsd(demDaily);
+        }
+      }
+    } finally {
+      setTimeout(() => {
+        isSyncingFromAssessmentRef.current = false;
+      }, 0);
     }
   }, [charteringAssessment]);
 
   // Hook de sincronización reactiva (Two-Way Binding): Inputs del Formulario -> Estado global de Fletamento y Workspace
   // Mantiene sincronizado el desglose de rotación (rotationBreakdown) cuando el usuario edita directamente los campos
   useEffect(() => {
+    if (isSyncingFromAssessmentRef.current) return;
+
+    const prevInputs = lastSyncedInputsRef.current;
+    if (
+      prevInputs.pol === pol &&
+      prevInputs.pod === pod &&
+      prevInputs.loadingRate === Number(loadingRate) &&
+      prevInputs.dischargingRate === Number(dischargingRate) &&
+      prevInputs.distanceNm === Number(distanceNm) &&
+      prevInputs.vesselSpeedKnots === Number(vesselSpeedKnots) &&
+      prevInputs.vesselDailyHireUsd === Number(vesselDailyHireUsd) &&
+      prevInputs.actualLoadingDays === String(actualLoadingDays) &&
+      prevInputs.actualDischargingDays === String(actualDischargingDays) &&
+      prevInputs.demurrageDailyRateUsd === Number(demurrageDailyRateUsd)
+    ) {
+      return;
+    }
+
+    lastSyncedInputsRef.current = {
+      pol, pod, loadingRate: Number(loadingRate), dischargingRate: Number(dischargingRate),
+      distanceNm: Number(distanceNm), vesselSpeedKnots: Number(vesselSpeedKnots),
+      vesselDailyHireUsd: Number(vesselDailyHireUsd), actualLoadingDays: String(actualLoadingDays),
+      actualDischargingDays: String(actualDischargingDays), demurrageDailyRateUsd: Number(demurrageDailyRateUsd)
+    };
+
     setCharteringAssessment(prev => {
       const currentRot = prev?.rotationBreakdown || {};
       const newLoadingRate = Number(loadingRate);
@@ -3401,9 +3459,11 @@ function ForwarderWorkspaceInner(props = {}) {
         ? 0
         : (isRail
           ? (costeTren > 0 && trucksNeeded > 0 ? Number((costeTren / trucksNeeded).toFixed(2)) : costeTren)
-          : (baseTruckOperatingCost > 0
+    : (baseTruckOperatingCost > 0
             ? baseTruckOperatingCost
-            : (Number(estimatedCost) > 0 ? Number(estimatedCost) : (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0))));
+            : (Number(estimatedCost) > 0
+              ? (trucksNeeded > 1 && Number(estimatedCost) === Number(activeProject?.land_freight_cost) ? Number((Number(estimatedCost) / trucksNeeded).toFixed(2)) : Number(estimatedCost))
+              : (Number(activeProject?.land_freight_cost) > 0 ? (trucksNeeded > 1 ? Number((Number(activeProject.land_freight_cost) / trucksNeeded).toFixed(2)) : Number(activeProject.land_freight_cost)) : 0))));
       const precioVentaPorCamion = (!distanceKm || Number(distanceKm) <= 0)
         ? 0
         : (costeOperativoPorCamion > 0
@@ -3734,9 +3794,11 @@ function ForwarderWorkspaceInner(props = {}) {
         ? 0
         : (isRail
           ? (costeTren > 0 && trucksNeeded > 0 ? Number((costeTren / trucksNeeded).toFixed(2)) : costeTren)
-          : (baseTruckOperatingCost > 0
-            ? baseTruckOperatingCost
-            : (Number(estimatedCost) > 0 ? Number(estimatedCost) : (Number(activeProject?.land_freight_cost) > 0 ? Number(activeProject.land_freight_cost) : 0))));
+      : (baseTruckOperatingCost > 0
+        ? baseTruckOperatingCost
+        : (Number(estimatedCost) > 0
+          ? (trucksNeeded > 1 && Number(estimatedCost) === Number(activeProject?.land_freight_cost) ? Number((Number(estimatedCost) / trucksNeeded).toFixed(2)) : Number(estimatedCost))
+          : (Number(activeProject?.land_freight_cost) > 0 ? (trucksNeeded > 1 ? Number((Number(activeProject.land_freight_cost) / trucksNeeded).toFixed(2)) : Number(activeProject.land_freight_cost)) : 0))));
       const precioVentaPorCamion = (!distanceKm || Number(distanceKm) <= 0)
         ? 0
         : (costeOperativoPorCamion > 0
@@ -6939,7 +7001,7 @@ function ForwarderWorkspaceInner(props = {}) {
                             <tr key={item?.id || index} className="hover:bg-slate-50/80">
                               <td className="p-1"><input type="text" value={item?.category || ''} onChange={(e) => handleUpdateCargoItem(item.id, 'category', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-slate-800 text-[11px]" placeholder="Ej: Equipos..." /></td>
                               <td className="p-1"><input type="text" list="commodity-list" value={item?.type || ''} onChange={(e) => handleUpdateCargoItem(item.id, 'type', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-2 py-1.5 text-slate-900 font-semibold text-[11px]" placeholder="Descripción de pieza..." /></td>
-                              <td className="p-1"><input type="number" min={1} value={item?.quantity ?? 1} onChange={(e) => handleUpdateCargoItem(item.id, 'quantity', e.target.value)} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-1 py-1.5 text-center text-slate-900 text-[11px]" /></td>
+                              <td className="p-1"><input type="number" min={1} defaultValue={item?.quantity ?? 1} key={"qty-" + item?.id + "-" + (item?.quantity ?? 1)} onBlur={(e) => handleUpdateCargoItem(item.id, 'quantity', e.target.value)} onChange={(e) => { const val = e.target.value; if (cargoUpdateDebounceTimerRef.current) clearTimeout(cargoUpdateDebounceTimerRef.current); cargoUpdateDebounceTimerRef.current = setTimeout(() => { handleUpdateCargoItem(item.id, 'quantity', val); }, 500); }} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded px-1 py-1.5 text-center text-slate-900 text-[11px]" /></td>
                               <td className="p-1"><input type="number" value={item?.length ?? ''} onChange={(e) => handleUpdateCargoItem(item.id, 'length', e.target.value)} className="w-full bg-white border border-slate-300 px-1 py-1.5 rounded text-center text-[11px]" placeholder="L" /></td>
                               <td className="p-1"><input type="number" value={item?.width ?? ''} onChange={(e) => handleUpdateCargoItem(item.id, 'width', e.target.value)} className="w-full bg-white border border-slate-300 px-1 py-1.5 rounded text-center text-[11px]" placeholder="W" /></td>
                               <td className="p-1"><input type="number" value={item?.height ?? ''} onChange={(e) => handleUpdateCargoItem(item.id, 'height', e.target.value)} className="w-full bg-white border border-slate-300 px-1 py-1.5 rounded text-center text-[11px]" placeholder="H" /></td>
@@ -7231,9 +7293,20 @@ function ForwarderWorkspaceInner(props = {}) {
   type="number"
   min={1}
   required
-  value={safeLoadHours}
+  value={loadingRateInput}
   onChange={(e) => {
     const val = Math.max(1, Number(e.target.value));
+    setLoadingRateInput(val);
+    if (hoursDebounceTimerRef.current) clearTimeout(hoursDebounceTimerRef.current);
+    hoursDebounceTimerRef.current = setTimeout(() => {
+      setSafeLoadHours(val);
+      setLoadingRate(val);
+      setActiveProject(prev => ({ ...prev, loadingRate: val, safe_load_hours: val }));
+    }, 500);
+  }}
+  onBlur={() => {
+    if (hoursDebounceTimerRef.current) clearTimeout(hoursDebounceTimerRef.current);
+    const val = Math.max(1, Number(loadingRateInput));
     setSafeLoadHours(val);
     setLoadingRate(val);
     setActiveProject(prev => ({ ...prev, loadingRate: val, safe_load_hours: val }));
@@ -7252,9 +7325,20 @@ function ForwarderWorkspaceInner(props = {}) {
   type="number"
   min={1}
   required
-  value={safeDischHours}
+  value={dischargingRateInput}
   onChange={(e) => {
     const val = Math.max(1, Number(e.target.value));
+    setDischargingRateInput(val);
+    if (hoursDebounceTimerRef.current) clearTimeout(hoursDebounceTimerRef.current);
+    hoursDebounceTimerRef.current = setTimeout(() => {
+      setSafeDischHours(val);
+      setDischargingRate(val);
+      setActiveProject(prev => ({ ...prev, dischargingRate: val, safe_disch_hours: val }));
+    }, 500);
+  }}
+  onBlur={() => {
+    if (hoursDebounceTimerRef.current) clearTimeout(hoursDebounceTimerRef.current);
+    const val = Math.max(1, Number(dischargingRateInput));
     setSafeDischHours(val);
     setDischargingRate(val);
     setActiveProject(prev => ({ ...prev, dischargingRate: val, safe_disch_hours: val }));
