@@ -108,6 +108,32 @@ export default async function handler(request) {
       // Asegurar que el mensaje de voz se renderice en el chat si viene como 'respuesta'
       data.reply = data.mensaje_voz || data.respuesta || data.reply || "Operación completada.";
 
+      // Regla Fase 4: MADRE jamás debe sugerir una cadencia de 1 vehículo al día en operaciones de alto volumen
+      const ctxPayload = body.contexto_ui || {};
+      const totalVehiculosRemote = Number(
+        data.total_trucks || data.totalVehiculos || ctxPayload.total_trucks || ctxPayload.flota ||
+        (ctxPayload.toneladas ? Math.ceil(Number(ctxPayload.toneladas) / 24) : 0) ||
+        (data.delegation_payload?.tonnage ? Math.ceil(Number(data.delegation_payload.tonnage) / 24) : 0) || 0
+      );
+      const bufferDaysRemote = Number(ctxPayload.bufferEntrega || ctxPayload.laycanBuffer || ctxPayload.deliveryBufferDays || data.bufferDays || 0) || 7;
+      if (totalVehiculosRemote > 1) {
+        const dynamicCadence = Math.ceil(totalVehiculosRemote / bufferDaysRemote);
+        if (data.cadencia === 1 || data.modificacionesRecap?.cadencia === 1 || data.cadenciaSugerida === 1) {
+          data.cadencia = dynamicCadence;
+          if (data.modificacionesRecap) {
+            data.modificacionesRecap.cadencia = dynamicCadence;
+            data.modificacionesRecap.cadenciaSugerida = dynamicCadence;
+          }
+          if (data.cadenciaSugerida) data.cadenciaSugerida = dynamicCadence;
+        }
+        if (data.delegation_payload && data.delegation_payload.cadencia === 1) {
+          data.delegation_payload.cadencia = dynamicCadence;
+        }
+        if (typeof data.reply === "string" && /1\s*(?:camión|vehículo)\s*al\s*día/i.test(data.reply)) {
+          data.reply = data.reply.replace(/1\s*(?:camión|vehículo)\s*al\s*día/gi, `${dynamicCadence} vehículos al día`);
+        }
+      }
+
       return new Response(JSON.stringify(data), {
         status: 200,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
@@ -162,13 +188,22 @@ export default async function handler(request) {
 
       const reporteEstrategico = `Auditoría Estratégica Terrestre completada para la ruta ${ruta.origen || 'Origen'} ➔ ${ruta.destino || 'Destino'} (${ruta.distanciaKm || 0} km, ${ldm} LDM). Con un flete proyectado de ${flete} € y un coste operativo base de ${breakEven} € (incluyendo ${peajes} € en peajes), el margen bruto estimado se sitúa en el ${margen.toFixed(1)}%. Se detecta exposición comercial crítica ante demoras en muelle o retornos en vacío. Se recomienda proceder bajo la Opción B contractual con blindaje de paralizaciones.`;
 
+      const totalVehiculosLocal = Number(
+        porte.total_trucks || porte.trucks_needed || ctx.flota || ctx.total_trucks ||
+        (ctx.toneladas ? Math.ceil(Number(ctx.toneladas) / 24) : (porte.cargo ? Math.ceil(Number(porte.cargo) / 24) : 0)) || 0
+      );
+      const bufferDaysLocal = Number(ctx.bufferEntrega || ctx.laycanBuffer || ctx.deliveryBufferDays || 0) || 7;
+      const cadenciaDinamica = totalVehiculosLocal > 1 ? Math.ceil(totalVehiculosLocal / bufferDaysLocal) : 1;
+
       const modificacionesRecap = {
         tarifaSugerida: Math.round(flete * 1.08),
         fleteEstimado: Math.round(flete * 1.08),
         breakEven: breakEven,
         clausulaParalizacion: "Indemnización por paralización de 60,00 €/hora tras 3 horas de espera en origen, destino o aduana.",
         condicionesEspeciales: "Opción B Estratégica MADRE: Retorno en vacío cubierto al 70%, peajes incluidos y franquicia de espera limitada a 3h.",
-        peajes: peajes
+        peajes: peajes,
+        cadenciaSugerida: cadenciaDinamica,
+        cadencia: cadenciaDinamica
       };
 
       return new Response(JSON.stringify({

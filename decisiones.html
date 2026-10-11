@@ -929,8 +929,14 @@
                 ? Number(State.trucks_needed || State.trucksNeeded)
                 : (Math.max(1, Math.ceil(cargoQty / 24)));
 
-            const diasOperativosCarga = diasCargaTeoricos > 0 ? diasCargaTeoricos : 1;
-            const cadenciaCalculada = Math.max(1, Math.ceil(fleetTrucks / diasOperativosCarga));
+            // Cadencia Dinámica (Fase 4): Cadencia Diaria = Math.ceil(Total de Vehículos / Días de Buffer de Entrega)
+            // Si el buffer de entrega no está definido, utiliza un máximo de 7 días laborables.
+            const rawDeliveryBuffer = (typeof laycanBuffer === 'number' && !isNaN(laycanBuffer) && laycanBuffer > 0)
+                ? laycanBuffer
+                : (Number(activeState.deliveryBufferDays || activeState.bufferEntrega || (typeof State !== 'undefined' ? (State.deliveryBufferDays || State.bufferEntrega || State.laycanBuffer) : 0)) || 0);
+            const diasBufferEntrega = rawDeliveryBuffer > 0 ? rawDeliveryBuffer : 7;
+            const diasOperativosCarga = (diasCargaTeoricos > 0 && diasCargaTeoricos !== 1) ? diasCargaTeoricos : diasBufferEntrega;
+            const cadenciaCalculada = Math.ceil(fleetTrucks / diasOperativosCarga);
 
             // Evaluación de Paralizaciones (LOTT):
             // En transporte terrestre, cada camión dispone de franquicia de horas libres (máx. 2h según LOTT).
