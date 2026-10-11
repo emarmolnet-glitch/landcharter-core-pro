@@ -259,6 +259,15 @@ export function buildRoadSyncPayload(options = {}) {
         road_net_margin,
     };
 
+    if (options.isExplicitSave || options.is_explicit_save || options.allow_insert || options.allowInsert || options.explicit) {
+        payload.is_explicit_save = true;
+        payload.allow_insert = true;
+    }
+
+    if (options.status) {
+        payload.status = options.status;
+    }
+
     if (options.project_title || options.description || options.client_name) {
         payload.project_title = options.project_title || options.description || options.client_name;
         payload.description = options.description || options.project_title || options.client_name;

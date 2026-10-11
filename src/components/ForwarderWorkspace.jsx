@@ -2494,7 +2494,12 @@ function ForwarderWorkspaceInner(props = {}) {
             ? updated.services
             : ((Array.isArray(updated.line_items) && updated.line_items.length > 0) ? updated.line_items : (activeProject?.line_items || activeProject?.services || []));
           const withSrvs = {
+            ...activeProject,
             ...updated,
+            items: (Array.isArray(updated.items) && updated.items.length > 0) ? updated.items : (activeProject?.items || []),
+            cargo_items: (Array.isArray(updated.cargo_items) && updated.cargo_items.length > 0) ? updated.cargo_items : (activeProject?.cargo_items || []),
+            packing_list: updated.packing_list || activeProject?.packing_list || null,
+            documents: (Array.isArray(updated.documents) && updated.documents.length > 0) ? updated.documents : (activeProject?.documents || []),
             services: srvs,
             line_items: srvs,
             land_freight_cost: Number(updated.land_freight_cost) > 0 ? Number(updated.land_freight_cost) : (activeProject?.land_freight_cost || 0),
@@ -2502,7 +2507,7 @@ function ForwarderWorkspaceInner(props = {}) {
             valor_total_mercancia_usd: Number(updated.valor_total_mercancia_usd) > 0 ? Number(updated.valor_total_mercancia_usd) : (activeProject?.valor_total_mercancia_usd || 0),
           };
           setActiveProject(withSrvs);
-          setprojectDocuments(withSrvs.documents || withSrvs.files || []);
+          setprojectDocuments(withSrvs.documents || withSrvs.files || activeProject?.documents || []);
         }
       } else if (targetRef) {
         const matching = list.find((p) => String(p?.project_ref || '').toUpperCase() === String(targetRef || '').toUpperCase() || isProjectMatchingActiveDossier(p, targetRef));
@@ -2926,6 +2931,8 @@ function ForwarderWorkspaceInner(props = {}) {
           }],
           items: finalCargoItems,
           cargo_items: finalCargoItems,
+          is_explicit_save: true,
+          allow_insert: true,
           land_route: {
             origin: syncOriginCity,
             destination: syncDestCity,
@@ -3511,7 +3518,7 @@ function ForwarderWorkspaceInner(props = {}) {
           rawCandidateRef = rawCandidateRef.split('-EXP-')[0];
       }
 
-      const isDescriptiveCandidate = rawCandidateRef && (/\s+/.test(rawCandidateRef) || /^[0-9]+MT$/i.test(rawCandidateRef) || /\b(a|to|de|from)\b/i.test(rawCandidateRef));
+      const isDescriptiveCandidate = rawCandidateRef && rawCandidateRef.length > 150;
       const extractedTitle = isDescriptiveCandidate ? rawCandidateRef : (projectToSave?.project_title || activeProject?.project_title || projectToSave?.client_name || activeProject?.client_name);
 
       const effectiveProjectRef = rawCandidateRef || getActiveGlobalReference() || `RDM/${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
@@ -3723,6 +3730,16 @@ function ForwarderWorkspaceInner(props = {}) {
       const finalSaved = savedProject ? {
         ...payload,
         ...savedProject,
+        items: (Array.isArray(savedProject.items) && savedProject.items.length > 0)
+          ? savedProject.items
+          : (payload.items || activeProject?.items || []),
+        cargo_items: (Array.isArray(savedProject.cargo_items) && savedProject.cargo_items.length > 0)
+          ? savedProject.cargo_items
+          : (payload.cargo_items || activeProject?.cargo_items || []),
+        documents: (Array.isArray(savedProject.documents) && savedProject.documents.length > 0)
+          ? savedProject.documents
+          : (payload.documents || activeProject?.documents || []),
+        packing_list: savedProject.packing_list || payload.packing_list || activeProject?.packing_list || null,
         land_freight_cost: Number(payload.land_freight_cost) > 0 ? payload.land_freight_cost : savedProject.land_freight_cost,
         land_freight_sale: Number(payload.land_freight_sale) > 0 ? payload.land_freight_sale : savedProject.land_freight_sale,
         total_trucks: Number(payload.total_trucks) > 0 ? payload.total_trucks : savedProject.total_trucks,
@@ -6144,6 +6161,8 @@ function ForwarderWorkspaceInner(props = {}) {
               const dataBridgePayloadObject = {
                 reference: activeProject?.project_ref,
                 project_ref: activeProject?.project_ref,
+                is_explicit_save: true,
+                allow_insert: true,
                 total_trucks: updatedProject.total_trucks,
                 land_freight_cost: finalTotalLandCost,
                 land_freight_sale: finalTotalLandSale,
