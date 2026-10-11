@@ -872,11 +872,17 @@ export async function ejecutarAuditoriaMadre() {
             peajes: peajes
         };
 
+        const transportMode = (typeof window !== 'undefined' && window.globalTransportMode) ? window.globalTransportMode : 'ROAD';
+
         const payload = {
             modulo: 'land_charter',
             vista_activa: 'decisiones',
             contexto_ui: contexto_ui,
-            mensajeUsuario: 'Auditoría estratégica terrestre para porte actual'
+            mensajeUsuario: 'Auditoría estratégica terrestre para porte actual',
+            transportMode,
+            globalTransportMode: transportMode,
+            transport_mode: transportMode,
+            isRail: transportMode === 'RAIL'
         };
 
         const res = await fetch('/api/madre-ia', {

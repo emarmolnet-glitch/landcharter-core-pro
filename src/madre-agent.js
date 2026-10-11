@@ -38,6 +38,8 @@ export function extractLandCharterTelemetry() {
     iaActiva = "proyectos";
   }
 
+  const transportMode = (typeof window !== "undefined" && window.globalTransportMode) ? window.globalTransportMode : "ROAD";
+
   return {
     pol: String(pol).trim(),
     pod: String(pod).trim(),
@@ -46,7 +48,10 @@ export function extractLandCharterTelemetry() {
     vehicle_type: String(vehicleType).trim(),
     isProjectMode,
     iaActiva,
-    active_project_ref: window.State?.project_ref || window.referenciaActivaGlobal || null
+    active_project_ref: window.State?.project_ref || window.referenciaActivaGlobal || null,
+    transportMode,
+    globalTransportMode: transportMode,
+    isRail: transportMode === "RAIL"
   };
 }
 
@@ -55,11 +60,16 @@ export function extractLandCharterTelemetry() {
  */
 export async function sendPromptToMadre(promptText) {
   const telemetry = extractLandCharterTelemetry();
+  const transportMode = (typeof window !== "undefined" && window.globalTransportMode) ? window.globalTransportMode : "ROAD";
 
   const payload = {
     current_module: "land_charter", // OBLIGATORIO
     prompt: promptText,
     contexto_ui: telemetry,
+    transportMode,
+    globalTransportMode: transportMode,
+    transport_mode: transportMode,
+    isRail: transportMode === "RAIL",
     timestamp: new Date().toISOString()
   };
 
@@ -297,11 +307,16 @@ export function mountMadreUI() {
  * Envía una solicitud de Auditoría Estratégica Terrestre a MADRE
  */
 export async function requestLandStrategicAudit(contextoUi = {}) {
+  const transportMode = (typeof window !== "undefined" && window.globalTransportMode) ? window.globalTransportMode : "ROAD";
   const payload = {
     modulo: "land_charter",
     vista_activa: "decisiones",
     contexto_ui: contextoUi,
     mensajeUsuario: "Auditoría estratégica terrestre para porte actual",
+    transportMode,
+    globalTransportMode: transportMode,
+    transport_mode: transportMode,
+    isRail: transportMode === "RAIL",
     timestamp: new Date().toISOString()
   };
 
