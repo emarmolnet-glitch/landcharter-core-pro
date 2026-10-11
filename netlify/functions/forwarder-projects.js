@@ -92,14 +92,15 @@ async function ensureForwarderProjectsTable(clientOrPool) {
   }
 }
 
-// Helper para detectar si un texto es un nombre descriptivo libre (ej. "Bejaia a Aveiro 8000MT")
-// en lugar de una referencia canónica (ej. "RDM/2026-5590" o "EXP-123456")
+// Helper para detectar si un texto es un nombre descriptivo libre excesivamente largo (ej. narrativas de más de 150 caracteres)
+// en lugar de una referencia canónica o comercial (ej. "RDM/2026-5590", "EXP-123456", "10 camiones", o "5000MT").
+// En Land Charter es completamente normal que un project_ref contenga espacios, la palabra "camiones", o finalice en "MT".
 function isDescriptiveProjectName(str) {
   if (!str || typeof str !== 'string') return false;
   const s = str.trim();
-  if (/\s+/.test(s)) return true;
-  if (/^[0-9]+MT$/i.test(s)) return true;
-  if (/\b(a|to|de|from)\b/i.test(s)) return true;
+  if (!s) return false;
+  // Solo se descarta si supera la longitud máxima razonable de una referencia o código (150 caracteres)
+  if (s.length > 150) return true;
   return false;
 }
 
@@ -325,6 +326,29 @@ exports.handler = async (event) => {
             $16, $17, $18,
             $19::jsonb, $20::jsonb, $21, $22
           )
+          ON CONFLICT (project_ref) DO UPDATE SET
+            client_name = COALESCE(EXCLUDED.client_name, forwarder_projects.client_name),
+            project_title = COALESCE(EXCLUDED.project_title, forwarder_projects.project_title),
+            description = COALESCE(EXCLUDED.description, forwarder_projects.description),
+            status = COALESCE(EXCLUDED.status, forwarder_projects.status),
+            global_margin_percentage = COALESCE(EXCLUDED.global_margin_percentage, forwarder_projects.global_margin_percentage),
+            documents = CASE WHEN EXCLUDED.documents IS NOT NULL AND jsonb_array_length(EXCLUDED.documents) > 0 THEN EXCLUDED.documents ELSE forwarder_projects.documents END,
+            items = CASE WHEN EXCLUDED.items IS NOT NULL AND jsonb_array_length(EXCLUDED.items) > 0 THEN EXCLUDED.items ELSE forwarder_projects.items END,
+            services = CASE WHEN EXCLUDED.services IS NOT NULL AND jsonb_array_length(EXCLUDED.services) > 0 THEN EXCLUDED.services ELSE forwarder_projects.services END,
+            land_origin = COALESCE(NULLIF(EXCLUDED.land_origin, ''), forwarder_projects.land_origin),
+            land_destination = COALESCE(NULLIF(EXCLUDED.land_destination, ''), forwarder_projects.land_destination),
+            land_distance = CASE WHEN EXCLUDED.land_distance > 0 THEN EXCLUDED.land_distance ELSE forwarder_projects.land_distance END,
+            land_freight_cost = CASE WHEN EXCLUDED.land_freight_cost > 0 THEN EXCLUDED.land_freight_cost ELSE forwarder_projects.land_freight_cost END,
+            land_freight_sale = CASE WHEN EXCLUDED.land_freight_sale > 0 THEN EXCLUDED.land_freight_sale ELSE forwarder_projects.land_freight_sale END,
+            valor_total_mercancia_usd = CASE WHEN EXCLUDED.valor_total_mercancia_usd > 0 THEN EXCLUDED.valor_total_mercancia_usd ELSE forwarder_projects.valor_total_mercancia_usd END,
+            total_trucks = CASE WHEN EXCLUDED.total_trucks > 0 THEN EXCLUDED.total_trucks ELSE forwarder_projects.total_trucks END,
+            road_transit_days = CASE WHEN EXCLUDED.road_transit_days > 0 THEN EXCLUDED.road_transit_days ELSE forwarder_projects.road_transit_days END,
+            road_net_margin = CASE WHEN EXCLUDED.road_net_margin <> 0 THEN EXCLUDED.road_net_margin ELSE forwarder_projects.road_net_margin END,
+            route_and_chartering = COALESCE(EXCLUDED.route_and_chartering, forwarder_projects.route_and_chartering),
+            data = CASE WHEN EXCLUDED.data IS NOT NULL AND EXCLUDED.data <> '{}'::jsonb THEN EXCLUDED.data ELSE forwarder_projects.data END,
+            dossier_ref = COALESCE(EXCLUDED.dossier_ref, forwarder_projects.dossier_ref),
+            parent_ref = COALESCE(EXCLUDED.parent_ref, forwarder_projects.parent_ref),
+            updated_at = CURRENT_TIMESTAMP
           RETURNING *;
         `;
         const insertAdaptedValues = [
@@ -467,6 +491,27 @@ exports.handler = async (event) => {
               $13, $14, $15,
               $16, $17::jsonb, $18::jsonb, $19, $20
             )
+            ON CONFLICT (project_ref) DO UPDATE SET
+              client_name = COALESCE(EXCLUDED.client_name, forwarder_projects.client_name),
+              project_title = COALESCE(EXCLUDED.project_title, forwarder_projects.project_title),
+              description = COALESCE(EXCLUDED.description, forwarder_projects.description),
+              status = COALESCE(EXCLUDED.status, forwarder_projects.status),
+              global_margin_percentage = COALESCE(EXCLUDED.global_margin_percentage, forwarder_projects.global_margin_percentage),
+              documents = CASE WHEN EXCLUDED.documents IS NOT NULL AND jsonb_array_length(EXCLUDED.documents) > 0 THEN EXCLUDED.documents ELSE forwarder_projects.documents END,
+              items = CASE WHEN EXCLUDED.items IS NOT NULL AND jsonb_array_length(EXCLUDED.items) > 0 THEN EXCLUDED.items ELSE forwarder_projects.items END,
+              services = CASE WHEN EXCLUDED.services IS NOT NULL AND jsonb_array_length(EXCLUDED.services) > 0 THEN EXCLUDED.services ELSE forwarder_projects.services END,
+              land_origin = COALESCE(NULLIF(EXCLUDED.land_origin, ''), forwarder_projects.land_origin),
+              land_destination = COALESCE(NULLIF(EXCLUDED.land_destination, ''), forwarder_projects.land_destination),
+              land_distance = CASE WHEN EXCLUDED.land_distance > 0 THEN EXCLUDED.land_distance ELSE forwarder_projects.land_distance END,
+              land_freight_cost = CASE WHEN EXCLUDED.land_freight_cost > 0 THEN EXCLUDED.land_freight_cost ELSE forwarder_projects.land_freight_cost END,
+              land_freight_sale = CASE WHEN EXCLUDED.land_freight_sale > 0 THEN EXCLUDED.land_freight_sale ELSE forwarder_projects.land_freight_sale END,
+              valor_total_mercancia_usd = CASE WHEN EXCLUDED.valor_total_mercancia_usd > 0 THEN EXCLUDED.valor_total_mercancia_usd ELSE forwarder_projects.valor_total_mercancia_usd END,
+              total_trucks = CASE WHEN EXCLUDED.total_trucks > 0 THEN EXCLUDED.total_trucks ELSE forwarder_projects.total_trucks END,
+              route_and_chartering = COALESCE(EXCLUDED.route_and_chartering, forwarder_projects.route_and_chartering),
+              data = CASE WHEN EXCLUDED.data IS NOT NULL AND EXCLUDED.data <> '{}'::jsonb THEN EXCLUDED.data ELSE forwarder_projects.data END,
+              dossier_ref = COALESCE(EXCLUDED.dossier_ref, forwarder_projects.dossier_ref),
+              parent_ref = COALESCE(EXCLUDED.parent_ref, forwarder_projects.parent_ref),
+              updated_at = CURRENT_TIMESTAMP
             RETURNING *;
           `;
           const fallbackValues = [
@@ -543,6 +588,13 @@ exports.handler = async (event) => {
       const insertQuery = `
         INSERT INTO forwarder_projects (project_ref, client_name, status, global_margin_percentage, documents, items)
         VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb)
+        ON CONFLICT (project_ref) DO UPDATE SET
+          client_name = COALESCE(EXCLUDED.client_name, forwarder_projects.client_name),
+          status = COALESCE(EXCLUDED.status, forwarder_projects.status),
+          global_margin_percentage = COALESCE(EXCLUDED.global_margin_percentage, forwarder_projects.global_margin_percentage),
+          documents = CASE WHEN EXCLUDED.documents IS NOT NULL AND jsonb_array_length(EXCLUDED.documents) > 0 THEN EXCLUDED.documents ELSE forwarder_projects.documents END,
+          items = CASE WHEN EXCLUDED.items IS NOT NULL AND jsonb_array_length(EXCLUDED.items) > 0 THEN EXCLUDED.items ELSE forwarder_projects.items END,
+          updated_at = CURRENT_TIMESTAMP
         RETURNING *;
       `;
       const rawCreateItems = items || cargo_items || line_items || services || [];
@@ -662,9 +714,68 @@ exports.handler = async (event) => {
         dataJson
       ];
       
-      const result = await dbPool.query(query, values);
+      let result = await dbPool.query(query, values);
+      let row = result.rows[0];
 
-      if (result.rows.length === 0) {
+      if (!row && data.project_ref) {
+        // 4. ATOMICIDAD EN BASE DE DATOS: Fallback atómico con ON CONFLICT (project_ref) DO UPDATE si la fila aún no existe
+        const targetRef = String(data.project_ref).trim();
+        const fallbackPutQuery = `
+          INSERT INTO forwarder_projects (
+            project_ref, client_name, status, global_margin_percentage,
+            documents, items, services,
+            land_origin, land_destination, land_distance,
+            land_freight_cost, land_freight_sale, valor_total_mercancia_usd,
+            total_trucks, route_and_chartering, data, created_at, updated_at
+          ) VALUES (
+            $1, $2, $3, $4,
+            COALESCE($5::jsonb, '[]'::jsonb), COALESCE($6::jsonb, '[]'::jsonb), COALESCE($7::jsonb, '[]'::jsonb),
+            $8, $9, $10,
+            $11, $12, $13,
+            $14, $15::jsonb, $16::jsonb,
+            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+          )
+          ON CONFLICT (project_ref) DO UPDATE SET
+            client_name = COALESCE(EXCLUDED.client_name, forwarder_projects.client_name),
+            status = COALESCE(EXCLUDED.status, forwarder_projects.status),
+            global_margin_percentage = COALESCE(EXCLUDED.global_margin_percentage, forwarder_projects.global_margin_percentage),
+            documents = CASE WHEN EXCLUDED.documents IS NOT NULL AND jsonb_array_length(EXCLUDED.documents) > 0 THEN EXCLUDED.documents ELSE forwarder_projects.documents END,
+            items = CASE WHEN EXCLUDED.items IS NOT NULL AND jsonb_array_length(EXCLUDED.items) > 0 THEN EXCLUDED.items ELSE forwarder_projects.items END,
+            services = CASE WHEN EXCLUDED.services IS NOT NULL AND jsonb_array_length(EXCLUDED.services) > 0 THEN EXCLUDED.services ELSE forwarder_projects.services END,
+            land_origin = COALESCE(NULLIF(EXCLUDED.land_origin, ''), forwarder_projects.land_origin),
+            land_destination = COALESCE(NULLIF(EXCLUDED.land_destination, ''), forwarder_projects.land_destination),
+            land_distance = CASE WHEN EXCLUDED.land_distance > 0 THEN EXCLUDED.land_distance ELSE forwarder_projects.land_distance END,
+            land_freight_cost = CASE WHEN EXCLUDED.land_freight_cost > 0 THEN EXCLUDED.land_freight_cost ELSE forwarder_projects.land_freight_cost END,
+            land_freight_sale = CASE WHEN EXCLUDED.land_freight_sale > 0 THEN EXCLUDED.land_freight_sale ELSE forwarder_projects.land_freight_sale END,
+            valor_total_mercancia_usd = CASE WHEN EXCLUDED.valor_total_mercancia_usd > 0 THEN EXCLUDED.valor_total_mercancia_usd ELSE forwarder_projects.valor_total_mercancia_usd END,
+            total_trucks = CASE WHEN EXCLUDED.total_trucks > 0 THEN EXCLUDED.total_trucks ELSE forwarder_projects.total_trucks END,
+            route_and_chartering = COALESCE(EXCLUDED.route_and_chartering, forwarder_projects.route_and_chartering),
+            data = CASE WHEN EXCLUDED.data IS NOT NULL AND EXCLUDED.data <> '{}'::jsonb THEN EXCLUDED.data ELSE forwarder_projects.data END,
+            updated_at = CURRENT_TIMESTAMP
+          RETURNING *;
+        `;
+        const fbRes = await dbPool.query(fallbackPutQuery, [
+          targetRef,
+          data.client_name || 'Nuevo Cliente',
+          statusValue || 'BORRADOR',
+          marginValue || '0',
+          data.documents !== undefined ? JSON.stringify(data.documents) : null,
+          incomingCargoItems !== null ? JSON.stringify(adaptProjectItems(incomingCargoItems)) : null,
+          servicesJson,
+          landOrigin,
+          landDestination,
+          landDistance,
+          landFreightCost,
+          landFreightSale,
+          goodsValueUsd,
+          totalTrucks,
+          routeCharteringJson,
+          dataJson
+        ]);
+        row = fbRes.rows[0];
+      }
+
+      if (!row) {
         return {
           statusCode: 404,
           headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -672,12 +783,15 @@ exports.handler = async (event) => {
         };
       }
 
-      const row = result.rows[0];
       const srvs = Array.isArray(row.services) && row.services.length > 0
         ? row.services
         : (Array.isArray(row.line_items) ? row.line_items : []);
       const formattedProject = {
         ...row,
+        items: Array.isArray(row.items) ? row.items : [],
+        documents: Array.isArray(row.documents) ? row.documents : [],
+        cargo_items: Array.isArray(row.items) ? row.items : (Array.isArray(row.cargo_items) ? row.cargo_items : []),
+        packing_list: row.packing_list || row.data?.packing_list || null,
         services: srvs,
         line_items: srvs,
         land_freight_cost: Number(row.land_freight_cost) || 0,
@@ -700,7 +814,7 @@ exports.handler = async (event) => {
       const qParams = event.queryStringParameters || {};
       const idParam = (qParams.id || qParams.projectId || '').trim();
       const parsedId = idParam && !isNaN(parseInt(idParam, 10)) ? parseInt(idParam, 10) : null;
-      const refFilter = (qParams.ref || qParams.project_ref || qParams.contractRef || (parsedId === null ? idParam : '')).trim();
+      const refFilter = (qParams.ref || qParams.project_ref || qParams.contractRef || qParams.active_ref || qParams.activeRef || (parsedId === null ? idParam : '')).trim();
 
       // CASO A: DETALLE DE UN PROYECTO ESPECÍFICO (?ref=... o ?id=...)
       // Si la petición incluye un parámetro para un registro específico, usa SELECT * ... LIMIT 1
@@ -732,6 +846,10 @@ exports.handler = async (event) => {
 
         const formattedProject = {
           ...row,
+          items: Array.isArray(row.items) ? row.items : [],
+          documents: Array.isArray(row.documents) ? row.documents : [],
+          cargo_items: Array.isArray(row.items) ? row.items : (Array.isArray(row.cargo_items) ? row.cargo_items : []),
+          packing_list: row.packing_list || row.data?.packing_list || null,
           services: srvs,
           line_items: srvs,
           land_freight_cost: Number(row.land_freight_cost) || 0,

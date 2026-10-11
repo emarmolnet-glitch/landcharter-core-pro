@@ -199,11 +199,12 @@ export default async (req: Request, _context: Context) => {
 
     // Aceptar project_ref o reference como fallback en el payload, pero mapear SIEMPRE a la columna project_ref de Neon
     const rawRef = cleanString(body.project_ref || body.projectRef || body.reference || body.ref || body.contractRef || body.contract_ref);
-    const isDescriptive = /\s+/.test(rawRef) || /^[0-9]+MT$/i.test(rawRef) || /\b(a|to|de|from)\b/i.test(rawRef);
+    // En Land Charter es completamente normal que un project_ref contenga espacios, la palabra "camiones" o finalice en "MT"
+    const isDescriptive = rawRef.length > 150;
     const descriptiveTitle = cleanString(body.project_title || body.description || (isDescriptive ? rawRef : body.client_name));
 
     let projectRef = isDescriptive
-      ? cleanString(body.dossier_ref || body.parent_ref || body.referenciaPadre)
+      ? cleanString(body.dossier_ref || body.parent_ref || body.referenciaPadre) || rawRef
       : rawRef;
 
     if (!projectRef && rawRef) {
@@ -256,46 +257,18 @@ export default async (req: Request, _context: Context) => {
     const rawItems = body.items || body.cargo_items;
     const itemsJson = Array.isArray(rawItems) && rawItems.length > 0 ? JSON.stringify(adaptRoadItems(rawItems)) : null;
 
-    const updateQuery = `
-      UPDATE forwarder_projects
-      SET
-        total_trucks = CASE WHEN $2::integer > 0 THEN $2::integer ELSE total_trucks END,
-        road_transit_days = CASE WHEN $3::numeric > 0 THEN $3::numeric ELSE road_transit_days END,
-        road_net_margin = CASE WHEN $4::numeric <> 0 THEN $4::numeric ELSE road_net_margin END,
-        land_origin = COALESCE(NULLIF($5::text, ''), land_origin),
-        land_destination = COALESCE(NULLIF($6::text, ''), land_destination),
-        land_distance = CASE WHEN $7::numeric > 0 THEN $7::numeric ELSE land_distance END,
-        land_freight_cost = CASE WHEN $8::numeric > 0 THEN $8::numeric ELSE land_freight_cost END,
-        items = CASE WHEN $9::jsonb IS NOT NULL THEN $9::jsonb ELSE items END,
-        services = CASE WHEN $10::jsonb IS NOT NULL AND jsonb_array_length($10::jsonb) > 0 THEN $10::jsonb ELSE services END,
-        land_freight_sale = CASE WHEN $11::numeric > 0 THEN $11::numeric ELSE land_freight_sale END,
-        valor_total_mercancia_usd = CASE WHEN $12::numeric > 0 THEN $12::numeric ELSE valor_total_mercancia_usd END,
-        project_title = COALESCE(NULLIF($13::text, ''), project_title),
-        description = COALESCE(NULLIF($14::text, ''), description),
-        updated_at = CURRENT_TIMESTAMP
-      WHERE upper(project_ref) = upper($1::text) OR project_ref = $1::text
-      RETURNING id, project_ref;
-    `;
+    const isExplicitSave = Boolean(
+      body.is_explicit_save ||
+      body.explicit_save ||
+      body.allow_insert ||
+      body.create_if_missing ||
+      body.isExplicitSave
+    );
 
-    let result = await db.query(updateQuery, [
-      projectRef,
-      total_trucks,
-      road_transit_days,
-      road_net_margin,
-      land_origin,
-      land_destination,
-      land_distance,
-      land_freight_cost,
-      itemsJson,
-      servicesJson,
-      land_freight_sale,
-      valor_total_mercancia_usd,
-      descriptiveTitle || null,
-      descriptiveTitle || null,
-    ]);
-
-    if (result.rowCount === 0) {
-      const insertQuery = `
+    if (isExplicitSave) {
+      // 4. ATOMICIDAD EN BASE DE DATOS (ON CONFLICT DO UPDATE):
+      // Si el usuario guardó o inició explícitamente el proyecto, operación atómica real sin race condition
+      const upsertQuery = `
         INSERT INTO forwarder_projects (
           project_ref,
           client_name,
@@ -320,7 +293,7 @@ export default async (req: Request, _context: Context) => {
           COALESCE(NULLIF($13::text, ''), 'Proyecto ' || $1::text),
           $13::text,
           $14::text,
-          'BORRADOR',
+          COALESCE(NULLIF($15::text, ''), 'BORRADOR'),
           $2::integer,
           $3::numeric,
           $4::numeric,
@@ -335,9 +308,67 @@ export default async (req: Request, _context: Context) => {
           CURRENT_TIMESTAMP,
           CURRENT_TIMESTAMP
         )
+        ON CONFLICT (project_ref) DO UPDATE SET
+          total_trucks = CASE WHEN EXCLUDED.total_trucks > 0 THEN EXCLUDED.total_trucks ELSE forwarder_projects.total_trucks END,
+          road_transit_days = CASE WHEN EXCLUDED.road_transit_days > 0 THEN EXCLUDED.road_transit_days ELSE forwarder_projects.road_transit_days END,
+          road_net_margin = CASE WHEN EXCLUDED.road_net_margin <> 0 THEN EXCLUDED.road_net_margin ELSE forwarder_projects.road_net_margin END,
+          land_origin = COALESCE(NULLIF(EXCLUDED.land_origin, ''), forwarder_projects.land_origin),
+          land_destination = COALESCE(NULLIF(EXCLUDED.land_destination, ''), forwarder_projects.land_destination),
+          land_distance = CASE WHEN EXCLUDED.land_distance > 0 THEN EXCLUDED.land_distance ELSE forwarder_projects.land_distance END,
+          land_freight_cost = CASE WHEN EXCLUDED.land_freight_cost > 0 THEN EXCLUDED.land_freight_cost ELSE forwarder_projects.land_freight_cost END,
+          items = CASE WHEN EXCLUDED.items IS NOT NULL AND jsonb_array_length(EXCLUDED.items) > 0 THEN EXCLUDED.items ELSE forwarder_projects.items END,
+          services = CASE WHEN EXCLUDED.services IS NOT NULL AND jsonb_array_length(EXCLUDED.services) > 0 THEN EXCLUDED.services ELSE forwarder_projects.services END,
+          land_freight_sale = CASE WHEN EXCLUDED.land_freight_sale > 0 THEN EXCLUDED.land_freight_sale ELSE forwarder_projects.land_freight_sale END,
+          valor_total_mercancia_usd = CASE WHEN EXCLUDED.valor_total_mercancia_usd > 0 THEN EXCLUDED.valor_total_mercancia_usd ELSE forwarder_projects.valor_total_mercancia_usd END,
+          project_title = COALESCE(NULLIF(EXCLUDED.project_title, ''), forwarder_projects.project_title),
+          description = COALESCE(NULLIF(EXCLUDED.description, ''), forwarder_projects.description),
+          updated_at = CURRENT_TIMESTAMP
         RETURNING id, project_ref;
       `;
-      result = await db.query(insertQuery, [
+
+      await db.query(upsertQuery, [
+        projectRef,
+        total_trucks,
+        road_transit_days,
+        road_net_margin,
+        land_origin,
+        land_destination,
+        land_distance,
+        land_freight_cost,
+        itemsJson,
+        servicesJson,
+        land_freight_sale,
+        valor_total_mercancia_usd,
+        descriptiveTitle || null,
+        descriptiveTitle || null,
+        cleanString(body.status) || 'BORRADOR',
+      ]);
+    } else {
+      // 1. DETENER INSERCIONES FANTASMA:
+      // Sincronización pasiva / automática: SOLO ACTUALIZA si el proyecto ya existe en BD.
+      // Si no existe, NO se inserta de forma silenciosa un nuevo registro en BORRADOR.
+      const updateQuery = `
+        UPDATE forwarder_projects
+        SET
+          total_trucks = CASE WHEN $2::integer > 0 THEN $2::integer ELSE total_trucks END,
+          road_transit_days = CASE WHEN $3::numeric > 0 THEN $3::numeric ELSE road_transit_days END,
+          road_net_margin = CASE WHEN $4::numeric <> 0 THEN $4::numeric ELSE road_net_margin END,
+          land_origin = COALESCE(NULLIF($5::text, ''), land_origin),
+          land_destination = COALESCE(NULLIF($6::text, ''), land_destination),
+          land_distance = CASE WHEN $7::numeric > 0 THEN $7::numeric ELSE land_distance END,
+          land_freight_cost = CASE WHEN $8::numeric > 0 THEN $8::numeric ELSE land_freight_cost END,
+          items = CASE WHEN $9::jsonb IS NOT NULL THEN $9::jsonb ELSE items END,
+          services = CASE WHEN $10::jsonb IS NOT NULL AND jsonb_array_length($10::jsonb) > 0 THEN $10::jsonb ELSE services END,
+          land_freight_sale = CASE WHEN $11::numeric > 0 THEN $11::numeric ELSE land_freight_sale END,
+          valor_total_mercancia_usd = CASE WHEN $12::numeric > 0 THEN $12::numeric ELSE valor_total_mercancia_usd END,
+          project_title = COALESCE(NULLIF($13::text, ''), project_title),
+          description = COALESCE(NULLIF($14::text, ''), description),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE upper(project_ref) = upper($1::text) OR project_ref = $1::text
+        RETURNING id, project_ref;
+      `;
+
+      const result = await db.query(updateQuery, [
         projectRef,
         total_trucks,
         road_transit_days,
@@ -353,6 +384,26 @@ export default async (req: Request, _context: Context) => {
         descriptiveTitle || null,
         descriptiveTitle || null,
       ]);
+
+      if (result.rowCount === 0) {
+        console.log(`[sync-road] Inserción fantasma prevenida: proyecto '${projectRef}' no existe en BD y no es guardado explícito.`);
+        return Response.json(
+          {
+            success: true,
+            updated: false,
+            ghost_insert_prevented: true,
+            project_ref: projectRef,
+            total_trucks,
+            road_transit_days,
+            road_net_margin,
+            land_freight_cost,
+            land_freight_sale,
+            valor_total_mercancia_usd,
+            services: rawServices || [],
+          },
+          { status: 200, headers }
+        );
+      }
     }
 
     return Response.json(
