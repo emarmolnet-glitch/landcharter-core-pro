@@ -87,14 +87,14 @@ test('3. Dynamic UI labels change from Camiones to Vagones in fleet counters', a
   );
 });
 
-test('4. Desglose Financiero updates title to Transporte por Ferrocarril when isRail is true', async () => {
+test('4. Desglose Financiero updates title to Flete Ferroviario (Linehaul Rampa a Rampa) when isRail is true', async () => {
   const source = await readFile(resolve(rootDir, 'src/components/ForwarderWorkspace.jsx'), 'utf8');
 
   // Title conditionally toggles
   assert.match(
     source,
-    /isRail\s*\?\s*['"]Desglose Financiero · Transporte por Ferrocarril['"]\s*:\s*['"]Desglose Financiero · Transporte Terrestre por Carretera['"]/,
-    'Desglose Financiero title must toggle to Transporte por Ferrocarril for rail mode'
+    /isRail\s*\?\s*['"]Desglose Financiero · Flete Ferroviario \(Linehaul Rampa a Rampa\)['"]\s*:\s*['"]Desglose Financiero · Transporte Terrestre por Carretera['"]/,
+    'Desglose Financiero title must toggle to Flete Ferroviario (Linehaul Rampa a Rampa) for rail mode'
   );
 
   // Icon conditionally toggles

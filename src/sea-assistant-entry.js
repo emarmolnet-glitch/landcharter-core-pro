@@ -412,6 +412,7 @@ async function requestAssistantResponse(userText, historyElement, signal, attach
   const historial = collectConversationHistory(historyElement);
   const uiLanguage = getAppUiLanguage();
   const agentType = iaActiva === 'cerebro' ? 'cerebro' : 'asistente';
+  const currentTransportMode = (typeof window !== 'undefined' && window.globalTransportMode) ? window.globalTransportMode : 'ROAD';
   
   const requestPayload = {
     CalculationData: collectCalculationData(),
@@ -422,6 +423,10 @@ async function requestAssistantResponse(userText, historyElement, signal, attach
     mensaje: userText,
     uiLanguage,
     agentType,
+    transportMode: currentTransportMode,
+    globalTransportMode: currentTransportMode,
+    transport_mode: currentTransportMode,
+    isRail: currentTransportMode === 'RAIL',
   };
 
   if (attachedFiles.length > 0 || (iaActiva === 'local' && isSimulationQuery(userText))) {
@@ -439,9 +444,15 @@ async function requestAssistantResponse(userText, historyElement, signal, attach
       sanitized.mensaje = userText;
       sanitized.uiLanguage = uiLanguage;
       sanitized.agentType = agentType;
+      sanitized.transportMode = currentTransportMode;
+      sanitized.globalTransportMode = currentTransportMode;
+      sanitized.transport_mode = currentTransportMode;
+      sanitized.isRail = currentTransportMode === 'RAIL';
       formData.append("body", JSON.stringify(sanitized));
       formData.append("uiLanguage", uiLanguage);
       formData.append("agentType", agentType);
+      formData.append("transportMode", currentTransportMode);
+      formData.append("globalTransportMode", currentTransportMode);
       formData.append("message", userText);
       formData.append("mensaje", userText);
 
@@ -461,6 +472,10 @@ async function requestAssistantResponse(userText, historyElement, signal, attach
       sanitizedPayload.message = userText;
       sanitizedPayload.uiLanguage = uiLanguage;
       sanitizedPayload.agentType = agentType;
+      sanitizedPayload.transportMode = currentTransportMode;
+      sanitizedPayload.globalTransportMode = currentTransportMode;
+      sanitizedPayload.transport_mode = currentTransportMode;
+      sanitizedPayload.isRail = currentTransportMode === 'RAIL';
 
       response = await fetch(endpointUrl, {
         method: "POST",
