@@ -5793,8 +5793,8 @@
         }
 
         #global-view-mode-switch #btn-view-mode-owner[aria-pressed="true"] {
-            background-color: #4F46E5 !important;
-            border-color: #4338CA !important;
+            background-color: #2563EB !important;
+            border-color: #1D4ED8 !important;
             color: #FFFFFF !important;
         }
 
@@ -9353,29 +9353,29 @@
                 <span>FAQ</span>
             </button>
 
-            <!-- Interruptor de contexto de negocio OWN / CHR -->
-            <div id="global-view-mode-switch" class="relative z-20 inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-slate-300 bg-slate-100 p-0.5 shadow-sm" role="group" aria-label="Perspectiva de negocio">
+            <!-- Interruptor de contexto de transporte ROAD / RAIL -->
+            <div id="global-view-mode-switch" class="relative z-20 inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-slate-300 bg-slate-100 p-0.5 shadow-sm" role="group" aria-label="Modo de transporte">
                 <button
                     type="button"
                     id="btn-view-mode-owner"
-                    class="inline-flex w-10 items-center justify-center rounded-md py-1.5 leading-none"
-                    onclick="setGlobalViewMode('owner')"
+                    class="inline-flex w-12 items-center justify-center rounded-md py-1.5 leading-none transition-all"
+                    onclick="setGlobalTransportMode('ROAD')"
                     aria-pressed="true"
-                    title="Vista Armador (Shipowner): la demora es ingreso y el KPI principal es el TCE"
+                    title="Modo Carretera (ROAD): Transporte por camión estándar FTL/LTL"
                 >
-                    <span aria-hidden="true" translate="no" class="notranslate text-[10px] font-bold tracking-wider uppercase">OWN</span>
-                    <span class="sr-only">Vista Armador</span>
+                    <span aria-hidden="true" translate="no" class="notranslate text-[10px] font-bold tracking-wider uppercase">ROAD</span>
+                    <span class="sr-only">Modo Carretera</span>
                 </button>
                 <button
                     type="button"
                     id="btn-view-mode-charterer"
-                    class="inline-flex w-10 items-center justify-center rounded-md py-1.5 leading-none"
-                    onclick="setGlobalViewMode('charterer')"
+                    class="inline-flex w-12 items-center justify-center rounded-md py-1.5 leading-none transition-all"
+                    onclick="setGlobalTransportMode('RAIL')"
                     aria-pressed="false"
-                    title="Vista Fletador (Charterer): la demora es penalización y el KPI principal es el coste por tonelada"
+                    title="Modo Ferrocarril (RAIL): Transporte por convoy ferroviario cerrado"
                 >
-                    <span aria-hidden="true" translate="no" class="notranslate text-[10px] font-bold tracking-wider uppercase">CHR</span>
-                    <span class="sr-only">Vista Fletador</span>
+                    <span aria-hidden="true" translate="no" class="notranslate text-[10px] font-bold tracking-wider uppercase">RAIL</span>
+                    <span class="sr-only">Modo Ferrocarril</span>
                 </button>
             </div>
 
@@ -20342,7 +20342,10 @@ async function runOnDemandMapRouteWorkflow(button) {
                     land_distance: distanceKm,
                     totalKilometers: totalKilometers,
                     driving_hours: drivingHours,
-                    total_tolls_cost: totalTollsCost
+                    total_tolls_cost: totalTollsCost,
+                    globalTransportMode: window.globalTransportMode || 'ROAD',
+                    transport_mode: window.globalTransportMode || 'ROAD',
+                    isRail: (window.globalTransportMode === 'RAIL')
                 });
             }
         } catch (syncErr) {
@@ -74322,23 +74325,26 @@ window.actualizarGrabCapacityVisibility = function() {
     <script>
         (function () {
             const STORAGE_KEY = 'seacharter_global_view_mode';
+            const TRANSPORT_MODE_STORAGE_KEY = 'landcharter_global_transport_mode';
 
             function normalizeMode(value) {
                 return value === 'charterer' ? 'charterer' : 'owner';
             }
 
-            // Estado global. Por defecto 'owner' (Vista Armador).
+            function normalizeTransportMode(value) {
+                return String(value).toUpperCase() === 'RAIL' ? 'RAIL' : 'ROAD';
+            }
+
+            // Estado global de vista. Por defecto 'owner'.
             let persisted = null;
             try { persisted = window.localStorage?.getItem(STORAGE_KEY); } catch (_) { persisted = null; }
             window.globalViewMode = normalizeMode(persisted);
 
-            // --- Interruptor del header -----------------------------------------
-            // Sólo icono a propósito: el rail derecho del header ya va sobrado de
-            // contenido para el ancho de su columna, así que el interruptor mantiene
-            // un ancho compacto y la etiqueta técnica se complementa con title + sr-only.
-            // El aspecto activo/inactivo se resuelve en CSS a partir de aria-pressed,
-            // porque el tema claro fuerza `button { background:#FFF !important }` y las
-            // utilidades de Tailwind no pueden ganar esa batalla de especificidad.
+            // Estado global de transporte (Interruptor Maestro ROAD / RAIL). Por defecto 'ROAD'.
+            let persistedTransport = null;
+            try { persistedTransport = window.localStorage?.getItem(TRANSPORT_MODE_STORAGE_KEY); } catch (_) { persistedTransport = null; }
+            window.globalTransportMode = normalizeTransportMode(persistedTransport);
+
             const SWITCH_BTN_IDS = ['btn-view-mode-owner', 'btn-view-mode-charterer'];
 
             // --- Mapa declarativo de presentación --------------------------------
@@ -74401,12 +74407,11 @@ window.actualizarGrabCapacityVisibility = function() {
             };
 
             function applySwitchSkin(mode) {
-                SWITCH_BTN_IDS.forEach((id) => {
-                    const btn = document.getElementById(id);
-                    if (!btn) return;
-                    const isActive = (id === 'btn-view-mode-charterer') === (mode === 'charterer');
-                    btn.setAttribute('aria-pressed', String(isActive));
-                });
+                const isRail = window.globalTransportMode === 'RAIL';
+                const ownerBtn = document.getElementById('btn-view-mode-owner');
+                const chartererBtn = document.getElementById('btn-view-mode-charterer');
+                if (ownerBtn) ownerBtn.setAttribute('aria-pressed', String(!isRail));
+                if (chartererBtn) chartererBtn.setAttribute('aria-pressed', String(isRail));
             }
 
             function applyPresentationClasses(mode) {
@@ -74434,7 +74439,32 @@ window.actualizarGrabCapacityVisibility = function() {
                 refreshRoleDependentText();
                 if (document.body) {
                     document.body.dataset.globalViewMode = mode;
+                    document.body.dataset.globalTransportMode = window.globalTransportMode || 'ROAD';
                 }
+            }
+
+            function setGlobalTransportMode(mode) {
+                const next = normalizeTransportMode(mode);
+                window.globalTransportMode = next;
+                try { window.localStorage?.setItem(TRANSPORT_MODE_STORAGE_KEY, next); } catch (_) { /* private mode */ }
+                applySwitchSkin(window.globalViewMode);
+                if (document.body) {
+                    document.body.dataset.globalTransportMode = next;
+                }
+                // Si cambia a RAIL o ROAD, reflejarlo de forma inmediata en el estado del vehículo si aplica
+                if (window.State) {
+                    window.State.globalTransportMode = next;
+                    if (next === 'RAIL') {
+                        window.State.isRail = true;
+                    } else {
+                        window.State.isRail = false;
+                    }
+                }
+                try {
+                    window.dispatchEvent(new CustomEvent('globaltransportmodechange', { detail: { mode: next, globalTransportMode: next } }));
+                    window.dispatchEvent(new CustomEvent('transport-mode-changed', { detail: { mode: next, transportMode: next } }));
+                } catch (_) {}
+                return next;
             }
 
             function setGlobalViewMode(mode) {
@@ -74450,6 +74480,8 @@ window.actualizarGrabCapacityVisibility = function() {
 
             window.getGlobalViewMode = () => normalizeMode(window.globalViewMode);
             window.setGlobalViewMode = setGlobalViewMode;
+            window.getGlobalTransportMode = () => normalizeTransportMode(window.globalTransportMode);
+            window.setGlobalTransportMode = setGlobalTransportMode;
             window.applyGlobalViewModePresentation = applyGlobalViewModePresentation;
 
             if (document.readyState === 'loading') {

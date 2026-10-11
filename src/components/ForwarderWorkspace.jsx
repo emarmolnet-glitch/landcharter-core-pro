@@ -1932,7 +1932,33 @@ function ForwarderWorkspaceInner(props = {}) {
   const [vesselType, setVesselType] = useState('Geared Breakbulk (Lo-Lo)');
   const [cargoCategory, setCargoCategory] = useState(activeProject?.cargoCategory || activeProject?.cargo_category || 'Carga Paletizada');
 
+  // Interruptor Maestro Global ROAD / RAIL
+  const [transportMode, setTransportMode] = useState(() => {
+    if (typeof window !== 'undefined' && window.globalTransportMode) {
+      return window.globalTransportMode;
+    }
+    return 'ROAD';
+  });
+
+  useEffect(() => {
+    const handleModeChange = (e) => {
+      const newMode = e?.detail?.mode || e?.detail?.globalTransportMode || window.globalTransportMode || 'ROAD';
+      setTransportMode(newMode);
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('globaltransportmodechange', handleModeChange);
+      window.addEventListener('transport-mode-changed', handleModeChange);
+      return () => {
+        window.removeEventListener('globaltransportmodechange', handleModeChange);
+        window.removeEventListener('transport-mode-changed', handleModeChange);
+      };
+    }
+  }, []);
+
   const [vehicleType, setVehicleType] = useState(() => {
+    if (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') {
+      return 'Tren Tolva (Ferrocarril)';
+    }
     const rawCargo = [
       activeProject?.cargoName,
       activeProject?.cargo_name,
@@ -4803,7 +4829,8 @@ function ForwarderWorkspaceInner(props = {}) {
     }
 
     const activeVType = vehicleType || activeProject?.vehicle_type || activeProject?.truck_type || '';
-    const isRailAuto = vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón') ||
+    const isRailAuto = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+      vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón') ||
       activeVType.includes('Tren') || activeVType.includes('Tolva') || activeVType.includes('Vagón') ||
       Boolean(String(activeVType).toLowerCase().match(/tren|tolva|vag[oó]n|ferroviario|rail/));
     if (isRailAuto) {
@@ -4823,11 +4850,13 @@ function ForwarderWorkspaceInner(props = {}) {
           window.State.totalCosts = costeTren;
           window.State.costTotal = costeTren;
           window.State.land_freight_cost = costeTren;
+          window.State.estimatedCost = costeTren;
           window.State.land_freight_sale = Number((costeTren * 1.18).toFixed(2));
           if (window.GlobalStore) {
             window.GlobalStore.totalTripCost = costeTren;
             window.GlobalStore.totalCosts = costeTren;
             window.GlobalStore.land_freight_cost = costeTren;
+            window.GlobalStore.estimatedCost = costeTren;
           }
         }
       }
@@ -6562,7 +6591,8 @@ function ForwarderWorkspaceInner(props = {}) {
   const exchangeRate = routeIsStrictlyEU ? 1 : (typeof window !== 'undefined' && window.State?.exchangeRate ? window.State.exchangeRate : 1.10);
 
   const vehicle_type_upper = vehicleType || activeProject?.truck_type || activeProject?.vehicle_type || '';
-  const isRailUpper = vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón') ||
+  const isRailMasterGlobal = transportMode === 'RAIL' || (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL');
+  const isRailUpper = isRailMasterGlobal || vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón') ||
     vehicle_type_upper?.includes('Tren') || vehicle_type_upper?.includes('Tolva') || vehicle_type_upper?.includes('Vagón') ||
     Boolean(String(vehicle_type_upper).toLowerCase().match(/tren|tolva|vag[oó]n|ferroviario|rail/));
 
@@ -8775,7 +8805,8 @@ function ForwarderWorkspaceInner(props = {}) {
                   });
                   const campaignDim = calculateFleetCampaignDimensioning(trucksReq, dssOptimalCadence);
 
-                  const isRail = vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón') ||
+                  const isRailMaster = transportMode === 'RAIL' || (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL');
+                  const isRail = isRailMaster || vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón') ||
                     Boolean(String(currentVT || activeProject?.vehicle_type || activeProject?.truck_type || '').toLowerCase().match(/tren|tolva|vag[oó]n|ferroviario|rail/));
 
                   return (

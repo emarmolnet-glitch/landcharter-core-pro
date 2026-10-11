@@ -28,9 +28,10 @@ export default function VisualTruckPlan({
   isRail: propIsRail
 }) {
   const vehicleLower = String(vehicleType || '').toLowerCase();
+  const isRailFromGlobal = typeof window !== 'undefined' && window.globalTransportMode === 'RAIL';
   const isRail = propIsRail !== undefined
     ? Boolean(propIsRail)
-    : (vehicleType?.includes('Tren') || vehicleType?.includes('Tolva') || vehicleType?.includes('Vagón') || vehicleLower.includes('tren') || vehicleLower.includes('tolva') || vehicleLower.includes('ferroviario') || vehicleLower.includes('rail') || vehicleLower.includes('vagon') || vehicleLower.includes('vagón'));
+    : (isRailFromGlobal || vehicleType?.includes('Tren') || vehicleType?.includes('Tolva') || vehicleType?.includes('Vagón') || vehicleLower.includes('tren') || vehicleLower.includes('tolva') || vehicleLower.includes('ferroviario') || vehicleLower.includes('rail') || vehicleLower.includes('vagon') || vehicleLower.includes('vagón'));
 
   if (isRail) {
     const wagons = Math.max(1, Number(wagonCount ?? trucksCount ?? (assignedWeightKg > 0 ? Math.ceil(assignedWeightKg / (maxPayloadKg || 50000)) : 2)));
