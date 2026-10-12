@@ -42600,11 +42600,13 @@ function scheduleReactiveEngine() {
             const trucks_needed = (isTerrestre && totalCargoTonnage > 0 && truckPayloadCapacity > 0)
                 ? Math.ceil(totalCargoTonnage / truckPayloadCapacity)
                 : 1;
-            const fleetTrucksNeeded = (isTerrestre && cargo > 0 && truckPayloadCapacity > 0)
-                ? Math.max(1, Math.ceil(cargo / truckPayloadCapacity))
+            const isGlobalRailMode = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') || isRail;
+            const effectiveTruckPayloadCapacity = isGlobalRailMode ? 50 : truckPayloadCapacity;
+            const fleetTrucksNeeded = (isTerrestre && cargo > 0 && effectiveTruckPayloadCapacity > 0)
+                ? Math.max(1, Math.ceil(cargo / effectiveTruckPayloadCapacity))
                 : 1;
-            State.trucks_needed = trucks_needed;
-            State.trucksNeeded = trucks_needed;
+            State.trucks_needed = isGlobalRailMode ? fleetTrucksNeeded : trucks_needed;
+            State.trucksNeeded = isGlobalRailMode ? fleetTrucksNeeded : trucks_needed;
             State.total_trucks = fleetTrucksNeeded;
 
             // Cálculo dinámico de grossWeight / Peso Bruto del Convoy:
