@@ -18,7 +18,7 @@ test('1. Bifurcación del Motor de Ruta: ROAD usa OpenRouteService HGV y RAIL us
   assert.match(indexHtmlSource, /https:\/\/api\.openrouteservice\.org\/v2\/directions\/driving-hgv\/geojson/);
 });
 
-test('2. Netlify Function Proxy get-rail-route.js: soporte GET/POST, CORS abierto, abandono de HGV y fallback con checkpoints topográficos', async () => {
+test('2. Netlify Function Proxy get-rail-route.js: soporte GET/POST, CORS abierto, eliminación de interpolación ciega y ruteo terrestre ORS HGV', async () => {
   const proxySource = await readFile(resolve(rootDir, 'netlify/functions/get-rail-route.js'), 'utf8');
 
   // a) Cabeceras CORS abiertas para consumo frontend
@@ -30,21 +30,21 @@ test('2. Netlify Function Proxy get-rail-route.js: soporte GET/POST, CORS abiert
   assert.match(proxySource, /req\.method === "POST"/);
   assert.match(proxySource, /polLat.*polLng/);
 
-  // c) Integración de motores open-source (routing.openstreetmap.de y BRouter Rail)
+  // c) Integración de motores open-source de respaldo (routing.openstreetmap.de y BRouter Rail)
   assert.match(proxySource, /routing\.openstreetmap\.de\/routed-train\/route\/v1\/train/);
   assert.match(proxySource, /brouter\.de\/brouter\?lonlats=.*profile=rail/);
 
-  // d) Abandono del fallback de carreteras HGV
-  assert.doesNotMatch(proxySource, /driving-hgv\/geojson/, 'Debe abandonar el fallback de carreteras HGV');
-  assert.doesNotMatch(proxySource, /fetchOrsHgvPolylineFallback/, 'Debe eliminar la función fetchOrsHgvPolylineFallback');
+  // d) Eliminación de fórmulas matemáticas que ondulan sobre el mar
+  assert.doesNotMatch(proxySource, /generateRailTopographicCheckpoints/, 'Debe eliminar por completo generateRailTopographicCheckpoints');
+  assert.doesNotMatch(proxySource, /RAIL-INTERPOLATED-CHECKPOINTS/, 'Debe eliminar el trazado ciego de checkpoints');
 
-  // e) Algoritmo de Interpolación Ferroviaria con Checkpoints y Curvas Topográficas Simuladas
-  assert.match(proxySource, /generateRailTopographicCheckpoints/);
-  assert.match(proxySource, /RAIL-INTERPOLATED-CHECKPOINTS/);
-  assert.match(proxySource, /checkpoints/);
+  // e) Fuerza el uso del motor de carreteras (OpenRouteService HGV) como método principal para obtener Polyline costera
+  assert.match(proxySource, /driving-hgv\/geojson/, 'Debe consultar endpoint OpenRouteService HGV');
+  assert.match(proxySource, /fetchOrsHgvPolyline/, 'Debe implementar fetchOrsHgvPolyline');
+  assert.match(proxySource, /ORS-HGV-FALLBACK-POLYLINE/, 'Debe identificar el source como ORS-HGV-FALLBACK-POLYLINE');
   assert.match(proxySource, /dashArray:\s*['"]10, 15['"]/);
 
-  // f) Protección de distancia teórica de tren
+  // f) Protección de datos: distancia teórica de tren
   assert.match(proxySource, /theoreticalRailMeters/);
 });
 
@@ -84,7 +84,7 @@ test('4. Verificación Funcional del Proxy Backend: Ejecución en Node de get-ra
   // Compilar handler para prueba unitaria eliminando declaraciones export incompatibles con new Function
   const sanitizedSource = proxySource
     .replace('export default async function handler(req)', 'async function handler(req)')
-    .replace(/export\s+function\s+/g, 'function ');
+    .replace(/export\s+(async\s+)?function\s+/g, '$1function ');
   const wrapped = sanitizedSource + '\nreturn handler(req);';
   const executeHandler = new Function('req', wrapped);
 
@@ -120,47 +120,17 @@ test('4. Verificación Funcional del Proxy Backend: Ejecución en Node de get-ra
   assert.equal(feat.properties.style.dashArray, '10, 15');
 });
 
-test('5. Algoritmo de Interpolación Topográfica con Checkpoints: genera curvas orográficas realistas y checkpoints', async () => {
+test('5. Ruteo Terrestre con Fallback ORS Camuflado: garantiza polilínea costera sobre tierra firme y protege theoreticalRailMeters', async () => {
   const proxySource = await readFile(resolve(rootDir, 'netlify/functions/get-rail-route.js'), 'utf8');
   
-  const sanitizedSource = proxySource
-    .replace(/export\s+function\s+/g, 'function ')
-    .replace(/export\s+default\s+async\s+function\s+handler[\s\S]*$/, '');
-  const wrappedTopo = sanitizedSource + '\nreturn generateRailTopographicCheckpoints(polLat, polLng, podLat, podLng, straightKm);';
-  const executeTopo = new Function('polLat', 'polLng', 'podLat', 'podLng', 'straightKm', wrappedTopo);
+  // a) Verifica que el algoritmo ciego de interpolación ha sido eliminado
+  assert.doesNotMatch(proxySource, /function\s+generateRailTopographicCheckpoints/);
 
-  const polLat = 40.4168; // Madrid
-  const polLng = -3.7038;
-  const podLat = 41.3879; // Barcelona
-  const podLng = 2.1699;
-  const straightKm = 505;
+  // b) Verifica que fetchOrsHgvPolyline está presente y configurada para driving-hgv
+  assert.match(proxySource, /export\s+async\s+function\s+fetchOrsHgvPolyline/);
+  assert.match(proxySource, /https:\/\/api\.openrouteservice\.org\/v2\/directions\/driving-hgv\/geojson/);
 
-  const result = executeTopo(polLat, polLng, podLat, podLng, straightKm);
-
-  // a) Coordenadas de inicio y fin coinciden exactamente
-  assert.deepEqual(result.coordinates[0], [polLng, polLat]);
-  assert.deepEqual(result.coordinates[result.coordinates.length - 1], [podLng, podLat]);
-
-  // b) Se han generado waypoints suficientes para suavidad visual
-  assert.ok(result.coordinates.length >= 36, `Debe generar al menos 36 waypoints: ${result.coordinates.length}`);
-
-  // c) No es una línea recta: puntos intermedios tienen desviación lateral
-  let hasCurvature = false;
-  const dLng = podLng - polLng;
-  const dLat = podLat - polLat;
-  for (let i = 1; i < result.coordinates.length - 1; i++) {
-    const t = i / (result.coordinates.length - 1);
-    const expectedStraightLng = polLng + dLng * t;
-    const actualLng = result.coordinates[i][0];
-    if (Math.abs(actualLng - expectedStraightLng) > 0.005) {
-      hasCurvature = true;
-      break;
-    }
-  }
-  assert.ok(hasCurvature, 'La polilínea debe incluir curvatura topográfica simulada');
-
-  // d) Contiene checkpoints simulados
-  assert.ok(Array.isArray(result.checkpoints) && result.checkpoints.length > 0, 'Debe incluir checkpoints simulados');
-  assert.ok(result.checkpoints[0].name.includes('Checkpoint Férreo'), 'Nombre de checkpoint debe ser descriptivo');
-  assert.ok(result.distanceMeters > straightKm * 1000, 'Distancia ferroviaria con curvas debe superar la línea recta');
+  // c) Verifica que la distancia de ORS se sobrescribe con theoreticalRailMeters
+  assert.match(proxySource, /finalDistanceMeters\s*=\s*theoreticalRailMeters/);
+  assert.match(proxySource, /source:\s*routeSource/);
 });
