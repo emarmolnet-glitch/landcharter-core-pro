@@ -1792,8 +1792,8 @@ export function mapMaritimeDossierToLandCharter(dossier) {
     global_margin_percentage: '0',
     pol: extractedPol,
     pod: extractedPod,
-    land_origin: '',
-    land_destination: '',
+    land_origin: extractedPol,
+    land_destination: extractedPod,
     land_distance: 0,
     land_freight_cost: 0,
     land_freight_sale: 0,
@@ -1823,6 +1823,78 @@ export function mapMaritimeDossierToLandCharter(dossier) {
     created_at: dossier.createdAt || new Date().toISOString(),
     updated_at: dossier.updatedAt || new Date().toISOString(),
   };
+}
+
+/**
+ * Verifica si una referencia (ej. RDM/2026-1147) existe realmente en app-state
+ * (tanto en el estado local en memoria como en /api/app-state)
+ * para decidir de forma determinista si actualizar o forzar un nuevo registro.
+ */
+export async function verifyReferenceInAppState(ref) {
+  if (!ref || typeof ref !== 'string') return { existsInAppState: false, reference: null };
+  const cleanRef = ref.trim().toUpperCase();
+
+  // 1. Verificación rápida en memoria/local (window.State, ContractRefManager, localStorage)
+  try {
+    const localRef = (
+      (typeof window !== 'undefined' && window.State?.project_ref) ||
+      (typeof window !== 'undefined' && window.State?.reference) ||
+      (typeof window !== 'undefined' && window.State?.currentSessionRef) ||
+      (typeof window !== 'undefined' && typeof window.getActiveGlobalReference === 'function' && window.getActiveGlobalReference()) ||
+      (typeof window !== 'undefined' && window.ContractRefManager?.getActiveContractRef && window.ContractRefManager.getActiveContractRef()) ||
+      (typeof localStorage !== 'undefined' && (localStorage.getItem('active_contract_ref') || localStorage.getItem('current_session'))) ||
+      ''
+    ).trim().toUpperCase();
+
+    if (localRef && localRef === cleanRef) {
+      return { existsInAppState: true, reference: cleanRef, source: 'local_state' };
+    }
+  } catch (_) {}
+
+  // 2. Verificación remota contra el endpoint /api/app-state
+  try {
+    const appStateUrl = typeof getApiUrl === 'function'
+      ? getApiUrl('/api/app-state')
+      : '/api/app-state';
+    const appStateRes = await fetch(appStateUrl, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store'
+    });
+    if (appStateRes.ok) {
+      const data = await appStateRes.json();
+      const serverRef = String(
+        data?.session_ref ||
+        data?.currentSessionRef ||
+        data?.reference ||
+        data?.value ||
+        ''
+      ).trim().toUpperCase();
+      if (serverRef && serverRef === cleanRef) {
+        return { existsInAppState: true, reference: cleanRef, source: 'app_state_backend', data };
+      }
+    }
+  } catch (err) {
+    console.warn('[ForwarderWorkspace] Advertencia al verificar app-state:', err?.message || err);
+  }
+
+  // 3. Verificación por clave específica si la referencia se guardó directamente como key
+  try {
+    const directUrl = typeof getApiUrl === 'function'
+      ? getApiUrl(`/api/app-state?key=${encodeURIComponent(cleanRef)}`)
+      : `/api/app-state?key=${encodeURIComponent(cleanRef)}`;
+    const directRes = await fetch(directUrl, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store'
+    });
+    if (directRes.ok) {
+      const data = await directRes.json();
+      if (data && (data.value || data.session_ref || data.reference)) {
+        return { existsInAppState: true, reference: cleanRef, source: 'app_state_key', data };
+      }
+    }
+  } catch (_) {}
+
+  return { existsInAppState: false, reference: cleanRef };
 }
 
 function ForwarderWorkspaceInner(props = {}) {
@@ -2695,10 +2767,18 @@ function ForwarderWorkspaceInner(props = {}) {
       const effectiveLandCost = Number(estimatedCost) || Number(activeProject.land_freight_cost) || 0;
       const effectiveTotalTrucks = Number(activeProject.total_trucks) || 1;
 
-      // 2. Sincronización activa: Enviar actualización terrestre a forwarder-projects
+      // 2. Sincronización activa: Verificar en app-state antes de actualizar y forzar POST si es nuevo
+      const targetSyncRef = activeProject.project_ref || (typeof ref === 'string' ? ref : undefined);
+      const { existsInAppState } = await verifyReferenceInAppState(targetSyncRef);
+      const isKnownPersistedProject = Boolean(
+        activeProject.id &&
+        (projects || []).some(p => p && (p.id === activeProject.id || (p.project_ref && p.project_ref.toUpperCase() === String(targetSyncRef).toUpperCase())))
+      );
+      const forceNew = !isKnownPersistedProject || !activeProject.id;
+
       const syncPayload = {
         ...activeProject,
-        project_ref: activeProject.project_ref || (typeof ref === 'string' ? ref : undefined),
+        project_ref: targetSyncRef,
         id: activeProject.id,
         land_origin: effectiveLandOrigin,
         land_destination: effectiveLandDest,
@@ -2707,19 +2787,28 @@ function ForwarderWorkspaceInner(props = {}) {
         total_trucks: effectiveTotalTrucks,
       };
 
-      let res = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(syncPayload),
-      });
-
-      // Si PUT no encuentra el registro o no es soportado para nuevo proyecto, intentar POST
-      if (!res.ok && res.status === 404) {
+      let res;
+      if (forceNew) {
         res = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ ...syncPayload, is_new_insert: true }),
+        });
+      } else {
+        res = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify(syncPayload),
         });
+
+        // Si PUT no encuentra el registro o no es soportado para nuevo proyecto, intentar POST
+        if (!res.ok) {
+          res = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ ...syncPayload, is_new_insert: true }),
+          });
+        }
       }
 
       // Si fallase la mutación directa, consultar vía GET como recuperación
@@ -3893,6 +3982,10 @@ function ForwarderWorkspaceInner(props = {}) {
 
       // El valor de la mercancía (FOB/producto) debe inicializarse estrictamente en 0 o estar vacío por defecto.
       // Solo se computará si el usuario introduce la cifra manualmente en el input correspondiente.
+      const valorCalculadoDeItems = (cargoItems && cargoItems.length > 0)
+        ? cargoItems.reduce((acc, it) => acc + (Number(it?.goodsValue || it?.valor_total_mercancia_usd) || 0), 0)
+        : 0;
+
       const estadoDelValorFobCalculado = (userEditedMercanciaCost.current && Number(mercanciaCost) > 0)
         ? Number(mercanciaCost)
         : (Number(mercanciaCost) > 0
@@ -3919,8 +4012,8 @@ function ForwarderWorkspaceInner(props = {}) {
         services: servicesList,
         line_items: servicesList,
         land_freight_cost: Number(projectToSave.land_freight_cost) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDeCosteTotalTerrestre || 0)),
-        land_freight_sale: Number(projectToSave.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDePrecioVentaTerrestre || 0)),
-        valor_total_mercancia_usd: estadoDelValorFobCalculado,
+        land_freight_sale: Number(projectToSave.land_freight_sale) || Number(projectToSave?.targetSalePrice || projectToSave?.sale) || ((!distanceKm || Number(distanceKm) <= 0) ? 0 : Number(tuVariableDePrecioVentaTerrestre || 0)),
+        valor_total_mercancia_usd: Number(estadoDelValorFobCalculado) || Number(valorCalculadoDeItems) || Number(projectToSave.valor_total_mercancia_usd),
         land_origin: pol || origin || projectToSave.land_origin || projectToSave.pol || activeProject?.land_origin || landOrigin || '',
         land_destination: pod || destination || projectToSave.land_destination || projectToSave.pod || activeProject?.land_destination || landDestination || '',
         land_distance: distanceKm,
@@ -3988,9 +4081,40 @@ function ForwarderWorkspaceInner(props = {}) {
         }
       }
 
-      // Si el proyecto proviene de Core PRO (dossier adaptado con UUID o sin ID numérico en forwarder_projects),
-      // al guardar flete en Land Charter, el backend debe hacer un INSERT creando un nuevo registro
-      // terrestre con el mismo project_ref (vinculándolos comercialmente) en lugar de un UPDATE.
+      // 1. Verificación en app-state antes de intentar actualizar (Fix 404)
+      // Asegura que antes de POST/PUT se verifique si la referencia (ej. RDM/2026-1147) existe realmente en app-state
+      // o si necesita forzar la creación de un nuevo registro
+      const targetRefToCheck = effectiveProjectRef || projectToSave?.project_ref || activeProject?.project_ref;
+      const { existsInAppState } = await verifyReferenceInAppState(targetRefToCheck);
+
+      const isKnownDatabaseProject = Boolean(
+        projectToSave?.id &&
+        !isAdaptedFromCorePro &&
+        (projects || []).some(p => p && (p.id === projectToSave.id || (p.project_ref && p.project_ref.toUpperCase() === String(targetRefToCheck).toUpperCase())))
+      );
+
+      // Si no existe confirmación en la BD o si es nuevo registro derivado de app-state / sesión marítima:
+      // Forzar la creación de un nuevo registro (POST con is_new_insert) en lugar de lanzar PUT ciegamente
+      const forceNewRecord = !isKnownDatabaseProject || !projectToSave?.id || isAdaptedFromCorePro;
+
+      // Asegurar sincronización en app-state si la referencia no estaba registrada aún
+      if (!existsInAppState && targetRefToCheck) {
+        try {
+          await fetch(getApiUrl('/api/app-state'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: 'current_session',
+              key: 'current_session',
+              session_ref: targetRefToCheck,
+              currentSessionRef: targetRefToCheck,
+              reference: targetRefToCheck,
+              timestamp: Date.now()
+            })
+          });
+        } catch (_) {}
+      }
+
       let savedProject = null;
 
       if (isAdaptedFromCorePro) {
@@ -4001,9 +4125,29 @@ function ForwarderWorkspaceInner(props = {}) {
           from_maritime: true,
           id: null, // Evitar incompatibilidad de tipo integer en Postgres
           dossier_id: projectToSave?.id || activeProject?.id || null,
-          project_ref: effectiveProjectRef,
-          parent_ref: effectiveProjectRef,
-          dossier_ref: effectiveProjectRef,
+          project_ref: targetRefToCheck,
+          parent_ref: targetRefToCheck,
+          dossier_ref: targetRefToCheck,
+        };
+
+        const postRes = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(insertPayload),
+        });
+
+        if (postRes.ok) {
+          const postData = await postRes.json();
+          savedProject = postData?.project || null;
+        }
+      } else if (forceNewRecord) {
+        const insertPayload = {
+          ...payload,
+          is_new_insert: true,
+          id: null,
+          project_ref: targetRefToCheck,
+          parent_ref: targetRefToCheck,
+          dossier_ref: targetRefToCheck,
         };
 
         const postRes = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
@@ -4029,7 +4173,7 @@ function ForwarderWorkspaceInner(props = {}) {
           const postRes = await fetch(getApiUrl('/.netlify/functions/forwarder-projects'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify(payload),
+            body: JSON.stringify({ ...payload, is_new_insert: true }),
           });
           if (postRes.ok) {
             const postData = await postRes.json();
@@ -6829,6 +6973,7 @@ function ForwarderWorkspaceInner(props = {}) {
       const savePrefix = isRail_item ? 'Flete Ferroviario' : 'Flete Terrestre';
       const saveCountLabel = isRail_item ? (safeTrucks === 1 ? 'Vagón' : 'Vagones') : (safeTrucks === 1 ? 'Camión' : 'Camiones');
       const savedServiceName = `${savePrefix} (${safeTrucks} ${saveCountLabel}: ${saveOriginCity} ➔ ${saveDestCity})`;
+
       const savedLineItem = {
         id: editingLineItemId || 'srv-auto-saved-service',
         service_name: savedServiceName,
@@ -6839,9 +6984,9 @@ function ForwarderWorkspaceInner(props = {}) {
         cost_eur: lineItemCost,
         sale_price_eur: lineItemPrice,
         margin_eur: lineItemPrice - lineItemCost,
-        land_freight_cost: lineItemCost,
+        land_freight_cost: calculatedLandFreightCost,
         land_freight_sale: lineItemPrice,
-        valor_total_mercancia_usd: 0,
+        valor_total_mercancia_usd: merchandiseValueUsd,
         payload_data: payload,
       };
 
@@ -6864,9 +7009,9 @@ function ForwarderWorkspaceInner(props = {}) {
 
         const updatedProject = {
           ...activeProject,
-          land_freight_cost: finalTotalLandCost,
-          land_freight_sale: finalTotalLandSale,
-          valor_total_mercancia_usd: 0,
+          land_freight_cost: totalServicesCost,
+          land_freight_sale: totalServicesSale,
+          valor_total_mercancia_usd: merchandiseValueUsd,
           line_items: updatedLineItems,
           services: updatedLineItems,
           cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || []),
@@ -6937,6 +7082,7 @@ function ForwarderWorkspaceInner(props = {}) {
               }
               lastSyncPayloadRef.current = currentPayloadString;
               lastSyncDataBridgeRef.current = currentPayloadString;
+              // roadSyncFn({ land_freight_cost: calculatedLandFreightCost, valor_total_mercancia_usd: merchandiseValueUsd })
               await roadSyncFn(dataBridgePayloadObject);
             }
           }
@@ -10023,7 +10169,7 @@ export function LandCharterMap({ containerId = 'map-container', className = '' }
         color: isRail ? '#333333' : '#2563eb',
         weight: isRail ? 4 : 5,
         opacity: 0.95,
-        dashArray: isRail ? '10, 10' : undefined,
+        dashArray: isRail ? '10, 15' : undefined,
         lineCap: 'round',
         lineJoin: 'round',
         className: isRail ? 'leaflet-rail-route-highlight' : 'leaflet-route-highlight'

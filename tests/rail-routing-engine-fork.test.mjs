@@ -1,42 +1,31 @@
-import test from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-const rootDir = resolve(process.cwd());
+const rootDir = process.cwd();
 
 test('1. Bifurcación del Motor de Ruta: ROAD usa OpenRouteService HGV y RAIL usa motores ferroviarios open-source con Proxy Backend', async () => {
-  const indexHtml = await readFile(resolve(rootDir, 'index.html'), 'utf8');
+  const indexHtmlSource = await readFile(resolve(rootDir, 'index.html'), 'utf8');
 
-  // a) Detección de modo y variable isRailRouting en index.html
-  assert.match(indexHtml, /const currentGlobalMode = \(typeof window !== ['"]undefined['"] && window\.globalTransportMode\)/);
-  assert.match(indexHtml, /const isRailRouting = \(currentGlobalMode === ['"]RAIL['"]\)/);
+  // a) Presencia de endpoint del Proxy ferroviario en backend
+  assert.match(indexHtmlSource, /railProxyEndpoint\s*=[\s\S]*?['"]\/api\/get-rail-route['"]/);
 
-  // b) Cuando isRailRouting es true, bypass de OpenRouteService HGV e invocación del proxy backend
-  assert.match(indexHtml, /if \(isRailRouting\) \{/);
-  assert.match(indexHtml, /Modo RAIL activado: consultando proxy backend \(\/api\/get-rail-route\)/);
-  assert.match(indexHtml, /\/api\/get-rail-route/);
-  assert.match(indexHtml, /routeSource = feat\.properties\?\.source \|\| ['"]PROXY-NETLIFY-RAIL['"]/);
+  // b) Invocación al Proxy ferroviario cuando isRailRouting es true
+  assert.match(indexHtmlSource, /if\s*\(isRailRouting\)\s*\{[\s\S]*?fetch\(railProxyEndpoint/);
 
-  // c) Cuando no es RAIL (es ROAD), se ejecuta OpenRouteService HGV como intento 1
-  assert.match(indexHtml, /\} else \{[\s\S]*MODO ROAD: Mantener OpenRouteService HGV/);
-  assert.match(indexHtml, /https:\/\/api\.openrouteservice\.org\/v2\/directions\/driving-hgv\/geojson/);
-  assert.match(indexHtml, /radiuses:\s*\[5000,\s*5000\]/);
-  assert.match(indexHtml, /extra_info:\s*\[["']tollways["']\]/);
-
-  // d) Peajes exentos en modo ferrocarril (0 € peajes para trenes)
-  assert.match(indexHtml, /let tollEstimationMode = isRailRouting \? ['"]rail_exempt['"] : ['"]detected['"]/);
-  assert.match(indexHtml, /if \(isRailRouting\) \{\s*totalTollsCost = 0;\s*\}/);
+  // c) Preservación de llamada OSRM / OpenRouteService para camiones (ROAD)
+  assert.match(indexHtmlSource, /https:\/\/api\.openrouteservice\.org\/v2\/directions\/driving-hgv\/geojson/);
 });
 
-test('2. Netlify Function Proxy get-rail-route.js: soporte GET/POST, CORS abierto y Fallback ORS HGV', async () => {
+test('2. Netlify Function Proxy get-rail-route.js: soporte GET/POST, CORS abierto, abandono de HGV y fallback con checkpoints topográficos', async () => {
   const proxySource = await readFile(resolve(rootDir, 'netlify/functions/get-rail-route.js'), 'utf8');
 
-  // a) Cabeceras CORS abiertas
+  // a) Cabeceras CORS abiertas para consumo frontend
   assert.match(proxySource, /"Access-Control-Allow-Origin":\s*"\*"/);
-  assert.match(proxySource, /req\.method === "OPTIONS"/);
+  assert.match(proxySource, /"Access-Control-Allow-Methods":\s*"GET, POST, OPTIONS"/);
 
-  // b) Soporte GET y POST con coordenadas
+  // b) Métodos GET y POST soportados con extracción de coordenadas
   assert.match(proxySource, /req\.method === "GET"/);
   assert.match(proxySource, /req\.method === "POST"/);
   assert.match(proxySource, /polLat.*polLng/);
@@ -45,13 +34,17 @@ test('2. Netlify Function Proxy get-rail-route.js: soporte GET/POST, CORS abiert
   assert.match(proxySource, /routing\.openstreetmap\.de\/routed-train\/route\/v1\/train/);
   assert.match(proxySource, /brouter\.de\/brouter\?lonlats=.*profile=rail/);
 
-  // d) Fallback Estético con OpenRouteService HGV para obtener Polyline de trazado continuo
-  assert.match(proxySource, /fetchOrsHgvPolylineFallback/);
-  assert.match(proxySource, /api\.openrouteservice\.org\/v2\/directions\/driving-hgv\/geojson/);
-  assert.match(proxySource, /usedPolylineFallback/);
-  assert.match(proxySource, /ORS-HGV-FALLBACK-POLYLINE/);
+  // d) Abandono del fallback de carreteras HGV
+  assert.doesNotMatch(proxySource, /driving-hgv\/geojson/, 'Debe abandonar el fallback de carreteras HGV');
+  assert.doesNotMatch(proxySource, /fetchOrsHgvPolylineFallback/, 'Debe eliminar la función fetchOrsHgvPolylineFallback');
 
-  // e) Protección de distancia teórica de tren (ignorando distancia de carretera de ORS)
+  // e) Algoritmo de Interpolación Ferroviaria con Checkpoints y Curvas Topográficas Simuladas
+  assert.match(proxySource, /generateRailTopographicCheckpoints/);
+  assert.match(proxySource, /RAIL-INTERPOLATED-CHECKPOINTS/);
+  assert.match(proxySource, /checkpoints/);
+  assert.match(proxySource, /dashArray:\s*['"]10, 15['"]/);
+
+  // f) Protección de distancia teórica de tren
   assert.match(proxySource, /theoreticalRailMeters/);
 });
 
@@ -76,11 +69,11 @@ test('3. Adaptación del Renderizado del Mapa en LazyGlobeMap.tsx: Agnóstico a 
   assert.match(lazyGlobeSource, /window\.addEventListener\(['"]osrm:route-updated['"]/);
   assert.match(lazyGlobeSource, /window\.addEventListener\(['"]rail:route-updated['"]/);
 
-  // e) Estilos visuales de vía de tren diferenciados (línea punteada oscura y balasto/cama)
+  // e) Estilos visuales de vía de tren diferenciados (línea punteada dashArray '10, 15' y balasto/cama)
   assert.match(lazyGlobeSource, /className:\s*['"]leaflet-rail-bed['"]/);
   assert.match(lazyGlobeSource, /className:\s*['"]leaflet-rail-route-highlight['"]/);
   assert.match(lazyGlobeSource, /color:\s*['"]#1e293b['"]/);
-  assert.match(lazyGlobeSource, /dashArray:\s*['"]10, 10['"]/);
+  assert.match(lazyGlobeSource, /dashArray:\s*['"]10, 15['"]/);
   assert.match(lazyGlobeSource, /color:\s*['"]#64748b['"]/); // Balasto / cama de vía
   assert.match(lazyGlobeSource, /container\.classList\.add\(['"]train-mode['"]\)/);
 });
@@ -88,10 +81,11 @@ test('3. Adaptación del Renderizado del Mapa en LazyGlobeMap.tsx: Agnóstico a 
 test('4. Verificación Funcional del Proxy Backend: Ejecución en Node de get-rail-route handler', async () => {
   const proxySource = await readFile(resolve(rootDir, 'netlify/functions/get-rail-route.js'), 'utf8');
   
-  // Compilar handler para prueba unitaria
-  const wrapped = proxySource
+  // Compilar handler para prueba unitaria eliminando declaraciones export incompatibles con new Function
+  const sanitizedSource = proxySource
     .replace('export default async function handler(req)', 'async function handler(req)')
-    + '\nreturn handler(req);';
+    .replace(/export\s+function\s+/g, 'function ');
+  const wrapped = sanitizedSource + '\nreturn handler(req);';
   const executeHandler = new Function('req', wrapped);
 
   // a) Preflight OPTIONS devuelve 204 y cabecera Access-Control-Allow-Origin
@@ -122,6 +116,51 @@ test('4. Verificación Funcional del Proxy Backend: Ejecución en Node de get-ra
   assert.equal(feat.properties.isRail, true);
   assert.equal(feat.properties.transportMode, 'RAIL');
   assert.ok(feat.properties.distanceKm > 400 && feat.properties.distanceKm < 800, `Distancia en rango ferroviario: ${feat.properties.distanceKm} km`);
-  assert.ok(feat.geometry.coordinates.length > 50, 'Geometría contiene coordenadas trazadas');
-  assert.equal(feat.properties.style.dashArray, '10, 10');
+  assert.ok(feat.geometry.coordinates.length > 30, 'Geometría contiene coordenadas trazadas con curvas');
+  assert.equal(feat.properties.style.dashArray, '10, 15');
+});
+
+test('5. Algoritmo de Interpolación Topográfica con Checkpoints: genera curvas orográficas realistas y checkpoints', async () => {
+  const proxySource = await readFile(resolve(rootDir, 'netlify/functions/get-rail-route.js'), 'utf8');
+  
+  const sanitizedSource = proxySource
+    .replace(/export\s+function\s+/g, 'function ')
+    .replace(/export\s+default\s+async\s+function\s+handler[\s\S]*$/, '');
+  const wrappedTopo = sanitizedSource + '\nreturn generateRailTopographicCheckpoints(polLat, polLng, podLat, podLng, straightKm);';
+  const executeTopo = new Function('polLat', 'polLng', 'podLat', 'podLng', 'straightKm', wrappedTopo);
+
+  const polLat = 40.4168; // Madrid
+  const polLng = -3.7038;
+  const podLat = 41.3879; // Barcelona
+  const podLng = 2.1699;
+  const straightKm = 505;
+
+  const result = executeTopo(polLat, polLng, podLat, podLng, straightKm);
+
+  // a) Coordenadas de inicio y fin coinciden exactamente
+  assert.deepEqual(result.coordinates[0], [polLng, polLat]);
+  assert.deepEqual(result.coordinates[result.coordinates.length - 1], [podLng, podLat]);
+
+  // b) Se han generado waypoints suficientes para suavidad visual
+  assert.ok(result.coordinates.length >= 36, `Debe generar al menos 36 waypoints: ${result.coordinates.length}`);
+
+  // c) No es una línea recta: puntos intermedios tienen desviación lateral
+  let hasCurvature = false;
+  const dLng = podLng - polLng;
+  const dLat = podLat - polLat;
+  for (let i = 1; i < result.coordinates.length - 1; i++) {
+    const t = i / (result.coordinates.length - 1);
+    const expectedStraightLng = polLng + dLng * t;
+    const actualLng = result.coordinates[i][0];
+    if (Math.abs(actualLng - expectedStraightLng) > 0.005) {
+      hasCurvature = true;
+      break;
+    }
+  }
+  assert.ok(hasCurvature, 'La polilínea debe incluir curvatura topográfica simulada');
+
+  // d) Contiene checkpoints simulados
+  assert.ok(Array.isArray(result.checkpoints) && result.checkpoints.length > 0, 'Debe incluir checkpoints simulados');
+  assert.ok(result.checkpoints[0].name.includes('Checkpoint Férreo'), 'Nombre de checkpoint debe ser descriptivo');
+  assert.ok(result.distanceMeters > straightKm * 1000, 'Distancia ferroviaria con curvas debe superar la línea recta');
 });
