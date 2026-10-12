@@ -679,7 +679,7 @@ export function setupLandCharterUnitObserver(onSystemChange) {
     if (syncCard) {
       const headerSpan = syncCard.querySelector('span');
       if (headerSpan) {
-        headerSpan.textContent = isImperial ? 'Millas' : 'Kilómetros';
+        headerSpan.textContent = 'Distancia';
       }
     }
 

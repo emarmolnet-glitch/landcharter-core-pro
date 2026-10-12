@@ -20555,7 +20555,7 @@ async function runOnDemandMapRouteWorkflow(button) {
         if (syncMilesCard) {
             syncMilesCard.title = `Distancia total: ${displayDistSync.toLocaleString('es-ES')} ${distUnitSync}`;
             const syncSpan = syncMilesCard.querySelector('span');
-            if (syncSpan) syncSpan.textContent = isImperialSync ? 'Millas' : 'Kilómetros';
+            if (syncSpan) syncSpan.textContent = 'Distancia';
         }
         const syncPolLabel = document.getElementById('sync-pol-label');
         if (syncPolLabel) syncPolLabel.textContent = polDisplayName;
@@ -43286,7 +43286,7 @@ function scheduleReactiveEngine() {
             State.agencyProfit = isTerrestre ? finalNetProfitCharterer : netProfitCharterer;
             State.carrierPurchaseUnit = isTerrestre ? carrierPurchaseUnit : freightBuy;
             State.clientSaleUnit = isTerrestre ? clientSaleUnit : freightSell;
-            State.carrierPurchaseTotal = isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (multiplier * freightBuy);
+            State.carrierPurchaseTotal = (isGlobalRailMode || isRail) ? carrierPurchaseUnit : (isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (multiplier * freightBuy));
             State.clientSaleTotal = isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : (multiplier * freightSell);
             State.agencyMargin = isTerrestre ? agencyMarkupPercent : marginChart;
             State.marginCharterer = isTerrestre ? agencyMarkupPercent : marginChart;
@@ -43636,13 +43636,13 @@ function scheduleReactiveEngine() {
                     distanceKm: landTotalKilometers,
                     buyFreight: isTerrestre ? carrierRatePerKm : landBreakEvenPerKm,
                     sellFreight: isTerrestre ? clientRatePerKm : (landBreakEvenPerKm * 1.15),
-                    buyFreightTotal: isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * landTotalKilometers) : totalTripCost),
+                    buyFreightTotal: (isGlobalRailMode || isRail) ? carrierPurchaseUnit : (isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * landTotalKilometers) : totalTripCost)),
                     sellFreightTotal: isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 1.15 * landTotalKilometers) : 0),
                     totalTripCost: isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * landTotalKilometers) : totalTripCost),
                     totalRevenue: isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 1.15 * landTotalKilometers) : 0),
                     totalProfit: isTerrestre ? (agencyNetProfit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : netProfitCharterer),
                     chartererProfit: isTerrestre ? (agencyNetProfit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : netProfitCharterer),
-                    tce: isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : tceOwner),
+                    tce: (isGlobalRailMode || isRail) ? carrierPurchaseUnit : (isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : tceOwner)),
                     agencyMargin: agencyMarkupPercent,
                     modeNarrative: 'terrestre',
                     mode: 'terrestre',
