@@ -296,14 +296,21 @@
         const isPodBorderComplex = isNonSchengenOrComplexBorder(podCountry) || isNonSchengenOrComplexBorder(pod);
         const hasBorderRisk = isPolBorderComplex || isPodBorderComplex;
 
-        // 2. Riesgo Tacógrafo: Si la ruta supera las horas legales de conducción de un solo chófer sin descansos mayores (> 9h según Reglamento CE 561/2006)
         const totalDistanceKm = toNumber(context.totalKm || context.distanceKm || context.distTotal);
         const rawHours = toNumber(context.drivingHours)
             || toNumber(context.seaDays ? context.seaDays * 24 : 0)
             || (totalDistanceKm > 0 ? totalDistanceKm / 75 : 0);
         const drivingHours = Math.max(0, rawHours);
-        const hasTachographRisk = drivingHours > 9.0;
-        const tachographDays = Math.max(1, Math.ceil(drivingHours / 9));
+        const isRailContext = Boolean(context.isRail)
+            || (context.globalTransportMode === 'RAIL')
+            || (typeof root !== 'undefined' && root.globalTransportMode === 'RAIL')
+            || (typeof root !== 'undefined' && root.State?.globalTransportMode === 'RAIL')
+            || /\b(tren|tolva|ferroviario|rail|railway|wagon|vag[oó]n)\b/i.test(toText(context.vehicleType || context.truckType || context.vesselType));
+
+        // 2. Riesgo Tacógrafo: Si la ruta supera las horas legales de conducción de un solo chófer sin descansos mayores (> 9h según Reglamento CE 561/2006)
+        // En ferrocarril (RAIL) no existe tacógrafo vial: los trenes operan con relevos continuos.
+        const hasTachographRisk = isRailContext ? false : (drivingHours > 9.0);
+        const tachographDays = isRailContext ? Math.max(1, Math.ceil(drivingHours / 24)) : Math.max(1, Math.ceil(drivingHours / 9));
 
         // 3. Riesgo ADR: Si el payload o mercancía incluye mercancía peligrosa
         const cargoText = `${toText(context.cargoType)} ${toText(context.cargoProduct)} ${toText(context.cargoDescription)} ${toText(context.packaging)}`;
@@ -322,14 +329,18 @@
         if (hasBorderRisk) {
             insights.push('Posibles demoras aduaneras: La ruta cruza fronteras internacionales fuera del espacio aduanero común/Schengen (inspección documental y control T1/T2).');
         }
-        if (hasTachographRisk) {
-            insights.push('Ruta requiere 2 conductores o pernocta obligatoria: El tiempo de conducción supera las 9 horas legales permitidas para un solo chófer (Reglamento CE 561/2006).');
-        }
-        if (hasAdrRisk) {
-            insights.push('Posibles restricciones en túneles o peajes: Transporte clasificado como mercancía peligrosa (ADR) sujeto a restricciones en túneles (B/C/D/E) y sobrecostes de seguridad.');
-        }
-        if (!insights.length) {
-            insights.push('Ruta terrestre optimizada: cumplimiento de tacógrafo para 1 chófer, sin demoras aduaneras y sin restricciones ADR.');
+        if (isRailContext) {
+            insights.push('Operación Ferroviaria Block Train. Tiempos de tránsito continuos sin restricciones de tacógrafo vial.');
+        } else {
+            if (hasTachographRisk) {
+                insights.push('Ruta requiere 2 conductores o pernocta obligatoria: El tiempo de conducción supera las 9 horas legales permitidas para un solo chófer (Reglamento CE 561/2006).');
+            }
+            if (hasAdrRisk) {
+                insights.push('Posibles restricciones en túneles o peajes: Transporte clasificado como mercancía peligrosa (ADR) sujeto a restricciones en túneles (B/C/D/E) y sobrecostes de seguridad.');
+            }
+            if (!insights.length) {
+                insights.push('Ruta terrestre optimizada: cumplimiento de tacógrafo para 1 chófer, sin demoras aduaneras y sin restricciones ADR.');
+            }
         }
 
         return {
@@ -492,6 +503,14 @@
             if (/fertiliz|quimic|plastic/.test(cargoKey)) {
                 return `${equipmentPrefix} se requiere semirremolque estanco, protección frente a humedad y ficha de seguridad ADR.`;
             }
+            const isRailModeActive = Boolean(calcResults.isRail)
+                || (calcResults.globalTransportMode === 'RAIL')
+                || (typeof root !== 'undefined' && root.globalTransportMode === 'RAIL')
+                || (typeof root !== 'undefined' && root.State?.globalTransportMode === 'RAIL')
+                || /\b(tren|tolva|ferroviario|rail|railway|wagon|vag[oó]n)\b/i.test(toText(calcResults.vehicleType || calcResults.truckType || calcResults.vesselType));
+            if (isRailModeActive) {
+                return 'Operación Ferroviaria Block Train. Tiempos de tránsito continuos sin restricciones de tacógrafo vial.';
+            }
             if (/cereal|grano|soja|carbon|mineral|granel|bulk/.test(cargoKey)) {
                 return `${equipmentPrefix} se requiere bañera basculante o tráiler tolva con lona de protección.`;
             }
@@ -598,6 +617,12 @@
             ? ((pausasTacografo + descansosDiarios) / 24)
             : toNumber(calcResults.portDays);
 
+        const isRail = Boolean(calcResults.isRail)
+            || (calcResults.globalTransportMode === 'RAIL')
+            || (typeof root !== 'undefined' && root.globalTransportMode === 'RAIL')
+            || (typeof root !== 'undefined' && root.State?.globalTransportMode === 'RAIL')
+            || /\b(tren|tolva|ferroviario|rail|railway|wagon|vag[oó]n)\b/i.test(toText(calcResults.vehicleType || calcResults.truckType || calcResults.vesselType));
+
         // Margen de Agencia / Markup (por defecto 10%)
         const agencyMarginPercent = toNumber(calcResults.agencyMargin ?? calcResults.agencyMarkup ?? root.document?.getElementById('exec-agency-margin')?.value ?? root.document?.getElementById('margin-charterer')?.value ?? 10);
         const execAgencyMarginInput = documentRef.getElementById('exec-agency-margin');
@@ -613,7 +638,18 @@
         let effectiveBuyTotal = toNumber(calcResults.buyFreightTotal);
         let effectiveSellTotal = toNumber(calcResults.sellFreightTotal);
 
-        if (kmTotal > 0 && (effectiveBuyFreight <= 0 || (effectiveBuyFreight > 10 && !calcResults.isExplicitCarrierRate))) {
+        if (isRail) {
+            // Modo RAIL: Estrictamente Lump Sum. Prohibido usar tarifas por milla/kilómetro ($/mi) para calcular el total.
+            // Tarifa Cerrada de Compra (carrierPurchaseUnit / buyFreightTotal / costeTren)
+            if (effectiveBuyTotal <= 0) {
+                effectiveBuyTotal = toNumber(calcResults.buyFreightTotal || calcResults.totalTripCost || calcResults.tarifaTransportista || calcResults.costeTren) || 0;
+            }
+            // Precio de Venta Total DEBE ser: Tarifa Cerrada de Compra * (1 + (Margen de Agencia / 100))
+            effectiveSellTotal = effectiveBuyTotal * (1 + (agencyMarginPercent / 100));
+            // Fletes unitarios por km informativos:
+            effectiveBuyFreight = kmTotal > 0 ? (effectiveBuyTotal / kmTotal) : 0;
+            effectiveSellFreight = kmTotal > 0 ? (effectiveSellTotal / kmTotal) : 0;
+        } else if (kmTotal > 0 && (effectiveBuyFreight <= 0 || (effectiveBuyFreight > 10 && !calcResults.isExplicitCarrierRate))) {
             const peajes = kmTotal * 0.22;
             const dietas = pernoctas * 65.0;
             const costePorteOperativo = (kmTotal * 1.30) + peajes + dietas;
@@ -639,13 +675,18 @@
         }
 
         const effectiveSpreadKm = Math.max(0, toNumber(effectiveSellFreight) - toNumber(effectiveBuyFreight));
-        const effectiveSpreadTotal = (calcResults.chartererProfit !== undefined || calcResults.totalProfit !== undefined)
-            ? toNumber(calcResults.chartererProfit ?? calcResults.totalProfit)
-            : Math.max(0, effectiveSellTotal - effectiveBuyTotal);
+        // Beneficio/Spread DEBE ser: Precio de Venta Total - Tarifa Cerrada de Compra:
+        const effectiveSpreadTotal = isRail
+            ? (effectiveSellTotal - effectiveBuyTotal)
+            : ((calcResults.chartererProfit !== undefined || calcResults.totalProfit !== undefined)
+                ? toNumber(calcResults.chartererProfit ?? calcResults.totalProfit)
+                : Math.max(0, effectiveSellTotal - effectiveBuyTotal));
 
-        const carrierMargin = (calcResults.tce !== undefined && toNumber(calcResults.tce) > 0)
-            ? toNumber(calcResults.tce)
-            : effectiveBuyTotal;
+        const carrierMargin = isRail
+            ? effectiveBuyTotal
+            : ((calcResults.tce !== undefined && toNumber(calcResults.tce) > 0)
+                ? toNumber(calcResults.tce)
+                : effectiveBuyTotal);
         const carrierMarginKm = kmTotal > 0 && carrierMargin > 0 ? (carrierMargin / kmTotal) : effectiveBuyFreight;
 
         updatePresentationTitles();
@@ -781,7 +822,17 @@
                 insightParts.push(`Medios obligatorios: ${projectCargoAssessment.requiredEquipment.join(', ')}.`);
             }
         }
-        setText('exec-insight-text', insightParts.join(' '));
+
+        const loadingRateUnitEl = documentRef.getElementById('exec-loading-rate-unit');
+        if (loadingRateUnitEl) {
+            loadingRateUnitEl.textContent = isRail ? 't/h (Granel Continuo)' : 'pallets/h o t/h';
+        }
+
+        if (isRail) {
+            setText('exec-insight-text', 'Operación Ferroviaria Block Train. Tiempos de tránsito continuos sin restricciones de tacógrafo vial.');
+        } else {
+            setText('exec-insight-text', insightParts.join(' '));
+        }
         return true;
     }
 
