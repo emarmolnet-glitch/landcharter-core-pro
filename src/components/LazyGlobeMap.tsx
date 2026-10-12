@@ -97,7 +97,7 @@ if (typeof document !== 'undefined') {
   }
   styleEl.innerHTML = `
 .leaflet-route-highlight {
-    stroke: ##2563eb !important;
+    stroke: #2563eb !important;
     stroke-width: 6px !important;
     stroke-opacity: 1 !important;
     fill: none !important;
@@ -112,7 +112,7 @@ if (typeof document !== 'undefined') {
 path.leaflet-rail-route-highlight {
     stroke: #1e293b !important;
     stroke-dasharray: 10 15 !important;
-    stroke-width: 5px !important;
+    stroke-width: 4px !important;
     stroke-opacity: 1 !important;
     fill: none !important;
 }
@@ -141,8 +141,9 @@ function RouteAutoFitter({ positions, isRail: propIsRail }: { positions?: [numbe
 
     const currentVT = (window as any).State?.vehicleType || (window as any).State?.truckType || (typeof document !== 'undefined' ? ((document.getElementById('vehicle_type') as HTMLSelectElement)?.value || (document.getElementById('nombre-buque-calculadora') as HTMLInputElement)?.value) : '') || '';
     const currentMode = ((typeof window !== 'undefined' && ((window as any).globalTransportMode || (window as any).State?.globalTransportMode)) ? String((window as any).globalTransportMode || (window as any).State?.globalTransportMode).toUpperCase() : '');
-    const isRail = propIsRail !== undefined ? propIsRail : (
+    const isRail = (
       currentMode === 'RAIL' ||
+      propIsRail === true ||
       (typeof window !== 'undefined' && (window as any).State?.isRail === true) ||
       currentVT?.toLowerCase().includes('tren') ||
       currentVT?.toLowerCase().includes('tolva') ||
@@ -288,8 +289,10 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
     return '';
   });
 
-  const isRail = propIsRail !== undefined ? propIsRail : (
+  const isRail = (
     globalMode === 'RAIL' ||
+    (typeof window !== 'undefined' && String((window as any).globalTransportMode || (window as any).State?.globalTransportMode).toUpperCase() === 'RAIL') ||
+    propIsRail === true ||
     (typeof window !== 'undefined' && (window as any).State?.isRail === true) ||
     vehicleType?.toLowerCase().includes('tren') ||
     vehicleType?.toLowerCase().includes('tolva') ||
@@ -372,8 +375,19 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
         geometry?: any;
       }>;
 
-      if (customEv.detail?.globalTransportMode) {
-        setGlobalMode(String(customEv.detail.globalTransportMode).toUpperCase());
+      const incomingMode = customEv.detail?.globalTransportMode || (typeof window !== 'undefined' && (window as any).globalTransportMode);
+      if (incomingMode) {
+        setGlobalMode(String(incomingMode).toUpperCase());
+      }
+      if (
+        customEv.detail?.isRail === true ||
+        String(incomingMode).toUpperCase() === 'RAIL' ||
+        customEv.detail?.routeGeoJson?.features?.[0]?.properties?.transportMode === 'RAIL' ||
+        customEv.detail?.routeGeoJson?.features?.[0]?.properties?.isRail === true ||
+        customEv.detail?.geoJson?.features?.[0]?.properties?.transportMode === 'RAIL' ||
+        customEv.detail?.geoJson?.features?.[0]?.properties?.isRail === true
+      ) {
+        setGlobalMode('RAIL');
       }
 
       let points = customEv.detail?.osrmRoutePoints || customEv.detail?.leafletRoutePoints || customEv.detail?.routePoints || customEv.detail?.curvedRoutePoints;

@@ -19087,11 +19087,67 @@ function renderRouteItineraryRightPanel(landData) {
     const tollList = Array.isArray(landData.tollBreakdown) ? landData.tollBreakdown : [];
 
     const vehicleTypeItinerary = String(window.State?.vehicleType || window.State?.truckType || (typeof document !== 'undefined' ? (document.getElementById('vehicle_type')?.value || document.getElementById('nombre-buque-calculadora')?.value) : '') || '').toLowerCase();
-    const isRailItinerary = vehicleTypeItinerary.includes('tren') || vehicleTypeItinerary.includes('tolva') || vehicleTypeItinerary.includes('ferroviario') || vehicleTypeItinerary.includes('rail');
+    const isRailModeActive = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+                             (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
+                             (landData.globalTransportMode === 'RAIL') ||
+                             (landData.isRail === true);
+    const isRailItinerary = isRailModeActive || vehicleTypeItinerary.includes('tren') || vehicleTypeItinerary.includes('tolva') || vehicleTypeItinerary.includes('ferroviario') || vehicleTypeItinerary.includes('rail');
+
+    // Extraer paradas / checkpoints ferroviarios (nodos de paso camuflados desde ORS / proxy)
+    let railCheckpoints = [];
+    if (isRailItinerary) {
+        if (Array.isArray(landData.checkpoints) && landData.checkpoints.length > 0) {
+            railCheckpoints = landData.checkpoints;
+        } else if (Array.isArray(landData.routeSteps) && landData.routeSteps.length > 0) {
+            // Filtrar o sintetizar pasos relevantes
+            railCheckpoints = landData.routeSteps.map((s, idx) => ({
+                index: idx + 1,
+                name: s.name && s.name !== '-' ? s.name : `Paso Ferroviario #${idx + 1}`,
+                progress: s.progress !== undefined ? s.progress : Math.min(100, Math.round((idx / (landData.routeSteps.length - 1 || 1)) * 100)),
+                coordinates: s.coordinates || null
+            }));
+        } else if (Array.isArray(landData.geojsonCoordinates) && landData.geojsonCoordinates.length > 0) {
+            const coords = landData.geojsonCoordinates;
+            const numPoints = Math.min(6, Math.max(2, Math.round(rawDist / 80)));
+            for (let i = 0; i < numPoints; i++) {
+                const fraction = i / (numPoints - 1);
+                const pt = coords[Math.min(coords.length - 1, Math.round(fraction * (coords.length - 1)))];
+                railCheckpoints.push({
+                    index: i + 1,
+                    name: i === 0 ? origName : (i === numPoints - 1 ? destName : `Paso Costero [${pt[1]?.toFixed(2)}°, ${pt[0]?.toFixed(2)}°]`),
+                    progress: Math.round(fraction * 100),
+                    coordinates: pt
+                });
+            }
+        }
+    }
 
     let milestonesHtml = '';
     if (isRailItinerary) {
-        milestonesHtml = '<p class="text-xs text-emerald-700 italic mt-1 font-medium">Tránsito ferroviario continuo por corredor de mercancías con surcos asignados. Sin paradas de tacógrafo vial.</p>';
+        // En modo RAIL, NO ocultar la lista de checkpoints o paradas:
+        // Mostrar simplemente el nombre de la ciudad o coordenada extraída y el porcentaje de progreso en la ruta
+        if (railCheckpoints.length > 0) {
+            milestonesHtml = `
+                <div class="mt-2 space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    ${railCheckpoints.map(cp => `
+                        <div class="text-[11px] bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 leading-tight hover:border-slate-300 transition-colors">
+                            <div class="font-bold flex items-center justify-between">
+                                <span class="truncate max-w-[200px]" title="${cp.name}">📍 ${cp.name}</span>
+                                <span class="text-blue-600 font-extrabold text-[10px] ml-1 shrink-0">${cp.progress ?? 0}%</span>
+                            </div>
+                            <div class="mt-1 flex items-center justify-between text-[10px] text-slate-500">
+                                <span>Progreso en ruta</span>
+                                <div class="w-20 bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                                    <div class="bg-blue-600 h-full rounded-full" style="width: ${cp.progress ?? 0}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } else {
+            milestonesHtml = '<p class="text-xs text-slate-500 italic mt-1 font-medium">Tránsito ferroviario continuo por corredor de mercancías simulado.</p>';
+        }
     } else if (milestones.length === 0) {
         milestonesHtml = '<p class="text-xs text-slate-500 italic mt-1">Ruta continua sin paradas obligatorias (&lt; 4.5h conducción).</p>';
     } else {
@@ -19167,13 +19223,13 @@ function renderRouteItineraryRightPanel(landData) {
             </div>
         </div>
 
-        <!-- ☕ Hitos y alertas de tacógrafo / surcos ferroviarios -->
+        <!-- ☕ Hitos y alertas de tacógrafo / Nodos Ferroviarios de Paso -->
         <div class="mb-3">
             <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-slate-700 flex items-center gap-1">
-                    ${isRailItinerary ? '🚦 Tránsito Ferroviario / Surcos' : '☕ Tacógrafo (CE 561/2006)'}
+                    ${isRailItinerary ? '🛤️ Nodos Ferroviarios de Paso (Ruta Simulada)' : '☕ Tacógrafo (CE 561/2006)'}
                 </span>
-                <span class="text-[10px] font-semibold text-slate-500">${isRailItinerary ? 'Relevos de maquinista' : `${milestones.length} parada(s)`}</span>
+                <span class="text-[10px] font-semibold text-slate-500">${isRailItinerary ? `${railCheckpoints.length} nodo(s)` : `${milestones.length} parada(s)`}</span>
             </div>
             ${milestonesHtml}
         </div>
@@ -19726,22 +19782,35 @@ async function runOnDemandMapRouteWorkflow(button) {
                         const feat = proxyJson.features[0];
                         const distMeters = Number(feat.properties?.distanceMeters || (feat.properties?.distanceKm ? feat.properties.distanceKm * 1000 : 0));
                         const durSeconds = Number(feat.properties?.durationSeconds || (distMeters / 1000 / 65) * 3600);
+                        const proxySteps = (proxyJson.routes?.[0]?.legs?.[0]?.steps) ||
+                            (feat.properties?.checkpoints && feat.properties.checkpoints.length > 0
+                                ? feat.properties.checkpoints.map(cp => ({
+                                    name: cp.name,
+                                    coordinates: cp.coordinates,
+                                    progress: cp.progress,
+                                    distance: Math.round(distMeters * ((cp.progress || 0) / 100)),
+                                    duration: Math.round(durSeconds * ((cp.progress || 0) / 100))
+                                }))
+                                : [{
+                                    name: feat.properties?.usedPolylineFallback ? 'Corredor Férreo (Trazado continuo)' : 'Vía Férrea / Rail Network',
+                                    distance: distMeters,
+                                    duration: durSeconds
+                                }]);
                         data = {
                             routes: [{
                                 distance: distMeters,
                                 duration: durSeconds,
                                 legs: [{
-                                    steps: [{
-                                        name: feat.properties?.usedPolylineFallback ? 'Corredor Férreo (Trazado continuo)' : 'Vía Férrea / Rail Network',
-                                        distance: distMeters,
-                                        duration: durSeconds
-                                    }]
+                                    steps: proxySteps
                                 }],
                                 geometry: {
                                     coordinates: feat.geometry.coordinates
                                 }
                             }]
                         };
+                        if (feat.properties?.checkpoints) {
+                            data.checkpoints = feat.properties.checkpoints;
+                        }
                         routeSource = feat.properties?.source || 'PROXY-NETLIFY-RAIL';
                         console.log(`[Workflow] Éxito con Proxy /api/get-rail-route (${routeSource}): ${(distMeters / 1000).toFixed(1)} km`);
                     } else if (proxyJson && proxyJson.routes && proxyJson.routes.length > 0 && proxyJson.routes[0].geometry?.coordinates?.length > 0) {
@@ -20167,6 +20236,7 @@ async function runOnDemandMapRouteWorkflow(button) {
             tollEstimationMode,
             tachographMilestones,
             routeSteps: enrichedRouteSteps,
+            checkpoints: osrmData.checkpoints || osrmData.metadata?.checkpoints || (osrmData.routes?.[0]?.checkpoints) || [],
             geojsonCoordinates,
             leafletRoutePoints,
             routePoints: leafletRoutePoints.length > 0 ? leafletRoutePoints : computedCurvePoints,

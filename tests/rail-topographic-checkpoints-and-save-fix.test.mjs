@@ -5,52 +5,22 @@ import { resolve } from 'node:path';
 
 const rootDir = process.cwd();
 
-test('1. Motor Ferroviario: get-rail-route.js abandona fallback HGV e implementa interpolación topográfica con checkpoints', async () => {
+test('1. Motor Ferroviario: get-rail-route.js elimina interpolación ciega e implementa ruteo terrestre con fallback ORS', async () => {
   const proxySource = await readFile(resolve(rootDir, 'netlify/functions/get-rail-route.js'), 'utf8');
 
-  // a) No debe contener llamadas a openrouteservice driving-hgv
-  assert.doesNotMatch(proxySource, /driving-hgv\/geojson/, 'No debe usar el endpoint de carreteras HGV');
-  assert.doesNotMatch(proxySource, /fetchOrsHgvPolylineFallback/, 'No debe existir función de fallback de camiones');
+  // a) Elimina por completo las fórmulas matemáticas que ondulan líneas rectas sobre el mar
+  assert.doesNotMatch(proxySource, /generateRailTopographicCheckpoints/, 'Debe eliminar por completo generateRailTopographicCheckpoints');
+  assert.doesNotMatch(proxySource, /RAIL-INTERPOLATED-CHECKPOINTS/, 'No debe emitir checkpoints matemáticos sobre agua');
 
-  // b) Debe contener el algoritmo de interpolación topográfica con checkpoints
-  assert.match(proxySource, /function\s+generateRailTopographicCheckpoints/);
-  assert.match(proxySource, /RAIL-INTERPOLATED-CHECKPOINTS/);
+  // b) Fuerza el uso del motor de carreteras OpenRouteService HGV como método principal
+  assert.match(proxySource, /https:\/\/api\.openrouteservice\.org\/v2\/directions\/driving-hgv\/geojson/);
+  assert.match(proxySource, /fetchOrsHgvPolyline/);
+  assert.match(proxySource, /ORS-HGV-FALLBACK-POLYLINE/);
   assert.match(proxySource, /dashArray:\s*['"]10, 15['"]/);
 
-  // c) Comprobar ejecución unitaria del algoritmo matemático
-  const sanitized = proxySource
-    .replace(/export\s+function\s+/g, 'function ')
-    .replace(/export\s+default\s+async\s+function\s+handler[\s\S]*$/, '');
-  const executeTopo = new Function(
-    'polLat', 'polLng', 'podLat', 'podLng', 'straightKm',
-    sanitized + '\nreturn generateRailTopographicCheckpoints(polLat, polLng, podLat, podLng, straightKm);'
-  );
-
-  const polLat = 40.4168; // Madrid
-  const polLng = -3.7038;
-  const podLat = 37.3891; // Sevilla
-  const podLng = -5.9845;
-  const straightKm = 390;
-
-  const result = executeTopo(polLat, polLng, podLat, podLng, straightKm);
-  assert.ok(result.coordinates.length >= 36, 'Debe generar suficientes waypoints para suavidad');
-  assert.deepEqual(result.coordinates[0], [polLng, polLat], 'El origen debe ser exacto');
-  assert.deepEqual(result.coordinates[result.coordinates.length - 1], [podLng, podLat], 'El destino debe ser exacto');
-
-  // Verificar que la línea tiene curvatura topográfica (desviación respecto a la recta)
-  const dLng = podLng - polLng;
-  const dLat = podLat - polLat;
-  let curved = false;
-  for (let i = 1; i < result.coordinates.length - 1; i++) {
-    const t = i / (result.coordinates.length - 1);
-    const expectedStraightLng = polLng + dLng * t;
-    if (Math.abs(result.coordinates[i][0] - expectedStraightLng) > 0.003) {
-      curved = true;
-      break;
-    }
-  }
-  assert.ok(curved, 'Los waypoints intermedios deben tener curvatura topográfica simulada');
-  assert.ok(result.checkpoints && result.checkpoints.length > 0, 'Debe incluir checkpoints simulados');
+  // c) Protección de datos: sobrescribe distancia de ORS con theoreticalRailMeters
+  assert.match(proxySource, /finalDistanceMeters\s*=\s*theoreticalRailMeters/);
+  assert.match(proxySource, /theoreticalRailMeters/);
 });
 
 test('2. Estilado Frontend Ferroviario: dashArray estético "10, 15" en mapa y capas Leaflet', async () => {
