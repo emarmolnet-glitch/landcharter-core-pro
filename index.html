@@ -9957,7 +9957,7 @@
                         <h4 class="text-xs text-slate-400 font-bold uppercase mb-3 tracking-wider">📦 Resumen de Carga y Tiempos</h4>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-600">
                             <div>Volumen: <strong class="text-slate-800 text-base" id="exec-cargo-qty">0 t</strong> (<span id="exec-cargo-type">N/D</span>)</div>
-                            <div class="md:col-span-2">Ratio Carga / Descarga: <strong class="text-slate-800 text-base" id="exec-load-rate">0</strong> / <strong class="text-slate-800 text-base" id="exec-disch-rate">0</strong> <span class="text-xs text-slate-500 font-medium">pallets/h o t/h</span></div>
+                            <div class="md:col-span-2">Ratio Carga / Descarga: <strong class="text-slate-800 text-base" id="exec-load-rate">0</strong> / <strong class="text-slate-800 text-base" id="exec-disch-rate">0</strong> <span class="text-xs text-slate-500 font-medium" id="exec-loading-rate-unit">pallets/h o t/h</span></div>
                         </div>
                     </div>
 
@@ -10849,7 +10849,7 @@
                         </div>
 
                         <!-- Nota explicativa normativa -->
-                        <div class="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
+                        <div id="tacografo-normativa-warning" class="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
                             <i class="fa-solid fa-circle-info text-sky-400 mt-0.5" aria-hidden="true"></i>
                             <div>
                                 <span class="font-bold text-slate-300">Reglamento (CE) Nº 561/2006:</span>
@@ -42098,9 +42098,15 @@ function scheduleReactiveEngine() {
             // Si isRail es true, aplicar fórmula ferroviaria directa: Coste Total = distanciaKm * 0.04 * totalTonnage
             // y los costes de peajes, dietas, diésel y CAPEX deben sumar estrictamente 0.
             const vehicle_type_engine = State.vehicleType || (document.getElementById('nombre-buque-calculadora')?.value) || '';
-            const isRail = vehicle_type_engine?.toLowerCase().includes('tren') || vehicle_type_engine?.toLowerCase().includes('tolva') || vehicle_type_engine?.toLowerCase().includes('ferroviario') || vehicle_type_engine?.toLowerCase().includes('rail');
+            const isRail = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL')
+                || (typeof State !== 'undefined' && State?.globalTransportMode === 'RAIL')
+                || (typeof State !== 'undefined' && State?.isRail === true)
+                || /\b(tren|tolva|ferroviario|rail|railway|wagon|vag[oó]n)\b/i.test(vehicle_type_engine);
             const totalTonnageRail = Number(cargo) || Number(State.cargo) || (parseFloat(document.getElementById('cargo-qty')?.value) || 24.0);
             const costeTren = landTotalKilometers * 0.04 * totalTonnageRail;
+            if (typeof applyGlobalTransportModeUI === 'function') {
+                applyGlobalTransportModeUI(isRail ? 'RAIL' : ((typeof window !== 'undefined' && window.globalTransportMode) || 'ROAD'));
+            }
 
             const baseKmRate = 1.30;
             const baseKmCost = landTotalKilometers * baseKmRate;
@@ -42937,8 +42943,8 @@ function scheduleReactiveEngine() {
                 : 1;
             const isGlobalRailMode = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') || isRail;
             const effectiveTruckPayloadCapacity = isGlobalRailMode ? 50 : truckPayloadCapacity;
-            const fleetTrucksNeeded = (isTerrestre && cargo > 0 && effectiveTruckPayloadCapacity > 0)
-                ? Math.max(1, Math.ceil(cargo / effectiveTruckPayloadCapacity))
+            const fleetTrucksNeeded = (isTerrestre && cargo > 0 && truckPayloadCapacity > 0)
+                ? (isGlobalRailMode ? Math.max(1, Math.ceil(cargo / 50)) : Math.max(1, Math.ceil(cargo / truckPayloadCapacity)))
                 : 1;
             State.trucks_needed = isGlobalRailMode ? fleetTrucksNeeded : trucks_needed;
             State.trucksNeeded = isGlobalRailMode ? fleetTrucksNeeded : trucks_needed;
@@ -42959,10 +42965,8 @@ function scheduleReactiveEngine() {
             State.pesoBruto = calculatedGrossWeight;
 
             const unitaryTripCost = safeCalculationNumber(State.totalTripCost ?? State.totalCosts ?? displayTotalTripCost ?? 162);
-            // Si isRail es true, el coste total es directamente costeTren (distancia * 0.04 * totalTonnage) y NO se multiplica por camiones
-            const finalSharedTotalCosts = isRail
-                ? costeTren
-                : (isTerrestre ? (unitaryTripCost * fleetTrucksNeeded) : sharedTotalCosts);
+            const finalSharedTotalCosts = isTerrestre ? (unitaryTripCost * fleetTrucksNeeded) : sharedTotalCosts;
+            const effectiveSharedCosts = (isRail || isGlobalRailMode) ? costeTren : finalSharedTotalCosts;
 
             // Fletamento Terrestre (Brokerage):
             // 1. Tarifa Transportista (Coste de Compra oficial de la agencia):
@@ -42971,9 +42975,11 @@ function scheduleReactiveEngine() {
             const defaultCarrierTariffUnit = unitaryTripCost * (1 + (carrierMarkupPercent / 100));
             const carrierPurchaseUnit = isRail
                 ? costeTren
-                : ((isTerrestre && freightBuy > 0 && freightBuy !== 32.50)
-                    ? (freightBuy * (truckPayloadCapacity || 24))
-                    : defaultCarrierTariffUnit);
+                : (isGlobalRailMode
+                    ? costeTren
+                    : ((isTerrestre && freightBuy > 0 && freightBuy !== 32.50)
+                        ? (freightBuy * (truckPayloadCapacity || 24))
+                        : defaultCarrierTariffUnit));
 
             // 2. Margen de Agencia / Markup (por defecto 10%):
             const execAgencyMarginInput = document.getElementById('exec-agency-margin');
@@ -42984,15 +42990,20 @@ function scheduleReactiveEngine() {
             const agencyMarkupMultiplier = 1 + (agencyMarkupPercent / 100);
 
             // 3. Precio Total del Viaje (Cliente) = Coste de Compra + Margen de Agencia:
+            // Si window.globalTransportMode === 'RAIL', prohibido usar $/mi o $/km.
+            // Precio de Venta Total = Tarifa Cerrada de Compra * (1 + (Margen de Agencia / 100)).
             const defaultClientSaleUnit = carrierPurchaseUnit * agencyMarkupMultiplier;
-            const clientSaleUnit = isRail
-                ? (costeTren * agencyMarkupMultiplier)
+            const clientSaleUnit = (isGlobalRailMode || isRail)
+                ? (carrierPurchaseUnit * agencyMarkupMultiplier)
                 : ((isTerrestre && freightSell > 0 && freightSell !== 35.00)
                     ? (freightSell * (truckPayloadCapacity || 24))
                     : defaultClientSaleUnit);
 
             // 4. Beneficio Total Agencia = Venta al cliente - Compra al transportista:
-            const agencyNetProfit = Math.max(0, clientSaleUnit - carrierPurchaseUnit);
+            // Beneficio/Spread DEBE ser: Precio de Venta Total - Tarifa Cerrada de Compra.
+            const agencyNetProfit = (isGlobalRailMode || isRail)
+                ? (clientSaleUnit - carrierPurchaseUnit)
+                : Math.max(0, clientSaleUnit - carrierPurchaseUnit);
 
             const carrierRatePerKm = landTotalKilometers > 0 ? (carrierPurchaseUnit / landTotalKilometers) : (carrierPurchaseUnit / 107);
             const clientRatePerKm = landTotalKilometers > 0 ? (clientSaleUnit / landTotalKilometers) : (clientSaleUnit / 107);
@@ -43012,25 +43023,25 @@ function scheduleReactiveEngine() {
                 window.hasCalculated = hasCalculated;
             }
 
-            const finalGrossRevCharterer = isRail
-                ? (costeTren * agencyMarkupMultiplier)
+            const finalGrossRevCharterer = (isGlobalRailMode || isRail)
+                ? clientSaleUnit
                 : (isTerrestre ? (cargo > 0 && freightSell > 0 && freightSell !== 35.00 ? (cargo * freightSell) : (clientSaleUnit * fleetTrucksNeeded)) : grossRevCharterer);
-            const finalGrossRevOwner = isRail
-                ? (costeTren * (1 + (carrierMarkupPercent / 100)))
+            const finalGrossRevOwner = (isGlobalRailMode || isRail)
+                ? carrierPurchaseUnit
                 : (isTerrestre ? (cargo > 0 && freightBuy > 0 && freightBuy !== 32.50 ? (cargo * freightBuy) : (carrierPurchaseUnit * fleetTrucksNeeded)) : grossRevOwner);
-            const finalVoyageRevenues = isRail
+            const finalVoyageRevenues = (isGlobalRailMode || isRail)
                 ? (finalGrossRevOwner + voyageExtras)
                 : (isTerrestre ? (finalGrossRevOwner + voyageExtras) : voyageRevenues);
-            const finalChartererCommissionCost = (isRail || isTerrestre)
+            const finalChartererCommissionCost = (isGlobalRailMode || isRail || isTerrestre)
                 ? 0
                 : chartererCommissionCost;
-            const finalNetProfitOwner = isRail
+            const finalNetProfitOwner = (isGlobalRailMode || isRail)
                 ? (costeTren * (carrierMarkupPercent / 100))
                 : (isTerrestre ? (finalVoyageRevenues - finalSharedTotalCosts) : netProfitOwner);
-            const finalNetProfitCharterer = (isRail || isTerrestre)
-                ? (finalGrossRevCharterer - finalGrossRevOwner)
-                : (finalGrossRevCharterer - finalGrossRevOwner - finalChartererCommissionCost);
-            const finalTceTotal = isRail ? finalNetProfitOwner : (isTerrestre ? finalNetProfitOwner : tceTotal);
+            const finalNetProfitCharterer = (isGlobalRailMode || isRail)
+                ? (clientSaleUnit - carrierPurchaseUnit)
+                : (isTerrestre ? (finalGrossRevCharterer - finalGrossRevOwner) : (finalGrossRevCharterer - finalGrossRevOwner - finalChartererCommissionCost));
+            const finalTceTotal = (isGlobalRailMode || isRail) ? finalNetProfitOwner : (isTerrestre ? finalNetProfitOwner : tceTotal);
 
             const finalFuelCost = isRail ? 0 : ((isTerrestre ? displayFuelCost : totalBunkers) * (isTerrestre ? fleetTrucksNeeded : 1));
             const finalTollCost = isRail ? 0 : ((isTerrestre ? displayTollCost : smartPortExpenses) * (isTerrestre ? fleetTrucksNeeded : 1));
@@ -43287,11 +43298,16 @@ function scheduleReactiveEngine() {
             State.carrierPurchaseUnit = isTerrestre ? carrierPurchaseUnit : freightBuy;
             State.clientSaleUnit = isTerrestre ? clientSaleUnit : freightSell;
             State.carrierPurchaseTotal = (isGlobalRailMode || isRail) ? carrierPurchaseUnit : (isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (multiplier * freightBuy));
-            State.clientSaleTotal = isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : (multiplier * freightSell);
+            State.clientSaleTotal = (isGlobalRailMode || isRail) ? clientSaleUnit : (isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : (multiplier * freightSell));
             State.agencyMargin = isTerrestre ? agencyMarkupPercent : marginChart;
             State.marginCharterer = isTerrestre ? agencyMarkupPercent : marginChart;
-            State.chartererFreightCost = isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : finalGrossRevOwner;
-            State.chartererGrossRevenue = isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : finalGrossRevCharterer;
+            State.chartererFreightCost = (isGlobalRailMode || isRail) ? carrierPurchaseUnit : (isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : finalGrossRevOwner);
+            State.chartererGrossRevenue = (isGlobalRailMode || isRail) ? clientSaleUnit : (isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : finalGrossRevCharterer);
+            State.chartererProfit = (isGlobalRailMode || isRail) ? agencyNetProfit : (isTerrestre ? finalNetProfitCharterer : netProfitCharterer);
+            State.agencyProfit = State.chartererProfit;
+            State.netProfitCharterer = State.chartererProfit;
+            State.tarifaTransportista = carrierPurchaseUnit;
+            State.precioTotal = clientSaleUnit;
             State.totalCosts = isTerrestre ? finalSharedTotalCosts : sharedTotalCosts;
             State.totalRevenue = isTerrestre ? finalGrossRevCharterer : totalRevenue;
             State.sugOwner = sugOwner;
@@ -43637,15 +43653,17 @@ function scheduleReactiveEngine() {
                     buyFreight: isTerrestre ? carrierRatePerKm : landBreakEvenPerKm,
                     sellFreight: isTerrestre ? clientRatePerKm : (landBreakEvenPerKm * 1.15),
                     buyFreightTotal: (isGlobalRailMode || isRail) ? carrierPurchaseUnit : (isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * landTotalKilometers) : totalTripCost)),
-                    sellFreightTotal: isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 1.15 * landTotalKilometers) : 0),
-                    totalTripCost: isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * landTotalKilometers) : totalTripCost),
-                    totalRevenue: isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 1.15 * landTotalKilometers) : 0),
-                    totalProfit: isTerrestre ? (agencyNetProfit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : netProfitCharterer),
-                    chartererProfit: isTerrestre ? (agencyNetProfit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : netProfitCharterer),
+                    sellFreightTotal: (isGlobalRailMode || isRail) ? clientSaleUnit : (isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 1.15 * landTotalKilometers) : 0)),
+                    totalTripCost: (isGlobalRailMode || isRail) ? carrierPurchaseUnit : (isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * landTotalKilometers) : totalTripCost)),
+                    totalRevenue: (isGlobalRailMode || isRail) ? clientSaleUnit : (isTerrestre ? (clientSaleUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 1.15 * landTotalKilometers) : 0)),
+                    totalProfit: (isGlobalRailMode || isRail) ? agencyNetProfit : (isTerrestre ? (agencyNetProfit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : netProfitCharterer)),
+                    chartererProfit: (isGlobalRailMode || isRail) ? agencyNetProfit : (isTerrestre ? (agencyNetProfit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : netProfitCharterer)),
                     tce: (isGlobalRailMode || isRail) ? carrierPurchaseUnit : (isTerrestre ? (carrierPurchaseUnit * fleetTrucksNeeded) : (landTotalKilometers > 0 ? (landBreakEvenPerKm * 0.15) * landTotalKilometers : tceOwner)),
                     agencyMargin: agencyMarkupPercent,
                     modeNarrative: 'terrestre',
                     mode: 'terrestre',
+                    isRail: (isGlobalRailMode || isRail),
+                    globalTransportMode: (isGlobalRailMode || isRail) ? 'RAIL' : 'ROAD',
                     tarifaTransportista,
                     precioTotal,
                     hasCalculated: true,
@@ -48697,9 +48715,25 @@ function scheduleReactiveEngine() {
             const canonicalVoyage = (typeof getCanonicalVoyageFinancials === 'function')
                 ? getCanonicalVoyageFinancials()
                 : null;
-            const baseBreakEven = Math.max(0, Number(canonicalVoyage?.breakEvenArmador)
-                || Number(canonicalVoyage?.breakEvenFreight)
-                || Number(State.breakEvenArmador || State.breakEven || parsedBreakEven) || 0);
+            const isRail = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL')
+                || (typeof State !== 'undefined' && State?.globalTransportMode === 'RAIL')
+                || (typeof State !== 'undefined' && State?.isRail === true);
+
+            const railBuyTotal = isRail
+                ? Math.max(0, Number(State.carrierPurchaseUnit || State.carrierPurchaseTotal || State.costeTren || State.totalTripCost || State.tarifaTransportista || 0))
+                : 0;
+            const railMarginPct = isRail
+                ? Math.max(0, Number(State.agencyMargin || State.marginCharterer || document.getElementById('exec-agency-margin')?.value || 10) || 10)
+                : 10;
+            const railSellTotal = isRail
+                ? (railBuyTotal * (1 + (railMarginPct / 100)))
+                : 0;
+
+            const baseBreakEven = isRail
+                ? railBuyTotal
+                : Math.max(0, Number(canonicalVoyage?.breakEvenArmador)
+                    || Number(canonicalVoyage?.breakEvenFreight)
+                    || Number(State.breakEvenArmador || State.breakEven || parsedBreakEven) || 0);
             const totalVoyageCost = Math.max(0, Number(canonicalVoyage?.totalVoyageCost) || Number(State.totalCosts || State.costTotal) || 0);
             const cargo = Math.max(0, Number(canonicalVoyage?.cargoQty || State.cargo || document.getElementById('cargo-qty')?.value) || 0);
             const costBreakdown = State.costBreakdown || {};
@@ -48723,26 +48757,34 @@ function scheduleReactiveEngine() {
             const stressBreakEvenImpact = freightTons > 0 && commissionFactor > 0
                 ? algorithmicStress.totalIncrement / (freightTons * commissionFactor)
                 : 0;
-            const breakEven = baseBreakEven + stressBreakEvenImpact;
-            const TargetSugerido = calculateSuggestedNegotiationTarget(breakEven, 5);
+            const breakEven = isRail ? railBuyTotal : (baseBreakEven + stressBreakEvenImpact);
+            const TargetSugerido = isRail ? railSellTotal : calculateSuggestedNegotiationTarget(breakEven, 5);
 
             if (ownerOfferInput.dataset.userEdited !== 'true') {
-                const suggestedOwnerOffer = Math.max(0, Number(State.sugOwner || document.getElementById('freight-rate')?.value || breakEven) || 0);
+                const suggestedOwnerOffer = isRail
+                    ? railBuyTotal
+                    : Math.max(0, Number(State.sugOwner || document.getElementById('freight-rate')?.value || breakEven) || 0);
                 ownerOfferInput.value = suggestedOwnerOffer > 0 ? suggestedOwnerOffer.toFixed(2) : '';
             }
             if (chartererTargetInput.dataset.userEdited !== 'true') {
-                const suggestedTarget = TargetSugerido || Math.max(0, Number(State.precioObjetivoFletador || document.getElementById('freight-sell')?.value || breakEven) || 0);
+                const suggestedTarget = isRail
+                    ? railSellTotal
+                    : (TargetSugerido || Math.max(0, Number(State.precioObjetivoFletador || document.getElementById('freight-sell')?.value || breakEven) || 0));
                 chartererTargetInput.value = suggestedTarget > 0 ? suggestedTarget.toFixed(2) : '';
             }
 
             const ownerOffer = Math.max(0, Number(ownerOfferInput.value) || 0);
             const chartererTarget = Math.max(0, Number(chartererTargetInput.value) || 0);
-            const spreadPerMt = ownerOffer - chartererTarget;
-            const projectedSavings = spreadPerMt * cargo;
+            const spreadPerMt = isRail ? (chartererTarget - ownerOffer) : (ownerOffer - chartererTarget);
+            const projectedSavings = isRail ? Math.max(0, chartererTarget - ownerOffer) : (spreadPerMt * cargo);
             const targetDelta = chartererTarget - breakEven;
-            const hasViabilityData = chartererTarget > 0 && breakEven > 0;
-            const isViable = hasViabilityData && chartererTarget >= breakEven;
-            const meterRatio = hasViabilityData ? Math.min(100, Math.max(4, (chartererTarget / breakEven) * 100)) : 0;
+            const hasViabilityData = isRail
+                ? (chartererTarget > 0 && railBuyTotal > 0)
+                : (chartererTarget > 0 && breakEven > 0);
+            const isViable = isRail
+                ? (hasViabilityData && chartererTarget >= railBuyTotal)
+                : (hasViabilityData && chartererTarget >= breakEven);
+            const meterRatio = hasViabilityData ? Math.min(100, Math.max(4, (chartererTarget / (isRail ? railBuyTotal : breakEven)) * 100)) : 0;
             const currentCurrency = (typeof window !== 'undefined' && window.LandCharterCurrency) || (typeof State !== 'undefined' && State.currency) || '€';
             const currentUnit = (typeof window !== 'undefined' && window.LandCharterUnit) || (typeof State !== 'undefined' && State.unit) || 'km';
             const money = (value, decimals = 0) => `${Math.abs(value).toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })} ${currentCurrency}`;
@@ -48802,47 +48844,64 @@ function scheduleReactiveEngine() {
                 element.title = `Ingresos netos ${money(result.netRevenue)} - costes de viaje ${money(result.voyageCosts)} ÷ ${result.totalDays.toFixed(2)} h`;
             };
 
-            renderProjectedTce(ownerTceEl, ownerTce, 'border-indigo-100');
-            renderProjectedTce(targetTceEl, targetTce, 'border-emerald-100');
+            if (isRail) {
+                if (ownerTceEl) {
+                    ownerTceEl.textContent = `Tarifa Cerrada de Compra: ${money(ownerOffer, 0)}`;
+                    ownerTceEl.className = 'mt-2 block border-t border-indigo-100 pt-2 text-xs font-bold text-sky-700';
+                }
+                if (targetTceEl) {
+                    targetTceEl.textContent = `Margen Neto Agencia: ${money(Math.max(0, chartererTarget - ownerOffer), 0)}`;
+                    targetTceEl.className = 'mt-2 block border-t border-emerald-100 pt-2 text-xs font-bold text-sky-700';
+                }
+            } else {
+                renderProjectedTce(ownerTceEl, ownerTce, 'border-indigo-100');
+                renderProjectedTce(targetTceEl, targetTce, 'border-emerald-100');
+            }
             if (suggestionEl) {
                 suggestionEl.disabled = TargetSugerido <= 0;
-                const suggestionText = `Sugerencia IA: ${money(TargetSugerido, 2)} / ${currentUnit} (Margen +5%)`;
+                const suggestionText = isRail
+                    ? `Sugerencia IA: ${money(TargetSugerido, 2)} (Margen +${railMarginPct}%)`
+                    : `Sugerencia IA: ${money(TargetSugerido, 2)} / ${currentUnit} (Margen +5%)`;
                 const suggestionTextEl = typeof suggestionEl.querySelector === 'function' ? suggestionEl.querySelector('span') : null;
                 if (suggestionTextEl) suggestionTextEl.textContent = suggestionText;
                 else suggestionEl.textContent = suggestionText;
             }
             if (frictionLimitEl) {
                 frictionLimitEl.textContent = TargetSugerido > 0
-                    ? `Límite de Fricción: Ofertas por debajo de ${money(TargetSugerido, 2)} tienen alto riesgo de rechazo.`
+                    ? (isRail
+                        ? `Límite de Fricción: Ofertas por debajo de ${money(TargetSugerido, 2)} reducen el margen de agencia.`
+                        : `Límite de Fricción: Ofertas por debajo de ${money(TargetSugerido, 2)} tienen alto riesgo de rechazo.`)
                     : 'Límite de Fricción: pendiente de Break-Even.';
             }
 
             if (spreadEl) {
-                spreadEl.textContent = `${spreadPerMt < 0 ? '-' : ''}${money(spreadPerMt, 2)} /${currentUnit}`;
+                spreadEl.textContent = isRail
+                    ? `${spreadPerMt < 0 ? '-' : ''}${money(spreadPerMt, 2)} (Lump Sum)`
+                    : `${spreadPerMt < 0 ? '-' : ''}${money(spreadPerMt, 2)} /${currentUnit}`;
                 spreadEl.className = `mono mt-1 block text-2xl font-black ${spreadPerMt >= 0 ? 'text-sky-950' : 'text-red-700'}`;
             }
             if (spreadCaptionEl) {
-                spreadCaptionEl.textContent = spreadPerMt >= 0
-                    ? 'Ahorro unitario negociado frente a la petición inicial.'
-                    : 'El target supera la oferta inicial del transportista.';
+                spreadCaptionEl.textContent = isRail
+                    ? (spreadPerMt >= 0 ? 'Margen comercial Agencia (Lump Sum).' : 'Target inferior a tarifa de compra.')
+                    : (spreadPerMt >= 0 ? 'Ahorro unitario negociado frente a la petición inicial.' : 'El target supera la oferta inicial del transportista.');
             }
             if (savingsEl) {
                 savingsEl.textContent = `${projectedSavings < 0 ? '-' : ''}${money(projectedSavings)}`;
                 savingsEl.className = `mono mt-1 block text-2xl font-black ${projectedSavings >= 0 ? 'text-blue-950' : 'text-red-700'}`;
             }
-            if (cargoCaptionEl) cargoCaptionEl.textContent = `Calculado sobre ${Math.round(cargo).toLocaleString('es-ES')} t.`;
-            if (breakEvenEl) breakEvenEl.textContent = `${money(breakEven, 2)} /${currentUnit}`;
+            if (cargoCaptionEl) cargoCaptionEl.textContent = isRail ? `Operación Bloque: ${Math.round(cargo).toLocaleString('es-ES')} t.` : `Calculado sobre ${Math.round(cargo).toLocaleString('es-ES')} t.`;
+            if (breakEvenEl) breakEvenEl.textContent = isRail ? `${money(breakEven, 2)} (Lump Sum)` : `${money(breakEven, 2)} /${currentUnit}`;
             if (targetDeltaEl) targetDeltaEl.textContent = `Δ ${targetDelta < 0 ? '-' : '+'}${money(targetDelta, 2)}`;
             if (viabilityMeterEl) viabilityMeterEl.style.width = `${meterRatio}%`;
 
             const negOwnerCurr = document.getElementById('negotiation-owner-currency-symbol');
             if (negOwnerCurr) negOwnerCurr.textContent = currentCurrency;
             const negOwnerUnit = document.getElementById('negotiation-owner-unit-label');
-            if (negOwnerUnit) negOwnerUnit.textContent = `/${currentUnit}`;
+            if (negOwnerUnit) negOwnerUnit.textContent = isRail ? 'Lump Sum' : `/${currentUnit}`;
             const negChartererCurr = document.getElementById('negotiation-charterer-currency-symbol');
             if (negChartererCurr) negChartererCurr.textContent = currentCurrency;
             const negChartererUnit = document.getElementById('negotiation-charterer-unit-label');
-            if (negChartererUnit) negChartererUnit.textContent = `/${currentUnit}`;
+            if (negChartererUnit) negChartererUnit.textContent = isRail ? 'Lump Sum' : `/${currentUnit}`;
             const voyageReference = String(document.getElementById('quick-ref')?.value || document.getElementById('gc-ref')?.value || document.getElementById('asb-ref')?.value || 'pendiente').trim() || 'pendiente';
             if (algorithmicReferenceEl) algorithmicReferenceEl.textContent = `Basado en estimación algorítmica (ref: ${voyageReference})`;
             if (safetyCaptionEl) {
@@ -48856,14 +48915,14 @@ function scheduleReactiveEngine() {
             const activeFuel = 'DIÉSEL';
             const activeFuelPrice = Math.max(0, Number(State.activeSeaFuelPrice) || 0);
             const demurrageExposureDays = Math.max(0, Number(costBreakdown.demurrageExposureDays ?? State.demurrageExposure?.exposedDays) || 0);
-            if (vesselSyncTitleEl) vesselSyncTitleEl.textContent = 'Ruta Óptima - Diésel Terrestre';
-            if (fuelStrategyEl) fuelStrategyEl.textContent = `${activeFuel}${activeFuelPrice > 0 ? ` · ${money(activeFuelPrice)} / t` : ''}`;
+            if (vesselSyncTitleEl) vesselSyncTitleEl.textContent = isRail ? 'Ruta Ferroviaria - Block Train' : 'Ruta Óptima - Diésel Terrestre';
+            if (fuelStrategyEl) fuelStrategyEl.textContent = isRail ? 'TRACCIÓN FERROVIARIA' : `${activeFuel}${activeFuelPrice > 0 ? ` · ${money(activeFuelPrice)} / t` : ''}`;
             const routeStrategyLabel = String(currentNavigationStrategy).toUpperCase() === 'FULL' ? 'Ruta Rápida' : 'Ruta Óptima';
-            if (navigationSummaryEl) navigationSummaryEl.textContent = `${routeStrategyLabel} · ${ballastSpeed.toFixed(1)} / ${ladenSpeed.toFixed(1)} km/h`;
-            if (daysSummaryEl) daysSummaryEl.textContent = `${totalTceDays.toFixed(2)} h · Conducción ${Math.max(0, Number(State.daysSea) || 0).toFixed(2)} · Muelle ${Math.max(0, Number(State.daysPort) || 0).toFixed(2)}`;
-            if (contingencySummaryEl) contingencySummaryEl.textContent = safetyFactorPct > 0
+            if (navigationSummaryEl) navigationSummaryEl.textContent = isRail ? 'Tránsito Ferroviario Continuo' : `${routeStrategyLabel} · ${ballastSpeed.toFixed(1)} / ${ladenSpeed.toFixed(1)} km/h`;
+            if (daysSummaryEl) daysSummaryEl.textContent = isRail ? 'Tránsito Continuo (sin tacógrafo vial)' : `${totalTceDays.toFixed(2)} h · Conducción ${Math.max(0, Number(State.daysSea) || 0).toFixed(2)} · Muelle ${Math.max(0, Number(State.daysPort) || 0).toFixed(2)}`;
+            if (contingencySummaryEl) contingencySummaryEl.textContent = isRail ? `Coste Tracción ${money(railBuyTotal)}` : (safetyFactorPct > 0
                 ? `+${safetyFactorPct.toFixed(1)}% · ${money(algorithmicStress.totalIncrement)} buffer`
-                : `Peajes ${money(algorithmicStress.basePda)} · Fijos ${money(algorithmicDailyOpex)}/d`;
+                : `Peajes ${money(algorithmicStress.basePda)} · Fijos ${money(algorithmicDailyOpex)}/d`);
             if (demurrageSummaryEl) demurrageSummaryEl.textContent = demurrageExposureCost > 0
                 ? `${demurrageExposureDays.toFixed(2)} h · ${money(demurrageExposureCost)}`
                 : 'Sin exposición calculada';
@@ -74769,11 +74828,90 @@ window.actualizarGrabCapacityVisibility = function() {
                 window.renderOpexImpactAlert('pod', state.podOpexImpactDays || 0);
             }
 
+            function applyGlobalTransportModeUI(mode) {
+                const nextMode = normalizeTransportMode(mode || window.globalTransportMode);
+                const isRail = nextMode === 'RAIL';
+
+                // 1. Tiempos de Tránsito: Oculta o elimina la advertencia legal del "Reglamento (CE) Nº 561/2006" (tacógrafo) si es RAIL.
+                const tacoWarn = document.getElementById('tacografo-normativa-warning');
+                if (tacoWarn) {
+                    tacoWarn.style.display = isRail ? 'none' : '';
+                    tacoWarn.classList.toggle('hidden', isRail);
+                }
+                const tacoHeader = document.getElementById('tacografo-header-title');
+                if (tacoHeader) {
+                    tacoHeader.innerHTML = isRail
+                        ? '<i class="fa-solid fa-train mr-2"></i> TIEMPOS DE TRÁNSITO FERROVIARIO (RELEVOS CONTINUOS)'
+                        : '<i class="fa-solid fa-clock mr-2"></i> TIEMPOS DE CONDUCCIÓN Y TACÓGRAFO (REG. 561/2006)';
+                }
+                const tacoBadge = document.querySelector('#section-tacografo .collapsible-section-actions span');
+                if (tacoBadge) {
+                    tacoBadge.textContent = isRail ? 'Relevos Continuos' : 'Reg. 561/2006';
+                }
+
+                // 2. Insight Comercial: Reemplaza cualquier texto hardcodeado sobre "tauliner", "chófer" o "9 horas legales" por:
+                // "Operación Ferroviaria Block Train. Tiempos de tránsito continuos sin restricciones de tacógrafo vial."
+                const insightEl = document.getElementById('exec-insight-text');
+                if (insightEl) {
+                    if (isRail) {
+                        insightEl.textContent = 'Operación Ferroviaria Block Train. Tiempos de tránsito continuos sin restricciones de tacógrafo vial.';
+                    } else if (insightEl.textContent.includes('Operación Ferroviaria Block Train')) {
+                        insightEl.textContent = 'Introduce POL, POD y volumen de carga para generar el análisis ejecutivo.';
+                    }
+                }
+
+                // 3. Ritmo de Carga: Cambia la etiqueta de "pallets/h o t/h" a simplemente "t/h (Granel Continuo)" en modo RAIL.
+                const loadingRateUnitEl = document.getElementById('exec-loading-rate-unit');
+                if (loadingRateUnitEl) {
+                    loadingRateUnitEl.textContent = isRail ? 't/h (Granel Continuo)' : 'pallets/h o t/h';
+                }
+                const labelRateLoad = document.getElementById('label-rate-load');
+                if (labelRateLoad) {
+                    labelRateLoad.textContent = isRail ? 'Ritmo de Carga: t/h (Granel Continuo)' : 'Ratio Operativo (Pallets/h o Toneladas/h)';
+                }
+                const labelRateDisch = document.getElementById('label-rate-disch');
+                if (labelRateDisch) {
+                    labelRateDisch.textContent = isRail ? 'Ritmo de Descarga: t/h (Granel Continuo)' : 'Ratio Operativo (Pallets/h o Toneladas/h)';
+                }
+
+                // 4. Costes Operativos: Oculta los inputs de "Consumo de Diésel (32 L/100km)" típicos de camión si es tren, o renómbralos a "Consumo Locomotora (Galones)".
+                const labelConsSea = document.getElementById('label-cons-sea');
+                if (labelConsSea) {
+                    labelConsSea.textContent = isRail ? 'Consumo Locomotora (Galones)' : 'Consumo Diésel (L/100km)';
+                }
+                const consSeaInput = document.getElementById('cons-sea');
+                if (consSeaInput) {
+                    consSeaInput.placeholder = isRail ? 'Galones' : 'L/100km';
+                }
+                const netConsIndicator = document.getElementById('net-cons-indicator');
+                if (netConsIndicator) {
+                    netConsIndicator.textContent = isRail ? 'Consumo Locomotora Estimado' : 'Consumo Medio Estimado: 31.5 L/100km';
+                }
+                const fuelTitle = document.getElementById('fuel-prices-title');
+                if (fuelTitle) {
+                    fuelTitle.textContent = isRail ? 'Consumo Locomotora y Tracción' : 'Consumo de Gasóleo (Diésel / AdBlue)';
+                }
+                const consPortGroup = document.getElementById('label-cons-port')?.closest('.input-group');
+                if (consPortGroup) {
+                    consPortGroup.style.display = isRail ? 'none' : '';
+                }
+                const consAnchorageGroup = document.getElementById('label-cons-anchorage')?.closest('.input-group');
+                if (consAnchorageGroup) {
+                    consAnchorageGroup.style.display = isRail ? 'none' : '';
+                }
+                const labelOpexDaily = document.getElementById('label-opex-daily');
+                if (labelOpexDaily) {
+                    labelOpexDaily.textContent = isRail ? 'Costes Fijos de Tracción y Material Ferroviario' : 'Coste Fijo Diario (Chófer, Seguros, Amortización)';
+                }
+            }
+            window.applyGlobalTransportModeUI = applyGlobalTransportModeUI;
+
             function applyGlobalViewModePresentation() {
                 const mode = normalizeMode(window.globalViewMode);
                 applySwitchSkin(mode);
                 applyPresentationClasses(mode);
                 refreshRoleDependentText();
+                applyGlobalTransportModeUI(window.globalTransportMode);
                 if (document.body) {
                     document.body.dataset.globalViewMode = mode;
                     document.body.dataset.globalTransportMode = window.globalTransportMode || 'ROAD';
@@ -74797,12 +74935,19 @@ window.actualizarGrabCapacityVisibility = function() {
                         window.State.isRail = false;
                     }
                 }
+                applyGlobalTransportModeUI(next);
                 try {
                     window.dispatchEvent(new CustomEvent('globaltransportmodechange', { detail: { mode: next, globalTransportMode: next } }));
                     window.dispatchEvent(new CustomEvent('transport-mode-changed', { detail: { mode: next, transportMode: next } }));
                 } catch (_) {}
                 if (typeof window.redrawCurrentRoute === 'function') {
                     try { window.redrawCurrentRoute(); } catch (_) {}
+                }
+                if (typeof runEngine === 'function') {
+                    try { runEngine(); } catch (_) {}
+                }
+                if (typeof updateChartererNegotiationSimulator === 'function') {
+                    try { updateChartererNegotiationSimulator(); } catch (_) {}
                 }
                 return next;
             }
