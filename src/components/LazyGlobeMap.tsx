@@ -111,7 +111,7 @@ if (typeof document !== 'undefined') {
 .leaflet-rail-route-highlight,
 path.leaflet-rail-route-highlight {
     stroke: #1e293b !important;
-    stroke-dasharray: 10 10 !important;
+    stroke-dasharray: 10 15 !important;
     stroke-width: 5px !important;
     stroke-opacity: 1 !important;
     fill: none !important;
@@ -196,7 +196,7 @@ function RouteAutoFitter({ positions, isRail: propIsRail }: { positions?: [numbe
       // Si isRail es FALSE (camión): Dibuja la ruta normal por carretera (línea sólida azul #2563eb).
       // Si isRail es TRUE (tren):
       // a) Balasto / base de vía férrea (#64748b, weight: 6, opacity: 0.6)
-      // b) Vía férrea típica punteada negra/gris (#1e293b, weight: 4, dashArray: '10, 10')
+      // b) Vía férrea típica punteada negra/gris (#1e293b, weight: 4, dashArray: '10, 15')
       const allLatLngs = positions;
       const mapInstance = map;
 
@@ -215,7 +215,7 @@ function RouteAutoFitter({ positions, isRail: propIsRail }: { positions?: [numbe
           color: '#1e293b',
           weight: 4,
           opacity: 0.95,
-          dashArray: '10, 10',
+          dashArray: '10, 15',
           lineCap: 'round',
           lineJoin: 'round',
           className: 'leaflet-rail-route-highlight'
@@ -483,7 +483,7 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
             positions={routePoints}
             pathOptions={{
               color: isRail ? '#1e293b' : '#3388ff',
-              dashArray: isRail ? '10, 10' : null,
+              dashArray: isRail ? '10, 15' : null,
               weight: isRail ? 4 : 5,
               opacity: 0.95,
               className: isRail ? 'leaflet-rail-route-highlight' : 'leaflet-route-highlight'

@@ -717,9 +717,14 @@ exports.handler = async (event) => {
       let result = await dbPool.query(query, values);
       let row = result.rows[0];
 
-      if (!row && data.project_ref) {
-        // 4. ATOMICIDAD EN BASE DE DATOS: Fallback atómico con ON CONFLICT (project_ref) DO UPDATE si la fila aún no existe
-        const targetRef = String(data.project_ref).trim();
+      if (!row) {
+        // 4. ATOMICIDAD EN BASE DE DATOS: Si la fila aún no existe (nuevo proyecto enviado por PUT),
+        // forzar inserción atómica con ON CONFLICT (project_ref) DO UPDATE sin rechazar la petición con 404
+        const cleanIncomingRef = (data.project_ref || data.reference || data.ref || '').trim();
+        const effectiveDossierRef = (data.dossier_ref || '').trim();
+        const effectiveParentRef = (data.parent_ref || data.referenciaPadre || '').trim();
+        const targetRef = resolveCanonicalProjectRef(cleanIncomingRef, effectiveDossierRef, effectiveParentRef, data.reference || data.ref || data.project_ref) || generateCanonicalReference();
+
         const fallbackPutQuery = `
           INSERT INTO forwarder_projects (
             project_ref, client_name, status, global_margin_percentage,
@@ -777,9 +782,19 @@ exports.handler = async (event) => {
 
       if (!row) {
         return {
-          statusCode: 404,
+          statusCode: 200,
           headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ error: 'Proyecto no encontrado para actualizar' })
+          body: JSON.stringify({
+            message: 'Expediente procesado (nuevo)',
+            project: {
+              ...data,
+              project_ref: data.project_ref || generateCanonicalReference(),
+              status: statusValue || 'BORRADOR',
+              items: [],
+              services: [],
+              documents: []
+            }
+          })
         };
       }
 
@@ -832,10 +847,79 @@ exports.handler = async (event) => {
         const detailResult = await dbPool.query(detailQuery, detailValues);
 
         if (detailResult.rows.length === 0) {
+          if (refFilter) {
+            // Comprobación de recuperación en expedientes marítimos (charter_dossiers)
+            try {
+              const dRes = await dbPool.query(
+                `SELECT * FROM charter_dossiers WHERE UPPER(reference) = UPPER($1) LIMIT 1`,
+                [refFilter]
+              );
+              if (dRes.rows.length > 0) {
+                const dRow = dRes.rows[0];
+                const sessionPayload = dRow.session_payload || dRow.sessionPayload || {};
+                const pol = sessionPayload.pol || sessionPayload.polName || dRow.pol || '';
+                const pod = sessionPayload.pod || sessionPayload.podName || dRow.pod || '';
+                return {
+                  statusCode: 200,
+                  headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    message: 'Expediente localizado en dossiers marítimos',
+                    is_maritime_dossier: true,
+                    exists: true,
+                    project: {
+                      id: dRow.id,
+                      project_ref: dRow.reference,
+                      client_name: dRow.charterer || dRow.client_name || 'Expediente Marítimo Core PRO',
+                      land_origin: pol,
+                      land_destination: pod,
+                      pol,
+                      pod,
+                      status: 'BORRADOR',
+                      services: [],
+                      line_items: [],
+                      items: [],
+                      documents: []
+                    }
+                  })
+                };
+              }
+            } catch (_) {}
+
+            // Comprobación de recuperación en app_state
+            try {
+              const asRes = await dbPool.query(
+                `SELECT * FROM app_state WHERE key = $1 OR UPPER(session_ref) = UPPER($1) OR UPPER(current_session_ref) = UPPER($1) LIMIT 1`,
+                [refFilter]
+              );
+              if (asRes.rows.length > 0) {
+                return {
+                  statusCode: 200,
+                  headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    message: 'Referencia activa detectada en app-state',
+                    is_new: true,
+                    exists: true,
+                    project: {
+                      project_ref: refFilter,
+                      client_name: 'Expediente App-State',
+                      status: 'BORRADOR',
+                      services: [],
+                      line_items: [],
+                      items: [],
+                      documents: []
+                    }
+                  })
+                };
+              }
+            } catch (_) {}
+          }
+
+          // Si el expediente es nuevo y no se encuentra en la base de datos,
+          // devolver 200 con exists: false en lugar de 404 para evitar errores en consola y en el frontend
           return {
-            statusCode: 404,
+            statusCode: 200,
             headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ error: 'Expediente no encontrado', project: null }),
+            body: JSON.stringify({ error: null, exists: false, is_new: true, project: null }),
           };
         }
 

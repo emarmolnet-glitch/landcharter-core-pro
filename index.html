@@ -20302,7 +20302,7 @@ async function runOnDemandMapRouteWorkflow(button) {
                         color: '#1e293b',
                         weight: 4,
                         opacity: 0.95,
-                        dashArray: '10, 10',
+                        dashArray: '10, 15',
                         lineCap: 'round',
                         lineJoin: 'round',
                         className: 'leaflet-rail-route-highlight',
@@ -20718,7 +20718,7 @@ function redrawCurrentRoute(overrideVehicleType) {
             color: '#1e293b',
             weight: 4,
             opacity: 0.95,
-            dashArray: '10, 10',
+            dashArray: '10, 15',
             lineCap: 'round',
             lineJoin: 'round',
             className: 'leaflet-rail-route-highlight',
@@ -21649,7 +21649,7 @@ function createRouteAnchorElement(type) {
                 color: isRail ? '#333333' : (options.color || ROUTE_LADEN_LINE_COLOR),
                 weight: options.weight || (isRail ? 4 : 3),
                 opacity: Number.isFinite(options.opacity) ? options.opacity : 1,
-                dashArray: isRail ? '10, 10' : (options.leafletDashArray || '5, 10'),
+                dashArray: isRail ? '10, 15' : (options.leafletDashArray || '5, 10'),
                 pane: pane || undefined,
                 interactive: false
             });
@@ -21873,7 +21873,7 @@ function createRouteAnchorElement(type) {
                             color: isRail ? '#333333' : ROUTE_DYNAMIC_COLOR,
                             weight: 4,
                             opacity: 0.95,
-                            dashArray: isRail ? '10, 10' : '10, 10',
+                            dashArray: isRail ? '10, 15' : '10, 10',
                             isDynamic: true,
                             dynamicKind: dynamicKinds.route
                         }).addTo(routeMap);
