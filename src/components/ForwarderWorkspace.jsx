@@ -191,7 +191,7 @@ export function extractProjectCargoItems(project) {
 export function hydrateCargoItem(it, defaultCategory = '', defaultType = '', index = 0) {
   if (!it || typeof it !== 'object') {
     return {
-      id: `item-${Date.now()}-${index}`,
+      id: `item-${index}`,
       category: defaultCategory || 'Carga General',
       type: defaultType || 'Mercancía sin especificar',
       quantity: 1,
@@ -294,7 +294,7 @@ export function hydrateCargoItem(it, defaultCategory = '', defaultType = '', ind
   }
 
   return {
-    id: it.id || `item-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 6)}`,
+    id: it.id || `item-${index}`,
     category: finalCategory,
     type: finalType,
     quantity,
@@ -2415,52 +2415,7 @@ function ForwarderWorkspaceInner(props = {}) {
     }
   }, [vehicleType]);
   
-  // 🛡️ VIGILANTE DE MEMORIA GLOBAL (Calculadora LDM -> Ficha de Proyectos -> Data Bridge)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    // Si estamos en modo RAIL, no contaminar con datos fantasma de carretera de la calculadora
-    const isRailModeActive = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
-      transportMode === 'RAIL' ||
-      (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL');
-
-    if (isRailModeActive) return;
-
-    const rescatarDatosCalculadora = () => {
-      if ((typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') || transportMode === 'RAIL') return;
-      // Leemos la memoria silenciosa que deja la Calculadora
-      const gOrigin = window.State?.land_origin || window.State?.origin || '';
-      const gDest = window.State?.land_destination || window.State?.destination || '';
-      const gDist = Number(window.State?.land_distance || window.State?.distanceKm || window.State?.distance || 0);
-
-      // Si hay datos en memoria, los rescatamos y soldamos el estado de activeProject
-      if (gOrigin && gOrigin !== landOrigin) {
-        setLandOrigin(gOrigin);
-      }
-      if (gDest && gDest !== landDestination) {
-        setLandDestination(gDest);
-      }
-      if (gDist > 0 && Number(distanceKm) !== gDist) {
-        setDistanceKm(gDist);
-      }
-      if (gOrigin || gDest) {
-        setActiveProject((prev) => {
-          if (!prev) return prev;
-          if (prev.land_origin === gOrigin && prev.land_destination === gDest) return prev;
-          return {
-            ...prev,
-            land_origin: gOrigin || prev.land_origin,
-            land_destination: gDest || prev.land_destination,
-            ...(gDist > 0 ? { land_distance: gDist } : {}),
-          };
-        });
-      }
-    };
-
-    // El vigilante comprueba la memoria cada segundo sin ralentizar la app
-    const intervalId = setInterval(rescatarDatosCalculadora, 1000);
-    return () => clearInterval(intervalId);
-  }, [landOrigin, landDestination, distanceKm, transportMode]);
+  // 🛡️ VIGILANTE DE MEMORIA GLOBAL: Eliminado setInterval oscilante dependiente de distanceKm y transportMode para estabilizar el renderizado
 
   // Recálculo automático de horas previstas de carga/descarga según ratio operativo
   useEffect(() => {
@@ -2719,6 +2674,11 @@ function ForwarderWorkspaceInner(props = {}) {
   const handleSyncDataBridge = async () => {
     if (!activeProject) return;
     setIsSyncingDataBridge(true);
+    const isRailDataBridge = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+      transportMode === 'RAIL' ||
+      (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
+      Boolean(vehicleType && (vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón')));
+    const isDataBridge = isRailDataBridge;
     try {
       // 1. Forzar persistencia del estado terrestre actual antes de sincronizar
       try {
@@ -3808,7 +3768,7 @@ function ForwarderWorkspaceInner(props = {}) {
         let linehaulSrv = servicesList.find((s) => /linehaul|ferroviario|tren/i.test(s.name || s.description || s.service_name || '') && !/drayage/i.test(s.name || s.description || ''));
         if (!linehaulSrv) {
           linehaulSrv = {
-            id: 'srv-linehaul-' + Date.now(),
+            id: 'srv-auto-rail-traction',
             name: `Flete Ferroviario (Linehaul Rampa a Rampa): ${autoLandOrigin} ➔ ${autoLandDestination} (${railWagons} ${autoCountLabel})`,
             description: `Tracción Ferroviaria Linehaul Consolidada (${railWagons} ${autoCountLabel})`,
             cost: linehaulCost,
@@ -3835,7 +3795,7 @@ function ForwarderWorkspaceInner(props = {}) {
         let drayOriginSrv = servicesList.find((s) => /drayage.*origen/i.test(s.name || s.description || s.service_name || ''));
         if (!drayOriginSrv) {
           drayOriginSrv = {
-            id: 'srv-drayage-origin-' + Date.now(),
+            id: 'srv-auto-drayage-origin',
             name: 'Drayage & Terminal Handling (Origen)',
             description: `Drayage & Terminal Handling (Origen) - ${railWagons} vagones @ 450`,
             cost: drayOriginCost,
@@ -3862,7 +3822,7 @@ function ForwarderWorkspaceInner(props = {}) {
         let drayDestSrv = servicesList.find((s) => /drayage.*destino/i.test(s.name || s.description || s.service_name || ''));
         if (!drayDestSrv) {
           drayDestSrv = {
-            id: 'srv-drayage-dest-' + (Date.now() + 1),
+            id: 'srv-auto-drayage-dest',
             name: 'Drayage & Terminal Handling (Destino)',
             description: `Drayage & Terminal Handling (Destino) - ${railWagons} vagones @ 450`,
             cost: drayDestCost,
@@ -3887,7 +3847,7 @@ function ForwarderWorkspaceInner(props = {}) {
       } else if (servicesList.length === 0 && !projectToSave?.is_delete_action && (Number(tuVariableDeCosteTotalTerrestre) > 0 || costeCalculado > 0)) {
         const autoServiceName = `${autoPrefix} (${autoTotalTrucks} ${autoCountLabel}: ${autoLandOrigin} ➔ ${autoLandDestination})`;
         const defaultService = {
-          id: 'srv-auto-' + Date.now(),
+          id: 'srv-auto-road-freight',
           name: autoServiceName,
           description: autoServiceName,
           cost: costeCalculado,
@@ -3990,7 +3950,7 @@ function ForwarderWorkspaceInner(props = {}) {
         const finalAutoCountLabel = isRail_save ? (finalAutoTrucks === 1 ? 'Vagón' : 'Vagones') : (finalAutoTrucks === 1 ? 'Camión' : 'Camiones');
         const finalAutoName = `${finalAutoPrefix} (${finalAutoTrucks} ${finalAutoCountLabel}: ${finalAutoOrigin} ➔ ${finalAutoDest})`;
         const autoService = {
-          id: 'srv-auto-' + Date.now(),
+          id: 'srv-auto-road-freight',
           name: finalAutoName,
           cost: finalAutoCost,
           sale: finalAutoSale,
@@ -5734,7 +5694,7 @@ function ForwarderWorkspaceInner(props = {}) {
       const isBigBags = /bag|big[- ]?bag|saco|cemento|clinker|grano/i.test(p.type || p.category || '');
 
       const newItem = {
-        id: p.id || `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        id: p.id || 'item-ai-piece',
         category: p.category || (isBigBags ? 'Big Bags' : 'Mercancía General / Paletizada'),
         type: p.type || p.name || 'Big Bags Cemento',
         quantity: qty,
@@ -5768,7 +5728,7 @@ function ForwarderWorkspaceInner(props = {}) {
         const h = ci.height_m ?? ci.height ?? '';
         const wt = ci.unit_weight_kg ?? ci.weight ?? '';
         return {
-          id: ci.id || `item-${Date.now()}-${idx}`,
+          id: ci.id || `item-ai-${idx}`,
           category: mapped.category,
           quantity: ci.quantity ? Math.max(1, Number(ci.quantity)) : 1,
           type: mapped.type,
@@ -5796,7 +5756,7 @@ function ForwarderWorkspaceInner(props = {}) {
         const h = ci.height_m ?? ci.height ?? '';
         const wt = ci.unit_weight_kg ?? ci.weight ?? '';
         return {
-          id: ci.id || `item-${Date.now()}-${idx}`,
+          id: ci.id || `item-ai-${idx}`,
           category: mapped.category,
           quantity: ci.quantity || 1,
           type: mapped.type,
@@ -6771,8 +6731,8 @@ function ForwarderWorkspaceInner(props = {}) {
         payload_kg: getVehiclePayloadKg(vehicleType),
         total_trucks: Math.max(1, Math.ceil((totals?.weight || currentReportSnapshot?.totals?.weight || 0) / getVehiclePayloadKg(vehicleType))),
         project_ref: activeProject?.project_ref,
-        cargo_items_detail: safeCargoItems.map((item) => ({
-          id: item.id || `item-${Date.now()}-${Math.random()}`,
+        cargo_items_detail: safeCargoItems.map((item, idx) => ({
+          id: item.id || `item-cargo-detail-${idx}`,
           category: item.category || 'Equipos de Proceso',
           quantity: parseInt(item.quantity, 10) || 1,
           type: item.type || 'Sin especificar',
@@ -6870,7 +6830,7 @@ function ForwarderWorkspaceInner(props = {}) {
       const saveCountLabel = isRail_item ? (safeTrucks === 1 ? 'Vagón' : 'Vagones') : (safeTrucks === 1 ? 'Camión' : 'Camiones');
       const savedServiceName = `${savePrefix} (${safeTrucks} ${saveCountLabel}: ${saveOriginCity} ➔ ${saveDestCity})`;
       const savedLineItem = {
-        id: editingLineItemId || `item-${Date.now()}`,
+        id: editingLineItemId || 'srv-auto-saved-service',
         service_name: savedServiceName,
         name: savedServiceName,
         description: savedServiceName,
@@ -7904,53 +7864,55 @@ function ForwarderWorkspaceInner(props = {}) {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                          <label htmlFor="vehicle_type" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
-                            Vehículo / Modo de Transporte (vehicle_type) *
-                          </label>
-                          <select
-                            id="vehicle_type"
-                            name="vehicle_type"
-                            value={vehicleType}
-                            onChange={(e) => handleVehicleTypeChange(e.target.value)}
-                            className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm cursor-pointer"
-                          >
-                            <option value="Camión Plataforma con Grúa Autocarga">
-                              Camión Plataforma con Grúa Autocarga (21.000 kg Carga Útil · Pluma Hidráulica)
-                            </option>
-                            <option value="Camión Plataforma Abierta (Sin Grúa)">
-                              Camión Plataforma Abierta (Sin Grúa) (24.000 kg Carga Útil · 100% Portuario)
-                            </option>
-                            <option value="Tren Tolva (Ferrocarril)">
-                              Tren Tolva (Ferrocarril) (50.000 kg Carga Útil · Graneles / Tolva)
-                            </option>
-                            <option value="Tren Plataforma">
-                              Tren Plataforma (50.000 kg Carga Útil · Plataforma Ferroviaria)
-                            </option>
-                            <option value="Bañera Basculante (Granel)">
-                              Bañera Basculante (Granel) (26.000 kg Carga Útil · Graneles Sólidos)
-                            </option>
-                            <option value="Camión Silo Presurizado">
-                              Camión Silo Presurizado (25.000 kg Carga Útil · Graneles Pulverulentos)
-                            </option>
-                            <option value="Tráiler Tauliner (13.6m)">
-                              Tráiler Tauliner (13.6m) (24.000 kg Carga Útil · Carga General)
-                            </option>
-                            <option value="Lona Estándar">
-                              Lona Estándar (24.000 kg Carga Útil)
-                            </option>
-                            <option value="Trailer Frigorífico">
-                              Trailer Frigorífico (22.000 kg Carga Útil · Temperatura Controlada)
-                            </option>
-                            <option value="Portacontenedor Multimodal">
-                              Portacontenedor Multimodal (26.000 kg Carga Útil)
-                            </option>
-                          </select>
-                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono mt-1">
-                            <span>Carga Útil Efectiva: <strong className="text-slate-800 font-bold">{getVehiclePayloadKg(vehicleType).toLocaleString('es-ES')} kg</strong></span>
-                            <span className="text-blue-700 font-bold">{(vehicleType?.toLowerCase().includes('tren') || vehicleType?.toLowerCase().includes('tolva')) ? 'Tracción Ferroviaria' : (vehicleType.includes('Grúa') ? 'Tara Pluma Reducida (-3t)' : 'Tara Estándar')}</span>
+                        {!isRail && (
+                          <div>
+                            <label htmlFor="vehicle_type" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
+                              Vehículo / Modo de Transporte (vehicle_type) *
+                            </label>
+                            <select
+                              id="vehicle_type"
+                              name="vehicle_type"
+                              value={vehicleType}
+                              onChange={(e) => handleVehicleTypeChange(e.target.value)}
+                              className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 shadow-sm cursor-pointer"
+                            >
+                              <option value="Camión Plataforma con Grúa Autocarga">
+                                Camión Plataforma con Grúa Autocarga (21.000 kg Carga Útil · Pluma Hidráulica)
+                              </option>
+                              <option value="Camión Plataforma Abierta (Sin Grúa)">
+                                Camión Plataforma Abierta (Sin Grúa) (24.000 kg Carga Útil · 100% Portuario)
+                              </option>
+                              <option value="Tren Tolva (Ferrocarril)">
+                                Tren Tolva (Ferrocarril) (50.000 kg Carga Útil · Graneles / Tolva)
+                              </option>
+                              <option value="Tren Plataforma">
+                                Tren Plataforma (50.000 kg Carga Útil · Plataforma Ferroviaria)
+                              </option>
+                              <option value="Bañera Basculante (Granel)">
+                                Bañera Basculante (Granel) (26.000 kg Carga Útil · Graneles Sólidos)
+                              </option>
+                              <option value="Camión Silo Presurizado">
+                                Camión Silo Presurizado (25.000 kg Carga Útil · Graneles Pulverulentos)
+                              </option>
+                              <option value="Tráiler Tauliner (13.6m)">
+                                Tráiler Tauliner (13.6m) (24.000 kg Carga Útil · Carga General)
+                              </option>
+                              <option value="Lona Estándar">
+                                Lona Estándar (24.000 kg Carga Útil)
+                              </option>
+                              <option value="Trailer Frigorífico">
+                                Trailer Frigorífico (22.000 kg Carga Útil · Temperatura Controlada)
+                              </option>
+                              <option value="Portacontenedor Multimodal">
+                                Portacontenedor Multimodal (26.000 kg Carga Útil)
+                              </option>
+                            </select>
+                            <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono mt-1">
+                              <span>Carga Útil Efectiva: <strong className="text-slate-800 font-bold">{getVehiclePayloadKg(vehicleType).toLocaleString('es-ES')} kg</strong></span>
+                              <span className="text-blue-700 font-bold">{(vehicleType?.toLowerCase().includes('tren') || vehicleType?.toLowerCase().includes('tolva')) ? 'Tracción Ferroviaria' : (vehicleType.includes('Grúa') ? 'Tara Pluma Reducida (-3t)' : 'Tara Estándar')}</span>
+                            </div>
                           </div>
-                        </div>
+                        )}
 
                         <div>
                           <label htmlFor="metodo_carga" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">

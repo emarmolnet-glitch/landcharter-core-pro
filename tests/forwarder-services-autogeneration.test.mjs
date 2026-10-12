@@ -22,11 +22,11 @@ test('1. ForwarderWorkspace persistProjectToDatabase contains services autogener
     'Must check if servicesList is empty and positive land cost exists'
   );
 
-  // 2. Generates service with srv-auto- id and Flete y Operaciones Terrestres name
+  // 2. Generates service with static srv-auto- id and Flete y Operaciones Terrestres name
   assert.match(
     persistBody,
-    /id:\s*['"]srv-auto-['"]\s*\+\s*Date\.now\(\)/,
-    'Must generate service id starting with srv-auto- and timestamp'
+    /id:\s*['"]srv-auto-(?:road-freight|rail-traction)/,
+    'Must generate service id starting with srv-auto- and static identifier'
   );
 
   assert.match(

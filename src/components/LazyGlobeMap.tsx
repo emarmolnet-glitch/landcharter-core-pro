@@ -331,7 +331,7 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
   return (
     <div id={containerId} className={`h-full w-full min-h-[600px] rounded-lg border border-slate-200 bg-slate-100 overflow-hidden relative ${isRail ? 'train-mode' : ''}`}>
       <MapContainer
-        key={`map-container-${isRail ? 'rail' : 'road'}`}
+        key="map-container-static"
         className={isRail ? 'train-mode' : ''}
         center={[50.5, 10.5]}
         zoom={4}
