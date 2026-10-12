@@ -10,12 +10,41 @@ interface RoutePoint {
   name?: string;
 }
 
-interface GlobeMapProps {
+export interface GlobeMapProps {
   containerId?: string;
   globeKey?: string;
-  routeGeometry?: [number, number][];
+  routeGeometry?: [number, number][] | any;
+  routeGeoJson?: any;
   origin?: RoutePoint | null;
   destination?: RoutePoint | null;
+  isRail?: boolean;
+}
+
+/**
+ * Función agnóstica para extraer coordenadas [lat, lon] aptas para Leaflet
+ * a partir de arreglos directos o de geometrías GeoJSON estándar (LineString / MultiLineString / Feature).
+ */
+export function parseGeoJsonOrCoords(data: any): [number, number][] | null {
+  if (!data) return null;
+  // Si ya es un arreglo de pares [lat, lon]
+  if (Array.isArray(data) && data.length > 0) {
+    if (Array.isArray(data[0]) && data[0].length >= 2) {
+      return data as [number, number][];
+    }
+  }
+  // Si es un objeto GeoJSON (FeatureCollection, Feature o Geometry)
+  const feat = data?.features ? data.features[0] : (data?.type === 'Feature' ? data : null);
+  const geom = feat?.geometry || (data?.type === 'LineString' || data?.type === 'MultiLineString' ? data : data?.geometry);
+  if (geom && geom.coordinates) {
+    if (geom.type === 'LineString' || Array.isArray(geom.coordinates)) {
+      const coords = Array.isArray(geom.coordinates[0]) && Array.isArray(geom.coordinates[0][0])
+        ? geom.coordinates.flat()
+        : geom.coordinates;
+      // Los datos GeoJSON vienen en orden [lon, lat]; Leaflet requiere [lat, lon]
+      return coords.map((c: any) => [c[1], c[0]]);
+    }
+  }
+  return null;
 }
 
 export function MapSkeletonFallback() {
@@ -81,7 +110,7 @@ if (typeof document !== 'undefined') {
 .train-mode path,
 .leaflet-rail-route-highlight,
 path.leaflet-rail-route-highlight {
-    stroke: #333333 !important;
+    stroke: #1e293b !important;
     stroke-dasharray: 10 10 !important;
     stroke-width: 5px !important;
     stroke-opacity: 1 !important;
@@ -111,9 +140,16 @@ function RouteAutoFitter({ positions, isRail: propIsRail }: { positions?: [numbe
     (window as any).GlobalLeafletMap = map;
 
     const currentVT = (window as any).State?.vehicleType || (window as any).State?.truckType || (typeof document !== 'undefined' ? ((document.getElementById('vehicle_type') as HTMLSelectElement)?.value || (document.getElementById('nombre-buque-calculadora') as HTMLInputElement)?.value) : '') || '';
-    const isRail = propIsRail !== undefined ? propIsRail : (currentVT?.toLowerCase().includes('tren') || currentVT?.toLowerCase().includes('tolva'));
+    const currentMode = ((typeof window !== 'undefined' && ((window as any).globalTransportMode || (window as any).State?.globalTransportMode)) ? String((window as any).globalTransportMode || (window as any).State?.globalTransportMode).toUpperCase() : '');
+    const isRail = propIsRail !== undefined ? propIsRail : (
+      currentMode === 'RAIL' ||
+      (typeof window !== 'undefined' && (window as any).State?.isRail === true) ||
+      currentVT?.toLowerCase().includes('tren') ||
+      currentVT?.toLowerCase().includes('tolva') ||
+      currentVT?.toLowerCase().includes('vagón')
+    );
 
-    console.log('MAPA - ¿Es tren?:', isRail, 'Tipo:', currentVT);
+    console.log('MAPA - ¿Es tren?:', isRail, 'Tipo:', currentVT, 'Modo:', currentMode);
 
     if (container) {
       if (isRail) container.classList.add('train-mode');
@@ -151,7 +187,7 @@ function RouteAutoFitter({ positions, isRail: propIsRail }: { positions?: [numbe
         if (layer === (window as any)._currentOsrmRouteLayer && !isRail) return;
         if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
           map.removeLayer(layer);
-        } else if (layer.options && (layer.options.className === 'leaflet-route-highlight' || layer.options.className === 'leaflet-rail-route-highlight' || layer.options.color === '##2563eb' || layer.options.color === '#2563eb' || layer.options.color === '#0f766e' || layer.options.color === '#333333')) {
+        } else if (layer.options && (layer.options.className === 'leaflet-route-highlight' || layer.options.className === 'leaflet-rail-route-highlight' || layer.options.className === 'leaflet-rail-bed' || layer.options.color === '##2563eb' || layer.options.color === '#2563eb' || layer.options.color === '#0f766e' || layer.options.color === '#333333' || layer.options.color === '#1e293b')) {
           map.removeLayer(layer);
         }
       });
@@ -159,23 +195,49 @@ function RouteAutoFitter({ positions, isRail: propIsRail }: { positions?: [numbe
       // 2. Renderizado de ruta:
       // Si isRail es FALSE (camión): Dibuja la ruta normal por carretera (línea sólida azul #2563eb).
       // Si isRail es TRUE (tren):
-      // a) Color gris oscuro o negro (#333333)
-      // b) Estilo de vía de tren (línea discontinua dashArray: '10, 10')
+      // a) Balasto / base de vía férrea (#64748b, weight: 6, opacity: 0.6)
+      // b) Vía férrea típica punteada negra/gris (#1e293b, weight: 4, dashArray: '10, 10')
       const allLatLngs = positions;
       const mapInstance = map;
-      const polyline = L.polyline(allLatLngs, {
-        color: isRail ? '#333333' : '#2563eb',
-        weight: isRail ? 4 : 5,
-        opacity: 0.95,
-        dashArray: isRail ? '10, 10' : undefined,
-        lineCap: 'round',
-        lineJoin: 'round',
-        className: isRail ? 'leaflet-rail-route-highlight' : 'leaflet-route-highlight'
-      });
-      // Fallback para suite de tests: L.polyline(allLatLngs, { color: '##2563eb', weight: 6, opacity: 1.0, lineCap: 'round', lineJoin: 'round', className: 'leaflet-route-highlight' })
-      polyline.addTo(mapInstance);
-      (polyline as any).isRail = isRail;
-      (window as any)._currentOsrmRouteLayer = polyline;
+
+      let polyline: L.Polyline;
+      if (isRail) {
+        const railBed = L.polyline(allLatLngs, {
+          color: '#64748b',
+          weight: 6,
+          opacity: 0.6,
+          lineCap: 'round',
+          lineJoin: 'round',
+          className: 'leaflet-rail-bed'
+        }).addTo(mapInstance);
+
+        polyline = L.polyline(allLatLngs, {
+          color: '#1e293b',
+          weight: 4,
+          opacity: 0.95,
+          dashArray: '10, 10',
+          lineCap: 'round',
+          lineJoin: 'round',
+          className: 'leaflet-rail-route-highlight'
+        });
+        polyline.addTo(mapInstance);
+        (polyline as any).isRail = true;
+        (polyline as any).railBed = railBed;
+        (window as any)._currentOsrmRouteLayer = polyline;
+      } else {
+        polyline = L.polyline(allLatLngs, {
+          color: '#2563eb',
+          weight: 5,
+          opacity: 0.95,
+          lineCap: 'round',
+          lineJoin: 'round',
+          className: 'leaflet-route-highlight'
+        });
+        // Fallback para suite de tests: L.polyline(allLatLngs, { color: '##2563eb', weight: 6, opacity: 1.0, lineCap: 'round', lineJoin: 'round', className: 'leaflet-route-highlight' })
+        polyline.addTo(mapInstance);
+        (polyline as any).isRail = false;
+        (window as any)._currentOsrmRouteLayer = polyline;
+      }
 
       // 3. Centrar cámara
       mapInstance.fitBounds(polyline.getBounds(), { padding: [50, 50] });
@@ -184,6 +246,9 @@ function RouteAutoFitter({ positions, isRail: propIsRail }: { positions?: [numbe
       return () => {
         if (polyline !== (window as any)._currentOsrmRouteLayer) {
           try { mapInstance.removeLayer(polyline); } catch (_) {}
+          if ((polyline as any).railBed) {
+            try { mapInstance.removeLayer((polyline as any).railBed); } catch (_) {}
+          }
         }
       };
     } catch (err) {
@@ -198,12 +263,24 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
   containerId = 'map-container',
   globeKey = 'main',
   routeGeometry,
+  routeGeoJson,
   origin: initialOrigin,
-  destination: initialDest
+  destination: initialDest,
+  isRail: propIsRail
 }: GlobeMapProps) {
-  const [routePoints, setRoutePoints] = useState<[number, number][]>(routeGeometry || []);
+  const [routePoints, setRoutePoints] = useState<[number, number][]>(() => {
+    if (routeGeoJson) return parseGeoJsonOrCoords(routeGeoJson) || [];
+    if (routeGeometry) return parseGeoJsonOrCoords(routeGeometry) || [];
+    return [];
+  });
   const [origin, setOrigin] = useState<RoutePoint | null>(initialOrigin || null);
   const [dest, setDest] = useState<RoutePoint | null>(initialDest || null);
+  const [globalMode, setGlobalMode] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return (window as any).globalTransportMode || (window as any).State?.globalTransportMode || 'ROAD';
+    }
+    return 'ROAD';
+  });
   const [vehicleType, setVehicleType] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return (window as any).State?.vehicleType || (window as any).State?.truckType || '';
@@ -211,7 +288,28 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
     return '';
   });
 
-  const isRail = vehicleType?.toLowerCase().includes('tren') || vehicleType?.toLowerCase().includes('tolva');
+  const isRail = propIsRail !== undefined ? propIsRail : (
+    globalMode === 'RAIL' ||
+    (typeof window !== 'undefined' && (window as any).State?.isRail === true) ||
+    vehicleType?.toLowerCase().includes('tren') ||
+    vehicleType?.toLowerCase().includes('tolva') ||
+    vehicleType?.toLowerCase().includes('vagón')
+  );
+
+  // Escuchar cambios en modo de transporte global (ROAD vs RAIL)
+  useEffect(() => {
+    const handleModeChange = (event?: any) => {
+      const mode = event?.detail?.mode || event?.detail?.globalTransportMode || event?.detail?.transportMode || (window as any).globalTransportMode || 'ROAD';
+      setGlobalMode(String(mode).toUpperCase());
+    };
+
+    window.addEventListener('globaltransportmodechange', handleModeChange);
+    window.addEventListener('transport-mode-changed', handleModeChange);
+    return () => {
+      window.removeEventListener('globaltransportmodechange', handleModeChange);
+      window.removeEventListener('transport-mode-changed', handleModeChange);
+    };
+  }, []);
 
   // Escuchar cambios en vehicle_type para re-dibujar la ruta inmediatamente
   useEffect(() => {
@@ -236,8 +334,9 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
   }, []);
 
   useEffect(() => {
-    if (routeGeometry && routeGeometry.length > 0) {
-      setRoutePoints(routeGeometry);
+    const parsedCoords = parseGeoJsonOrCoords(routeGeoJson) || parseGeoJsonOrCoords(routeGeometry);
+    if (parsedCoords && parsedCoords.length > 0) {
+      setRoutePoints(parsedCoords);
     } else if (initialOrigin && initialDest) {
       const oLat = Number(initialOrigin.lat ?? (initialOrigin as any).latitude);
       const oLon = Number(initialOrigin.lon ?? (initialOrigin as any).lng ?? (initialOrigin as any).longitude);
@@ -253,24 +352,39 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
     }
     if (initialOrigin) setOrigin(initialOrigin);
     if (initialDest) setDest(initialDest);
-  }, [routeGeometry, initialOrigin, initialDest]);
+  }, [routeGeometry, routeGeoJson, initialOrigin, initialDest]);
 
-  // Escuchar eventos globales de actualización de ruta OSRM (El flujo original)
+  // Escuchar eventos globales de actualización de ruta (tanto carretera como ferrocarril)
   useEffect(() => {
-    const handleOsrmUpdate = (event: Event) => {
+    const handleRouteUpdate = (event: Event) => {
       const customEv = event as CustomEvent<{
         routePoints?: [number, number][];
         curvedRoutePoints?: [number, number][];
         osrmRoutePoints?: [number, number][];
         leafletRoutePoints?: [number, number][];
+        geojsonCoordinates?: [number, number][];
         origin?: RoutePoint;
         destination?: RoutePoint;
+        isRail?: boolean;
+        globalTransportMode?: string;
+        routeGeoJson?: any;
+        geoJson?: any;
+        geometry?: any;
       }>;
+
+      if (customEv.detail?.globalTransportMode) {
+        setGlobalMode(String(customEv.detail.globalTransportMode).toUpperCase());
+      }
+
       let points = customEv.detail?.osrmRoutePoints || customEv.detail?.leafletRoutePoints || customEv.detail?.routePoints || customEv.detail?.curvedRoutePoints;
+      if (!points && (customEv.detail?.geoJson || customEv.detail?.routeGeoJson || customEv.detail?.geometry)) {
+        points = parseGeoJsonOrCoords(customEv.detail?.geoJson || customEv.detail?.routeGeoJson || customEv.detail?.geometry);
+      }
+
       const orig = customEv.detail?.origin || (window as any).LandData?.origin;
       const dst = customEv.detail?.destination || (window as any).LandData?.destination;
 
-      // Fallback Geodésico: Si la API de routing no da ruta por carretera para el tren, dibuja una línea recta o curva geodésica limpia entre las coordenadas [lng, lat] de origen y destino.
+      // Fallback Geodésico: Si la API de routing no da ruta, dibuja línea/curva limpia
       if ((!points || points.length < 2) && orig && dst) {
         const oLat = Number(orig.lat ?? (orig as any).latitude);
         const oLon = Number(orig.lon ?? (orig as any).lng ?? (orig as any).longitude);
@@ -296,9 +410,11 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
       }
     };
 
-    window.addEventListener('osrm:route-updated', handleOsrmUpdate);
+    window.addEventListener('osrm:route-updated', handleRouteUpdate);
+    window.addEventListener('rail:route-updated', handleRouteUpdate);
     return () => {
-      window.removeEventListener('osrm:route-updated', handleOsrmUpdate);
+      window.removeEventListener('osrm:route-updated', handleRouteUpdate);
+      window.removeEventListener('rail:route-updated', handleRouteUpdate);
     };
   }, []);
 
@@ -347,14 +463,30 @@ const GlobeCanvasContent = memo(function GlobeCanvasContent({
         {/* Declaración fallback para tests unitarios / legacy visual */}
         {false && <Polyline positions={[]} pathOptions={{ color: '#0f766e', weight: 5 }} />}
 
+        {routePoints && routePoints.length > 0 && isRail && (
+          <Polyline
+            key={`route-railbed-${routePoints.length}`}
+            positions={routePoints}
+            pathOptions={{
+              color: '#64748b',
+              weight: 6,
+              opacity: 0.6,
+              lineCap: 'round',
+              lineJoin: 'round'
+            }}
+          />
+        )}
+
         {routePoints && routePoints.length > 0 && (
           <Polyline
             key={`route-polyline-${isRail ? 'rail' : 'road'}-${routePoints.length}`}
             positions={routePoints}
             pathOptions={{
-              color: isRail ? '#333333' : '#3388ff',
+              color: isRail ? '#1e293b' : '#3388ff',
               dashArray: isRail ? '10, 10' : null,
-              weight: 4
+              weight: isRail ? 4 : 5,
+              opacity: 0.95,
+              className: isRail ? 'leaflet-rail-route-highlight' : 'leaflet-route-highlight'
             }}
           />
         )}
@@ -379,8 +511,10 @@ const LazyGlobeMap = memo(function LazyGlobeMap({
   containerId = 'map-container',
   globeKey = 'main',
   routeGeometry,
+  routeGeoJson,
   origin,
-  destination
+  destination,
+  isRail
 }: GlobeMapProps) {
   const [showGlobe, setShowGlobe] = useState(false);
 
@@ -408,8 +542,10 @@ const LazyGlobeMap = memo(function LazyGlobeMap({
       containerId={containerId}
       globeKey={globeKey}
       routeGeometry={routeGeometry}
+      routeGeoJson={routeGeoJson}
       origin={origin}
       destination={destination}
+      isRail={isRail}
     />
   );
 });

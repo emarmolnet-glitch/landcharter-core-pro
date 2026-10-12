@@ -1,3 +1,4 @@
+/api/get-rail-route /.netlify/functions/get-rail-route 200!
 /api/voyage/active /.netlify/functions/voyage-active 200!
 /api-land-data /.netlify/functions/api-land-data 200!
 /api/save-land-route /.netlify/functions/save-land-route 200!
