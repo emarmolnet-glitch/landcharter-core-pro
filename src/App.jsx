@@ -748,6 +748,11 @@ export function useLandDataBridgeSync() {
     if (typeof window === 'undefined') return;
 
     const checkAndTriggerCalculation = () => {
+      // Cortafuegos absoluto en modo RAIL: abortar cualquier auto-cálculo de carretera con 24t
+      if (window.globalTransportMode === 'RAIL' || window.State?.globalTransportMode === 'RAIL' || window.State?.transportMode === 'RAIL') {
+        return;
+      }
+
       const searchParams = window.location?.search ? new URLSearchParams(window.location.search) : null;
       const rawUrlCargo = searchParams ? (searchParams.get('cargo') || searchParams.get('cargoQty') || searchParams.get('cargoVolume') || searchParams.get('tonnage') || searchParams.get('totalCargoTonnage') || '') : '';
       const urlCargo = parseSafeNumber(rawUrlCargo);

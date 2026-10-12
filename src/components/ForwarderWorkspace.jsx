@@ -1944,6 +1944,9 @@ function ForwarderWorkspaceInner(props = {}) {
     const handleModeChange = (e) => {
       const newMode = e?.detail?.mode || e?.detail?.globalTransportMode || window.globalTransportMode || 'ROAD';
       setTransportMode(newMode);
+      if (railHydrationLockRef) {
+        railHydrationLockRef.current = '';
+      }
     };
     if (typeof window !== 'undefined') {
       window.addEventListener('globaltransportmodechange', handleModeChange);
@@ -2005,6 +2008,7 @@ function ForwarderWorkspaceInner(props = {}) {
   const lastSyncPayloadRef = useRef(null);
   const lastRoadSyncPayloadRef = useRef('');
   const lastSyncDataBridgeRef = useRef('');
+  const railHydrationLockRef = useRef('');
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
 
@@ -2040,6 +2044,96 @@ function ForwarderWorkspaceInner(props = {}) {
   const [distanceKm, setDistanceKm] = useState(activeProject?.land_route?.distance_km || activeProject?.land_distance || 0);
   const [safeLoadHours, setSafeLoadHours] = useState(2);
   const [safeDischHours, setSafeDischHours] = useState(2);
+
+  // 1. HARD RESET EN EL MOUNT (ANIQUILAR LA MEMORIA FANTASMA):
+  // Al entrar a la vista, ejecutar una limpieza extrema: formulario strictly en blanco e interrupción de sincronizaciones residuales
+  useEffect(() => {
+    // Interrumpir cualquier sincronización residual de proyectos previos
+    lastSyncDataBridgeRef.current = '';
+    lastRoadSyncPayloadRef.current = '';
+    lastSyncPayloadRef.current = null;
+    lastCalculatedItemsRef.current = '';
+    railHydrationLockRef.current = '';
+    lastHydratedProjectIdRef.current = null;
+
+    setActiveProject(null);
+    setLandOrigin('');
+    setLandDestination('');
+    setCargoItems([]);
+    setDistanceKm(0);
+    setEstimatedCost('');
+    setSalePrice('');
+    setSubtotalFreight('0.00');
+    setSubtotalFobOperations('0.00');
+    setTotalProjectTons(0);
+    setRequiredTrucksCount(0);
+    setCharteringAssessment(null);
+    setActiveReport(null);
+    setReportData(null);
+    setTollCost(0);
+    setDriverDiets(0);
+    setWarehouseWaitPenaltyEur(0);
+    setReferenciaActivaGlobal('');
+
+    if (typeof window !== 'undefined') {
+      if (window.State) {
+        delete window.State.land_origin;
+        delete window.State.land_destination;
+        delete window.State.land_distance;
+        delete window.State.distanceKm;
+        delete window.State.distance;
+        delete window.State.cost;
+        delete window.State.land_freight_cost;
+        delete window.State.land_freight_sale;
+        delete window.State.totalTripCost;
+        delete window.State.totalCosts;
+        delete window.State.costTotal;
+        delete window.State.estimatedCost;
+        delete window.State.costeTrenConsolidado;
+        delete window.State.costeTren;
+        delete window.State.coste_tren;
+        delete window.State.cargo;
+        delete window.State.cargoQuantity;
+        delete window.State.goodsValue;
+        delete window.State.valor_total_mercancia_usd;
+        delete window.State.merchandiseValue;
+        delete window.State.cargoValue;
+        delete window.State.currentRoute;
+        delete window.State.tollCost;
+        delete window.State.peajes;
+        delete window.State.driverDiets;
+        delete window.State.dietas;
+        delete window.State.vehicleType;
+        delete window.State.truckType;
+        delete window.State.trucks_needed;
+        delete window.State.trucksNeeded;
+        delete window.State.total_trucks;
+        delete window.State.total_wagons;
+        delete window.State.wagons;
+        delete window.State.flota;
+        delete window.State.camionesReales;
+        delete window.State.activeReference;
+        delete window.State.activeProjectRef;
+      }
+      if (window.GlobalStore) {
+        delete window.GlobalStore.totalTripCost;
+        delete window.GlobalStore.totalCosts;
+        delete window.GlobalStore.land_freight_cost;
+        delete window.GlobalStore.estimatedCost;
+        delete window.GlobalStore.total_trucks;
+      }
+      if (window.currentRoute) {
+        window.currentRoute = null;
+      }
+      window.anchoredReference = '';
+      window.__ACTIVE_FORWARDER_TOTAL_WEIGHT_TONS__ = 0;
+      try {
+        localStorage.removeItem('seacharter_active_project_weight_tons');
+        localStorage.removeItem('active_project_weight_tons');
+        sessionStorage.removeItem('active_contract_ref');
+      } catch (_) {}
+    }
+  }, []);
 
   useEffect(() => {
     setLoadingRateInput(safeLoadHours);
@@ -2324,8 +2418,16 @@ function ForwarderWorkspaceInner(props = {}) {
   // 🛡️ VIGILANTE DE MEMORIA GLOBAL (Calculadora LDM -> Ficha de Proyectos -> Data Bridge)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
+    // Si estamos en modo RAIL, no contaminar con datos fantasma de carretera de la calculadora
+    const isRailModeActive = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+      transportMode === 'RAIL' ||
+      (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL');
+
+    if (isRailModeActive) return;
+
     const rescatarDatosCalculadora = () => {
+      if ((typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') || transportMode === 'RAIL') return;
       // Leemos la memoria silenciosa que deja la Calculadora
       const gOrigin = window.State?.land_origin || window.State?.origin || '';
       const gDest = window.State?.land_destination || window.State?.destination || '';
@@ -2358,7 +2460,7 @@ function ForwarderWorkspaceInner(props = {}) {
     // El vigilante comprueba la memoria cada segundo sin ralentizar la app
     const intervalId = setInterval(rescatarDatosCalculadora, 1000);
     return () => clearInterval(intervalId);
-  }, [landOrigin, landDestination, distanceKm]);
+  }, [landOrigin, landDestination, distanceKm, transportMode]);
 
   // Recálculo automático de horas previstas de carga/descarga según ratio operativo
   useEffect(() => {
@@ -2835,8 +2937,12 @@ function ForwarderWorkspaceInner(props = {}) {
         // Si el valor recibido de Neon o Data Bridge corresponde al gran total de la flota (> 1 camión),
         // se normaliza al coste operativo base unitario para no alimentar el multiplicador exponencial.
         const syncTruckCount = Math.max(1, Number(withSrvs.total_trucks || (withSrvs.cargo_items?.length) || 1));
-        const effectiveUnitCost = (costEur > 0 && syncTruckCount > 1) ? Number((costEur / syncTruckCount).toFixed(2)) : costEur;
-        const effectiveUnitSale = (saleEur > 0 && syncTruckCount > 1) ? Number((saleEur / syncTruckCount).toFixed(2)) : saleEur;
+        const effectiveUnitCost = isRailDataBridge
+          ? costEur
+          : ((costEur > 0 && syncTruckCount > 1) ? Number((costEur / syncTruckCount).toFixed(2)) : costEur);
+        const effectiveUnitSale = isRailDataBridge
+          ? saleEur
+          : ((saleEur > 0 && syncTruckCount > 1) ? Number((saleEur / syncTruckCount).toFixed(2)) : saleEur);
 
         setEstimatedCost(prev => (effectiveUnitCost === 0 && Number(prev) > 0) ? prev : (effectiveUnitCost > 0 ? effectiveUnitCost : prev));
         setSalePrice(prev => (effectiveUnitSale === 0 && Number(prev) > 0) ? prev : (effectiveUnitSale > 0 ? effectiveUnitSale : prev));
@@ -2874,7 +2980,7 @@ function ForwarderWorkspaceInner(props = {}) {
           0
         );
 
-        const truckPayloadMT = Number(
+        const truckPayloadMT = isRailDataBridge ? 50 : Number(
           getVehiclePayloadKg(effectiveVehicle || vehicleType) / 1000 ||
           (typeof window !== 'undefined' && (window.State?.truckPayloadCapacity || window.State?.cargaUtil)) ||
           24
@@ -2891,15 +2997,20 @@ function ForwarderWorkspaceInner(props = {}) {
         if (typeof setVehicleCount === 'function') setVehicleCount(requiredTrucks);
 
         const vehicle_type = vehicleType || withSrvs?.vehicle_type || withSrvs?.truck_type || activeProject?.vehicle_type || activeProject?.truck_type || '';
-        const isRail = vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón') ||
+        const isRail = isRailDataBridge ||
+          (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+          transportMode === 'RAIL' ||
+          vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón') ||
           vehicle_type?.includes('Tren') || vehicle_type?.includes('Tolva') || vehicle_type?.includes('Vagón') ||
           Boolean(String(vehicle_type).toLowerCase().match(/tren|tolva|vag[oó]n|ferroviario|rail/));
         const servicePrefix = isRail ? 'Flete Ferroviario' : 'Flete Terrestre';
         const vehicleCountLabel = isRail ? (requiredTrucks === 1 ? 'Vagón' : 'Vagones') : (requiredTrucks === 1 ? 'Camión' : 'Camiones');
 
+        const syncCategory = isRail ? 'Graneles Sólidos / Minerales' : 'Carga Unificada / Envasada';
         // 1. Creas la constante con el cálculo final:
-        const finalCargoItems = [{ id: 'sync-land-charter-fixed-row', category: isRail ? 'Graneles Sólidos / Minerales' : 'Carga Unificada / Envasada', type: `Flete Terrestre (${requiredTrucks} Camiones)`, quantity: requiredTrucks, unit_weight_kg: truckPayloadMT * 1000, weight: truckPayloadMT * 1000 }];
+        const finalCargoItems = [{ id: 'sync-land-charter-fixed-row', category: 'Carga Unificada / Envasada', type: `Flete Terrestre (${requiredTrucks} Camiones)`, quantity: requiredTrucks, unit_weight_kg: truckPayloadMT * 1000, weight: truckPayloadMT * 1000 }];
         if (isRail) {
+          finalCargoItems[0].category = syncCategory;
           finalCargoItems[0].type = `${servicePrefix} (${requiredTrucks} ${vehicleCountLabel})`;
         }
 
@@ -2935,17 +3046,17 @@ function ForwarderWorkspaceInner(props = {}) {
         const isSaleAlreadyTotal = totalTrucks > 1 && rawSavedSale > 0 && rawSavedSale > (unitSale * 1.5);
 
         const effDistSync = Number(sDist || effectiveLandDist || distanceKm || 0);
-        const rawBackendRailSync = Number(
-          withSrvs?.costeTren || withSrvs?.coste_tren || withSrvs?.traction_cost || withSrvs?.costeTraccion || withSrvs?.costeFerrocarril ||
-          activeProject?.costeTren || activeProject?.coste_tren || activeProject?.traction_cost || activeProject?.costeTraccion ||
-          (isRail ? (withSrvs?.land_freight_cost || activeProject?.land_freight_cost) : 0)
-        );
-        const costeTrenSync = rawBackendRailSync > 0 ? rawBackendRailSync : (Math.round(effDistSync * 0.04 * (totalTons || 1) * 100) / 100);
-
         const wagonsSync = isRail ? (Number(requiredTrucks) || totalTrucks || 1) : 1;
         const drayageOriginSync = isRail ? (450 * wagonsSync) : 0;
         const drayageDestSync = isRail ? (450 * wagonsSync) : 0;
         const totalDrayageSync = drayageOriginSync + drayageDestSync;
+
+        const rawBackendRailSync = Number(
+          withSrvs?.costeTrenConsolidado || withSrvs?.costeTren || withSrvs?.coste_tren || withSrvs?.traction_cost || withSrvs?.costeTraccion || withSrvs?.costeFerrocarril ||
+          activeProject?.costeTrenConsolidado || activeProject?.costeTren || activeProject?.coste_tren || activeProject?.traction_cost || activeProject?.costeTraccion ||
+          (isRail ? (withSrvs?.land_freight_cost ? Math.max(0, Number(withSrvs.land_freight_cost) - totalDrayageSync) : (activeProject?.land_freight_cost ? Math.max(0, Number(activeProject.land_freight_cost) - totalDrayageSync) : 0)) : 0)
+        );
+        const costeTrenSync = rawBackendRailSync > 0 ? rawBackendRailSync : (Math.round(effDistSync * 0.04 * (totalTons || 1) * 100) / 100);
 
         const totalCost = isRail
           ? costeTrenSync + totalDrayageSync
@@ -3016,6 +3127,14 @@ function ForwarderWorkspaceInner(props = {}) {
           },
         };
 
+        const currentPayloadString = JSON.stringify(dataBridgePayloadObject);
+        if (lastSyncDataBridgeRef.current === currentPayloadString || lastRoadSyncPayloadRef.current === currentPayloadString) {
+          console.log('[Data Bridge] Envío a sync-road omitido por carga idéntica en handleSyncDataBridge (Deep Compare Cortafuegos)');
+          return;
+        }
+        lastSyncDataBridgeRef.current = currentPayloadString;
+        lastRoadSyncPayloadRef.current = currentPayloadString;
+
         try {
           if (typeof window !== 'undefined') {
             const roadSyncFn = typeof window.syncRoadMetricsToBridge === 'function' ? window.syncRoadMetricsToBridge : null;
@@ -3026,7 +3145,7 @@ function ForwarderWorkspaceInner(props = {}) {
           await fetch(getApiUrl('/api/projects/sync-road'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify(dataBridgePayloadObject),
+            body: currentPayloadString,
           }).catch(() => null);
         } catch (syncBridgeErr) {
           console.warn('[Data Bridge] Error al enviar dataBridgePayloadObject en handleSyncDataBridge:', syncBridgeErr);
@@ -3632,14 +3751,18 @@ function ForwarderWorkspaceInner(props = {}) {
 
       const tuVariableDeCosteTotalTerrestre = (!distanceKm || Number(distanceKm) <= 0)
         ? 0
-        : (Number(projectToSave?.land_freight_cost) > 0
-          ? Number(projectToSave.land_freight_cost)
-          : (finalTotalLandCost > 0 ? finalTotalLandCost : Number(estimatedCost || activeProject?.land_freight_cost || 0)));
+        : (isRail
+          ? finalTotalLandCost
+          : (Number(projectToSave?.land_freight_cost) > 0
+            ? Number(projectToSave.land_freight_cost)
+            : (finalTotalLandCost > 0 ? finalTotalLandCost : Number(estimatedCost || activeProject?.land_freight_cost || 0))));
       const tuVariableDePrecioVentaTerrestre = (!distanceKm || Number(distanceKm) <= 0)
         ? 0
-        : (Number(projectToSave?.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) > 0
-          ? Number(projectToSave.land_freight_sale || projectToSave.targetSalePrice || projectToSave.sale)
-          : (finalTotalLandSale > 0 ? finalTotalLandSale : Number(salePrice || activeProject?.land_freight_sale || 0)));
+        : (isRail
+          ? finalTotalLandSale
+          : (Number(projectToSave?.land_freight_sale || projectToSave?.targetSalePrice || projectToSave?.sale) > 0
+            ? Number(projectToSave.land_freight_sale || projectToSave.targetSalePrice || projectToSave.sale)
+            : (finalTotalLandSale > 0 ? finalTotalLandSale : Number(salePrice || activeProject?.land_freight_sale || 0))));
 
       // FORZAR IDENTIDAD ÚNICA: NUNCA USAR SUFIJOS NI TEXTO LIBRE
       let rawCandidateRef = projectToSave?.project_ref || activeProject?.project_ref || projectToSave?.reference || referenciaActivaGlobal;
@@ -4562,6 +4685,17 @@ function ForwarderWorkspaceInner(props = {}) {
   };
 
   const autoCalculateEstimates = (items) => {
+    // CORTAFUEGOS ABSOLUTO EN MODO RAIL:
+    // Si window.globalTransportMode === 'RAIL' (o el estado equivalente del toggle), ABORTA inmediatamente cualquier recálculo automático que use divisores de carretera (24t) o multiplicadores de kilómetros por vehículo.
+    const isRailModeActive = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+      transportMode === 'RAIL' ||
+      (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
+      Boolean(vehicleType && (vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón')));
+
+    if (isRailModeActive) {
+      return;
+    }
+
     if (!items || items.length === 0) {
       lastCalculatedItemsRef.current = '[]';
       setDunnage(0); setChains(0); setSlings(0); setShackles(0);
@@ -4988,10 +5122,21 @@ function ForwarderWorkspaceInner(props = {}) {
     setSubtotalFreight(calculatedOceanFreight.toFixed(2));
     setSubtotalFobOperations(calculatedFobOperations.toFixed(2));
     setEstimatedCost(totalEstimatedCost.toFixed(2));
-    setSalePrice((totalEstimatedCost * (isRailAuto ? 1.18 : 1.15)).toFixed(2));
+    setSalePrice((totalEstimatedCost * 1.15).toFixed(2));
   };
 
   useEffect(() => {
+    // CORTAFUEGOS ABSOLUTO EN MODO RAIL:
+    // Si window.globalTransportMode === 'RAIL' (o estado equivalente), ABORTA inmediatamente cualquier recálculo automático de carretera
+    const isRailModeGuard = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+      transportMode === 'RAIL' ||
+      (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
+      Boolean(vehicleType && (vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón')));
+
+    if (isRailModeGuard) {
+      return;
+    }
+
     // Freno al Bucle Infinito (Deep Compare): solo ejecutar si el string de cargoItems cambia
     const currentItemsString = JSON.stringify(cargoItems);
     if (lastCalculatedItemsRef.current === currentItemsString) {
@@ -5019,8 +5164,124 @@ function ForwarderWorkspaceInner(props = {}) {
     demurrageDailyRateUsd,
   ]);
 
+  // =========================================================================
+  // BLINDAJE DE ASIGNACIÓN ESTRICTA DE COSTE Y FLOTA EN MODO RAIL (CEREBRO-IA)
+  // =========================================================================
+  useEffect(() => {
+    const isRailMode = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+      transportMode === 'RAIL' ||
+      (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
+      Boolean(vehicleType && (vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón')));
+
+    if (!isRailMode) return;
+
+    // En modo RAIL, la interfaz DEBE fiarse al 100% de la respuesta interceptada de cerebro-ia.js (ej. 160 vagones y coste consolidado)
+    const totalTonsFallback = totals?.weight > 0 ? (totals.weight / 1000) : (parseSafeNumber(activeProject?.total_weight_tons || activeProject?.cargoQuantity || (typeof window !== 'undefined' ? window.State?.cargo : 0)) || 0);
+
+    const vagonesInterceptados = Number(
+      activeProject?.total_wagons ||
+      activeProject?.wagons ||
+      activeProject?.total_trucks ||
+      activeProject?.totalVehicles ||
+      activeProject?.flota ||
+      activeProject?.payload?.total_wagons ||
+      activeProject?.payload?.wagons ||
+      activeProject?.payload?.total_trucks ||
+      (typeof window !== 'undefined' ? (window.State?.total_wagons || window.State?.wagons || window.State?.total_trucks || window.State?.flota) : 0) ||
+      (totalTonsFallback > 0 ? Math.ceil((totalTonsFallback * 1000) / 50000) : 0) ||
+      1
+    );
+
+    const vagones = Math.max(1, vagonesInterceptados);
+
+    const rawCosteConsolidado = Number(
+      activeProject?.costeTrenConsolidado ||
+      activeProject?.costeTren ||
+      activeProject?.coste_tren ||
+      activeProject?.traction_cost ||
+      activeProject?.costeTraccion ||
+      activeProject?.costeFerrocarril ||
+      activeProject?.payload?.costeTrenConsolidado ||
+      activeProject?.payload?.costeTren ||
+      activeProject?.payload?.coste_tren ||
+      (typeof window !== 'undefined' ? (window.State?.costeTrenConsolidado || window.State?.costeTren || window.State?.coste_tren) : 0) ||
+      0
+    );
+
+    const effDist = Number(distanceKm || activeProject?.land_distance || activeProject?.land_route?.distance_km || 0);
+    const CosteConsolidado = rawCosteConsolidado > 0
+      ? rawCosteConsolidado
+      : (effDist > 0 && totalTonsFallback > 0 ? Math.round(effDist * 0.04 * totalTonsFallback * 100) / 100 : 0);
+
+    // El useEffect que hidrate los costes en modo RAIL solo debe hacer esto:
+    // coste = CosteConsolidado + (vagones * 450) /* Drayage Origen */ + (vagones * 450) /* Drayage Destino */
+    const coste = CosteConsolidado + (vagones * 450) /* Drayage Origen */ + (vagones * 450) /* Drayage Destino */;
+    const venta = Math.round(coste * 1.18 * 100) / 100;
+
+    // Y bloquearse para no permitir re-renderizados posteriores causados por dependencias circulares.
+    const lockKey = `${CosteConsolidado}_${vagones}_${effDist}_${activeProject?.id || ''}_${activeProject?.project_ref || ''}`;
+    if (railHydrationLockRef.current === lockKey) {
+      return;
+    }
+    railHydrationLockRef.current = lockKey;
+
+    if (coste > 0) {
+      setEstimatedCost(coste.toFixed(2));
+      setSalePrice(venta.toFixed(2));
+      setRequiredTrucksCount(vagones);
+      if (typeof setTrucksCount === 'function') setTrucksCount(vagones);
+      if (typeof setVehicleCount === 'function') setVehicleCount(vagones);
+
+      if (typeof window !== 'undefined') {
+        window.State = window.State || {};
+        window.State.totalTripCost = coste;
+        window.State.totalCosts = coste;
+        window.State.costTotal = coste;
+        window.State.land_freight_cost = coste;
+        window.State.estimatedCost = CosteConsolidado;
+        window.State.land_freight_sale = venta;
+        window.State.total_trucks = vagones;
+        window.State.total_wagons = vagones;
+        window.State.wagons = vagones;
+        window.State.flota = vagones;
+        window.State.camionesReales = vagones;
+        if (window.GlobalStore) {
+          window.GlobalStore.totalTripCost = coste;
+          window.GlobalStore.totalCosts = coste;
+          window.GlobalStore.land_freight_cost = coste;
+          window.GlobalStore.estimatedCost = CosteConsolidado;
+          window.GlobalStore.total_trucks = vagones;
+        }
+      }
+    }
+  }, [
+    transportMode,
+    vehicleType,
+    activeProject?.id,
+    activeProject?.project_ref,
+    activeProject?.costeTrenConsolidado,
+    activeProject?.costeTren,
+    activeProject?.coste_tren,
+    activeProject?.traction_cost,
+    activeProject?.total_trucks,
+    activeProject?.total_wagons,
+    activeProject?.wagons,
+    activeProject?.land_distance,
+    activeProject?.total_weight_tons,
+    distanceKm
+  ]);
+
   // Cálculo y Renderizado Reactivo de "FOB + Mercancía Unitario"
   useEffect(() => {
+    const isRailModeGuard = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+      transportMode === 'RAIL' ||
+      (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
+      Boolean(vehicleType && (vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón')));
+
+    if (isRailModeGuard) {
+      return;
+    }
+
     const rawGoodsVal = Number(
       (mercanciaCost > 0 ? mercanciaCost : null)
       ?? activeProject?.valor_total_mercancia_usd
@@ -5143,6 +5404,86 @@ function ForwarderWorkspaceInner(props = {}) {
           window.handleVehicleTypeSelection(payloadExplicitVehicle);
         }
       }
+    }
+
+    // 1b. ASIGNACIÓN ESTRICTA DEL COSTE Y FLOTA EN MODO RAIL (CEREBRO-IA):
+    const isIncomingRail = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+      transportMode === 'RAIL' ||
+      payload.globalTransportMode === 'RAIL' ||
+      payload.isRail === true ||
+      payload.transportMode === 'RAIL' ||
+      payload.transport_mode === 'RAIL' ||
+      Boolean(payloadExplicitVehicle && (payloadExplicitVehicle.includes('Tren') || payloadExplicitVehicle.includes('Tolva') || payloadExplicitVehicle.includes('Vagón')));
+
+    if (isIncomingRail) {
+      const interceptedWagons = Number(
+        payload.total_wagons || payload.wagons || payload.total_trucks || payload.trucks || payload.totalVehicles || payload.flota ||
+        payload.payload?.total_wagons || payload.payload?.wagons || payload.payload?.total_trucks || payload.payload?.trucks || payload.payload?.flota || 0
+      );
+      const vagones = interceptedWagons > 0 ? interceptedWagons : (
+        totals?.weight > 0 ? Math.ceil((totals.weight) / 50000) : 160
+      );
+
+      const rawConsolidated = Number(
+        payload.costeTrenConsolidado || payload.costeTren || payload.coste_tren || payload.traction_cost || payload.costeTraccion ||
+        payload.payload?.costeTrenConsolidado || payload.payload?.costeTren || payload.payload?.coste_tren ||
+        payload.costeConsolidado || payload.CosteConsolidado || 0
+      );
+      const distKmCalc = Number(payload.land_distance || payload.distanceKm || distanceKm || updatedProject?.land_distance || 0);
+      const totalTonsCalc = Number(payload.tonnage || payload.total_weight_tons || (totals?.weight ? totals.weight / 1000 : 0)) || 0;
+      const CosteConsolidado = rawConsolidated > 0
+        ? rawConsolidated
+        : (distKmCalc > 0 && totalTonsCalc > 0 ? Math.round(distKmCalc * 0.04 * totalTonsCalc * 100) / 100 : 0);
+
+      // coste = CosteConsolidado + (vagones * 450) /* Drayage Origen */ + (vagones * 450) /* Drayage Destino */
+      const coste = CosteConsolidado + (vagones * 450) /* Drayage Origen */ + (vagones * 450) /* Drayage Destino */;
+      const venta = Math.round(coste * 1.18 * 100) / 100;
+
+      if (coste > 0) {
+        setEstimatedCost(coste.toFixed(2));
+        setSalePrice(venta.toFixed(2));
+      }
+      setRequiredTrucksCount(vagones);
+      if (typeof setTrucksCount === 'function') setTrucksCount(vagones);
+      if (typeof setVehicleCount === 'function') setVehicleCount(vagones);
+
+      updatedProject.total_trucks = vagones;
+      updatedProject.total_wagons = vagones;
+      updatedProject.wagons = vagones;
+      if (CosteConsolidado > 0) {
+        updatedProject.costeTren = CosteConsolidado;
+        updatedProject.costeTrenConsolidado = CosteConsolidado;
+        updatedProject.land_freight_cost = coste;
+        updatedProject.land_freight_sale = venta;
+      }
+
+      if (typeof window !== 'undefined') {
+        window.State = window.State || {};
+        window.State.totalTripCost = coste;
+        window.State.totalCosts = coste;
+        window.State.costTotal = coste;
+        window.State.land_freight_cost = coste;
+        window.State.estimatedCost = CosteConsolidado;
+        window.State.land_freight_sale = venta;
+        window.State.total_trucks = vagones;
+        window.State.total_wagons = vagones;
+        window.State.wagons = vagones;
+        window.State.flota = vagones;
+        window.State.camionesReales = vagones;
+        if (window.GlobalStore) {
+          window.GlobalStore.totalTripCost = coste;
+          window.GlobalStore.totalCosts = coste;
+          window.GlobalStore.land_freight_cost = coste;
+          window.GlobalStore.estimatedCost = CosteConsolidado;
+          window.GlobalStore.total_trucks = vagones;
+        }
+      }
+
+      if (railHydrationLockRef) {
+        const lockKey = `${CosteConsolidado}_${vagones}_${distKmCalc}_${updatedProject?.id || ''}_${updatedProject?.project_ref || ''}`;
+        railHydrationLockRef.current = lockKey;
+      }
+      hasChanges = true;
     }
 
     // Regla de Flota para Mercancía Envasada / Big Bags en NLP y Chat Libre (Cerebro.ia)
@@ -5743,7 +6084,17 @@ function ForwarderWorkspaceInner(props = {}) {
     const rawEffectiveTons = totalWeightTons > 0 ? totalWeightTons : (totals.weight > 0 ? totals.weight / 1000 : fallbackTons);
     const effectiveWeightTons = rawEffectiveTons;
     const pesoTotalRealMT = Number(effectiveWeightTons) || 0;
-    const totalCamiones = Math.max(1, Number(sourcePayload?.total_trucks || activeProject?.total_trucks || Math.ceil((wTotalKg > 0 ? wTotalKg : pesoTotalRealMT * 1000) / 24000) || 1));
+    const isRailUpper = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+      transportMode === 'RAIL' ||
+      vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón');
+    const interceptedFleet = isRailUpper ? Number(
+      sourcePayload?.total_wagons || sourcePayload?.wagons || sourcePayload?.total_trucks || sourcePayload?.flota ||
+      activeProject?.total_wagons || activeProject?.wagons || activeProject?.total_trucks || activeProject?.flota ||
+      (typeof window !== 'undefined' ? (window.State?.total_wagons || window.State?.wagons || window.State?.total_trucks || window.State?.flota) : 0) || 0
+    ) : 0;
+    const totalCamiones = interceptedFleet > 0
+      ? interceptedFleet
+      : Math.max(1, Number(sourcePayload?.total_trucks || activeProject?.total_trucks || Math.ceil((wTotalKg > 0 ? wTotalKg : pesoTotalRealMT * 1000) / (isRailUpper ? 50000 : 24000)) || 1));
     const pesoFacturable = Math.max(pesoTotalRealMT, totalCamiones * 24);
     const tariffRate = appliedTariff?.inlandUsdMt || 3.00;
     const officialInlandCost = Math.round(pesoFacturable * tariffRate * 100) / 100;
@@ -6319,6 +6670,10 @@ function ForwarderWorkspaceInner(props = {}) {
   };
 
   const handleSaveProjectCargo = async () => {
+    const isRailSaveCargo = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+      transportMode === 'RAIL' ||
+      vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón');
+
     const safeDist = Number(distanceKm) || Number(activeProject?.land_route?.distance_km) || 0;
     const safeTrucks = Number(camionesReales) || Number(activeProject?.total_trucks) || 1;
     const safeExchange = Number(exchangeRate) || 1;
@@ -6326,14 +6681,22 @@ function ForwarderWorkspaceInner(props = {}) {
     // Matemáticas puras en el momento de guardar. Inmune a estados corrompidos.
     const isSaveOutsideEU = isNonEURoute(landOrigin || activeProject?.land_origin, landDestination || activeProject?.land_destination, activeProject);
     const dietsPerTruck = isSaveOutsideEU ? 0 : 75;
-    const absoluteLandCost = ((safeDist * 1.57) + (safeDist * 0.18) + dietsPerTruck) * safeTrucks * safeExchange;
-    const absoluteLandSale = absoluteLandCost * 1.18; // 18% de margen comercial
+    const absoluteLandCost = isRailSaveCargo
+      ? totalRailCostUpper
+      : ((safeDist * 1.57) + (safeDist * 0.18) + dietsPerTruck) * safeTrucks * safeExchange;
+    const absoluteLandSale = isRailSaveCargo
+      ? totalRailSaleUpper
+      : absoluteLandCost * 1.18; // 18% de margen comercial
 
     const calculatedLandFreightCost = absoluteLandCost;
     const calculatedLandFreightSale = absoluteLandSale;
 
-    const finalTotalLandCost = Number(finalFooterCost > 0 ? finalFooterCost : (calculatedLandFreightCost > 0 ? calculatedLandFreightCost : Number(activeProject?.land_freight_cost || 0)));
-    const finalTotalLandSale = Number(finalFooterSale > 0 ? finalFooterSale : (calculatedLandFreightSale > 0 ? calculatedLandFreightSale : Number(activeProject?.land_freight_sale || 0)));
+    const finalTotalLandCost = isRailSaveCargo
+      ? totalRailCostUpper
+      : Number(finalFooterCost > 0 ? finalFooterCost : (calculatedLandFreightCost > 0 ? calculatedLandFreightCost : Number(activeProject?.land_freight_cost || 0)));
+    const finalTotalLandSale = isRailSaveCargo
+      ? totalRailSaleUpper
+      : Number(finalFooterSale > 0 ? finalFooterSale : (calculatedLandFreightSale > 0 ? calculatedLandFreightSale : Number(activeProject?.land_freight_sale || 0)));
     const total_trucks = safeTrucks;
     const effectiveLandOrigin = landOrigin || activeProject?.land_origin || '';
     const effectiveLandDestination = landDestination || activeProject?.land_destination || '';
@@ -6395,8 +6758,8 @@ function ForwarderWorkspaceInner(props = {}) {
         packing_list: activeProject?.packing_list || null,
         // ... (tus campos terrestres actualizados)
         land_route: { origin: landOrigin, destination: landDestination, distance_km: distanceKm },
-        land_freight_cost: absoluteLandCost,
-        land_freight_sale: absoluteLandSale,
+        land_freight_cost: isRailSaveCargo ? totalRailCostUpper : absoluteLandCost,
+        land_freight_sale: isRailSaveCargo ? totalRailSaleUpper : absoluteLandSale,
         total_trucks: safeTrucks,
         cost: activeProject?.cost || null,
         sale: activeProject?.sale || null,
@@ -6602,7 +6965,7 @@ function ForwarderWorkspaceInner(props = {}) {
               const currentPayloadString = JSON.stringify(dataBridgePayloadObject);
               const currentRoadSyncKey = currentPayloadString;
 
-              if (lastSyncPayloadRef.current === currentPayloadString || lastRoadSyncPayloadRef.current === currentRoadSyncKey) {
+              if (lastSyncPayloadRef.current === currentPayloadString || lastRoadSyncPayloadRef.current === currentRoadSyncKey || lastSyncDataBridgeRef.current === currentPayloadString) {
                 // El payload es matemáticamente idéntico al anterior. CORTAFUEGOS ACTIVO.
                 console.log('[Data Bridge] Envío a sync-road omitido por carga idéntica (Deep Compare Cortafuegos)');
                 return;
@@ -6613,6 +6976,7 @@ function ForwarderWorkspaceInner(props = {}) {
                 lastRoadSyncPayloadRef.current = currentRoadSyncKey;
               }
               lastSyncPayloadRef.current = currentPayloadString;
+              lastSyncDataBridgeRef.current = currentPayloadString;
               await roadSyncFn(dataBridgePayloadObject);
             }
           }
@@ -6724,7 +7088,13 @@ function ForwarderWorkspaceInner(props = {}) {
   const totalWeightTons = totals.weight > 0 ? (totals.weight / 1000) : (parseSafeNumber(activeProject?.cargoQuantity || activeProject?.total_weight_tons) || 0);
   const fallbackTrucks = Number(activeProject?.total_trucks) > 0 ? Number(activeProject.total_trucks) : 1;
   const pesoTotalMercanciaKg = typeof totals !== 'undefined' && totals?.weight ? totals.weight : (activeProject?.items || []).reduce((sum, it) => sum + (parseSafeNumber(it.weight) || (parseSafeNumber(it.cantidad) * parseSafeNumber(it.peso_unitario)) || 0), 0);
-  const camionesReales = pesoTotalMercanciaKg > 0 ? Math.ceil(pesoTotalMercanciaKg / (isRailUpper ? 50000 : 24000)) : fallbackTrucks;
+  const interceptedRailFleet = isRailUpper ? Number(
+    activeProject?.total_wagons || activeProject?.wagons || activeProject?.total_trucks || activeProject?.totalVehicles || activeProject?.flota ||
+    (typeof window !== 'undefined' ? (window.State?.total_wagons || window.State?.wagons || window.State?.total_trucks || window.State?.flota) : 0) || 0
+  ) : 0;
+  const camionesReales = interceptedRailFleet > 0
+    ? interceptedRailFleet
+    : (pesoTotalMercanciaKg > 0 ? Math.ceil(pesoTotalMercanciaKg / (isRailUpper ? 50000 : 24000)) : fallbackTrucks);
   const totalTonnageUpper = Number(totalWeightTons) > 0 ? Number(totalWeightTons) : (pesoTotalMercanciaKg > 0 ? pesoTotalMercanciaKg / 1000 : 1);
   const rawCosteTrenUpper = Number(
     activeProject?.costeTren || activeProject?.coste_tren || activeProject?.traction_cost || activeProject?.costeTraccion || activeProject?.costeFerrocarril ||
@@ -6759,12 +7129,18 @@ function ForwarderWorkspaceInner(props = {}) {
   // Blindaje Total: El land_freight_cost y el precio de venta final serán =
   // (Coste Tracción Linehaul Consolidado + Total Drayage Origen + Total Drayage Destino).
   // JAMÁS multipliques la tracción Linehaul por el número de vagones.
-  const finalFooterCost = Number(activeProject?.land_freight_cost) > 0
-    ? Number(activeProject.land_freight_cost)
-    : (isRailUpper ? totalRailCostUpper : (terrestrialUnitCost * camionesReales * exchangeRate));
-  const finalFooterSale = Number(activeProject?.land_freight_sale) > 0
-    ? Number(activeProject.land_freight_sale)
-    : (isRailUpper ? totalRailSaleUpper : ((terrestrialUnitCost * 1.18) * camionesReales * exchangeRate));
+  const isRailFooter = isRailUpper || (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') || transportMode === 'RAIL';
+
+  const finalFooterCost = isRailFooter
+    ? totalRailCostUpper
+    : (Number(activeProject?.land_freight_cost) > 0
+      ? Number(activeProject.land_freight_cost)
+      : (terrestrialUnitCost * camionesReales * exchangeRate));
+  const finalFooterSale = isRailFooter
+    ? totalRailSaleUpper
+    : (Number(activeProject?.land_freight_sale) > 0
+      ? Number(activeProject.land_freight_sale)
+      : ((terrestrialUnitCost * 1.18) * camionesReales * exchangeRate));
 
   if (typeof window !== 'undefined' && isRailUpper) {
     window.State = window.State || {};
@@ -8554,9 +8930,9 @@ function ForwarderWorkspaceInner(props = {}) {
                 const transitDays = distKm > 0 ? Math.max(1, Math.ceil(distKm / 650)) : 1;
                 const totalTons = totalWeightTons > 0 ? totalWeightTons : Number(totals.weight > 0 ? totals.weight / 1000 : (parseSafeNumber(activeProject?.cargoQuantity || activeProject?.total_weight_tons) || 0));
                 const curVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
-                const curPayloadTons = getVehiclePayloadKg(curVT) / 1000;
+                const curPayloadTons = isRail ? 50 : (getVehiclePayloadKg(curVT) / 1000 || 24);
                 const pesoTotalRealMT = Number(totalTons) || 0;
-                const totalCamiones = Math.max(1, Number(activeProject?.total_trucks || activeReport?.total_trucks || Math.ceil(pesoTotalRealMT / (curPayloadTons || 24)) || 1));
+                const totalCamiones = Math.max(1, Number(activeProject?.total_wagons || activeProject?.wagons || activeProject?.total_trucks || activeReport?.total_wagons || activeReport?.total_trucks || (typeof window !== 'undefined' ? (window.State?.total_wagons || window.State?.wagons || window.State?.total_trucks) : null) || Math.ceil(pesoTotalRealMT / (curPayloadTons || (isRail ? 50 : 24))) || 1));
 
                 const rawType = String(cargoItems[0]?.type || activeReport?.cargo_items?.[0]?.type || activeProject?.cargo_type || '').toUpperCase().trim();
                 const appliedTariff = COMMODITY_TARIFFS[rawType] || activeReport?.appliedTariff || null;
@@ -8739,9 +9115,17 @@ function ForwarderWorkspaceInner(props = {}) {
               {(() => {
                 const currentVT = activeReport?.vehicleType || vehicleType || activeProject?.truck_type || 'Tráiler Tauliner (13.6m)';
                 const currentPayloadKg = getVehiclePayloadKg(currentVT);
-                const currentPayloadTons = currentPayloadKg / 1000;
+                const isRailTotal = vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón') ||
+                  currentVT?.includes('Tren') || currentVT?.includes('Tolva') || currentVT?.includes('Vagón') ||
+                  (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') || transportMode === 'RAIL' ||
+                  Boolean(String(currentVT || activeProject?.vehicle_type || activeProject?.truck_type || '').toLowerCase().match(/tren|tolva|vag[oó]n|ferroviario|rail/));
+                const currentPayloadTons = isRailTotal ? 50 : (currentPayloadKg / 1000 || 24);
                 const totalTons = totalWeightTons > 0 ? totalWeightTons : Number(totals.weight > 0 ? totals.weight / 1000 : (parseSafeNumber(activeProject?.cargoQuantity || activeProject?.total_weight_tons) || 0));
-                const totalCamiones = Math.max(1, Number(activeProject?.total_trucks || Math.ceil(totalTons > 0 ? totalTons / currentPayloadTons : 1)));
+                const interceptedTotalWagons = isRailTotal ? Number(
+                  activeProject?.total_wagons || activeProject?.wagons || activeProject?.total_trucks ||
+                  (typeof window !== 'undefined' ? (window.State?.total_wagons || window.State?.wagons || window.State?.total_trucks) : null) || 0
+                ) : 0;
+                const totalCamiones = interceptedTotalWagons > 0 ? interceptedTotalWagons : Math.max(1, Number(activeProject?.total_trucks || Math.ceil(totalTons > 0 ? totalTons / currentPayloadTons : 1)));
                 const trucksRequired = totalCamiones;
                 const distKm = Math.round(Number(activeProject?.land_distance || activeProject?.totalKilometers || distanceNm || 0));
 
@@ -8759,21 +9143,22 @@ function ForwarderWorkspaceInner(props = {}) {
                 let singleTruckCost;
                 let singleTruckSale;
 
-                const isRailTotal = vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón') ||
-                  currentVT?.includes('Tren') || currentVT?.includes('Tolva') || currentVT?.includes('Vagón') ||
-                  Boolean(String(currentVT || activeProject?.vehicle_type || activeProject?.truck_type || '').toLowerCase().match(/tren|tolva|vag[oó]n|ferroviario|rail/));
-
                 if (isRailTotal) {
+                  const wagonsReport = trucksRequired || 1;
+                  const drayageOrigin = 450 * wagonsReport;
+                  const drayageDest = 450 * wagonsReport;
+                  const totalDrayage = drayageOrigin + drayageDest;
                   const rawBackendRail = Number(
-                    activeProject?.costeTren || activeProject?.coste_tren || activeProject?.traction_cost || activeProject?.costeTraccion || activeProject?.costeFerrocarril ||
-                    activeReport?.costeTren || activeReport?.coste_tren ||
-                    (isRailTotal ? (activeProject?.land_freight_cost || activeReport?.land_freight_cost) : 0)
+                    activeProject?.costeTrenConsolidado || activeProject?.costeTren || activeProject?.coste_tren || activeProject?.traction_cost || activeProject?.costeTraccion || activeProject?.costeFerrocarril ||
+                    activeReport?.costeTrenConsolidado || activeReport?.costeTren || activeReport?.coste_tren ||
+                    (isRailTotal && activeProject?.land_freight_cost ? Math.max(0, Number(activeProject.land_freight_cost) - totalDrayage) : 0)
                   );
                   const costeTren = rawBackendRail > 0 ? rawBackendRail : Math.round(distKm * 0.04 * (Number(totalTons) || 1) * 100) / 100;
-                  singleTruckCost = trucksRequired > 0 ? Math.round((costeTren / trucksRequired) * 100) / 100 : costeTren;
+                  const totalRailAllIn = costeTren + totalDrayage;
+                  singleTruckCost = trucksRequired > 0 ? Math.round((totalRailAllIn / trucksRequired) * 100) / 100 : totalRailAllIn;
                   singleTruckSale = Math.round(singleTruckCost * 1.18 * 100) / 100;
-                  projectTotalCost = costeTren;
-                  projectTotalSale = Math.round(costeTren * 1.18 * 100) / 100;
+                  projectTotalCost = totalRailAllIn;
+                  projectTotalSale = Math.round(totalRailAllIn * 1.18 * 100) / 100;
                 } else if (isTariffActive) {
                   // Herencia de Datos FSPE en el Reporte (Blindaje Financiero):
                   // Replicar exactamente la lógica de pantalla sin multiplicar km por camiones
