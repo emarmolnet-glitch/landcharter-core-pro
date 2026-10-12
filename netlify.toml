@@ -1,4 +1,10 @@
 [[redirects]]
+  from = "/api/get-rail-route"
+  to = "/.netlify/functions/get-rail-route"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/madre-ia"
   to = "/.netlify/functions/madre-ia"
   status = 200

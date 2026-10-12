@@ -19678,7 +19678,15 @@ async function runOnDemandMapRouteWorkflow(button) {
         // Forzar cierre instantáneo del autocompletado y quitar foco programático para experiencia zero-touch
         forceCloseAutocompleteDropdowns();
 
-        // 1. CASCADA DE ENRUTAMIENTO CON GEOMETRÍA REAL DE CARRETERA (EVITAR FALLBACK SIN LÍNEA)
+        // 1. BIFURCACIÓN DEL MOTOR DE ENRUTAMIENTO SEGÚN MODO DE TRANSPORTE (ROAD vs RAIL)
+        const currentGlobalMode = (typeof window !== 'undefined' && window.globalTransportMode)
+            ? String(window.globalTransportMode).toUpperCase()
+            : ((typeof window !== 'undefined' && window.State?.globalTransportMode)
+                ? String(window.State.globalTransportMode).toUpperCase()
+                : 'ROAD');
+        const vehicle_type_pre = window.State?.vehicleType || window.State?.truckType || (typeof document !== 'undefined' ? (document.getElementById('vehicle_type')?.value || document.getElementById('nombre-buque-calculadora')?.value) : '') || '';
+        const isRailRouting = (currentGlobalMode === 'RAIL') || (typeof window !== 'undefined' && window.State?.isRail === true) || vehicle_type_pre?.toLowerCase().includes('tren') || vehicle_type_pre?.toLowerCase().includes('tolva') || vehicle_type_pre?.toLowerCase().includes('vagón');
+
         const origLon = polCoords.lon;
         const origLat = polCoords.lat;
         const destLon = podCoords.lon;
@@ -19687,127 +19695,342 @@ async function runOnDemandMapRouteWorkflow(button) {
         let data = null;
         let routeSource = null;
 
-        // a) Intento 1 (OpenRouteService HGV): perfil driving-hgv, radiuses [5000, 5000], formato /geojson
-        const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0=';
-        try {
-            console.log('[Workflow] Intento 1: OpenRouteService HGV con radiuses [5000, 5000] y /geojson...');
-            const orsRes = await fetch('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': orsApiKey
-                },
-                body: JSON.stringify({
-                    coordinates: [[origLon, origLat], [destLon, destLat]],
-                    radiuses: [5000, 5000],
-                    extra_info: ["tollways"]
-                })
-            });
+        if (isRailRouting) {
+            console.log('[Workflow] Modo RAIL activado: consultando proxy backend (/api/get-rail-route)...');
 
-            if (orsRes.ok) {
-                const orsData = await orsRes.json();
-                const feat = orsData?.features?.[0];
-                const coords = feat?.geometry?.coordinates;
-                if (coords && coords.length > 0) {
-                    const seg = feat?.properties?.segments?.[0] || feat?.properties?.summary || {};
-                    const distMeters = seg.distance || feat?.properties?.summary?.distance || 0;
-                    const durSeconds = seg.duration || feat?.properties?.summary?.duration || 0;
-                    data = {
-                        routes: [{
-                            distance: distMeters,
-                            duration: durSeconds,
-                            legs: [{
-                                steps: (seg.steps || []).map((s, idx) => ({
-                                    name: s.name || s.instruction || `Tramo ${idx + 1}`,
-                                    distance: s.distance || 0,
-                                    duration: s.duration || 0
-                                }))
-                            }],
-                            geometry: {
-                                coordinates: coords
-                            }
-                        }]
-                    };
-                    routeSource = 'ORS-HGV';
-                    console.log(`[Workflow] Éxito con OpenRouteService HGV: ${(distMeters / 1000).toFixed(1)} km`);
-                }
-            } else {
-                console.warn('[Workflow] Intento 1 OpenRouteService HGV no devolvió ruta exitosa (status):', orsRes.status);
-            }
-        } catch (orsErr) {
-            console.warn('[Workflow] Falló Intento 1 OpenRouteService HGV:', orsErr?.message || orsErr);
-        }
+            // Intento 1: Llamada a nuestro Proxy Backend Netlify Function para eludir CORS y errores 403/406 del navegador
+            const railProxyEndpoint = (typeof window !== 'undefined' && typeof window.getApiUrl === 'function')
+                ? window.getApiUrl('/api/get-rail-route')
+                : '/api/get-rail-route';
 
-        // b) Intento 2 (Fallback con Geometría Real de Carretera - OSRM / Driving):
-        // Endpoint público: https://router.project-osrm.org/route/v1/driving/${origLon},${origLat};${destLon},${destLat}?overview=full&geometries=geojson&alternatives=true
-        if (!data || !data.routes || !data.routes.length || !data.routes[0].geometry?.coordinates?.length) {
-            console.log('[Workflow] Intento 2: Fallback con Geometría Real de Carretera OSRM / Driving...');
-            const endpoints = [
-                "https://router.project-osrm.org/route/v1/driving/",
-                "https://routing.openstreetmap.de/routed-car/route/v1/driving/"
-            ];
+            try {
+                const proxyRes = await fetch(railProxyEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        polLat: origLat,
+                        polLng: origLon,
+                        podLat: destLat,
+                        podLng: destLon,
+                        origin: { lat: origLat, lon: origLon, name: polCoords.displayName || polCoords.name || pol },
+                        destination: { lat: destLat, lon: destLon, name: podCoords.displayName || podCoords.name || pod }
+                    })
+                });
 
-            let fetchError = null;
-            for (const baseUrl of endpoints) {
-                try {
-                    const osrmUrl = `${baseUrl}${polCoords.lon},${polCoords.lat};${podCoords.lon},${podCoords.lat}?overview=full&geometries=geojson&steps=true&alternatives=true`;
-                    console.log(`[Workflow] Intentando conectar con: ${baseUrl}`);
-                    const response = await fetch(osrmUrl);
-                    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-                    const jsonRes = await response.json();
-                    if (jsonRes && jsonRes.routes && jsonRes.routes.length > 0) {
+                if (proxyRes.ok) {
+                    const proxyJson = await proxyRes.json();
+                    if (proxyJson && proxyJson.features && proxyJson.features.length > 0 && proxyJson.features[0].geometry?.coordinates?.length > 0) {
+                        const feat = proxyJson.features[0];
+                        const distMeters = Number(feat.properties?.distanceMeters || (feat.properties?.distanceKm ? feat.properties.distanceKm * 1000 : 0));
+                        const durSeconds = Number(feat.properties?.durationSeconds || (distMeters / 1000 / 65) * 3600);
                         data = {
-                            ...jsonRes,
-                            routes: jsonRes.routes.map(r => {
-                                const distKm = (Number(r.distance) || 0) / 1000;
-                                // c) Extrae de la respuesta de OSRM la distancia real, duración ajustada a camión pesado y coordenadas
-                                const adjustedDuration = r.duration ? Math.round(Math.max(r.duration * 1.25, (distKm / 72) * 3600)) : Math.round((distKm / 72) * 3600);
-                                return {
-                                    ...r,
-                                    duration: adjustedDuration,
-                                    legs: r.legs && r.legs.length > 0 ? r.legs.map(leg => ({
-                                        ...leg,
-                                        duration: leg.duration ? Math.round(leg.duration * 1.25) : adjustedDuration
-                                    })) : [{ steps: [] }]
-                                };
-                            })
+                            routes: [{
+                                distance: distMeters,
+                                duration: durSeconds,
+                                legs: [{
+                                    steps: [{
+                                        name: feat.properties?.usedPolylineFallback ? 'Corredor Férreo (Trazado continuo)' : 'Vía Férrea / Rail Network',
+                                        distance: distMeters,
+                                        duration: durSeconds
+                                    }]
+                                }],
+                                geometry: {
+                                    coordinates: feat.geometry.coordinates
+                                }
+                            }]
                         };
-                        routeSource = 'OSRM-DRIVING';
-                        console.log(`[Workflow] Éxito conectando con ${baseUrl}`);
-                        break;
+                        routeSource = feat.properties?.source || 'PROXY-NETLIFY-RAIL';
+                        console.log(`[Workflow] Éxito con Proxy /api/get-rail-route (${routeSource}): ${(distMeters / 1000).toFixed(1)} km`);
+                    } else if (proxyJson && proxyJson.routes && proxyJson.routes.length > 0 && proxyJson.routes[0].geometry?.coordinates?.length > 0) {
+                        data = proxyJson;
+                        routeSource = proxyJson.metadata?.routeSource || 'PROXY-NETLIFY-RAIL';
+                        console.log(`[Workflow] Éxito con Proxy /api/get-rail-route (formato routes)`);
                     }
-                } catch (err) {
-                    console.warn(`[Workflow] Falló el servidor ${baseUrl}:`, err.message);
-                    fetchError = err;
+                } else {
+                    console.warn('[Workflow] Proxy /api/get-rail-route devolvió status no exitoso:', proxyRes.status);
+                }
+            } catch (proxyErr) {
+                console.warn('[Workflow] Error de conexión con Proxy /api/get-rail-route:', proxyErr?.message || proxyErr);
+            }
+
+            // Intento 2 (Fallback directo): APIs de trenes con perfiles ferroviarios (routing.openstreetmap.de train / rail)
+            if (!data) {
+                const railOsmEndpoints = [
+                    `https://routing.openstreetmap.de/routed-train/route/v1/train/${origLon},${origLat};${destLon},${destLat}?overview=full&geometries=geojson&steps=true`,
+                    `https://routing.openstreetmap.de/routed-rail/route/v1/rail/${origLon},${origLat};${destLon},${destLat}?overview=full&geometries=geojson&steps=true`
+                ];
+                for (const rUrl of railOsmEndpoints) {
+                    try {
+                        const rRes = await fetch(rUrl);
+                        if (rRes.ok) {
+                            const rJson = await rRes.json();
+                            if (rJson && rJson.routes && rJson.routes.length > 0 && rJson.routes[0].geometry?.coordinates?.length > 0) {
+                                data = rJson;
+                                routeSource = 'ROUTING-OPENSTREETMAP-TRAIN';
+                                console.log('[Workflow] Éxito con motor ferroviario routing.openstreetmap.de train');
+                                break;
+                            }
+                        }
+                    } catch (_) {}
                 }
             }
-        }
 
-        // Failsafe Haversine SÓLO si todos los servidores han fallado sin conexión
-        if (!data || !data.routes || !data.routes.length) {
-            console.error("[Workflow] Todos los servidores OSRM y ORS han fallado. Aplicando Fallback de emergencia.");
-            const R = 6371; // Radio de la Tierra en km
-            const dLat = (destLat - origLat) * Math.PI / 180;
-            const dLon = (destLon - origLon) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(origLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            const straightKm = R * c;
-
-            data = {
-                routes: [{
-                    distance: straightKm * 1000 * 1.3,
-                    duration: (straightKm * 1.3 / 80) * 3600,
-                    legs: [{ steps: [] }],
-                    geometry: {
-                        coordinates: [
-                            [origLon, origLat],
-                            [destLon, destLat]
-                        ]
+            // Intento 3 (Fallback directo): BRouter Rail Profile
+            if (!data) {
+                try {
+                    const brouterUrl = `https://brouter.de/brouter?lonlats=${origLon},${origLat}|${destLon},${destLat}&profile=rail&format=geojson&alternativeidx=0`;
+                    console.log('[Workflow] Intento BRouter profile=rail...');
+                    const bRes = await fetch(brouterUrl);
+                    if (bRes.ok) {
+                        const bJson = await bRes.json();
+                        const feat = bJson?.features?.[0];
+                        const coords = feat?.geometry?.coordinates;
+                        if (coords && coords.length > 0) {
+                            const trackMeters = Number(feat?.properties?.['track-length'] || feat?.properties?.distance || 0);
+                            const trackSeconds = Number(feat?.properties?.['total-time'] || (trackMeters / 1000 / 65) * 3600);
+                            data = {
+                                routes: [{
+                                    distance: trackMeters,
+                                    duration: trackSeconds,
+                                    legs: [{
+                                        steps: [{
+                                            name: 'Vía Férrea Principal / Rail Track Network',
+                                            distance: trackMeters,
+                                            duration: trackSeconds
+                                        }]
+                                    }],
+                                    geometry: {
+                                        coordinates: coords
+                                    }
+                                }]
+                            };
+                            routeSource = 'BROUTER-RAIL';
+                            console.log(`[Workflow] Éxito con BRouter Rail: ${(trackMeters / 1000).toFixed(1)} km reales por vía`);
+                        }
                     }
-                }]
-            };
+                } catch (bErr) {
+                    console.warn('[Workflow] Falló consulta directa BRouter Rail:', bErr?.message || bErr);
+                }
+            }
+
+            // Intento 4 (Fallback Estético si la API de trenes pública cae):
+            // Usa OpenRouteService HGV exclusivamente para obtener la Polyline (geometría),
+            // pero forzando que se pinte como tren (línea discontinua) e ignorando la distancia de carretera.
+            if (!data) {
+                try {
+                    console.warn('[Workflow] Motores de tren remotos sin respuesta. Activando fallback estético OpenRouteService HGV para polyline...');
+                    const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0=';
+                    const orsRes = await fetch('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': orsApiKey
+                        },
+                        body: JSON.stringify({
+                            coordinates: [[origLon, origLat], [destLon, destLat]],
+                            radiuses: [5000, 5000]
+                        })
+                    });
+
+                    if (orsRes.ok) {
+                        const orsData = await orsRes.json();
+                        const feat = orsData?.features?.[0];
+                        const coords = feat?.geometry?.coordinates;
+                        if (coords && coords.length > 0) {
+                            // Cálculo geodésico teórico para ferrocarril: ignora los km de carretera de ORS
+                            const R = 6371;
+                            const dLat = (destLat - origLat) * Math.PI / 180;
+                            const dLon = (destLon - origLon) * Math.PI / 180;
+                            const a = Math.sin(dLat/2)**2 + Math.cos(origLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) * Math.sin(dLon/2)**2;
+                            const theoreticalRailMeters = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 1.25 * 1000;
+
+                            data = {
+                                routes: [{
+                                    distance: theoreticalRailMeters,
+                                    duration: (theoreticalRailMeters / 1000 / 65) * 3600,
+                                    legs: [{
+                                        steps: [{
+                                            name: 'Corredor Ferroviario (Geometría trazada)',
+                                            distance: theoreticalRailMeters,
+                                            duration: (theoreticalRailMeters / 1000 / 65) * 3600
+                                        }]
+                                    }],
+                                    geometry: {
+                                        coordinates: coords
+                                    }
+                                }]
+                            };
+                            routeSource = 'ORS-HGV-FALLBACK-POLYLINE';
+                            console.log(`[Workflow] Geometría obtenida vía Fallback ORS HGV; distancia férrea protegida: ${(theoreticalRailMeters / 1000).toFixed(1)} km`);
+                        }
+                    }
+                } catch (orsFallbackErr) {
+                    console.warn('[Workflow] Falló Fallback ORS HGV:', orsFallbackErr?.message || orsFallbackErr);
+                }
+            }
+
+            // Failsafe Ferroviario Geodésico Curvado (cuando no hay conectividad externa)
+            if (!data || !data.routes || !data.routes.length) {
+                console.warn('[Workflow] Red ferroviaria remota no disponible. Aplicando Failsafe Ferroviario.');
+                const R = 6371;
+                const dLat = (destLat - origLat) * Math.PI / 180;
+                const dLon = (destLon - origLon) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                          Math.cos(origLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) *
+                          Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const railKm = R * c * 1.25;
+
+                const railInterpolated = [];
+                const segments = 24;
+                for (let s = 0; s <= segments; s++) {
+                    const f = s / segments;
+                    railInterpolated.push([
+                        origLon + (destLon - origLon) * f,
+                        origLat + (destLat - origLat) * f
+                    ]);
+                }
+
+                data = {
+                    routes: [{
+                        distance: railKm * 1000,
+                        duration: (railKm / 65) * 3600,
+                        legs: [{ steps: [] }],
+                        geometry: {
+                            coordinates: railInterpolated
+                        }
+                    }]
+                };
+                routeSource = 'RAIL-FALLBACK-GEODESIC';
+            }
+
+        } else {
+            // MODO ROAD: Mantener OpenRouteService HGV para perfiles de carretera
+            // a) Intento 1 (OpenRouteService HGV): perfil driving-hgv, radiuses [5000, 5000], formato /geojson
+            const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0=';
+            try {
+                console.log('[Workflow] Intento 1: OpenRouteService HGV con radiuses [5000, 5000] y /geojson...');
+                const orsRes = await fetch('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': orsApiKey
+                    },
+                    body: JSON.stringify({
+                        coordinates: [[origLon, origLat], [destLon, destLat]],
+                        radiuses: [5000, 5000],
+                        extra_info: ["tollways"]
+                    })
+                });
+
+                if (orsRes.ok) {
+                    const orsData = await orsRes.json();
+                    const feat = orsData?.features?.[0];
+                    const coords = feat?.geometry?.coordinates;
+                    if (coords && coords.length > 0) {
+                        const seg = feat?.properties?.segments?.[0] || feat?.properties?.summary || {};
+                        const distMeters = seg.distance || feat?.properties?.summary?.distance || 0;
+                        const durSeconds = seg.duration || feat?.properties?.summary?.duration || 0;
+                        data = {
+                            routes: [{
+                                distance: distMeters,
+                                duration: durSeconds,
+                                legs: [{
+                                    steps: (seg.steps || []).map((s, idx) => ({
+                                        name: s.name || s.instruction || `Tramo ${idx + 1}`,
+                                        distance: s.distance || 0,
+                                        duration: s.duration || 0
+                                    }))
+                                }],
+                                geometry: {
+                                    coordinates: coords
+                                }
+                            }]
+                        };
+                        routeSource = 'ORS-HGV';
+                        console.log(`[Workflow] Éxito con OpenRouteService HGV: ${(distMeters / 1000).toFixed(1)} km`);
+                    }
+                } else {
+                    console.warn('[Workflow] Intento 1 OpenRouteService HGV no devolvió ruta exitosa (status):', orsRes.status);
+                }
+            } catch (orsErr) {
+                console.warn('[Workflow] Falló Intento 1 OpenRouteService HGV:', orsErr?.message || orsErr);
+            }
+
+            // b) Intento 2 (Fallback con Geometría Real de Carretera - OSRM / Driving):
+            // Endpoint público: https://router.project-osrm.org/route/v1/driving/${origLon},${origLat};${destLon},${destLat}?overview=full&geometries=geojson&alternatives=true
+            if (!data || !data.routes || !data.routes.length || !data.routes[0].geometry?.coordinates?.length) {
+                console.log('[Workflow] Intento 2: Fallback con Geometría Real de Carretera OSRM / Driving...');
+                const endpoints = [
+                    "https://router.project-osrm.org/route/v1/driving/",
+                    "https://routing.openstreetmap.de/routed-car/route/v1/driving/"
+                ];
+
+                let fetchError = null;
+                for (const baseUrl of endpoints) {
+                    try {
+                        const osrmUrl = `${baseUrl}${polCoords.lon},${polCoords.lat};${podCoords.lon},${podCoords.lat}?overview=full&geometries=geojson&steps=true&alternatives=true`;
+                        console.log(`[Workflow] Intentando conectar con: ${baseUrl}`);
+                        const response = await fetch(osrmUrl);
+                        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+                        const jsonRes = await response.json();
+                        if (jsonRes && jsonRes.routes && jsonRes.routes.length > 0) {
+                            data = {
+                                ...jsonRes,
+                                routes: jsonRes.routes.map(r => {
+                                    const distKm = (Number(r.distance) || 0) / 1000;
+                                    // c) Extrae de la respuesta de OSRM la distancia real, duración ajustada a camión pesado y coordenadas
+                                    const adjustedDuration = r.duration ? Math.round(Math.max(r.duration * 1.25, (distKm / 72) * 3600)) : Math.round((distKm / 72) * 3600);
+                                    return {
+                                        ...r,
+                                        duration: adjustedDuration,
+                                        legs: r.legs && r.legs.length > 0 ? r.legs.map(leg => ({
+                                            ...leg,
+                                            duration: leg.duration ? Math.round(leg.duration * 1.25) : adjustedDuration
+                                        })) : [{ steps: [] }]
+                                    };
+                                })
+                            };
+                            routeSource = 'OSRM-DRIVING';
+                            console.log(`[Workflow] Éxito conectando con ${baseUrl}`);
+                            break;
+                        }
+                    } catch (err) {
+                        console.warn(`[Workflow] Falló el servidor ${baseUrl}:`, err.message);
+                        fetchError = err;
+                    }
+                }
+            }
+
+            // Failsafe Haversine SÓLO si todos los servidores han fallado sin conexión
+            if (!data || !data.routes || !data.routes.length) {
+                console.error("[Workflow] Todos los servidores OSRM y ORS han fallado. Aplicando Fallback de emergencia.");
+                const R = 6371; // Radio de la Tierra en km
+                const dLat = (destLat - origLat) * Math.PI / 180;
+                const dLon = (destLon - origLon) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                          Math.cos(origLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) *
+                          Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const straightKm = R * c;
+
+                data = {
+                    routes: [{
+                        distance: straightKm * 1000 * 1.3,
+                        duration: (straightKm * 1.3 / 80) * 3600,
+                        legs: [{ steps: [] }],
+                        geometry: {
+                            coordinates: [
+                                [origLon, origLat],
+                                [destLon, destLat]
+                            ]
+                        }
+                    }]
+                };
+            }
         }
 
         const osrmData = data;
@@ -19896,8 +20119,10 @@ async function runOnDemandMapRouteWorkflow(button) {
 
         // Regla de consistencia: si no se detectaron peajes individuales o devuelven 0 en rutas > 50 km,
         // sincronizar con el cálculo del motor de la Calculadora LDM (ej. ~0.25 €/km o input Peajes)
-        let tollEstimationMode = 'detected';
-        if (totalTollsCost === 0 && distanceKm >= 50) {
+        let tollEstimationMode = isRailRouting ? 'rail_exempt' : 'detected';
+        if (isRailRouting) {
+            totalTollsCost = 0;
+        } else if (totalTollsCost === 0 && distanceKm >= 50) {
             const pdaPolInput = document.getElementById('pda-pol') || document.getElementById('peajes');
             const currentCalculatorPeajes = parseFloat(pdaPolInput?.value) || parseFloat(window.State?.peajes) || parseFloat(window.State?.pdaPol) || 0;
             const tollRatePerKm = Number(window.State?.tollCostPerKm) || 0.25;
@@ -19947,6 +20172,9 @@ async function runOnDemandMapRouteWorkflow(button) {
             routePoints: leafletRoutePoints.length > 0 ? leafletRoutePoints : computedCurvePoints,
             curvedRoutePoints: computedCurvePoints,
             osrmRoutePoints: leafletRoutePoints,
+            routeSource: routeSource || (isRailRouting ? 'RAIL-ENGINE' : 'ROAD-ENGINE'),
+            isRail: isRailRouting,
+            globalTransportMode: currentGlobalMode,
             timestamp: new Date().toISOString()
         };
 
@@ -19990,7 +20218,7 @@ async function runOnDemandMapRouteWorkflow(button) {
             const routeSvgRenderer = (typeof L.svg === 'function') ? L.svg({ padding: 0.5 }).addTo(mapInstance) : undefined;
 
             const vehicle_type = window.State?.vehicleType || window.State?.truckType || (typeof document !== 'undefined' ? (document.getElementById('vehicle_type')?.value || document.getElementById('nombre-buque-calculadora')?.value) : '') || '';
-            const isRail = vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva');
+            const isRail = isRailRouting || vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva') || vehicle_type?.toLowerCase().includes('vagón') || (window.globalTransportMode === 'RAIL') || (window.State?.globalTransportMode === 'RAIL');
 
             console.log('MAPA - ¿Es tren?:', isRail, 'Tipo:', vehicle_type);
 
@@ -20057,10 +20285,21 @@ async function runOnDemandMapRouteWorkflow(button) {
                     layerGroupItems.push(mainPolyline);
                 } else {
                     // MODO FERROCARRIL (TREN):
-                    // a) Cambia el color de la línea a gris oscuro o negro (#333333).
-                    // b) Aplica un estilo de vía de tren (línea discontinua dashArray: '10, 10').
+                    // a) Balasto / base de vía férrea
+                    const railBed = L.polyline(roadRoutePoints, {
+                        color: '#64748b',
+                        weight: 6,
+                        opacity: 0.6,
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                        className: 'leaflet-rail-bed',
+                        ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
+                    }).addTo(mapInstance);
+                    layerGroupItems.push(railBed);
+
+                    // b) Línea punteada negra/gris oscura típica de vías férreas
                     railPolyline = L.polyline(roadRoutePoints, {
-                        color: '#333333',
+                        color: '#1e293b',
                         weight: 4,
                         opacity: 0.95,
                         dashArray: '10, 10',
@@ -20075,6 +20314,7 @@ async function runOnDemandMapRouteWorkflow(button) {
 
                 const routeLayer = L.featureGroup(layerGroupItems);
                 routeLayer.isProtectedRoadRoute = true;
+                routeLayer.isRail = isRail;
                 window._currentOsrmRouteLayer = routeLayer;
 
                 const polLat = Number(polCoords?.lat);
@@ -20406,9 +20646,9 @@ function redrawCurrentRoute(overrideVehicleType) {
     if (typeof L === 'undefined') return;
 
     const vehicle_type = overrideVehicleType || window.State?.vehicleType || window.State?.truckType || (typeof document !== 'undefined' ? (document.getElementById('vehicle_type')?.value || document.getElementById('nombre-buque-calculadora')?.value) : '') || '';
-    const isRail = vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva');
+    const isRail = (window.globalTransportMode === 'RAIL') || (window.State?.globalTransportMode === 'RAIL') || (window.State?.isRail === true) || vehicle_type?.toLowerCase().includes('tren') || vehicle_type?.toLowerCase().includes('tolva') || vehicle_type?.toLowerCase().includes('vagón');
 
-    console.log('MAPA - ¿Es tren?:', isRail, 'Tipo:', vehicle_type);
+    console.log('MAPA - ¿Es tren?:', isRail, 'Tipo:', vehicle_type, 'Modo:', window.globalTransportMode);
 
     if (typeof document !== 'undefined') {
         const mapShell = document.getElementById('map-command-shell');
@@ -20463,8 +20703,19 @@ function redrawCurrentRoute(overrideVehicleType) {
         }).addTo(mapInstance);
         layerGroupItems.push(mainPolyline);
     } else {
+        const railBed = L.polyline(drawState.roadRoutePoints, {
+            color: '#64748b',
+            weight: 6,
+            opacity: 0.6,
+            lineCap: 'round',
+            lineJoin: 'round',
+            className: 'leaflet-rail-bed',
+            ...(routeSvgRenderer ? { renderer: routeSvgRenderer } : {})
+        }).addTo(mapInstance);
+        layerGroupItems.push(railBed);
+
         railPolyline = L.polyline(drawState.roadRoutePoints, {
-            color: '#333333',
+            color: '#1e293b',
             weight: 4,
             opacity: 0.95,
             dashArray: '10, 10',
@@ -20488,11 +20739,25 @@ function redrawCurrentRoute(overrideVehicleType) {
             leafletRoutePoints: drawState.roadRoutePoints,
             osrmRoutePoints: drawState.roadRoutePoints,
             isRail: isRail,
+            globalTransportMode: window.globalTransportMode || 'ROAD',
             vehicleType: vehicle_type,
             origin: drawState.polCoords,
             destination: drawState.podCoords
         }
     }));
+    if (isRail) {
+        window.dispatchEvent(new CustomEvent('rail:route-updated', {
+            detail: {
+                routePoints: drawState.roadRoutePoints,
+                leafletRoutePoints: drawState.roadRoutePoints,
+                isRail: true,
+                globalTransportMode: 'RAIL',
+                vehicleType: vehicle_type,
+                origin: drawState.polCoords,
+                destination: drawState.podCoords
+            }
+        }));
+    }
 }
 window.redrawCurrentRoute = redrawCurrentRoute;
 window.runOnDemandMapRouteWorkflow = runOnDemandMapRouteWorkflow;
@@ -74466,6 +74731,9 @@ window.actualizarGrabCapacityVisibility = function() {
                     window.dispatchEvent(new CustomEvent('globaltransportmodechange', { detail: { mode: next, globalTransportMode: next } }));
                     window.dispatchEvent(new CustomEvent('transport-mode-changed', { detail: { mode: next, transportMode: next } }));
                 } catch (_) {}
+                if (typeof window.redrawCurrentRoute === 'function') {
+                    try { window.redrawCurrentRoute(); } catch (_) {}
+                }
                 return next;
             }
 
