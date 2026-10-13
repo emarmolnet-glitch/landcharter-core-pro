@@ -53464,6 +53464,7 @@ Example:
             document.getElementById('ai-modal-content').innerHTML = reportHTML;
             document.getElementById('ai-modal-content').classList.remove('hidden');
         }
+        window.generateExecutiveReport = generateExecutiveReport;
 
         async function exportExecutiveReportPdf() {
             const content = document.getElementById('ai-modal-content');
