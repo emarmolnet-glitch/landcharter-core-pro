@@ -783,8 +783,14 @@ export function useLandDataBridgeSync() {
 
     const handleRouteUpdated = (event) => {
       const detail = event?.detail || {};
+      const isRail = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+        (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
+        detail.isRail === true || detail.globalTransportMode === 'RAIL';
+      const railDist = Number(detail.railProxyDistanceKm ?? detail.railPurifiedDistanceKm ?? (typeof window !== 'undefined' ? (window.railProxyDistanceKm || window.railPurifiedDistanceKm) : 0));
       const distanceMeters = Number(detail.route?.distance) || 0;
-      const km = distanceMeters > 0 ? (distanceMeters / 1000) : (Number(detail.totalKilometers) || Number(detail.distanceKm) || 0);
+      const km = (isRail && railDist > 0)
+        ? railDist
+        : (distanceMeters > 0 ? (distanceMeters / 1000) : (Number(detail.totalKilometers) || Number(detail.distanceKm) || 0));
       const durationSeconds = Number(detail.route?.duration) || 0;
       const hours = durationSeconds > 0 ? (durationSeconds / 3600) : (Number(detail.drivingHours) || (km > 0 ? km / 75 : 0));
 
@@ -794,6 +800,10 @@ export function useLandDataBridgeSync() {
       window.State = window.State || {};
       window.State.totalKilometers = km;
       window.State.drivingHours = hours;
+      if (isRail && railDist > 0) {
+        window.State.railProxyDistanceKm = railDist;
+        window.State.railPurifiedDistanceKm = railDist;
+      }
 
       window.SeaCharterStore?.set?.({
         totalKilometers: km,
@@ -808,8 +818,10 @@ export function useLandDataBridgeSync() {
     };
 
     window.addEventListener('osrm:route-updated', handleRouteUpdated);
+    window.addEventListener('rail:route-updated', handleRouteUpdated);
     return () => {
       window.removeEventListener('osrm:route-updated', handleRouteUpdated);
+      window.removeEventListener('rail:route-updated', handleRouteUpdated);
     };
   }, []);
 

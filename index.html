@@ -19061,13 +19061,25 @@ function renderRouteItineraryRightPanel(landData) {
     }
     panel.className = 'fixed top-24 right-4 z-[99999] w-80 bg-white shadow-2xl rounded-xl p-4 border border-slate-200 font-sans text-slate-800';
 
+    const vehicleTypeItinerary = String(window.State?.vehicleType || window.State?.truckType || (typeof document !== 'undefined' ? (document.getElementById('vehicle_type')?.value || document.getElementById('nombre-buque-calculadora')?.value) : '') || '').toLowerCase();
+    const isRailModeActive = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+                             (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
+                             (landData.globalTransportMode === 'RAIL') ||
+                             (landData.isRail === true);
+    const isRailItinerary = isRailModeActive || vehicleTypeItinerary.includes('tren') || vehicleTypeItinerary.includes('tolva') || vehicleTypeItinerary.includes('ferroviario') || vehicleTypeItinerary.includes('rail');
+
     const origName = landData.origin?.displayName || landData.origin?.name || landData.origin?.query || 'Origen N/D';
     const destName = landData.destination?.displayName || landData.destination?.name || landData.destination?.query || 'Destino N/D';
     const isImperialRoute = window.LandCharterIsImperial || (typeof UnitSystemDetector !== 'undefined' && UnitSystemDetector.detectUnitSystem(origName, destName) === 'IMPERIAL');
-    const rawDist = Number(landData.totalKilometers ?? landData.distanceKm ?? 0);
+    const proxyRailKmItinerary = (typeof window !== 'undefined' && (window.railProxyDistanceKm || window.railPurifiedDistanceKm || window.State?.railProxyDistanceKm || landData?.railProxyDistanceKm || landData?.railPurifiedDistanceKm))
+        ? Number(window.railProxyDistanceKm || window.railPurifiedDistanceKm || window.State?.railProxyDistanceKm || landData?.railProxyDistanceKm || landData?.railPurifiedDistanceKm)
+        : 0;
+    const effectiveRailRawDist = (isRailItinerary && proxyRailKmItinerary > 0) ? proxyRailKmItinerary : null;
+    const rawDist = Number(effectiveRailRawDist ?? landData.totalKilometers ?? landData.distanceKm ?? 0);
     const convertedDist = isImperialRoute ? rawDist * 0.621371 : rawDist;
-    const distKmFormatted = (convertedDist > 0)
-        ? (convertedDist % 1 === 0 ? convertedDist.toFixed(0) : convertedDist.toFixed(1))
+    const preciseImperialDist = isImperialRoute ? Math.round((rawDist / 1.60934) * 10) / 10 : rawDist;
+    const distKmFormatted = (preciseImperialDist > 0)
+        ? (preciseImperialDist % 1 === 0 ? preciseImperialDist.toFixed(0) : preciseImperialDist.toFixed(1))
         : '0';
     const distUnit = isImperialRoute ? 'mi' : 'km';
     const currencySym = isImperialRoute ? '$' : '€';
@@ -19085,13 +19097,6 @@ function renderRouteItineraryRightPanel(landData) {
     const tollsTotal = effectiveTollsCost.toFixed(2);
     const milestones = Array.isArray(landData.tachographMilestones) ? landData.tachographMilestones : [];
     const tollList = Array.isArray(landData.tollBreakdown) ? landData.tollBreakdown : [];
-
-    const vehicleTypeItinerary = String(window.State?.vehicleType || window.State?.truckType || (typeof document !== 'undefined' ? (document.getElementById('vehicle_type')?.value || document.getElementById('nombre-buque-calculadora')?.value) : '') || '').toLowerCase();
-    const isRailModeActive = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
-                             (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
-                             (landData.globalTransportMode === 'RAIL') ||
-                             (landData.isRail === true);
-    const isRailItinerary = isRailModeActive || vehicleTypeItinerary.includes('tren') || vehicleTypeItinerary.includes('tolva') || vehicleTypeItinerary.includes('ferroviario') || vehicleTypeItinerary.includes('rail');
 
     // Extraer paradas / checkpoints ferroviarios (nodos de paso camuflados desde ORS / proxy)
     let railCheckpoints = [];
@@ -19780,8 +19785,24 @@ async function runOnDemandMapRouteWorkflow(button) {
                     const proxyJson = await proxyRes.json();
                     if (proxyJson && proxyJson.features && proxyJson.features.length > 0 && proxyJson.features[0].geometry?.coordinates?.length > 0) {
                         const feat = proxyJson.features[0];
-                        const distMeters = Number(feat.properties?.distanceMeters || (feat.properties?.distanceKm ? feat.properties.distanceKm * 1000 : 0));
+                        const proxyDistanceKm = Number(
+                            feat.properties?.distanceKm ||
+                            (feat.properties?.distanceMeters ? feat.properties.distanceMeters / 1000 : 0) ||
+                            proxyJson.metadata?.distanceKm ||
+                            (proxyJson.routes?.[0]?.distance ? proxyJson.routes[0].distance / 1000 : 0)
+                        );
+                        const distMeters = Number(feat.properties?.distanceMeters || (proxyDistanceKm > 0 ? proxyDistanceKm * 1000 : 0) || (feat.properties?.distanceKm ? feat.properties.distanceKm * 1000 : 0));
                         const durSeconds = Number(feat.properties?.durationSeconds || (distMeters / 1000 / 65) * 3600);
+
+                        // Almacenamiento prioritario de la distancia geodésica purificada calculada por el proxy
+                        window.railProxyDistanceKm = proxyDistanceKm || (distMeters / 1000);
+                        window.railPurifiedDistanceKm = proxyDistanceKm || (distMeters / 1000);
+                        window.railProxyDistanceMeters = distMeters;
+                        if (typeof State !== 'undefined') {
+                            State.railProxyDistanceKm = window.railProxyDistanceKm;
+                            State.railPurifiedDistanceKm = window.railPurifiedDistanceKm;
+                        }
+
                         const proxySteps = (proxyJson.routes?.[0]?.legs?.[0]?.steps) ||
                             (feat.properties?.checkpoints && feat.properties.checkpoints.length > 0
                                 ? feat.properties.checkpoints.map(cp => ({
@@ -19806,7 +19827,12 @@ async function runOnDemandMapRouteWorkflow(button) {
                                 geometry: {
                                     coordinates: feat.geometry.coordinates
                                 }
-                            }]
+                            }],
+                            distanceKm: proxyDistanceKm || (distMeters / 1000),
+                            metadata: {
+                                ...(proxyJson.metadata || {}),
+                                distanceKm: proxyDistanceKm || (distMeters / 1000)
+                            }
                         };
                         if (feat.properties?.checkpoints) {
                             data.checkpoints = feat.properties.checkpoints;
@@ -19815,6 +19841,18 @@ async function runOnDemandMapRouteWorkflow(button) {
                         console.log(`[Workflow] Éxito con Proxy /api/get-rail-route (${routeSource}): ${(distMeters / 1000).toFixed(1)} km`);
                     } else if (proxyJson && proxyJson.routes && proxyJson.routes.length > 0 && proxyJson.routes[0].geometry?.coordinates?.length > 0) {
                         data = proxyJson;
+                        const proxyDistanceKm = Number(
+                            proxyJson.metadata?.distanceKm ||
+                            (proxyJson.routes?.[0]?.distance ? proxyJson.routes[0].distance / 1000 : 0)
+                        );
+                        const distMeters = Number(proxyJson.routes?.[0]?.distance || (proxyDistanceKm > 0 ? proxyDistanceKm * 1000 : 0));
+                        window.railProxyDistanceKm = proxyDistanceKm || (distMeters / 1000);
+                        window.railPurifiedDistanceKm = proxyDistanceKm || (distMeters / 1000);
+                        window.railProxyDistanceMeters = distMeters;
+                        if (typeof State !== 'undefined') {
+                            State.railProxyDistanceKm = window.railProxyDistanceKm;
+                            State.railPurifiedDistanceKm = window.railPurifiedDistanceKm;
+                        }
                         routeSource = proxyJson.metadata?.routeSource || 'PROXY-NETLIFY-RAIL';
                         console.log(`[Workflow] Éxito con Proxy /api/get-rail-route (formato routes)`);
                     }
@@ -20104,11 +20142,37 @@ async function runOnDemandMapRouteWorkflow(button) {
 
         const osrmData = data;
         const route = osrmData.routes[0];
-        const distanceMeters = Number(route.distance) || 0;
-        const totalKilometers = distanceMeters / 1000;
+        let distanceMeters = Number(route.distance) || 0;
+        let totalKilometers = distanceMeters / 1000;
         const durationSeconds = Number(route.duration) || 0;
         const drivingHours = durationSeconds / 3600;
-        const distanceKm = Number((distanceMeters / 1000).toFixed(1));
+        let distanceKm = Number((distanceMeters / 1000).toFixed(1));
+
+        // Intercepción en el Workflow: En modo RAIL, la distancia purificada devuelta por el proxy
+        // (/api/get-rail-route) sobrescribe estrictamente cualquier distancia que el mapa intente calcular
+        // basándose en la geometría de la polilínea renderizada.
+        if (isRailRouting || currentGlobalMode === 'RAIL' || (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL')) {
+            const purifiedRailKm = Number(
+                window.railProxyDistanceKm ||
+                window.railPurifiedDistanceKm ||
+                window.State?.railProxyDistanceKm ||
+                window.State?.railPurifiedDistanceKm ||
+                osrmData.metadata?.distanceKm ||
+                osrmData.distanceKm
+            );
+            if (purifiedRailKm > 0) {
+                distanceKm = purifiedRailKm;
+                distanceMeters = purifiedRailKm * 1000;
+                totalKilometers = purifiedRailKm;
+                route.distance = distanceMeters;
+                window.railProxyDistanceKm = purifiedRailKm;
+                window.railPurifiedDistanceKm = purifiedRailKm;
+                if (typeof State !== 'undefined') {
+                    State.railProxyDistanceKm = purifiedRailKm;
+                    State.railPurifiedDistanceKm = purifiedRailKm;
+                }
+            }
+        }
         const geojsonCoordinates = route.geometry && route.geometry.coordinates ? route.geometry.coordinates : [];
         const leafletRoutePoints = geojsonCoordinates.map(coord => [coord[1], coord[0]]);
 
@@ -20209,7 +20273,10 @@ async function runOnDemandMapRouteWorkflow(button) {
             podCoords,
             pol,
             pod,
-            distanceKm
+            distanceKm,
+            totalKilometers,
+            railProxyDistanceKm: (isRailRouting || currentGlobalMode === 'RAIL') ? distanceKm : undefined,
+            railPurifiedDistanceKm: (isRailRouting || currentGlobalMode === 'RAIL') ? distanceKm : undefined
         };
 
         // Guarda la estructura completa en window.LandData
@@ -20229,6 +20296,8 @@ async function runOnDemandMapRouteWorkflow(button) {
             distanceMeters,
             totalKilometers,
             distanceKm,
+            railProxyDistanceKm: (isRailRouting || currentGlobalMode === 'RAIL') ? distanceKm : undefined,
+            railPurifiedDistanceKm: (isRailRouting || currentGlobalMode === 'RAIL') ? distanceKm : undefined,
             durationSeconds,
             drivingHours,
             totalTollsCost,
@@ -20461,16 +20530,35 @@ async function runOnDemandMapRouteWorkflow(button) {
                 curvedRoutePoints: computedCurvePoints,
                 osrmRoutePoints: leafletRoutePoints,
                 leafletRoutePoints: leafletRoutePoints,
-                osrmRoutePoints: leafletRoutePoints,
                 origin: { lat: polCoords.lat, lon: polCoords.lon, name: polCoords.displayName || polCoords.name || pol },
                 destination: { lat: podCoords.lat, lon: podCoords.lon, name: podCoords.displayName || podCoords.name || pod },
                 distanceKm,
                 totalKilometers,
+                railProxyDistanceKm: (isRailRouting || currentGlobalMode === 'RAIL') ? distanceKm : undefined,
+                railPurifiedDistanceKm: (isRailRouting || currentGlobalMode === 'RAIL') ? distanceKm : undefined,
                 drivingHours,
                 route,
+                isRail: isRailRouting,
+                globalTransportMode: currentGlobalMode,
                 landData: window.LandData
             }
         }));
+
+        if (isRailRouting || currentGlobalMode === 'RAIL') {
+            window.dispatchEvent(new CustomEvent('rail:route-updated', {
+                detail: {
+                    routePoints: roadRoutePoints,
+                    leafletRoutePoints: leafletRoutePoints,
+                    distanceKm,
+                    totalKilometers,
+                    railProxyDistanceKm: distanceKm,
+                    railPurifiedDistanceKm: distanceKm,
+                    isRail: true,
+                    globalTransportMode: 'RAIL',
+                    landData: window.LandData
+                }
+            }));
+        }
 
         // 3. Actualizar State y window.GlobalStore con los kilómetros, millas y horas para el ecosistema global
         if (typeof State !== 'undefined') {
@@ -20482,6 +20570,10 @@ async function runOnDemandMapRouteWorkflow(button) {
             State.distBallast = 0;
             State.pol = polDisplayName;
             State.pod = podDisplayName;
+            if (isRailRouting || currentGlobalMode === 'RAIL') {
+                State.railProxyDistanceKm = distanceKm;
+                State.railPurifiedDistanceKm = distanceKm;
+            }
         }
 
         window.currentCalculatedDistance = distanceKm;
@@ -20513,15 +20605,21 @@ async function runOnDemandMapRouteWorkflow(button) {
         }
 
         // Sincronizar inputs del DOM (incluyendo dist-laden y dist-total para cálculos financieros)
+        const isRailModeLDM = isRailRouting || (currentGlobalMode === 'RAIL') || (window.globalTransportMode === 'RAIL') || (window.State?.globalTransportMode === 'RAIL');
+        const proxyDistKmLDM = (isRailModeLDM && (window.railProxyDistanceKm || window.railPurifiedDistanceKm || window.State?.railProxyDistanceKm))
+            ? Number(window.railProxyDistanceKm || window.railPurifiedDistanceKm || window.State?.railProxyDistanceKm)
+            : distanceKm;
+        const effectiveDistKmLDM = (isRailModeLDM && proxyDistKmLDM > 0) ? proxyDistKmLDM : distanceKm;
+
         const isImperialRouteLDM = window.LandCharterIsImperial || (typeof UnitSystemDetector !== 'undefined' && UnitSystemDetector.detectUnitSystem(polDisplayName, podDisplayName) === 'IMPERIAL');
         const effectiveDistToInjectLDM = isImperialRouteLDM
-            ? Math.round((distanceKm / 1.60934) * 10) / 10
-            : distanceKm;
+            ? Math.round((effectiveDistKmLDM / 1.60934) * 10) / 10
+            : effectiveDistKmLDM;
 
         ['dist-total', 'dist-laden', 'input-distance-km'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
-                el.dataset.rawKm = String(distanceKm);
+                el.dataset.rawKm = String(effectiveDistKmLDM);
                 el.value = effectiveDistToInjectLDM;
                 el.dispatchEvent(new Event('input', { bubbles: true }));
                 el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -20823,6 +20921,10 @@ function redrawCurrentRoute(overrideVehicleType) {
             routePoints: drawState.roadRoutePoints,
             leafletRoutePoints: drawState.roadRoutePoints,
             osrmRoutePoints: drawState.roadRoutePoints,
+            distanceKm: drawState.distanceKm,
+            totalKilometers: drawState.totalKilometers || drawState.distanceKm,
+            railProxyDistanceKm: drawState.railProxyDistanceKm || (isRail ? drawState.distanceKm : undefined),
+            railPurifiedDistanceKm: drawState.railPurifiedDistanceKm || (isRail ? drawState.distanceKm : undefined),
             isRail: isRail,
             globalTransportMode: window.globalTransportMode || 'ROAD',
             vehicleType: vehicle_type,
@@ -20835,6 +20937,10 @@ function redrawCurrentRoute(overrideVehicleType) {
             detail: {
                 routePoints: drawState.roadRoutePoints,
                 leafletRoutePoints: drawState.roadRoutePoints,
+                distanceKm: drawState.distanceKm,
+                totalKilometers: drawState.totalKilometers || drawState.distanceKm,
+                railProxyDistanceKm: drawState.railProxyDistanceKm || drawState.distanceKm,
+                railPurifiedDistanceKm: drawState.railPurifiedDistanceKm || drawState.distanceKm,
                 isRail: true,
                 globalTransportMode: 'RAIL',
                 vehicleType: vehicle_type,
