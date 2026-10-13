@@ -140,7 +140,7 @@ async function fetchOsmTrain(lon1, lat1, lon2, lat2, timeoutMs = 6000) {
  * el trazado se mantenga siempre sobre tierra firme, usando puentes y bordeando la costa
  * en lugar de cruzar mares o golfos con interpolaciones ciegas.
  */
-export async function fetchOrsHgvPolyline(lon1, lat1, lon2, lat2, timeoutMs = 8000) {
+export async function fetchOrsHgvPolyline(lon1, lat1, lon2, lat2, timeoutMs = 3000) {
   try {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -171,6 +171,39 @@ export async function fetchOrsHgvPolyline(lon1, lat1, lon2, lat2, timeoutMs = 80
       }
     }
   } catch (_) {}
+
+  // Redundancia terrestre de alta disponibilidad (OSRM / OpenStreetMap driving):
+  // Garantiza que la geometría de la polilínea provenga siempre del trazado de carreteras
+  // bordeando la costa y cruzando por puentes en tierra firme, evitando que se trace en línea recta sobre el mar.
+  const roadEndpoints = [
+    `https://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=full&geometries=geojson&steps=true`,
+    `https://routing.openstreetmap.de/routed-car/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=full&geometries=geojson&steps=true`
+  ];
+  for (const ep of roadEndpoints) {
+    try {
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 4000);
+      const res = await fetch(ep, {
+        headers: { "User-Agent": "LandCharterRailProxy/1.0" },
+        signal: ctrl.signal
+      });
+      clearTimeout(tid);
+      if (res.ok) {
+        const json = await res.json();
+        const route = json?.routes?.[0];
+        const coords = route?.geometry?.coordinates;
+        if (coords && coords.length > 0) {
+          const rawSteps = route?.legs?.[0]?.steps || [];
+          return {
+            coordinates: coords,
+            rawSteps,
+            source: "ORS-HGV-FALLBACK-POLYLINE"
+          };
+        }
+      }
+    } catch (_) {}
+  }
+
   return null;
 }
 
@@ -369,6 +402,8 @@ export default async function handler(req) {
           isRail: true,
           distanceMeters: finalDistanceMeters,
           distanceKm: distanceKm,
+          totalKilometers: distanceKm,
+          railProxyDistanceKm: distanceKm,
           durationSeconds: durationSeconds,
           source: routeSource,
           usedPolylineFallback: usedFallback,
@@ -406,6 +441,8 @@ export default async function handler(req) {
       podLat,
       podLng,
       distanceKm,
+      totalKilometers: distanceKm,
+      railProxyDistanceKm: distanceKm,
       isRail: true,
       routeSource,
       checkpoints

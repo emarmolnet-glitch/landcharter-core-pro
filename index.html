@@ -4454,6 +4454,45 @@
             background-color: #1e293b !important;
         }
 
+        /* --- ESTILOS REPORTE EJECUTIVO: HERO CARD Y SELECTOR DE PRIVACIDAD --- */
+        .executive-vehicle-hero-card {
+            background: linear-gradient(135deg, #090e1a 0%, #131d31 100%);
+            border: 1px solid #334155;
+            transition: all 0.2s ease-in-out;
+        }
+        #ai-modal.light-mode .executive-vehicle-hero-card {
+            background: linear-gradient(135deg, #090e1a 0%, #131d31 100%) !important;
+            border-color: #cbd5e1 !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+        }
+        #ai-modal.light-mode .executive-vehicle-hero-card .vehicle-dynamic-subtitle {
+            color: #ffffff !important;
+        }
+        #ai-modal.light-mode #btn-view-internal:not(.bg-indigo-600) {
+            color: #475569 !important;
+            background-color: #f1f5f9 !important;
+        }
+        #ai-modal.light-mode #btn-view-client:not(.bg-emerald-600) {
+            color: #475569 !important;
+            background-color: #f1f5f9 !important;
+        }
+        #ai-modal.light-mode .executive-report-root {
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        #ai-modal.light-mode .executive-report-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        }
+        @media print {
+            .screen-report-print .executive-vehicle-hero-card {
+                background: #090e1a !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+
         /* ========================================================== */
         /* --- ESTILOS LIGHT MODE REPORTE MARGEN CLIMA / DELAYS --- */
         /* ========================================================== */
@@ -19923,12 +19962,23 @@ async function runOnDemandMapRouteWorkflow(button) {
                 }
             }
 
-            // Intento 4 (Fallback Estético si la API de trenes pública cae):
-            // Usa OpenRouteService HGV exclusivamente para obtener la Polyline (geometría),
-            // pero forzando que se pinte como tren (línea discontinua) e ignorando la distancia de carretera.
-            if (!data) {
+            // Intento 4 (Fallback Terrestre Costero Protegido - ORS HGV y OSRM Driving):
+            // Usa el trazado de carreteras (OpenRouteService HGV / OSRM) para que la polyline bordee la costa,
+            // cruce puentes y respete la tierra firme (camuflado de tren con línea discontinua),
+            // pero protegiendo estrictamente la distancia matemática teórica ferroviaria (Haversine * 1.10).
+            if (!data || !data.routes || !data.routes.length || !data.routes[0].geometry?.coordinates?.length) {
+                const R = 6371;
+                const dLat = (destLat - origLat) * Math.PI / 180;
+                const dLon = (destLon - origLon) * Math.PI / 180;
+                const a = Math.sin(dLat / 2) ** 2 + Math.cos(origLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+                const straightKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                const theoreticalRailKm = Math.round(straightKm * 1.10 * 10) / 10;
+                const theoreticalRailMeters = theoreticalRailKm * 1000;
+                const railDurationSec = Math.round((theoreticalRailKm / 65) * 3600);
+
+                // a) Intento con ORS HGV
                 try {
-                    console.warn('[Workflow] Motores de tren remotos sin respuesta. Activando fallback estético OpenRouteService HGV para polyline...');
+                    console.warn('[Workflow] Buscando geometría terrestre protegida para tren vía ORS HGV...');
                     const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0=';
                     const orsRes = await fetch('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson', {
                         method: 'POST',
@@ -19947,71 +19997,72 @@ async function runOnDemandMapRouteWorkflow(button) {
                         const feat = orsData?.features?.[0];
                         const coords = feat?.geometry?.coordinates;
                         if (coords && coords.length > 0) {
-                            // Cálculo geodésico teórico para ferrocarril: ignora los km de carretera de ORS
-                            const R = 6371;
-                            const dLat = (destLat - origLat) * Math.PI / 180;
-                            const dLon = (destLon - origLon) * Math.PI / 180;
-                            const a = Math.sin(dLat/2)**2 + Math.cos(origLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) * Math.sin(dLon/2)**2;
-                            const theoreticalRailMeters = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 1.25 * 1000;
-
                             data = {
                                 routes: [{
                                     distance: theoreticalRailMeters,
-                                    duration: (theoreticalRailMeters / 1000 / 65) * 3600,
+                                    duration: railDurationSec,
                                     legs: [{
                                         steps: [{
-                                            name: 'Corredor Ferroviario (Geometría trazada)',
+                                            name: 'Corredor Ferroviario (Geometría trazada sobre tierra firme)',
                                             distance: theoreticalRailMeters,
-                                            duration: (theoreticalRailMeters / 1000 / 65) * 3600
+                                            duration: railDurationSec
                                         }]
                                     }],
                                     geometry: {
                                         coordinates: coords
                                     }
-                                }]
+                                }],
+                                distanceKm: theoreticalRailKm,
+                                metadata: { distanceKm: theoreticalRailKm, routeSource: 'ORS-HGV-FALLBACK-POLYLINE' }
                             };
                             routeSource = 'ORS-HGV-FALLBACK-POLYLINE';
-                            console.log(`[Workflow] Geometría obtenida vía Fallback ORS HGV; distancia férrea protegida: ${(theoreticalRailMeters / 1000).toFixed(1)} km`);
+                            console.log(`[Workflow] Geometría obtenida vía Fallback ORS HGV; distancia férrea protegida: ${theoreticalRailKm} km`);
                         }
                     }
                 } catch (orsFallbackErr) {
                     console.warn('[Workflow] Falló Fallback ORS HGV:', orsFallbackErr?.message || orsFallbackErr);
                 }
-            }
 
-            // Failsafe Ferroviario Geodésico Curvado (cuando no hay conectividad externa)
-            if (!data || !data.routes || !data.routes.length) {
-                console.warn('[Workflow] Red ferroviaria remota no disponible. Aplicando Failsafe Ferroviario.');
-                const R = 6371;
-                const dLat = (destLat - origLat) * Math.PI / 180;
-                const dLon = (destLon - origLon) * Math.PI / 180;
-                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                          Math.cos(origLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) *
-                          Math.sin(dLon/2) * Math.sin(dLon/2);
-                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                const railKm = R * c * 1.25;
-
-                const railInterpolated = [];
-                const segments = 24;
-                for (let s = 0; s <= segments; s++) {
-                    const f = s / segments;
-                    railInterpolated.push([
-                        origLon + (destLon - origLon) * f,
-                        origLat + (destLat - origLat) * f
-                    ]);
+                // b) Intento de Redundancia Inmediata con OSRM Driving si ORS no responde:
+                // Obtiene la polilínea terrestre que bordea la costa y usa puentes
+                if (!data || !data.routes || !data.routes.length || !data.routes[0].geometry?.coordinates?.length) {
+                    const roadEndpoints = [
+                        `https://router.project-osrm.org/route/v1/driving/${origLon},${origLat};${destLon},${destLat}?overview=full&geometries=geojson&steps=true`,
+                        `https://routing.openstreetmap.de/routed-car/route/v1/driving/${origLon},${origLat};${destLon},${destLat}?overview=full&geometries=geojson&steps=true`
+                    ];
+                    for (const rUrl of roadEndpoints) {
+                        try {
+                            const rRes = await fetch(rUrl);
+                            if (rRes.ok) {
+                                const rJson = await rRes.json();
+                                const rCoords = rJson?.routes?.[0]?.geometry?.coordinates;
+                                if (rCoords && rCoords.length > 0) {
+                                    data = {
+                                        routes: [{
+                                            distance: theoreticalRailMeters,
+                                            duration: railDurationSec,
+                                            legs: [{
+                                                steps: [{
+                                                    name: 'Corredor Ferroviario (Trazado terrestre costero OSRM)',
+                                                    distance: theoreticalRailMeters,
+                                                    duration: railDurationSec
+                                                }]
+                                            }],
+                                            geometry: {
+                                                coordinates: rCoords
+                                            }
+                                        }],
+                                        distanceKm: theoreticalRailKm,
+                                        metadata: { distanceKm: theoreticalRailKm, routeSource: 'ORS-HGV-FALLBACK-POLYLINE' }
+                                    };
+                                    routeSource = 'ORS-HGV-FALLBACK-POLYLINE';
+                                    console.log(`[Workflow] Geometría costera obtenida con éxito vía motor terrestre; distancia férrea: ${theoreticalRailKm} km`);
+                                    break;
+                                }
+                            }
+                        } catch (_) {}
+                    }
                 }
-
-                data = {
-                    routes: [{
-                        distance: railKm * 1000,
-                        duration: (railKm / 65) * 3600,
-                        legs: [{ steps: [] }],
-                        geometry: {
-                            coordinates: railInterpolated
-                        }
-                    }]
-                };
-                routeSource = 'RAIL-FALLBACK-GEODESIC';
             }
 
         } else {
@@ -52301,6 +52352,261 @@ Example:
         }
         window.generateMarketReport = generateMarketReport;
 
+        window.executiveReportViewMode = 'internal';
+
+        function setExecutiveReportView(viewMode) {
+            window.executiveReportViewMode = (viewMode === 'client') ? 'client' : 'internal';
+            generateExecutiveReport(window.executiveReportViewMode);
+        }
+        window.setExecutiveReportView = setExecutiveReportView;
+
+        function buildExecutiveVehicleHeroSVG({ isRail, trucksNeeded, unitsNeeded, ldmValue = 13.6, cargoTon = 24.0 }) {
+            const subtitleText = isRail
+                ? `Convoy Ferroviario (Block Train) - ${unitsNeeded} Vagones`
+                : `Transporte Terrestre - ${trucksNeeded} Vehículos`;
+
+            const modeBadgeText = isRail
+                ? 'CONVOY FERROVIARIO (BLOCK TRAIN) · INTERMODAL'
+                : 'TRANSPORTE TERRESTRE FTL · CARRETERA';
+
+            const capacityText = isRail
+                ? `Capacidad estimada: ~${(unitsNeeded * 50).toLocaleString('es-ES')} t (${unitsNeeded} tolvas)`
+                : `Capacidad útil: ${(trucksNeeded * 24).toLocaleString('es-ES')} t · ${Number(ldmValue).toFixed(1)} LDM (${trucksNeeded} camiones)`;
+
+            const vehicleSVG = isRail ? `
+                <svg viewBox="0 0 760 140" class="w-full h-auto max-h-[140px] select-none" xmlns="http://www.w3.org/2000/svg" aria-label="Locomotora con vagones tolva">
+                    <defs>
+                        <linearGradient id="railLocoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#4338ca"/>
+                            <stop offset="50%" stop-color="#312e81"/>
+                            <stop offset="100%" stop-color="#1e1b4b"/>
+                        </linearGradient>
+                        <linearGradient id="railHopperGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#334155"/>
+                            <stop offset="100%" stop-color="#0f172a"/>
+                        </linearGradient>
+                        <linearGradient id="railTrackGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#64748b"/>
+                            <stop offset="50%" stop-color="#94a3b8"/>
+                            <stop offset="100%" stop-color="#64748b"/>
+                        </linearGradient>
+                        <pattern id="railGridPattern" width="20" height="20" patternUnits="userSpaceOnUse">
+                            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#334155" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.3"/>
+                        </pattern>
+                    </defs>
+                    <rect x="0" y="0" width="760" height="140" fill="#0b1329" rx="10"/>
+                    <rect x="0" y="0" width="760" height="140" fill="url(#railGridPattern)" rx="10"/>
+
+                    <!-- Catenaria superior -->
+                    <line x1="10" y1="12" x2="750" y2="12" stroke="#4f46e5" stroke-width="1.2" stroke-dasharray="8,4" opacity="0.4"/>
+
+                    <!-- Vía de tren: balasto, traviesas y doble riel de acero -->
+                    <g id="rail-track">
+                        <polygon points="10,126 750,126 740,135 20,135" fill="#1e293b" opacity="0.8"/>
+                        ${Array.from({ length: 42 }).map((_, i) => `<rect x="${20 + i * 17.5}" y="122" width="7" height="6" rx="1" fill="#475569"/>`).join('')}
+                        <line x1="10" y1="121" x2="750" y2="121" stroke="url(#railTrackGrad)" stroke-width="3"/>
+                        <line x1="10" y1="124" x2="750" y2="124" stroke="#334155" stroke-width="1.5"/>
+                    </g>
+
+                    <!-- LOCOMOTORA (Locomotora de tracción pesada eléctrica/diésel) -->
+                    <g id="locomotive-group">
+                        <g id="pantograph">
+                            <line x1="75" y1="36" x2="95" y2="14" stroke="#a5b4fc" stroke-width="2"/>
+                            <line x1="115" y1="36" x2="95" y2="14" stroke="#a5b4fc" stroke-width="2"/>
+                            <line x1="82" y1="14" x2="108" y2="14" stroke="#c7d2fe" stroke-width="2.5" stroke-linecap="round"/>
+                            <circle cx="95" cy="14" r="2.5" fill="#38bdf8"/>
+                        </g>
+
+                        <path d="M 40 115 L 40 54 Q 42 36 62 36 L 205 36 Q 218 36 222 50 L 226 115 Z" fill="url(#railLocoGrad)" stroke="#6366f1" stroke-width="1.5"/>
+                        <rect x="120" y="40" width="65" height="14" rx="2" fill="#1e1b4b" stroke="#4338ca" stroke-width="1"/>
+                        <line x1="126" y1="44" x2="179" y2="44" stroke="#818cf8" stroke-width="1"/>
+                        <line x1="126" y1="47" x2="179" y2="47" stroke="#818cf8" stroke-width="1"/>
+                        <line x1="126" y1="50" x2="179" y2="50" stroke="#818cf8" stroke-width="1"/>
+
+                        <path d="M 46 62 L 72 44 L 88 44 L 88 72 L 46 72 Z" fill="#0284c7" opacity="0.85" stroke="#38bdf8" stroke-width="1"/>
+                        <polygon points="50,60 70,46 76,46 54,64" fill="#bae6fd" opacity="0.6"/>
+                        <rect x="94" y="50" width="16" height="18" rx="2" fill="#0369a1" opacity="0.8" stroke="#38bdf8" stroke-width="0.8"/>
+
+                        <line x1="42" y1="78" x2="224" y2="78" stroke="#38bdf8" stroke-width="3"/>
+                        <line x1="42" y1="83" x2="224" y2="83" stroke="#f59e0b" stroke-width="1.5"/>
+                        <text x="115" y="98" fill="#e0e7ff" font-size="9" font-family="monospace" font-weight="bold" letter-spacing="1">EU-TRAXX · 6400kW</text>
+
+                        <circle cx="43" cy="80" r="4.5" fill="#fef08a" stroke="#ca8a04" stroke-width="1"/>
+                        <polygon points="40,80 5,60 5,100" fill="#fef08a" opacity="0.12"/>
+                        <circle cx="43" cy="98" r="3" fill="#fef08a"/>
+
+                        <rect x="36" y="112" width="192" height="7" rx="1.5" fill="#0f172a"/>
+                        <rect x="224" y="104" width="8" height="12" rx="1" fill="#475569" stroke="#94a3b8" stroke-width="1"/>
+                        <rect x="30" y="104" width="8" height="12" rx="1" fill="#475569" stroke="#94a3b8" stroke-width="1"/>
+
+                        <g id="loco-bogies">
+                            <rect x="52" y="108" width="56" height="5" fill="#1e293b"/>
+                            <circle cx="64" cy="118" r="9.5" fill="#0f172a" stroke="#cbd5e1" stroke-width="2.5"/>
+                            <circle cx="64" cy="118" r="4" fill="#94a3b8"/>
+                            <circle cx="96" cy="118" r="9.5" fill="#0f172a" stroke="#cbd5e1" stroke-width="2.5"/>
+                            <circle cx="96" cy="118" r="4" fill="#94a3b8"/>
+
+                            <rect x="156" y="108" width="56" height="5" fill="#1e293b"/>
+                            <circle cx="168" cy="118" r="9.5" fill="#0f172a" stroke="#cbd5e1" stroke-width="2.5"/>
+                            <circle cx="168" cy="118" r="4" fill="#94a3b8"/>
+                            <circle cx="200" cy="118" r="9.5" fill="#0f172a" stroke="#cbd5e1" stroke-width="2.5"/>
+                            <circle cx="200" cy="118" r="4" fill="#94a3b8"/>
+                        </g>
+                    </g>
+
+                    <rect x="228" y="107" width="16" height="4" fill="#64748b"/>
+
+                    <!-- VAGÓN TOLVA 1 (Tolva de granel / hopper wagon) -->
+                    <g id="hopper-wagon-1">
+                        <path d="M 244 46 L 476 46 L 460 96 L 436 109 L 284 109 L 260 96 Z" fill="url(#railHopperGrad)" stroke="#64748b" stroke-width="1.8"/>
+                        <polygon points="325,109 345,109 342,115 328,115" fill="#0284c7"/>
+                        <polygon points="375,109 395,109 392,115 378,115" fill="#0284c7"/>
+                        ${[275, 305, 335, 365, 395, 425, 450].map(x => `<line x1="${x}" y1="47" x2="${x}" y2="100" stroke="#475569" stroke-width="1.8"/>`).join('')}
+                        <line x1="242" y1="44" x2="478" y2="44" stroke="#94a3b8" stroke-width="2"/>
+                        <text x="310" y="78" fill="#94a3b8" font-size="8" font-family="monospace" font-weight="bold">TOLVA GRANEL · 50T</text>
+                        <rect x="240" y="110" width="240" height="4" fill="#1e293b"/>
+                        <circle cx="266" cy="118" r="8.5" fill="#0f172a" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="266" cy="118" r="3.5" fill="#64748b"/>
+                        <circle cx="294" cy="118" r="8.5" fill="#0f172a" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="294" cy="118" r="3.5" fill="#64748b"/>
+                        <circle cx="426" cy="118" r="8.5" fill="#0f172a" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="426" cy="118" r="3.5" fill="#64748b"/>
+                        <circle cx="454" cy="118" r="8.5" fill="#0f172a" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="454" cy="118" r="3.5" fill="#64748b"/>
+                    </g>
+
+                    <rect x="478" y="107" width="14" height="4" fill="#64748b"/>
+
+                    <!-- VAGÓN TOLVA 2 (Tolva de granel / hopper wagon) -->
+                    <g id="hopper-wagon-2">
+                        <path d="M 492 46 L 724 46 L 708 96 L 684 109 L 532 109 L 508 96 Z" fill="url(#railHopperGrad)" stroke="#64748b" stroke-width="1.8"/>
+                        <polygon points="573,109 593,109 590,115 576,115" fill="#0284c7"/>
+                        <polygon points="623,109 643,109 640,115 626,115" fill="#0284c7"/>
+                        ${[522, 552, 582, 612, 642, 672, 698].map(x => `<line x1="${x}" y1="47" x2="${x}" y2="100" stroke="#475569" stroke-width="1.8"/>`).join('')}
+                        <line x1="490" y1="44" x2="726" y2="44" stroke="#94a3b8" stroke-width="2"/>
+                        <text x="560" y="78" fill="#94a3b8" font-size="8" font-family="monospace" font-weight="bold">TOLVA GRANEL · 50T</text>
+                        <rect x="488" y="110" width="240" height="4" fill="#1e293b"/>
+                        <circle cx="514" cy="118" r="8.5" fill="#0f172a" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="514" cy="118" r="3.5" fill="#64748b"/>
+                        <circle cx="542" cy="118" r="8.5" fill="#0f172a" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="542" cy="118" r="3.5" fill="#64748b"/>
+                        <circle cx="674" cy="118" r="8.5" fill="#0f172a" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="674" cy="118" r="3.5" fill="#64748b"/>
+                        <circle cx="702" cy="118" r="8.5" fill="#0f172a" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="702" cy="118" r="3.5" fill="#64748b"/>
+                        <circle cx="726" cy="72" r="3.5" fill="#ef4444" stroke="#991b1b" stroke-width="1"/>
+                    </g>
+                </svg>
+            ` : `
+                <svg viewBox="0 0 760 140" class="w-full h-auto max-h-[140px] select-none" xmlns="http://www.w3.org/2000/svg" aria-label="Camión tráiler de transporte terrestre">
+                    <defs>
+                        <linearGradient id="roadCabGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#0284c7"/>
+                            <stop offset="40%" stop-color="#1e3a8a"/>
+                            <stop offset="100%" stop-color="#0f172a"/>
+                        </linearGradient>
+                        <linearGradient id="roadTrailerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#1e293b"/>
+                            <stop offset="100%" stop-color="#090d16"/>
+                        </linearGradient>
+                        <linearGradient id="roadHatchGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.2"/>
+                            <stop offset="100%" stop-color="#0284c7" stop-opacity="0.35"/>
+                        </linearGradient>
+                        <pattern id="roadGridPattern" width="20" height="20" patternUnits="userSpaceOnUse">
+                            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#334155" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.3"/>
+                        </pattern>
+                    </defs>
+                    <rect x="0" y="0" width="760" height="140" fill="#0b1329" rx="10"/>
+                    <rect x="0" y="0" width="760" height="140" fill="url(#roadGridPattern)" rx="10"/>
+
+                    <!-- Línea de calzada con marcas discontinuas -->
+                    <line x1="15" y1="126" x2="745" y2="126" stroke="#475569" stroke-width="2.5"/>
+                    <line x1="15" y1="131" x2="745" y2="131" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="14,10"/>
+
+                    <!-- CABINA TRACTORA (Camión tráiler europeo moderno) -->
+                    <g id="tractor-cab">
+                        <path d="M 45 116 L 45 52 Q 48 30 76 28 L 116 28 Q 134 28 142 45 L 158 80 L 158 116 Z" fill="url(#roadCabGrad)" stroke="#38bdf8" stroke-width="1.5"/>
+                        <path d="M 76 28 Q 106 20 144 26 L 140 32 L 80 32 Z" fill="#0284c7" opacity="0.9"/>
+                        <path d="M 96 36 L 128 36 L 146 72 L 96 72 Z" fill="#38bdf8" opacity="0.85" stroke="#0284c7" stroke-width="1"/>
+                        <polygon points="102,40 122,40 138,70 118,70" fill="#bae6fd" opacity="0.6"/>
+                        <rect x="62" y="44" width="24" height="18" rx="2" fill="#0369a1" opacity="0.75" stroke="#38bdf8" stroke-width="0.8"/>
+                        <rect x="146" y="45" width="4" height="24" rx="1" fill="#475569" stroke="#94a3b8" stroke-width="0.8"/>
+
+                        <rect x="150" y="84" width="8" height="24" rx="1" fill="#0f172a" stroke="#64748b" stroke-width="1"/>
+                        <line x1="152" y1="88" x2="156" y2="88" stroke="#93c5fd" stroke-width="1"/>
+                        <line x1="152" y1="92" x2="156" y2="92" stroke="#93c5fd" stroke-width="1"/>
+                        <line x1="152" y1="96" x2="156" y2="96" stroke="#93c5fd" stroke-width="1"/>
+                        <circle cx="154" cy="106" r="3.5" fill="#fef08a" stroke="#ca8a04" stroke-width="1"/>
+                        <polygon points="158,106 200,90 200,122" fill="#fef08a" opacity="0.1"/>
+
+                        <rect x="52" y="24" width="5" height="40" rx="1" fill="#cbd5e1" stroke="#94a3b8" stroke-width="0.8"/>
+                        <rect x="42" y="105" width="105" height="10" rx="2" fill="#0f172a"/>
+                        <rect x="88" y="98" width="42" height="14" rx="3" fill="#475569" stroke="#94a3b8" stroke-width="1"/>
+
+                        <circle cx="76" cy="116" r="13" fill="#0f172a" stroke="#94a3b8" stroke-width="2.5"/>
+                        <circle cx="76" cy="116" r="6" fill="#64748b"/>
+                        <circle cx="140" cy="116" r="13" fill="#0f172a" stroke="#94a3b8" stroke-width="2.5"/>
+                        <circle cx="140" cy="116" r="6" fill="#64748b"/>
+                    </g>
+
+                    <rect x="156" y="96" width="22" height="6" rx="1" fill="#475569"/>
+
+                    <!-- SEMIRREMOLQUE (Tráiler 13.6m Standard Tauliner) -->
+                    <g id="trailer-group">
+                        <rect x="175" y="32" width="550" height="78" rx="4" fill="url(#roadTrailerGrad)" stroke="#475569" stroke-width="2"/>
+                        <line x1="175" y1="35" x2="725" y2="35" stroke="#38bdf8" stroke-width="2.5"/>
+
+                        ${[230, 285, 340, 395, 450, 505, 560, 615, 670].map(x => `<line x1="${x}" y1="36" x2="${x}" y2="108" stroke="#334155" stroke-width="1.2" stroke-dasharray="4,4"/>`).join('')}
+
+                        <rect x="190" y="44" width="360" height="58" rx="3" fill="url(#roadHatchGrad)" stroke="#0284c7" stroke-width="1.5"/>
+                        <text x="280" y="77" fill="#e0f2fe" font-size="10" font-family="monospace" font-weight="bold" letter-spacing="1">CARGA GENERAL / PALETS (13.6 LDM)</text>
+
+                        <rect x="220" y="103" width="310" height="11" rx="2" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+                        <circle cx="235" cy="108" r="2" fill="#f59e0b"/>
+                        <circle cx="370" cy="108" r="2" fill="#f59e0b"/>
+                        <circle cx="515" cy="108" r="2" fill="#f59e0b"/>
+
+                        <g id="trailer-tridem">
+                            <circle cx="580" cy="116" r="13" fill="#0f172a" stroke="#94a3b8" stroke-width="2.5"/>
+                            <circle cx="580" cy="116" r="6" fill="#64748b"/>
+
+                            <circle cx="622" cy="116" r="13" fill="#0f172a" stroke="#94a3b8" stroke-width="2.5"/>
+                            <circle cx="622" cy="116" r="6" fill="#64748b"/>
+
+                            <circle cx="664" cy="116" r="13" fill="#0f172a" stroke="#94a3b8" stroke-width="2.5"/>
+                            <circle cx="664" cy="116" r="6" fill="#64748b"/>
+                        </g>
+
+                        <rect x="718" y="100" width="8" height="18" rx="1" fill="#0f172a"/>
+                        <circle cx="722" cy="104" r="2.5" fill="#ef4444" stroke="#7f1d1d" stroke-width="0.8"/>
+                        <circle cx="722" cy="110" r="2.5" fill="#f59e0b"/>
+                    </g>
+                </svg>
+            `;
+
+            return `
+                <div class="executive-vehicle-hero-card mb-4 rounded-xl border border-slate-700 bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 p-3.5 shadow-xl">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-2 mb-2 border-b border-slate-700/60 gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${isRail ? 'bg-indigo-950/80 text-indigo-300 border border-indigo-700/50' : 'bg-sky-950/80 text-sky-300 border border-sky-700/50'}">
+                                ${isRail ? '<i class="fa-solid fa-train"></i>' : '<i class="fa-solid fa-truck"></i>'}
+                                <span>${modeBadgeText}</span>
+                            </span>
+                            <span class="text-xs sm:text-sm font-bold text-white tracking-tight vehicle-dynamic-subtitle">${subtitleText}</span>
+                        </div>
+                        <div class="text-[11px] font-mono text-slate-300 flex items-center gap-2">
+                            <span class="bg-slate-800 px-2 py-0.5 rounded border border-slate-700/80">${capacityText}</span>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-hidden rounded-lg">
+                        ${vehicleSVG}
+                    </div>
+                </div>
+            `;
+        }
+        window.buildExecutiveVehicleHeroSVG = buildExecutiveVehicleHeroSVG;
+
         function generateExecutiveReport() {
             // Validación Defensiva: verificar cálculo de ruta terrestre previo
             const distInputEl = document.getElementById('dist-total');
@@ -52360,6 +52666,10 @@ Example:
                 alert(`Kill-switch activo:\n- ${State.coreValidation.messages.join('\n- ')}`);
                 return;
             }
+
+            const currentView = (arguments.length > 0 && arguments[0]) ? arguments[0] : (window.executiveReportViewMode || 'internal');
+            window.executiveReportViewMode = currentView;
+            const isClientView = (currentView === 'client');
 
             const isRailEarly = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL')
                 || (typeof State !== 'undefined' && State?.globalTransportMode === 'RAIL')
@@ -52649,9 +52959,18 @@ Example:
                             }
                         </h4>
                         <p class="text-xs text-slate-400">${currentLang === 'es' ? 'ID Estimación:' : 'Estimation ID:'} <span class="mono font-bold text-slate-300">${estId}</span></p>
-                        <p class="mt-1 text-[11px] text-slate-400">${isRail ? 'ferroviario' : modeNarrative}: ${narrativeText}</p>
+                        <p class="mt-1 text-[11px] text-slate-400">${isRail ? 'ferroviario' : modeNarrative}: ${isClientView ? (isRail ? `Convoy Ferroviario · ${unitsNeeded} ${vehicleUnitLabel} · ${cargoTon.toLocaleString('es-ES')} t · Flete Final Sugerido` : `Transporte Terrestre · ${trucksNeeded} ${vehicleUnitLabel} · ${ldmValue.toFixed(1)} LDM · Flete Final Sugerido`) : narrativeText}</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                        <!-- SELECTOR DE PRIVACIDAD UNIVERSAL (INTERNO VS. CLIENTE) -->
+                        <div class="no-print inline-flex p-1 bg-slate-900/90 border border-slate-700 rounded-lg shadow-inner mr-1" role="tablist" aria-label="Selector de Privacidad">
+                            <button id="btn-view-internal" type="button" onclick="setExecutiveReportView('internal')" class="px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${!isClientView ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}" role="tab" aria-selected="${!isClientView}">
+                                <i class="fa-solid fa-lock-open"></i> Vista Interna
+                            </button>
+                            <button id="btn-view-client" type="button" onclick="setExecutiveReportView('client')" class="px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${isClientView ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}" role="tab" aria-selected="${isClientView}">
+                                <i class="fa-solid fa-user-shield"></i> Vista Cliente
+                            </button>
+                        </div>
                         <button onclick="saveLandRouteQuote()" class="no-print bg-sky-600 hover:bg-sky-500 border border-sky-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 transition whitespace-nowrap">
                             <i class="fa-solid fa-cloud-arrow-up"></i> Guardar/Exportar Cotización
                         </button>
@@ -52663,6 +52982,9 @@ Example:
                         </button>
                     </div>
                 </div>
+
+                <!-- 1. RENDER VISUAL DINÁMICO (HEADER DEL REPORTE) -->
+                ${buildExecutiveVehicleHeroSVG({ isRail, trucksNeeded, unitsNeeded, ldmValue, cargoTon })}
 
                 <!-- Cuadrícula Principal de Datos -->
                 <div class="space-y-4 text-slate-300 text-xs">
@@ -52694,15 +53016,19 @@ Example:
                                     <span class="font-bold text-white">${isRail ? `${unitsNeeded * 50}.000 kg MMA (~50 t carga útil por vagón)` : '40.000 kg MMA (24 t carga útil por camión)'}</span>
                                 </li>
                                 ${isRail ? '' : `
+                                ${isClientView ? '' : `
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">Consumo Homologado:</span>
                                     <span class="font-bold text-white">${trailerConsumption.toFixed(1)} L / 100 km</span>
                                 </li>
                                 `}
+                                `}
+                                ${isClientView ? '' : `
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">${isRail ? 'Precio Combustible / Energía:' : 'Precio Diésel Local:'}</span>
                                     <span class="font-bold text-amber-300">${isRail ? 'Tarifa Tracción / Vía' : `${dieselPrice.toFixed(3)} € / L`}</span>
                                 </li>
+                                `}
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">Clasificación ADR / RID:</span>
                                     <span class="font-bold ${State.isAdr ? 'text-rose-400' : 'text-slate-300'}">${State.isAdr ? 'SÍ (Mercancía Peligrosa)' : (isRail ? 'NO (Carga General RID)' : 'NO (Carga General)')}</span>
@@ -52742,6 +53068,43 @@ Example:
                         </div>
                     </div>
 
+                    ${isClientView ? `
+                    <!-- Fila 2 (MODO CLIENTE): Ocultación Estricta de Costes Internos y Margen. Flete Final Sugerido -->
+                    <div class="bg-gradient-to-br from-slate-900 to-slate-800 p-5 rounded-xl border border-emerald-500/30 shadow-xl">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-700/80 pb-3 mb-4 gap-2">
+                            <h5 class="font-bold text-emerald-400 uppercase text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-file-invoice-dollar text-emerald-400"></i> Cotización Comercial y Precio de Venta Sugerido (Flete Final)
+                            </h5>
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
+                                <i class="fa-solid fa-shield-halved"></i> Oferta Oficial para Cliente
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                            <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800">
+                                <span class="block text-xs text-slate-400 uppercase font-medium">Precio de Venta Sugerido (Flete Final)</span>
+                                <span class="font-mono font-black text-emerald-400 text-xl sm:text-2xl mt-1 block">${grossFreightRevenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+                                <span class="text-[11px] text-slate-500 mt-1 block">Total operación completa (${isRail ? `${unitsNeeded} vagones` : `${trucksNeeded} camiones`})</span>
+                            </div>
+                            <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800">
+                                <span class="block text-xs text-slate-400 uppercase font-medium">Flete Venta por Tonelada</span>
+                                <span class="font-mono font-bold text-white text-lg sm:text-xl mt-1 block">${freightRateTon.toFixed(2)} € / t</span>
+                                <span class="text-[11px] text-slate-500 mt-1 block">Para ${cargoTon.toLocaleString('es-ES')} t de carga útil</span>
+                            </div>
+                            <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800">
+                                <span class="block text-xs text-slate-400 uppercase font-medium">${isImperial ? 'Flete Venta por Milla' : 'Flete Venta por Kilómetro'}</span>
+                                <span class="font-mono font-bold text-sky-400 text-lg sm:text-xl mt-1 block">${salePricePerDist.toFixed(2)} € / ${distUnit}</span>
+                                <span class="text-[11px] text-slate-500 mt-1 block">Distancia total: ${distanceDisplay}</span>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-slate-950/50 rounded-lg border border-slate-800/80 text-slate-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-check-circle text-emerald-400"></i>
+                                <span>Condiciones de servicio: Seguro de mercancías incluido, gestión logística punto a punto y seguimiento de expedición.</span>
+                            </div>
+                            <span class="text-[11px] font-mono text-slate-400 uppercase tracking-wider">Validez de Oferta: 15 días</span>
+                        </div>
+                    </div>
+                    ` : `
                     <!-- Fila 2: Desglose Transportista (Costes) vs Agencia (Venta/Margen) -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
@@ -52832,11 +53195,13 @@ Example:
                             </ul>
                         </div>
                     </div>
+                    `}
 
                     <!-- Auditoría de Riesgo Terrestre (Fronteras, Tacógrafo, ADR) -->
                     ${renderExecutiveRiskSections({ isRail, isUSGeography, origin: originStr, destination: destStr })}
 
-                    <!-- Sección de Desglose y Restricciones -->
+                    ${isClientView ? '' : `
+                    <!-- Sección de Desglose y Restricciones (Vista Interna) -->
                     <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
                         <h5 class="font-bold text-indigo-400 uppercase mb-3 border-b border-slate-700/50 pb-1 flex items-center gap-1.5">
                             <i class="fa-solid fa-square-poll-horizontal"></i> ${currentLang === 'es' ? 'Análisis Detallado de Punto de Equilibrio y Puertos' : 'Detailed Break-Even & Port Analysis'}
@@ -52988,6 +53353,7 @@ Example:
                             `}
                         </div>
                     </div>
+                    `}
 
                     <!-- Botón para cerrar o imprimir / exportar PDF -->
                     <div class="no-print pt-2 flex flex-wrap justify-end gap-2 border-t border-slate-800">
@@ -53019,10 +53385,20 @@ Example:
                 || (typeof State !== 'undefined' && State?.globalTransportMode === 'RAIL')
                 || (typeof State !== 'undefined' && State?.isRail === true);
 
+            const isClientView = (window.executiveReportViewMode === 'client');
+
             const ref = (typeof getSafeActiveContractRef === 'function' ? getSafeActiveContractRef() : '') || 'estimacion';
-            const filename = isRail
-                ? `Land_Charter_Reporte_Ejecutivo_Ferroviario_${ref}_${new Date().toISOString().slice(0, 10)}.pdf`
-                : `Land_Charter_Reporte_Ejecutivo_${ref}_${new Date().toISOString().slice(0, 10)}.pdf`;
+            const filename = isClientView
+                ? (isRail
+                    ? `Land_Charter_Cotizacion_Cliente_Ferroviario_${ref}_${new Date().toISOString().slice(0, 10)}.pdf`
+                    : `Land_Charter_Cotizacion_Cliente_${ref}_${new Date().toISOString().slice(0, 10)}.pdf`)
+                : (isRail
+                    ? `Land_Charter_Reporte_Ejecutivo_Ferroviario_${ref}_${new Date().toISOString().slice(0, 10)}.pdf`
+                    : `Land_Charter_Reporte_Ejecutivo_${ref}_${new Date().toISOString().slice(0, 10)}.pdf`);
+
+            // Clonar contenido y omitir elementos no imprimibles
+            const exportNode = content.cloneNode(true);
+            exportNode.querySelectorAll('.no-print').forEach(el => el.remove());
 
             if (typeof html2pdf === 'function') {
                 const opt = {
@@ -53032,13 +53408,19 @@ Example:
                     html2canvas: { scale: 2, useCORS: true, logging: false },
                     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
                 };
+                const toastMsg = isClientView
+                    ? (isRail ? 'Generando PDF de la Cotización Cliente Ferroviario...' : 'Generando PDF de la Cotización Cliente...')
+                    : (isRail ? 'Generando PDF del Reporte Ejecutivo Ferroviario...' : 'Generando PDF del Reporte Ejecutivo...');
                 if (typeof showToast === 'function') {
-                    showToast(isRail ? 'Generando PDF del Reporte Ejecutivo Ferroviario...' : 'Generando PDF del Reporte Ejecutivo...', false, 'info');
+                    showToast(toastMsg, false, 'info');
                 }
                 try {
-                    await html2pdf().set(opt).from(content).save();
+                    await html2pdf().set(opt).from(exportNode).save();
+                    const successMsg = isClientView
+                        ? (isRail ? 'Cotización Cliente Ferroviaria exportada a PDF correctamente.' : 'Cotización Cliente exportada a PDF correctamente.')
+                        : (isRail ? 'Reporte Ejecutivo Ferroviario exportado a PDF correctamente.' : 'Reporte Ejecutivo exportado a PDF correctamente.');
                     if (typeof showToast === 'function') {
-                        showToast(isRail ? 'Reporte Ejecutivo Ferroviario exportado a PDF correctamente.' : 'Reporte Ejecutivo exportado a PDF correctamente.', false, 'success');
+                        showToast(successMsg, false, 'success');
                     }
                     return;
                 } catch (e) {
@@ -53167,9 +53549,19 @@ Example:
             document.getElementById('print-port-pol').innerText = State.pol || "-";
             document.getElementById('print-port-pod').innerText = State.pod || "-";
 
-            document.getElementById('print-dist-ballast').innerText = `${State.distBallast.toLocaleString('en-US')} km`;
-            document.getElementById('print-dist-laden').innerText = `${State.distLaden.toLocaleString('en-US')} km`;
-            document.getElementById('print-dist-total').innerText = `${(State.distBallast + State.distLaden).toLocaleString('en-US')} km`;
+            const isImperialPrint = (typeof isImperialSystem === 'function' && isImperialSystem())
+                || (typeof UnitSystemDetector !== 'undefined' && typeof UnitSystemDetector.detectUnitSystem === 'function' && UnitSystemDetector.detectUnitSystem(State.pol, State.pod) === 'IMPERIAL')
+                || (document.getElementById('dist-total-unit')?.innerText?.includes('mi'))
+                || (window.State?.unitSystem === 'IMPERIAL');
+            const printDistUnit = isImperialPrint ? 'mi' : 'km';
+            const printDistMultiplier = isImperialPrint ? (1 / 1.60934) : 1;
+            const printDistBallast = Math.round(State.distBallast * printDistMultiplier * 10) / 10;
+            const printDistLaden = Math.round(State.distLaden * printDistMultiplier * 10) / 10;
+            const printDistTotal = Math.round((State.distBallast + State.distLaden) * printDistMultiplier * 10) / 10;
+
+            document.getElementById('print-dist-ballast').innerText = `${printDistBallast.toLocaleString('en-US')} ${printDistUnit}`;
+            document.getElementById('print-dist-laden').innerText = `${printDistLaden.toLocaleString('en-US')} ${printDistUnit}`;
+            document.getElementById('print-dist-total').innerText = `${printDistTotal.toLocaleString('en-US')} ${printDistUnit}`;
 
             document.getElementById('print-spd-ballast').innerText = `${getVal('spd-ballast')} Knots`;
             document.getElementById('print-spd-laden').innerText = `${getVal('spd-laden')} Knots`;
@@ -68829,88 +69221,88 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             if (isRail) {
                 if (isUSGeography) {
                     borderBadgeText = 'DOMÉSTICO US';
-                    borderBadgeClass = 'text-emerald-300 bg-emerald-950/40 border-emerald-500/50';
-                    borderDescriptionHTML = '<strong class="text-emerald-400">Corredor Ferroviario US (Doméstico):</strong> Tránsito interestatal libre de aduanas.';
+                    borderBadgeClass = 'text-emerald-700 bg-emerald-50 border-emerald-300';
+                    borderDescriptionHTML = '<strong class="text-emerald-700">Corredor Ferroviario US (Doméstico):</strong> Tránsito interestatal libre de aduanas. Corredor US: Tránsito interestatal libre de aduanas.';
                 } else {
                     borderBadgeText = 'INTEROPERABILIDAD EU';
-                    borderBadgeClass = 'text-amber-300 bg-amber-950/40 border-amber-500/50';
-                    borderDescriptionHTML = '<strong class="text-amber-300">Corredor Ferroviario EU/Internacional:</strong> Sujeto a normativas de interoperabilidad (ancho de vía, señalización ERTMS) y controles aduaneros según pasos fronterizos.';
+                    borderBadgeClass = 'text-amber-700 bg-amber-50 border-amber-300';
+                    borderDescriptionHTML = '<strong class="text-amber-700">Corredor Ferroviario EU/Internacional:</strong> Sujeto a normativas de interoperabilidad (ancho de vía, señalización ERTMS) y controles aduaneros según pasos fronterizos. Corredor Internacional: Sujeto a interoperabilidad de vía e inspección aduanera.';
                 }
             } else {
                 borderBadgeText = roadRisk.hasBorderRisk ? 'ALERTA ADUANERA' : 'LIBRE TRÁNSITO';
-                borderBadgeClass = roadRisk.hasBorderRisk ? 'text-amber-300 bg-amber-950/40 border-amber-500/50' : 'text-emerald-300 bg-emerald-950/40 border-emerald-500/50';
+                borderBadgeClass = roadRisk.hasBorderRisk ? 'text-amber-700 bg-amber-50 border-amber-300' : 'text-emerald-700 bg-emerald-50 border-emerald-300';
                 borderDescriptionHTML = roadRisk.hasBorderRisk
-                    ? '<strong class="text-amber-300">Posibles demoras aduaneras:</strong> La ruta cruza fronteras internacionales o zonas aduaneras especiales fuera del espacio Schengen/UE. Prever inspección documental, tránsitos T1/T2 y tiempos de espera en aduana.'
-                    : '<strong class="text-emerald-400">Tránsito Schengen/UE normal:</strong> Sin controles aduaneros en frontera ni demoras de despacho documental.';
+                    ? '<strong class="text-amber-700">Posibles demoras aduaneras:</strong> La ruta cruza fronteras internacionales o zonas aduaneras especiales fuera del espacio Schengen/UE. Prever inspección documental, tránsitos T1/T2 y tiempos de espera en aduana.'
+                    : '<strong class="text-emerald-700">Tránsito Schengen/UE normal:</strong> Sin controles aduaneros en frontera ni demoras de despacho documental.';
             }
 
             // 2. Configuración dinámica Riesgo Tacógrafo
-            let tacoTitle = isRail ? 'Régimen de Conducción' : 'Riesgo Tacógrafo';
+            let tacoTitle = isRail ? 'Régimen de Operativa Ferroviaria' : 'Riesgo Tacógrafo';
             let tacoBadgeText = '';
             let tacoBadgeClass = '';
             let tacoDescriptionHTML = '';
 
             if (isRail) {
                 tacoBadgeText = 'RELEVOS CONTINUOS';
-                tacoBadgeClass = 'text-emerald-300 bg-emerald-950/40 border-emerald-500/50';
-                tacoDescriptionHTML = '<strong class="text-emerald-400">Operación de convoy continuo por relevos. Sin restricciones de tacógrafo vial.</strong>';
+                tacoBadgeClass = 'text-emerald-700 bg-emerald-50 border-emerald-300';
+                tacoDescriptionHTML = '<strong class="text-emerald-700">Operación de convoy continuo por relevos. Sin restricciones de tacógrafo vial.</strong>';
             } else {
                 tacoBadgeText = roadRisk.hasTachographRisk ? '2 CONDUCTORES / PERNOCTA' : '1 CONDUCTOR OK';
-                tacoBadgeClass = roadRisk.hasTachographRisk ? 'text-amber-300 bg-amber-950/40 border-amber-500/50' : 'text-emerald-300 bg-emerald-950/40 border-emerald-500/50';
+                tacoBadgeClass = roadRisk.hasTachographRisk ? 'text-amber-700 bg-amber-50 border-amber-300' : 'text-emerald-700 bg-emerald-50 border-emerald-300';
                 tacoDescriptionHTML = roadRisk.hasTachographRisk
-                    ? '<strong class="text-amber-300">Ruta requiere 2 conductores o pernocta obligatoria:</strong> El tiempo de conducción estimado supera las 9 horas reglamentarias para un solo chófer (Reglamento CE 561/2006). Se requiere tripulación doble o parada de 11h.'
-                    : '<strong class="text-emerald-400">Dentro de límites legales:</strong> Conducción estimada ≤ 9 horas, apta para un único conductor sin pernocta en ruta.';
+                    ? '<strong class="text-amber-700">Ruta requiere 2 conductores o pernocta obligatoria:</strong> El tiempo de conducción estimado supera las 9 horas reglamentarias para un solo chófer (Reglamento CE 561/2006). Se requiere tripulación doble o parada de 11h.'
+                    : '<strong class="text-emerald-700">Dentro de límites legales:</strong> Conducción estimada ≤ 9 horas, apta para un único conductor sin pernocta en ruta.';
             }
 
             // 3. Configuración dinámica Riesgo ADR / RID
             const adrTitle = isRail ? 'Riesgo RID / Mercancías Peligrosas' : 'Riesgo ADR';
             const adrBadgeText = roadRisk.hasAdrRisk ? (isRail ? 'MERCANCÍA PELIGROSA RID' : 'MERCANCÍA PELIGROSA') : (isRail ? 'NO RID / ESTÁNDAR' : 'NO ADR / ESTÁNDAR');
-            const adrBadgeClass = roadRisk.hasAdrRisk ? 'text-red-300 bg-red-950/40 border-red-500/50' : 'text-emerald-300 bg-emerald-950/40 border-emerald-500/50';
+            const adrBadgeClass = roadRisk.hasAdrRisk ? 'text-rose-700 bg-rose-50 border-rose-300' : 'text-emerald-700 bg-emerald-50 border-emerald-300';
             const adrDescriptionHTML = roadRisk.hasAdrRisk
                 ? (isRail
-                    ? '<strong class="text-rose-300">Transporte bajo régimen RID:</strong> Mercancías peligrosas sujetas a protocolos de seguridad en túneles ferroviarios, apartaderos dedicados y señalización de convoy.'
-                    : '<strong class="text-rose-300">Posibles restricciones en túneles o peajes:</strong> Transporte bajo régimen ADR con restricciones de paso en túneles (categorías B a E), itinerarios RIMP obligatorios y recargos especiales de peaje.')
+                    ? '<strong class="text-rose-700">Transporte bajo régimen RID:</strong> Mercancías peligrosas sujetas a protocolos de seguridad en túneles ferroviarios, apartaderos dedicados y señalización de convoy.'
+                    : '<strong class="text-rose-700">Posibles restricciones en túneles o peajes:</strong> Transporte bajo régimen ADR con restricciones de paso en túneles (categorías B a E), itinerarios RIMP obligatorios y recargos especiales de peaje.')
                 : (isRail
-                    ? '<strong class="text-emerald-400">Carga general estándar:</strong> Sin restricciones RID de túneles ni señalización especial ferroviaria.'
-                    : '<strong class="text-emerald-400">Carga general estándar:</strong> Sin restricciones ADR de túneles, peajes ni señalización de paneles naranja.');
+                    ? '<strong class="text-emerald-700">Carga general estándar:</strong> Sin restricciones RID de túneles ni señalización especial ferroviaria.'
+                    : '<strong class="text-emerald-700">Carga general estándar:</strong> Sin restricciones ADR de túneles, peajes ni señalización de paneles naranja.');
 
             return `
                 <div class="official-print-section grid grid-cols-1 md:grid-cols-3 gap-4">
                     <!-- 1. Riesgo Fronterizo -->
-                    <div class="official-print-card bg-slate-800/60 p-4 rounded-xl border border-slate-700">
-                        <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-1">
-                            <h5 class="font-bold text-amber-400 uppercase flex items-center gap-1.5 text-xs"><i class="fa-solid fa-passport"></i> ${borderTitle}</h5>
+                    <div class="official-print-card bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="flex justify-between items-center mb-2 border-b border-slate-100 pb-1.5">
+                            <h5 class="font-bold text-slate-800 uppercase flex items-center gap-1.5 text-xs"><i class="fa-solid fa-passport text-amber-600"></i> ${borderTitle}</h5>
                             <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded border ${borderBadgeClass}">
                                 ${borderBadgeText}
                             </span>
                         </div>
-                        <p class="text-slate-300 text-[11px] leading-relaxed mt-2">
+                        <p class="text-slate-600 text-xs leading-relaxed mt-2">
                             ${borderDescriptionHTML}
                         </p>
                     </div>
 
                     <!-- 2. Riesgo Tacógrafo -->
-                    <div class="official-print-card bg-slate-800/60 p-4 rounded-xl border border-slate-700">
-                        <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-1">
-                            <h5 class="font-bold text-indigo-400 uppercase flex items-center gap-1.5 text-xs"><i class="fa-solid fa-clock-rotate-left"></i> ${tacoTitle}</h5>
+                    <div class="official-print-card bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="flex justify-between items-center mb-2 border-b border-slate-100 pb-1.5">
+                            <h5 class="font-bold text-slate-800 uppercase flex items-center gap-1.5 text-xs"><i class="fa-solid fa-clock-rotate-left text-indigo-600"></i> ${tacoTitle}</h5>
                             <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded border ${tacoBadgeClass}">
                                 ${tacoBadgeText}
                             </span>
                         </div>
-                        <p class="text-slate-300 text-[11px] leading-relaxed mt-2">
+                        <p class="text-slate-600 text-xs leading-relaxed mt-2">
                             ${tacoDescriptionHTML}
                         </p>
                     </div>
 
                     <!-- 3. Riesgo ADR -->
-                    <div class="official-print-card bg-slate-800/60 p-4 rounded-xl border border-slate-700">
-                        <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-1">
-                            <h5 class="font-bold text-rose-400 uppercase flex items-center gap-1.5 text-xs"><i class="fa-solid fa-triangle-exclamation"></i> ${adrTitle}</h5>
+                    <div class="official-print-card bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="flex justify-between items-center mb-2 border-b border-slate-100 pb-1.5">
+                            <h5 class="font-bold text-slate-800 uppercase flex items-center gap-1.5 text-xs"><i class="fa-solid fa-triangle-exclamation text-rose-600"></i> ${adrTitle}</h5>
                             <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded border ${adrBadgeClass}">
                                 ${adrBadgeText}
                             </span>
                         </div>
-                        <p class="text-slate-300 text-[11px] leading-relaxed mt-2">
+                        <p class="text-slate-600 text-xs leading-relaxed mt-2">
                             ${adrDescriptionHTML}
                         </p>
                     </div>
@@ -68919,16 +69311,23 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
         }
 
         function printExecutiveScreenReport() {
-            const content = document.getElementById('ai-modal-content')?.innerHTML || '';
+            const contentEl = document.getElementById('ai-modal-content');
             const printView = document.getElementById('executive-report-print-view');
-            if (!printView || !content) return;
+            if (!printView || !contentEl) return;
             const original = printView.innerHTML;
             const originalTitle = document.title;
             const isRail = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL')
                 || (typeof State !== 'undefined' && State?.globalTransportMode === 'RAIL')
                 || (typeof State !== 'undefined' && State?.isRail === true);
-            printView.innerHTML = `<div class="screen-report-print official-print-document">${content}</div>`;
-            document.title = isRail ? 'Land Charter Core PRO - REPORTE EJECUTIVO DE TRANSPORTE FERROVIARIO' : 'Land Charter Core PRO - Reporte Ejecutivo';
+            const isClientView = (window.executiveReportViewMode === 'client');
+
+            const clone = contentEl.cloneNode(true);
+            clone.querySelectorAll('.no-print').forEach(el => el.remove());
+
+            printView.innerHTML = `<div class="screen-report-print official-print-document">${clone.innerHTML}</div>`;
+            document.title = isClientView
+                ? (isRail ? 'Land Charter Core PRO - Cotización Cliente Ferroviario' : 'Land Charter Core PRO - Cotización Cliente Terrestre')
+                : (isRail ? 'Land Charter Core PRO - REPORTE EJECUTIVO DE TRANSPORTE FERROVIARIO' : 'Land Charter Core PRO - Reporte Ejecutivo');
             document.body.classList.add('print-report-mode');
             setTimeout(() => {
                 window.print();
