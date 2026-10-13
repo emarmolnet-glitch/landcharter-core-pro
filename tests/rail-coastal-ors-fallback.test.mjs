@@ -69,8 +69,8 @@ test('3. Verificación Funcional del Handler de get-rail-route.js: devuelve ORS-
   assert.equal(feat.properties.transportMode, 'RAIL');
   assert.equal(feat.properties.source, 'ORS-HGV-FALLBACK-POLYLINE');
 
-  // Distancia teórica ferroviaria preservada (aprox ~303km * 1.25 = ~379km)
-  assert.ok(feat.properties.distanceKm >= 350 && feat.properties.distanceKm <= 550, `Distancia en rango ferroviario: ${feat.properties.distanceKm} km`);
+  // Distancia teórica ferroviaria preservada (aprox ~303km * 1.10 = ~333.3km)
+  assert.ok(feat.properties.distanceKm >= 300 && feat.properties.distanceKm <= 400, `Distancia en rango ferroviario: ${feat.properties.distanceKm} km`);
   assert.equal(feat.properties.style.dashArray, '10, 15');
   assert.equal(feat.properties.style.color, '#1e293b');
   assert.equal(feat.properties.style.weight, 4);

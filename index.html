@@ -20513,14 +20513,29 @@ async function runOnDemandMapRouteWorkflow(button) {
         }
 
         // Sincronizar inputs del DOM (incluyendo dist-laden y dist-total para cálculos financieros)
+        const isImperialRouteLDM = window.LandCharterIsImperial || (typeof UnitSystemDetector !== 'undefined' && UnitSystemDetector.detectUnitSystem(polDisplayName, podDisplayName) === 'IMPERIAL');
+        const effectiveDistToInjectLDM = isImperialRouteLDM
+            ? Math.round((distanceKm / 1.60934) * 10) / 10
+            : distanceKm;
+
         ['dist-total', 'dist-laden', 'input-distance-km'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
-                el.value = distanceKm;
+                el.dataset.rawKm = String(distanceKm);
+                el.value = effectiveDistToInjectLDM;
                 el.dispatchEvent(new Event('input', { bubbles: true }));
                 el.dispatchEvent(new Event('change', { bubbles: true }));
             }
         });
+
+        const ballastElLDM = document.getElementById('dist-ballast');
+        if (ballastElLDM && Number(ballastElLDM.value) > 0 && isImperialRouteLDM) {
+            const rawB = Number(ballastElLDM.dataset?.rawKm || ballastElLDM.value);
+            ballastElLDM.dataset.rawKm = String(rawB);
+            ballastElLDM.value = Math.round((rawB / 1.60934) * 10) / 10;
+            ballastElLDM.dispatchEvent(new Event('input', { bubbles: true }));
+            ballastElLDM.dispatchEvent(new Event('change', { bubbles: true }));
+        }
 
         // Asegurar feedback visual correcto con el display_name completo de Nominatim
         ['map-port-pol', 'port-pol'].forEach(id => {

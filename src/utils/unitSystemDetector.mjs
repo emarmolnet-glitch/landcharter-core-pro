@@ -659,7 +659,7 @@ export function setupLandCharterUnitObserver(onSystemChange) {
       window.LandCharterIsImperial = isImperial;
     }
 
-    // 1. Adaptar etiquetas de distancia
+    // 1. Adaptar etiquetas de distancia y valores de inputs en Sección 1
     const labelBallast = document.getElementById('label-dist-ballast');
     if (labelBallast) {
       labelBallast.textContent = isImperial ? 'Distancia en Vacío (mi)' : 'Distancia en Vacío (km)';
@@ -673,6 +673,37 @@ export function setupLandCharterUnitObserver(onSystemChange) {
     const labelTotal = document.getElementById('label-dist-total');
     if (labelTotal) {
       labelTotal.textContent = isImperial ? 'Total Millas (mi)' : 'Total Kilómetros (km)';
+    }
+
+    const inputLaden = document.getElementById('dist-laden');
+    const inputBallast = document.getElementById('dist-ballast');
+    const inputTotal = document.getElementById('dist-total');
+
+    if (inputLaden) {
+      const rawLaden = Number(inputLaden.dataset?.rawKm || inputLaden.value || 0);
+      if (rawLaden > 0) {
+        if (!inputLaden.dataset.rawKm) inputLaden.dataset.rawKm = String(rawLaden);
+        const baseKm = Number(inputLaden.dataset.rawKm);
+        inputLaden.value = isImperial ? Math.round((baseKm / 1.60934) * 10) / 10 : baseKm;
+        inputLaden.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    if (inputBallast) {
+      const rawBallast = Number(inputBallast.dataset?.rawKm || inputBallast.value || 0);
+      if (rawBallast > 0) {
+        if (!inputBallast.dataset.rawKm) inputBallast.dataset.rawKm = String(rawBallast);
+        const baseKm = Number(inputBallast.dataset.rawKm);
+        inputBallast.value = isImperial ? Math.round((baseKm / 1.60934) * 10) / 10 : baseKm;
+        inputBallast.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    if (inputTotal) {
+      const curL = Number(inputLaden?.value || 0);
+      const curB = Number(inputBallast?.value || 0);
+      if (curL > 0 || curB > 0) {
+        inputTotal.value = Math.round((curL + curB) * 10) / 10;
+        inputTotal.dispatchEvent(new Event('input', { bubbles: true }));
+      }
     }
 
     const syncCard = document.getElementById('sync-miles-card');
