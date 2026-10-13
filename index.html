@@ -4456,17 +4456,36 @@
 
         /* --- ESTILOS REPORTE EJECUTIVO: HERO CARD Y SELECTOR DE PRIVACIDAD --- */
         .executive-vehicle-hero-card {
-            background: linear-gradient(135deg, #090e1a 0%, #131d31 100%);
-            border: 1px solid #334155;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #1e293b;
             transition: all 0.2s ease-in-out;
         }
         #ai-modal.light-mode .executive-vehicle-hero-card {
-            background: linear-gradient(135deg, #090e1a 0%, #131d31 100%) !important;
-            border-color: #cbd5e1 !important;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+            background-color: #f8fafc !important;
+            background-image: none !important;
+            border-color: #e2e8f0 !important;
+            color: #1e293b !important;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03) !important;
         }
         #ai-modal.light-mode .executive-vehicle-hero-card .vehicle-dynamic-subtitle {
-            color: #ffffff !important;
+            color: #1e293b !important;
+        }
+        #tractor-cab {
+            transform: scaleX(-1);
+            transform-box: fill-box;
+            transform-origin: center;
+        }
+        #ai-modal.light-mode table thead tr,
+        #ai-modal.light-mode table th {
+            background-color: #f8fafc !important;
+            color: #1e293b !important;
+            border-color: #e2e8f0 !important;
+        }
+        #ai-modal.light-mode thead.bg-slate-900,
+        #ai-modal.light-mode tr.bg-slate-800 {
+            background-color: #f8fafc !important;
+            color: #1e293b !important;
         }
         #ai-modal.light-mode #btn-view-internal:not(.bg-indigo-600) {
             color: #475569 !important;
@@ -4487,7 +4506,8 @@
         }
         @media print {
             .screen-report-print .executive-vehicle-hero-card {
-                background: #090e1a !important;
+                background: #f8fafc !important;
+                color: #1e293b !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
@@ -15299,16 +15319,16 @@
             <div class="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
                 <section>
                     <div class="mb-2 flex items-center justify-between gap-3"><h4 class="text-xs font-black uppercase tracking-wider text-white">Antes vs. después</h4><span class="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-[10px] font-bold text-blue-300">Maestro de buques</span></div>
-                    <div class="overflow-hidden rounded-xl border border-slate-800"><table class="w-full text-left text-xs"><thead class="bg-slate-900 text-[10px] uppercase tracking-wider text-slate-400"><tr><th class="px-3 py-2">Parámetro</th><th class="px-3 py-2 text-right">Estimado previo</th><th class="px-3 py-2 text-right">Valor real</th><th class="px-3 py-2 text-right">Variación</th></tr></thead><tbody id="pda-vessel-comparison-body" class="divide-y divide-slate-800 bg-slate-950 text-slate-200"></tbody></table></div>
+                    <div class="overflow-hidden rounded-xl border border-slate-800"><table class="w-full text-left text-xs"><thead class="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-800"><tr><th class="px-3 py-2">Parámetro</th><th class="px-3 py-2 text-right">Estimado previo</th><th class="px-3 py-2 text-right">Valor real</th><th class="px-3 py-2 text-right">Variación</th></tr></thead><tbody id="pda-vessel-comparison-body" class="divide-y divide-slate-800 bg-slate-950 text-slate-200"></tbody></table></div>
                 </section>
                 <section>
                     <div class="mb-2 flex items-center justify-between gap-3"><h4 class="text-xs font-black uppercase tracking-wider text-white">Cumplimiento operativo POL / POD</h4><span id="pda-compliance-summary" class="rounded-full px-3 py-1 text-[10px] font-black"></span></div>
-                    <div class="overflow-hidden rounded-xl border border-slate-800"><table class="w-full text-left text-xs"><thead class="bg-slate-900 text-[10px] uppercase tracking-wider text-slate-400"><tr><th class="px-3 py-2">Puerto</th><th class="px-3 py-2">Control</th><th class="px-3 py-2 text-right">Buque</th><th class="px-3 py-2 text-right">Límite / condición</th><th class="px-3 py-2 text-center">Estado</th></tr></thead><tbody id="pda-port-compliance-body" class="divide-y divide-slate-800 bg-slate-950 text-slate-200"></tbody></table></div>
+                    <div class="overflow-hidden rounded-xl border border-slate-800"><table class="w-full text-left text-xs"><thead class="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-800"><tr><th class="px-3 py-2">Puerto</th><th class="px-3 py-2">Control</th><th class="px-3 py-2 text-right">Buque</th><th class="px-3 py-2 text-right">Límite / condición</th><th class="px-3 py-2 text-center">Estado</th></tr></thead><tbody id="pda-port-compliance-body" class="divide-y divide-slate-800 bg-slate-950 text-slate-200"></tbody></table></div>
                 </section>
                 <section>
                     <div class="mb-2 flex items-center justify-between gap-3"><h4 class="text-xs font-black uppercase tracking-wider text-white">Desglose portuario y financiero</h4><span class="text-[10px] font-bold text-slate-500">USD · POL + POD</span></div>
                     <div class="grid gap-4 lg:grid-cols-[1.45fr_0.55fr]">
-                        <div class="overflow-hidden rounded-xl border border-slate-800"><table class="w-full text-left text-xs"><thead class="bg-slate-900 text-[10px] uppercase tracking-wider text-slate-400"><tr><th class="px-3 py-2">Concepto</th><th class="px-3 py-2 text-right">Anterior</th><th class="px-3 py-2 text-right">Recalculado</th><th class="px-3 py-2 text-right">Impacto</th></tr></thead><tbody id="pda-financial-breakdown-body" class="divide-y divide-slate-800 bg-slate-950 text-slate-200"></tbody></table></div>
+                        <div class="overflow-hidden rounded-xl border border-slate-800"><table class="w-full text-left text-xs"><thead class="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-800"><tr><th class="px-3 py-2">Concepto</th><th class="px-3 py-2 text-right">Anterior</th><th class="px-3 py-2 text-right">Recalculado</th><th class="px-3 py-2 text-right">Impacto</th></tr></thead><tbody id="pda-financial-breakdown-body" class="divide-y divide-slate-800 bg-slate-950 text-slate-200"></tbody></table></div>
                         <div class="grid content-start gap-3">
                             <div id="pda-financial-impact-cards" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1"></div>
                             <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -52156,10 +52176,10 @@ Example:
             results.sort((a, b) => a.Ranking - b.Ranking);
 
             let tableHTML = `
-                <div class="overflow-x-auto rounded-lg border border-slate-700 bg-slate-950">
+                <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
-                            <tr class="bg-slate-800 text-slate-300 font-bold uppercase text-[10px] border-b border-slate-700">
+                            <tr class="bg-slate-50 text-slate-800 font-bold uppercase text-[10px] border-b border-slate-200">
                                 <th class="p-3">Rank</th>
                                 <th class="p-3">Nombre Buque / Vessel</th>
                                 <th class="p-3 text-right">Días Viaje / Days</th>
@@ -52170,7 +52190,7 @@ Example:
                                 <th class="p-3 text-center">Acción / Action</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-800 text-slate-300">
+                        <tbody class="divide-y divide-slate-200 text-slate-800">
             `;
 
             results.forEach(row => {
@@ -52360,7 +52380,7 @@ Example:
         }
         window.setExecutiveReportView = setExecutiveReportView;
 
-        function buildExecutiveVehicleHeroSVG({ isRail, trucksNeeded, unitsNeeded, ldmValue = 13.6, cargoTon = 24.0 }) {
+        function buildExecutiveVehicleHeroSVG({ isRail, trucksNeeded, unitsNeeded, ldmValue = 13.6, cargoTon = 24.0, ...options }) {
             const subtitleText = isRail
                 ? `Convoy Ferroviario (Block Train) - ${unitsNeeded} Vagones`
                 : `Transporte Terrestre - ${trucksNeeded} Vehículos`;
@@ -52372,6 +52392,39 @@ Example:
             const capacityText = isRail
                 ? `Capacidad estimada: ~${(unitsNeeded * 50).toLocaleString('es-ES')} t (${unitsNeeded} tolvas)`
                 : `Capacidad útil: ${(trucksNeeded * 24).toLocaleString('es-ES')} t · ${Number(ldmValue).toFixed(1)} LDM (${trucksNeeded} camiones)`;
+
+            // Texto dinámico del remolque con fallback a 'Mercancía General'
+            const activeCargoVal = (options && (options.cargoName || options.cargo_category || options.cargoCategory || options.cargoDesc || options.productName || options.product_name))
+                || (typeof State !== 'undefined' && (State.cargo_category || State.cargoName || State.cargoTypeManual || (State.cargoType && !State.cargoType.toLowerCase().includes('dry bulk') && !State.cargoType.toLowerCase().includes('granel') ? State.cargoType : '')))
+                || (typeof window !== 'undefined' && window.activeProject && (window.activeProject.cargo_category || window.activeProject.cargo_name || window.activeProject.product_name))
+                || (typeof document !== 'undefined' && typeof document.getElementById === 'function' && (document.getElementById('cargo-name')?.value || document.getElementById('cargo-category')?.value || document.getElementById('cargo-type')?.value))
+                || (options && options.cargoWeight ? `${options.cargoWeight} kg` : '')
+                || (cargoTon > 0 && cargoTon !== 24.0 ? `${cargoTon}t` : '')
+                || '';
+
+            const trailerCargoText = (activeCargoVal && String(activeCargoVal).trim())
+                ? String(activeCargoVal).trim()
+                : 'Mercancía General';
+
+            // Detección booleana de tipo de remolque: Plataforma (Flatbed) vs. Lona (Tauliner)
+            const vehicleTypeVal = String(
+                options?.vehicleType
+                || (typeof State !== 'undefined' && State.vehicleType)
+                || (typeof window !== 'undefined' && window.activeProject && (window.activeProject.vehicle_type || window.activeProject.truck_type))
+                || (typeof document !== 'undefined' && typeof document.getElementById === 'function' && document.getElementById('vehicle-type')?.value)
+                || ''
+            );
+
+            const cargoContextVal = String(
+                trailerCargoText + ' ' +
+                (options?.cargoName || '') + ' ' +
+                (options?.cargo_category || options?.cargoCategory || '') + ' ' +
+                (options?.cargoDesc || options?.cargoDescription || '') + ' ' +
+                (typeof State !== 'undefined' ? (State.cargoType || State.cargoName || State.cargo_category || '') : '')
+            );
+
+            const platformKeywordsRegex = /plataforma|flatbed|big\s*bag|granel/i;
+            const isPlatform = platformKeywordsRegex.test(vehicleTypeVal) || platformKeywordsRegex.test(cargoContextVal);
 
             const vehicleSVG = isRail ? `
                 <svg viewBox="0 0 760 140" class="w-full h-auto max-h-[140px] select-none" xmlns="http://www.w3.org/2000/svg" aria-label="Locomotora con vagones tolva">
@@ -52394,8 +52447,6 @@ Example:
                             <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#334155" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.3"/>
                         </pattern>
                     </defs>
-                    <rect x="0" y="0" width="760" height="140" fill="#0b1329" rx="10"/>
-                    <rect x="0" y="0" width="760" height="140" fill="url(#railGridPattern)" rx="10"/>
 
                     <!-- Catenaria superior -->
                     <line x1="10" y1="12" x2="750" y2="12" stroke="#4f46e5" stroke-width="1.2" stroke-dasharray="8,4" opacity="0.4"/>
@@ -52506,8 +52557,8 @@ Example:
                             <stop offset="100%" stop-color="#0f172a"/>
                         </linearGradient>
                         <linearGradient id="roadTrailerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stop-color="#1e293b"/>
-                            <stop offset="100%" stop-color="#090d16"/>
+                            <stop offset="0%" stop-color="#f8fafc"/>
+                            <stop offset="100%" stop-color="#e2e8f0"/>
                         </linearGradient>
                         <linearGradient id="roadHatchGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                             <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.2"/>
@@ -52517,15 +52568,13 @@ Example:
                             <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#334155" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.3"/>
                         </pattern>
                     </defs>
-                    <rect x="0" y="0" width="760" height="140" fill="#0b1329" rx="10"/>
-                    <rect x="0" y="0" width="760" height="140" fill="url(#roadGridPattern)" rx="10"/>
 
                     <!-- Línea de calzada con marcas discontinuas -->
                     <line x1="15" y1="126" x2="745" y2="126" stroke="#475569" stroke-width="2.5"/>
                     <line x1="15" y1="131" x2="745" y2="131" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="14,10"/>
 
                     <!-- CABINA TRACTORA (Camión tráiler europeo moderno) -->
-                    <g id="tractor-cab">
+                    <g id="tractor-cab" class="-scale-x-100" style="transform: scaleX(-1); transform-box: fill-box; transform-origin: center;">
                         <path d="M 45 116 L 45 52 Q 48 30 76 28 L 116 28 Q 134 28 142 45 L 158 80 L 158 116 Z" fill="url(#roadCabGrad)" stroke="#38bdf8" stroke-width="1.5"/>
                         <path d="M 76 28 Q 106 20 144 26 L 140 32 L 80 32 Z" fill="#0284c7" opacity="0.9"/>
                         <path d="M 96 36 L 128 36 L 146 72 L 96 72 Z" fill="#38bdf8" opacity="0.85" stroke="#0284c7" stroke-width="1"/>
@@ -52552,15 +52601,46 @@ Example:
 
                     <rect x="156" y="96" width="22" height="6" rx="1" fill="#475569"/>
 
-                    <!-- SEMIRREMOLQUE (Tráiler 13.6m Standard Tauliner) -->
-                    <g id="trailer-group">
-                        <rect x="175" y="32" width="550" height="78" rx="4" fill="url(#roadTrailerGrad)" stroke="#475569" stroke-width="2"/>
-                        <line x1="175" y1="35" x2="725" y2="35" stroke="#38bdf8" stroke-width="2.5"/>
+                    <!-- SEMIRREMOLQUE (Tráiler Dinámico: Tauliner vs Plataforma) -->
+                    <g id="trailer-group" data-trailer-type="${isPlatform ? 'platform' : 'tauliner'}">
+                        ${isPlatform ? `
+                        <!-- GRUPO PLATAFORMA (Chasis descubierto y mercancía Big Bags / Palets) -->
+                        <g id="trailer-platform">
+                            <!-- Chasis / Plataforma base apoyada sobre las ruedas traseras -->
+                            <rect x="175" y="98" width="550" height="9" rx="2" fill="#334155" stroke="#1e293b" stroke-width="1.5"/>
+                            <rect x="175" y="52" width="6" height="48" rx="1" fill="#475569" stroke="#334155" stroke-width="1"/>
 
-                        ${[230, 285, 340, 395, 450, 505, 560, 615, 670].map(x => `<line x1="${x}" y1="36" x2="${x}" y2="108" stroke="#334155" stroke-width="1.2" stroke-dasharray="4,4"/>`).join('')}
+                            <!-- Mercancía descubierta apilada sobre la plataforma (3 o 4 rectangulos apilados / Big Bags / Palets) -->
+                            <g id="platform-cargo-stacked">
+                                <rect x="205" y="58" width="105" height="40" rx="3" fill="#cbd5e1" stroke="#94a3b8" stroke-width="1.5"/>
+                                <line x1="257" y1="58" x2="257" y2="98" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,2"/>
 
-                        <rect x="190" y="44" width="360" height="58" rx="3" fill="url(#roadHatchGrad)" stroke="#0284c7" stroke-width="1.5"/>
-                        <text x="280" y="77" fill="#e0f2fe" font-size="10" font-family="monospace" font-weight="bold" letter-spacing="1">CARGA GENERAL / PALETS (13.6 LDM)</text>
+                                <rect x="330" y="58" width="105" height="40" rx="3" fill="#cbd5e1" stroke="#94a3b8" stroke-width="1.5"/>
+                                <line x1="382" y1="58" x2="382" y2="98" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,2"/>
+
+                                <rect x="455" y="58" width="105" height="40" rx="3" fill="#cbd5e1" stroke="#94a3b8" stroke-width="1.5"/>
+                                <line x1="507" y1="58" x2="507" y2="98" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,2"/>
+
+                                <rect x="580" y="58" width="105" height="40" rx="3" fill="#cbd5e1" stroke="#94a3b8" stroke-width="1.5"/>
+                                <line x1="632" y1="58" x2="632" y2="98" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,2"/>
+                            </g>
+
+                            <!-- Texto dinámico de la mercancía sobre la plataforma abierta -->
+                            <rect x="250" y="28" width="400" height="24" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1" opacity="0.95"/>
+                            <text x="450" y="44" text-anchor="middle" fill="#1e293b" font-size="10" font-family="monospace" font-weight="bold" letter-spacing="0.5">${trailerCargoText}</text>
+                        </g>
+                        ` : `
+                        <!-- GRUPO TAULINER (Remolque cerrado estándar con lona) -->
+                        <g id="trailer-tauliner">
+                            <rect x="175" y="32" width="550" height="78" rx="4" fill="url(#roadTrailerGrad)" stroke="#94a3b8" stroke-width="2"/>
+                            <line x1="175" y1="35" x2="725" y2="35" stroke="#38bdf8" stroke-width="2.5"/>
+
+                            ${[230, 285, 340, 395, 450, 505, 560, 615, 670].map(x => `<line x1="${x}" y1="36" x2="${x}" y2="108" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="4,4"/>`).join('')}
+
+                            <rect x="190" y="44" width="360" height="58" rx="3" fill="#ffffff" stroke="#0284c7" stroke-width="1.5" opacity="0.95"/>
+                            <text x="370" y="78" text-anchor="middle" fill="#1e293b" font-size="10" font-family="monospace" font-weight="bold" letter-spacing="0.5">${trailerCargoText}</text>
+                        </g>
+                        `}
 
                         <rect x="220" y="103" width="310" height="11" rx="2" fill="#0f172a" stroke="#334155" stroke-width="1"/>
                         <circle cx="235" cy="108" r="2" fill="#f59e0b"/>
@@ -52586,17 +52666,17 @@ Example:
             `;
 
             return `
-                <div class="executive-vehicle-hero-card mb-4 rounded-xl border border-slate-700 bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 p-3.5 shadow-xl">
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-2 mb-2 border-b border-slate-700/60 gap-2">
+                <div class="executive-vehicle-hero-card mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3.5 shadow-sm text-slate-800">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-2 mb-2 border-b border-slate-200 gap-2">
                         <div class="flex items-center gap-2">
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${isRail ? 'bg-indigo-950/80 text-indigo-300 border border-indigo-700/50' : 'bg-sky-950/80 text-sky-300 border border-sky-700/50'}">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${isRail ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : 'bg-sky-100 text-sky-800 border border-sky-200'}">
                                 ${isRail ? '<i class="fa-solid fa-train"></i>' : '<i class="fa-solid fa-truck"></i>'}
                                 <span>${modeBadgeText}</span>
                             </span>
-                            <span class="text-xs sm:text-sm font-bold text-white tracking-tight vehicle-dynamic-subtitle">${subtitleText}</span>
+                            <span class="text-xs sm:text-sm font-bold text-slate-800 tracking-tight vehicle-dynamic-subtitle">${subtitleText}</span>
                         </div>
-                        <div class="text-[11px] font-mono text-slate-300 flex items-center gap-2">
-                            <span class="bg-slate-800 px-2 py-0.5 rounded border border-slate-700/80">${capacityText}</span>
+                        <div class="text-[11px] font-mono text-slate-600 flex items-center gap-2">
+                            <span class="bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-700 font-bold">${capacityText}</span>
                         </div>
                     </div>
                     <div class="w-full overflow-hidden rounded-lg">
@@ -52984,7 +53064,15 @@ Example:
                 </div>
 
                 <!-- 1. RENDER VISUAL DINÁMICO (HEADER DEL REPORTE) -->
-                ${buildExecutiveVehicleHeroSVG({ isRail, trucksNeeded, unitsNeeded, ldmValue, cargoTon })}
+                ${buildExecutiveVehicleHeroSVG({
+                    isRail,
+                    trucksNeeded,
+                    unitsNeeded,
+                    ldmValue,
+                    cargoTon,
+                    cargoName: State.cargoName || State.cargoTypeManual || (State.cargoType && !State.cargoType.toLowerCase().includes('dry bulk') ? State.cargoType : '') || (typeof cargoStr !== 'undefined' ? cargoStr : ''),
+                    cargo_category: State.cargo_category || State.cargoCategory || ''
+                })}
 
                 <!-- Cuadrícula Principal de Datos -->
                 <div class="space-y-4 text-slate-300 text-xs">
@@ -53070,38 +53158,38 @@ Example:
 
                     ${isClientView ? `
                     <!-- Fila 2 (MODO CLIENTE): Ocultación Estricta de Costes Internos y Margen. Flete Final Sugerido -->
-                    <div class="bg-gradient-to-br from-slate-900 to-slate-800 p-5 rounded-xl border border-emerald-500/30 shadow-xl">
-                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-700/80 pb-3 mb-4 gap-2">
-                            <h5 class="font-bold text-emerald-400 uppercase text-sm flex items-center gap-2">
-                                <i class="fa-solid fa-file-invoice-dollar text-emerald-400"></i> Cotización Comercial y Precio de Venta Sugerido (Flete Final)
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm text-slate-800">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-3 mb-4 gap-2">
+                            <h5 class="font-bold text-slate-800 uppercase text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-file-invoice-dollar text-emerald-600"></i> Cotización Comercial y Precio de Venta Sugerido (Flete Final)
                             </h5>
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 <i class="fa-solid fa-shield-halved"></i> Oferta Oficial para Cliente
                             </span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                            <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800">
-                                <span class="block text-xs text-slate-400 uppercase font-medium">Precio de Venta Sugerido (Flete Final)</span>
-                                <span class="font-mono font-black text-emerald-400 text-xl sm:text-2xl mt-1 block">${grossFreightRevenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <span class="block text-xs text-slate-600 uppercase font-bold">Precio de Venta Sugerido (Flete Final)</span>
+                                <span class="font-mono font-black text-emerald-600 text-xl sm:text-2xl mt-1 block">${grossFreightRevenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
                                 <span class="text-[11px] text-slate-500 mt-1 block">Total operación completa (${isRail ? `${unitsNeeded} vagones` : `${trucksNeeded} camiones`})</span>
                             </div>
-                            <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800">
-                                <span class="block text-xs text-slate-400 uppercase font-medium">Flete Venta por Tonelada</span>
-                                <span class="font-mono font-bold text-white text-lg sm:text-xl mt-1 block">${freightRateTon.toFixed(2)} € / t</span>
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <span class="block text-xs text-slate-600 uppercase font-bold">Flete Venta por Tonelada</span>
+                                <span class="font-mono font-bold text-slate-800 text-lg sm:text-xl mt-1 block">${freightRateTon.toFixed(2)} € / t</span>
                                 <span class="text-[11px] text-slate-500 mt-1 block">Para ${cargoTon.toLocaleString('es-ES')} t de carga útil</span>
                             </div>
-                            <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800">
-                                <span class="block text-xs text-slate-400 uppercase font-medium">${isImperial ? 'Flete Venta por Milla' : 'Flete Venta por Kilómetro'}</span>
-                                <span class="font-mono font-bold text-sky-400 text-lg sm:text-xl mt-1 block">${salePricePerDist.toFixed(2)} € / ${distUnit}</span>
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <span class="block text-xs text-slate-600 uppercase font-bold">${isImperial ? 'Flete Venta por Milla' : 'Flete Venta por Kilómetro'}</span>
+                                <span class="font-mono font-bold text-sky-700 text-lg sm:text-xl mt-1 block">${salePricePerDist.toFixed(2)} € / ${distUnit}</span>
                                 <span class="text-[11px] text-slate-500 mt-1 block">Distancia total: ${distanceDisplay}</span>
                             </div>
                         </div>
-                        <div class="p-3 bg-slate-950/50 rounded-lg border border-slate-800/80 text-slate-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 text-slate-700 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div class="flex items-center gap-2">
-                                <i class="fa-solid fa-check-circle text-emerald-400"></i>
+                                <i class="fa-solid fa-check-circle text-emerald-600"></i>
                                 <span>Condiciones de servicio: Seguro de mercancías incluido, gestión logística punto a punto y seguimiento de expedición.</span>
                             </div>
-                            <span class="text-[11px] font-mono text-slate-400 uppercase tracking-wider">Validez de Oferta: 15 días</span>
+                            <span class="text-[11px] font-mono text-slate-500 uppercase tracking-wider">Validez de Oferta: 15 días</span>
                         </div>
                     </div>
                     ` : `
