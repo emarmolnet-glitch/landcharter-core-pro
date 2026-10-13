@@ -218,8 +218,9 @@ export default async function handler(req) {
   }
 
   const straightKm = calculateHaversineKm(polLat, polLng, podLat, podLng);
-  // Estimación matemática geodésica ferroviaria (~1.25x sobre distancia en línea recta)
-  const theoreticalRailKm = Math.round(straightKm * 1.25 * 10) / 10;
+  // Desacoplamiento Geométrico-Financiero para modo RAIL:
+  // Aproximación geodésica ferroviaria con factor de infraestructura de 1.10 (10% de desviación típica sobre distancia en línea recta)
+  const theoreticalRailKm = Math.round(straightKm * 1.10 * 10) / 10;
   const theoreticalRailMeters = theoreticalRailKm * 1000;
 
   // 1. Ruteo Terrestre (Fallback ORS Camuflado):
@@ -234,9 +235,10 @@ export default async function handler(req) {
   const orsResult = await fetchOrsHgvPolyline(polLng, polLat, podLng, podLat);
   if (orsResult && orsResult.coordinates?.length > 0) {
     finalCoordinates = orsResult.coordinates;
-    // Protección de Datos: El proxy devuelve esta polilínea con source: "ORS-HGV-FALLBACK-POLYLINE",
-    // pero sobrescribiendo la distancia real de ORS con la distancia ferroviaria teórica (theoreticalRailMeters)
-    // para no corromper la lógica financiera del frontend.
+    // Desacoplamiento Geométrico-Financiero:
+    // La geometría visual (coordinates) proviene de ORS (carretera), pero en lugar de devolver
+    // la distancia de carretera (ORS), se devuelve la aproximación matemática geodésica
+    // Haversine * 1.10 para evitar sobrecostes por los excesivos rodeos de las autopistas.
     finalDistanceMeters = theoreticalRailMeters;
     routeSource = "ORS-HGV-FALLBACK-POLYLINE";
     usedFallback = true;

@@ -2234,6 +2234,69 @@ function ForwarderWorkspaceInner(props = {}) {
     }
   }, [unitSystem, isImperial, landOrigin, landDestination]);
 
+  // Sincronización reactiva desde evento de mapa hacia ForwarderWorkspace
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleRouteUpdated = (e) => {
+      const d = e?.detail || {};
+      const dKm = Number(d.distanceKm ?? d.totalKilometers ?? (d.route?.distance ? d.route.distance / 1000 : 0));
+      if (dKm > 0) {
+        setDistanceKm(dKm);
+      }
+    };
+    window.addEventListener('osrm:route-updated', handleRouteUpdated);
+    return () => {
+      window.removeEventListener('osrm:route-updated', handleRouteUpdated);
+    };
+  }, []);
+
+  // Lógica reactiva de conversión dinámica de unidades en LDM (Sección 1):
+  // Campos del formulario LDM: "Distancia en Vacío" (dist-ballast), "Distancia en Carga" (dist-laden) y "Total Millas/Km" (dist-total).
+  // Si la UI está en modo Imperial (millas), el valor inyectado se divide obligatoriamente por 1.60934 (distanceKm / 1.60934).
+  // Si está en Métrico, usa distanceKm. Esto evita mostrar kilómetros crudos dentro de inputs etiquetados con "(MI)".
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const ballastEl = document.getElementById('dist-ballast');
+    const ladenEl = document.getElementById('dist-laden');
+    const totalEl = document.getElementById('dist-total');
+
+    if (!ballastEl && !ladenEl && !totalEl) return;
+
+    const effectiveKm = Number(distanceKm || activeProject?.land_distance || activeProject?.land_route?.distance_km || 0);
+    const rawLadenKm = effectiveKm > 0 ? effectiveKm : Number(ladenEl?.dataset?.rawKm || ladenEl?.value || 0);
+
+    const injectedLaden = isImperial
+      ? (rawLadenKm > 0 ? Math.round((rawLadenKm / 1.60934) * 10) / 10 : 0)
+      : rawLadenKm;
+
+    if (ladenEl && rawLadenKm > 0) {
+      ladenEl.dataset.rawKm = String(rawLadenKm);
+      ladenEl.value = injectedLaden;
+      ladenEl.dispatchEvent(new Event('input', { bubbles: true }));
+      ladenEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    let injectedBallast = 0;
+    if (ballastEl) {
+      const rawBallastKm = Number(ballastEl.dataset?.rawKm || ballastEl.value || 0);
+      if (rawBallastKm > 0) {
+        ballastEl.dataset.rawKm = String(rawBallastKm);
+        injectedBallast = isImperial ? Math.round((rawBallastKm / 1.60934) * 10) / 10 : rawBallastKm;
+        ballastEl.value = injectedBallast;
+        ballastEl.dispatchEvent(new Event('input', { bubbles: true }));
+        ballastEl.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+
+    if (totalEl && (rawLadenKm > 0 || injectedBallast > 0)) {
+      const injectedTotal = Math.round((injectedLaden + injectedBallast) * 10) / 10;
+      totalEl.value = injectedTotal;
+      totalEl.dispatchEvent(new Event('input', { bubbles: true }));
+      totalEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }, [distanceKm, isImperial, activeProject?.land_distance, activeProject?.land_route?.distance_km]);
+
   const [subtotalFreight, setSubtotalFreight] = useState('0.00');
   const [subtotalFobOperations, setSubtotalFobOperations] = useState('0.00');
   const [isBreakdownVisible, setIsBreakdownVisible] = useState(true);
