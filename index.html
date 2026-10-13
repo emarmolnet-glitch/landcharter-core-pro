@@ -52361,11 +52361,16 @@ Example:
                 return;
             }
 
+            const isRailEarly = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL')
+                || (typeof State !== 'undefined' && State?.globalTransportMode === 'RAIL')
+                || (typeof State !== 'undefined' && State?.isRail === true)
+                || Boolean(State?.vehicleType && /(tren|tolva|ferroviario|rail)/i.test(State.vehicleType));
+
             const currentLang = document.getElementById('language-selector')?.value || 'es';
 
             const rTexts = {
                 es: {
-                    title: "Reporte Ejecutivo del Viaje",
+                    title: isRailEarly ? "REPORTE EJECUTIVO DE TRANSPORTE FERROVIARIO" : "Reporte Ejecutivo del Viaje",
                     header: "Resumen Operativo y Financiero",
                     printBtn: "Imprimir Reporte (PDF)",
                     specHeader: "Especificaciones Buque & Carga",
@@ -52397,7 +52402,7 @@ Example:
                     directVoyage: "N/A (Carga Directa)"
                 },
                 en: {
-                    title: "Voyage Executive Report",
+                    title: isRailEarly ? "RAIL TRANSPORT EXECUTIVE REPORT" : "Voyage Executive Report",
                     header: "Operational & Financial Summary",
                     printBtn: "Print Report (PDF)",
                     specHeader: "Vessel & Cargo Specifications",
@@ -52429,7 +52434,7 @@ Example:
                     directVoyage: "N/A (Direct Voyage)"
                 },
                 fr: {
-                    title: "Rapport Exécutif du Voyage",
+                    title: isRailEarly ? "RAPPORT EXÉCUTIF DE TRANSPORT FERROVIAIRE" : "Rapport Exécutif du Voyage",
                     header: "Résumé Opérationnel et Financier",
                     printBtn: "Imprimer le Rapport (PDF)",
                     specHeader: "Spécifications du Navire & de la Cargaison",
@@ -52463,7 +52468,7 @@ Example:
             };
 
             const r = rTexts[currentLang] || rTexts.es;
-            openAIModal(r.title);
+            openAIModal(isRailEarly ? (currentLang === 'es' ? "REPORTE EJECUTIVO DE TRANSPORTE FERROVIARIO" : r.title) : r.title);
             document.getElementById('ai-modal').classList.add('light-mode');
 
             // Calculamos datos locales adicionales para la previsualización interactiva
@@ -52573,11 +52578,50 @@ Example:
             const isRailExec = vehicle_type_exec?.toLowerCase().includes('tren') || vehicle_type_exec?.toLowerCase().includes('tolva') || vehicle_type_exec?.toLowerCase().includes('ferroviario') || vehicle_type_exec?.toLowerCase().includes('rail');
             const costeTrenExec = totalKm * 0.04 * cargoTon;
 
+            const isRail = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL')
+                || (typeof State !== 'undefined' && State?.globalTransportMode === 'RAIL')
+                || (typeof State !== 'undefined' && State?.isRail === true)
+                || isRailExec;
+
+            const originStr = String(State.pol || getVal('port-pol') || window.LandData?.origin || '').trim();
+            const destStr = String(State.pod || getVal('port-pod') || window.LandData?.destination || '').trim();
+            const fullRouteGeo = `${originStr} ${destStr}`;
+            const isUSGeography = /(United States|USA|Estados Unidos)/i.test(fullRouteGeo);
+
+            const isImperial = Boolean(
+                (typeof window !== 'undefined' && window.LandCharterIsImperial) ||
+                (typeof State !== 'undefined' && State?.isImperial) ||
+                isUSGeography ||
+                (typeof UnitSystemDetector !== 'undefined' && typeof UnitSystemDetector.detectUnitSystem === 'function' && UnitSystemDetector.detectUnitSystem(originStr, destStr) === 'IMPERIAL')
+            );
+            const distUnit = isImperial ? 'mi' : 'km';
+
+            let effectiveDistance = totalKm;
+            if (isImperial) {
+                const inputVal = parseFloat(getVal('dist-total')) || 0;
+                const rawKm = Number(distInputEl?.dataset?.rawKm) || Number(State.totalKilometers) || 0;
+                if (inputVal > 0 && (window.LandCharterIsImperial || (document.getElementById('label-dist-total')?.textContent || '').includes('mi'))) {
+                    effectiveDistance = inputVal;
+                } else if (rawKm > 0) {
+                    effectiveDistance = Math.round((rawKm / 1.60934) * 10) / 10;
+                } else if (totalKm > 0) {
+                    effectiveDistance = Math.round((totalKm / 1.60934) * 10) / 10;
+                }
+            }
+            const distanceDisplay = isImperial
+                ? `${(effectiveDistance % 1 === 0 ? effectiveDistance.toFixed(0) : effectiveDistance.toFixed(1))} mi`
+                : `${Math.round(effectiveDistance).toLocaleString('es-ES')} km`;
+
+            const railWagonsNeeded = Math.max(1, Number(State.total_wagons || State.wagons || State.total_trucks) || Math.ceil(cargoTon / 50));
+            const unitsNeeded = isRail ? railWagonsNeeded : trucksNeeded;
+
+            const costeTrenCalculated = totalKm * 0.04 * cargoTon;
             // Costes Totales Flota (Lado Transportista / Ferroviario)
-            const totalTripCost = isRailExec ? costeTrenExec : (unitaryTripCost * trucksNeeded);
+            const totalTripCost = isRail ? (costeTrenExec || costeTrenCalculated) : (unitaryTripCost * trucksNeeded);
             State.totalTripCost = totalTripCost;
             State.totalCosts = totalTripCost;
             State.land_freight_cost = totalTripCost;
+            const costPerDist = effectiveDistance > 0 ? (totalTripCost / effectiveDistance) : 0;
             const costPerKm = totalKm > 0 ? (totalTripCost / totalKm) : 0;
             const costPerTon = cargoTon > 0 ? (totalTripCost / cargoTon) : 0;
 
@@ -52587,18 +52631,25 @@ Example:
             const profitMarginEur = grossFreightRevenue - totalTripCost;
             const profitMarginPct = grossFreightRevenue > 0 ? (profitMarginEur / grossFreightRevenue) * 100 : 0;
             const freightRateTon = cargoTon > 0 ? (grossFreightRevenue / cargoTon) : 0;
+            const salePricePerDist = effectiveDistance > 0 ? (grossFreightRevenue / effectiveDistance) : 0;
             const salePricePerKm = totalKm > 0 ? (grossFreightRevenue / totalKm) : 0;
 
-            const narrativeText = `Presupuesto Terrestre: ${trucksNeeded} ${trucksNeeded === 1 ? 'camión' : 'camiones'} · ${ldmValue.toFixed(1)} LDM · Diésel (${dieselPrice.toFixed(2)} €/L) · Tacógrafo CE 561/2006 · Margen comercial ${marginPct}%`;
+            const vehicleUnitLabel = isRail ? (unitsNeeded === 1 ? 'vagón' : 'vagones') : (trucksNeeded === 1 ? 'camión' : 'camiones');
+            const narrativeText = isRail
+                ? `Presupuesto Ferroviario: ${unitsNeeded} ${vehicleUnitLabel} · ${cargoTon.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} t · Tracción Convoy · Margen comercial ${marginPct}%`
+                : `Presupuesto Terrestre: ${trucksNeeded} ${vehicleUnitLabel} · ${ldmValue.toFixed(1)} LDM · Diésel (${dieselPrice.toFixed(2)} €/L) · Tacógrafo CE 561/2006 · Margen comercial ${marginPct}%`;
 
             const reportHTML = `
                 <div class="border-b border-slate-700 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                         <h4 class="text-lg font-bold text-white uppercase tracking-tight flex items-center gap-2">
-                            <i class="fa-solid fa-truck-moving text-indigo-400"></i> ${currentLang === 'es' ? 'Reporte Ejecutivo de Transporte Terrestre' : 'Road Transport Executive Report'}
+                            ${isRail
+                                ? '<i class="fa-solid fa-train text-indigo-400"></i> REPORTE EJECUTIVO DE TRANSPORTE FERROVIARIO'
+                                : `<i class="fa-solid fa-truck-moving text-indigo-400"></i> ${currentLang === 'es' ? 'Reporte Ejecutivo de Transporte Terrestre' : 'Road Transport Executive Report'}`
+                            }
                         </h4>
                         <p class="text-xs text-slate-400">${currentLang === 'es' ? 'ID Estimación:' : 'Estimation ID:'} <span class="mono font-bold text-slate-300">${estId}</span></p>
-                        <p class="mt-1 text-[11px] text-slate-400">${modeNarrative}: ${narrativeText}</p>
+                        <p class="mt-1 text-[11px] text-slate-400">${isRail ? 'ferroviario' : modeNarrative}: ${narrativeText}</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2 self-start sm:self-center">
                         <button onclick="saveLandRouteQuote()" class="no-print bg-sky-600 hover:bg-sky-500 border border-sky-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 transition whitespace-nowrap">
@@ -52619,16 +52670,16 @@ Example:
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
                             <h5 class="font-bold text-sky-400 uppercase mb-2 border-b border-slate-700/50 pb-1 flex items-center gap-1.5">
-                                <i class="fa-solid fa-truck"></i> Especificaciones de Carga y Flota Terrestre
+                                ${isRail ? '<i class="fa-solid fa-train"></i> Especificaciones de Carga y Flota Ferroviaria' : '<i class="fa-solid fa-truck"></i> Especificaciones de Carga y Flota Terrestre'}
                             </h5>
                             <ul class="space-y-1.5">
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">Tipo de Vehículo:</span>
-                                    <span class="font-bold text-white">${vehicleType}</span>
+                                    <span class="font-bold text-white">${isRail ? (vehicleType.toLowerCase().includes('tren') || vehicleType.toLowerCase().includes('tolva') || vehicleType.toLowerCase().includes('ferroviario') ? vehicleType : 'Convoy Ferroviario') : vehicleType}</span>
                                 </li>
                                 <li class="flex justify-between">
-                                    <span class="text-slate-400">Camiones Necesarios:</span>
-                                    <span class="font-bold text-amber-300">${trucksNeeded} ${trucksNeeded === 1 ? 'vehículo' : 'vehículos'} (cap. 24 t / 13.6 LDM c/u)</span>
+                                    <span class="text-slate-400">${isRail ? 'Vagones Necesarios:' : 'Camiones Necesarios:'}</span>
+                                    <span class="font-bold text-amber-300">${unitsNeeded} ${isRail ? (unitsNeeded === 1 ? 'vagón' : 'vagones') : (trucksNeeded === 1 ? 'vehículo' : 'vehículos')} (${isRail ? 'cap. ~50 t c/u' : 'cap. 24 t / 13.6 LDM c/u'})</span>
                                 </li>
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">Metros Lineales (LDM):</span>
@@ -52640,46 +52691,48 @@ Example:
                                 </li>
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">Capacidad Máxima / MMA:</span>
-                                    <span class="font-bold text-white">40.000 kg MMA (24 t carga útil por camión)</span>
+                                    <span class="font-bold text-white">${isRail ? `${unitsNeeded * 50}.000 kg MMA (~50 t carga útil por vagón)` : '40.000 kg MMA (24 t carga útil por camión)'}</span>
                                 </li>
+                                ${isRail ? '' : `
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">Consumo Homologado:</span>
                                     <span class="font-bold text-white">${trailerConsumption.toFixed(1)} L / 100 km</span>
                                 </li>
+                                `}
                                 <li class="flex justify-between">
-                                    <span class="text-slate-400">Precio Diésel Local:</span>
-                                    <span class="font-bold text-amber-300">${dieselPrice.toFixed(3)} € / L</span>
+                                    <span class="text-slate-400">${isRail ? 'Precio Combustible / Energía:' : 'Precio Diésel Local:'}</span>
+                                    <span class="font-bold text-amber-300">${isRail ? 'Tarifa Tracción / Vía' : `${dieselPrice.toFixed(3)} € / L`}</span>
                                 </li>
                                 <li class="flex justify-between">
-                                    <span class="text-slate-400">Clasificación ADR:</span>
-                                    <span class="font-bold ${State.isAdr ? 'text-rose-400' : 'text-slate-300'}">${State.isAdr ? 'SÍ (Mercancía Peligrosa)' : 'NO (Carga General)'}</span>
+                                    <span class="text-slate-400">Clasificación ADR / RID:</span>
+                                    <span class="font-bold ${State.isAdr ? 'text-rose-400' : 'text-slate-300'}">${State.isAdr ? 'SÍ (Mercancía Peligrosa)' : (isRail ? 'NO (Carga General RID)' : 'NO (Carga General)')}</span>
                                 </li>
                             </ul>
                         </div>
                         <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
                             <h5 class="font-bold text-indigo-400 uppercase mb-2 border-b border-slate-700/50 pb-1 flex items-center gap-1.5">
-                                <i class="fa-solid fa-route"></i> Ruta e Itinerario Terrestre
+                                <i class="fa-solid fa-route"></i> ${isRail ? 'Corredor e Itinerario Ferroviario' : 'Ruta e Itinerario Terrestre'}
                             </h5>
                             <ul class="space-y-1.5">
                                 <li class="flex justify-between">
-                                    <span class="text-slate-400">Origen (Carga):</span>
-                                    <span class="font-bold text-white">${State.pol || "Madrid"}</span>
+                                    <span class="text-slate-400">${isRail ? 'Terminal Origen (Carga):' : 'Origen (Carga):'}</span>
+                                    <span class="font-bold text-white">${originStr || "Madrid"}</span>
                                 </li>
                                 <li class="flex justify-between">
-                                    <span class="text-slate-400">Destino (Descarga):</span>
-                                    <span class="font-bold text-white">${State.pod || "París"}</span>
+                                    <span class="text-slate-400">${isRail ? 'Terminal Destino (Descarga):' : 'Destino (Descarga):'}</span>
+                                    <span class="font-bold text-white">${destStr || "París"}</span>
                                 </li>
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">Distancia Total:</span>
-                                    <span class="font-bold text-white">${totalKm.toLocaleString('es-ES')} km</span>
+                                    <span class="font-bold text-white">${distanceDisplay}</span>
                                 </li>
                                 <li class="flex justify-between">
-                                    <span class="text-slate-400">Horas de Conducción (OSRM):</span>
+                                    <span class="text-slate-400">${isRail ? 'Tiempo Estimado de Vía:' : 'Horas de Conducción (OSRM):'}</span>
                                     <span class="font-bold text-indigo-300">~${Math.floor(tiempoConduccion)}h ${Math.round((tiempoConduccion % 1) * 60)}m (${tiempoConduccion.toFixed(1)} h)</span>
                                 </li>
                                 <li class="flex justify-between">
-                                    <span class="text-slate-400">Descansos Tacógrafo (CE 561/2006):</span>
-                                    <span class="font-bold text-indigo-300">${pernoctas} ${pernoctas === 1 ? 'pernocta' : 'pernoctas'} (11h) + ${Math.floor(tiempoConduccion / 4.5)} pausas (45m)</span>
+                                    <span class="text-slate-400">${isRail ? 'Régimen de Operativa:' : 'Descansos Tacógrafo (CE 561/2006):'}</span>
+                                    <span class="font-bold text-indigo-300">${isRail ? 'Operación de convoy continuo por relevos. Sin restricciones de tacógrafo vial.' : `${pernoctas} ${pernoctas === 1 ? 'pernocta' : 'pernoctas'} (11h) + ${Math.floor(tiempoConduccion / 4.5)} pausas (45m)`}</span>
                                 </li>
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">Tiempo Total de Ruta:</span>
@@ -52693,9 +52746,18 @@ Example:
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
                             <h5 class="font-bold text-amber-400 uppercase mb-2 border-b border-slate-700/50 pb-1 flex items-center gap-1.5">
-                                <i class="fa-solid fa-coins"></i> Lado Transportista: Estructura de Costes ${trucksNeeded > 1 ? (isRailExec ? `(${trucksNeeded} vagones)` : `(${trucksNeeded} camiones)`) : ''}
+                                <i class="fa-solid fa-coins"></i> ${isRail ? 'Estructura de Costes Ferroviarios' : 'Lado Transportista: Estructura de Costes'} ${unitsNeeded > 1 ? (isRail ? `(${unitsNeeded} vagones)` : `(${trucksNeeded} camiones)`) : ''}
                             </h5>
                             <ul class="space-y-1.5">
+                                ${isRail ? `
+                                <li class="flex justify-between font-bold">
+                                    <span class="text-slate-300">Tracción Ferroviaria (Linehaul Convoy):</span>
+                                    <span class="text-white">${totalTripCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+                                </li>
+                                <li class="flex justify-between pl-3 text-[11px] text-slate-400">
+                                    <span>Tracción Convoy: ${distanceDisplay} · Tarifa 0,04 €/t-km · ${cargoTon.toLocaleString('es-ES')} t = ${totalTripCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+                                </li>
+                                ` : `
                                 <li class="flex justify-between font-bold">
                                     <span class="text-slate-300">Coste Unitario por Porte:</span>
                                     <span class="text-white">${unitaryTripCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
@@ -52719,13 +52781,14 @@ Example:
                                     <span class="text-amber-400">Gastos Operativos Unitarios:</span>
                                     <span class="text-amber-300">${totalOperatingExpenses.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
                                 </li>
+                                `}
                                 <li class="flex justify-between pt-1 border-t border-slate-700 font-bold text-sm">
-                                    <span class="text-red-400">Coste Total Transportista (${trucksNeeded} cam.):</span>
+                                    <span class="text-red-400">${isRail ? 'Coste Total Tracción (Convoy):' : `Coste Total Transportista (${trucksNeeded} cam.):`}</span>
                                     <span class="text-red-300 font-mono">${totalTripCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
                                 </li>
                                 <li class="flex justify-between text-[11px] text-slate-400">
-                                    <span>Coste por Kilómetro Flota:</span>
-                                    <span class="font-mono text-amber-300">${costPerKm.toFixed(2)} € / km</span>
+                                    <span>${isRail ? (isImperial ? 'Coste por Milla (Convoy):' : 'Coste por Kilómetro (Convoy):') : (isImperial ? 'Coste por Milla Flota:' : 'Coste por Kilómetro Flota:')}</span>
+                                    <span class="font-mono text-amber-300">${costPerDist.toFixed(2)} € / ${distUnit}</span>
                                 </li>
                             </ul>
                         </div>
@@ -52739,16 +52802,16 @@ Example:
                                     <span class="font-mono font-bold text-emerald-300 text-sm">${grossFreightRevenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
                                 </li>
                                 <li class="flex justify-between text-slate-300">
-                                    <span class="font-bold">Coste por Kilómetro:</span>
-                                    <span class="font-mono font-black text-amber-300 text-sm">${costPerKm.toFixed(2)} € / km</span>
+                                    <span class="font-bold">${isImperial ? 'Coste por Milla:' : 'Coste por Kilómetro:'}</span>
+                                    <span class="font-mono font-black text-amber-300 text-sm">${costPerDist.toFixed(2)} € / ${distUnit}</span>
                                 </li>
                                 <li class="flex justify-between text-slate-300">
                                     <span class="font-bold">Coste por Tonelada:</span>
                                     <span class="font-mono font-black text-sky-300 text-sm">${costPerTon.toFixed(2)} € / t</span>
                                 </li>
                                 <li class="flex justify-between text-slate-300">
-                                    <span>Flete Venta por Kilómetro:</span>
-                                    <span class="font-mono font-bold text-white">${salePricePerKm.toFixed(2)} € / km</span>
+                                    <span>${isImperial ? 'Flete Venta por Milla:' : 'Flete Venta por Kilómetro:'}</span>
+                                    <span class="font-mono font-bold text-white">${salePricePerDist.toFixed(2)} € / ${distUnit}</span>
                                 </li>
                                 <li class="flex justify-between text-slate-300">
                                     <span>Flete Venta por Tonelada:</span>
@@ -52771,7 +52834,7 @@ Example:
                     </div>
 
                     <!-- Auditoría de Riesgo Terrestre (Fronteras, Tacógrafo, ADR) -->
-                    ${renderExecutiveRiskSections()}
+                    ${renderExecutiveRiskSections({ isRail, isUSGeography, origin: originStr, destination: destStr })}
 
                     <!-- Sección de Desglose y Restricciones -->
                     <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
@@ -52821,7 +52884,23 @@ Example:
                                 </div>
                             </details>
 
-                            <!-- 2. Costes de Combustible Diésel -->
+                            <!-- 2. Costes de Combustible y Origen de Precios (Costes de Combustible Diésel / Tracción Ferroviaria) -->
+                            ${isRail ? `
+                            <details class="bg-slate-900/40 p-3 rounded-lg border border-slate-800/80 cursor-pointer group hover:bg-slate-900/60 transition">
+                                <summary class="font-bold text-slate-300 select-none flex justify-between items-center text-xs uppercase tracking-wider">
+                                    <span><i class="fa-solid fa-train text-amber-400 mr-1.5"></i> ${currentLang === 'es' ? 'Costes de Tracción Ferroviaria y Eficiencia de Convoy' : 'Rail Traction Costs & Convoy Efficiency'}</span>
+                                    <i class="fa-solid fa-chevron-down text-slate-500 group-open:rotate-180 transition-transform"></i>
+                                </summary>
+                                <div class="mt-3 text-slate-400 pl-4 border-l-2 border-amber-500/30 space-y-2 text-[11px] leading-relaxed font-mono">
+                                    <p class="font-sans"><strong>Tracción y Consumo Energético Convoy:</strong></p>
+                                    <ul class="list-disc pl-4 space-y-1">
+                                        <li><strong>Fórmula:</strong> Distancia (${distanceDisplay}) × Tarifa (0,04 €/t-km) × Toneladas (${cargoTon.toLocaleString('es-ES')} t)</li>
+                                        <li><strong>Coste Total Tracción:</strong> ${totalTripCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</li>
+                                        <li><strong>Capacidad:</strong> ${unitsNeeded} vagones (~${unitsNeeded * 50} t capacidad útil total)</li>
+                                    </ul>
+                                </div>
+                            </details>
+                            ` : `
                             <details class="bg-slate-900/40 p-3 rounded-lg border border-slate-800/80 cursor-pointer group hover:bg-slate-900/60 transition">
                                 <summary class="font-bold text-slate-300 select-none flex justify-between items-center text-xs uppercase tracking-wider">
                                     <span><i class="fa-solid fa-gas-pump text-amber-400 mr-1.5"></i> ${currentLang === 'es' ? 'Costes de Combustible Diésel y Consumo' : 'Diesel Fuel Costs & Consumption'}</span>
@@ -52838,8 +52917,25 @@ Example:
                                     </ul>
                                 </div>
                             </details>
+                            `}
 
                             <!-- 3. Gastos Operativos Terrestres (Peajes + Dietas + Coste de Ruta) -->
+                            ${isRail ? `
+                            <details class="bg-slate-900/40 p-3 rounded-lg border border-slate-800/80 cursor-pointer group hover:bg-slate-900/60 transition">
+                                <summary class="font-bold text-slate-300 select-none flex justify-between items-center text-xs uppercase tracking-wider">
+                                    <span><i class="fa-solid fa-train text-sky-400 mr-1.5"></i> ${currentLang === 'es' ? 'Operaciones Ferroviarias de Corredor' : 'Rail Corridor Operations'}</span>
+                                    <i class="fa-solid fa-chevron-down text-slate-500 group-open:rotate-180 transition-transform"></i>
+                                </summary>
+                                <div class="mt-3 text-slate-400 pl-4 border-l-2 border-sky-500/30 space-y-2 text-[11px] leading-relaxed font-mono">
+                                    <p class="font-sans"><strong>Operaciones de Convoy Ferroviario:</strong></p>
+                                    <ul class="list-disc pl-4 space-y-1">
+                                        <li><strong>Peajes de Autopista:</strong> Exento (Operación por red ferroviaria dedicada).</li>
+                                        <li><strong>Dietas Chófer Vial:</strong> Exento (Relevos de maquinistas incluidos en tarifa de tracción).</li>
+                                        <li class="font-bold text-amber-300"><strong>Coste Total Tracción (Convoy):</strong> ${totalTripCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</li>
+                                    </ul>
+                                </div>
+                            </details>
+                            ` : `
                             <details class="bg-slate-900/40 p-3 rounded-lg border border-slate-800/80 cursor-pointer group hover:bg-slate-900/60 transition">
                                 <summary class="font-bold text-slate-300 select-none flex justify-between items-center text-xs uppercase tracking-wider">
                                     <span><i class="fa-solid fa-road text-sky-400 mr-1.5"></i> ${currentLang === 'es' ? 'Gastos Operativos (Peajes + Dietas + Tacógrafo)' : 'Operating Expenses (Tolls + Per Diems + Tachograph)'}</span>
@@ -52855,8 +52951,25 @@ Example:
                                     </ul>
                                 </div>
                             </details>
+                            `}
 
                             <!-- 4. Normativa Tacógrafo y Tiempos de Conducción -->
+                            ${isRail ? `
+                            <details class="bg-slate-900/40 p-3 rounded-lg border border-slate-800/80 cursor-pointer group hover:bg-slate-900/60 transition" open>
+                                <summary class="font-bold text-slate-300 select-none flex justify-between items-center text-xs uppercase tracking-wider">
+                                    <span><i class="fa-solid fa-train text-indigo-400 mr-1.5"></i> ${currentLang === 'es' ? 'Régimen de Operativa y Tránsito Ferroviario' : 'Rail Operations Regime & Transit Times'}</span>
+                                    <i class="fa-solid fa-chevron-down text-slate-500 group-open:rotate-180 transition-transform"></i>
+                                </summary>
+                                <div class="mt-3 text-slate-400 pl-4 border-l-2 border-indigo-500/30 space-y-2 text-[11px] leading-relaxed font-mono">
+                                    <p class="font-sans"><strong>Operativa de Tránsito Ferroviario:</strong></p>
+                                    <ul class="list-disc pl-4 space-y-1">
+                                        <li><strong>Régimen Operativo:</strong> Operación de convoy continuo por relevos. Sin restricciones de tacógrafo vial.</li>
+                                        <li><strong>Tiempo Estimado de Tránsito:</strong> ~${Math.round(tiempoTotalHoras)} h (${tiempoTotal.toFixed(1)} días)</li>
+                                        <li><strong>Gestión de Corredor:</strong> Tránsito ferroviario prioritario continuo sin paradas obligatorias de tacógrafo vial.</li>
+                                    </ul>
+                                </div>
+                            </details>
+                            ` : `
                             <details class="bg-slate-900/40 p-3 rounded-lg border border-slate-800/80 cursor-pointer group hover:bg-slate-900/60 transition" open>
                                 <summary class="font-bold text-slate-300 select-none flex justify-between items-center text-xs uppercase tracking-wider">
                                     <span><i class="fa-solid fa-clock text-indigo-400 mr-1.5"></i> ${currentLang === 'es' ? 'Normativa Tacógrafo y Tiempos de Conducción (CE 561/2006)' : 'Tachograph Regulation & Driving Hours'}</span>
@@ -52872,6 +52985,7 @@ Example:
                                     </ul>
                                 </div>
                             </details>
+                            `}
                         </div>
                     </div>
 
@@ -52901,8 +53015,14 @@ Example:
             const content = document.getElementById('ai-modal-content');
             if (!content) return;
 
+            const isRail = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL')
+                || (typeof State !== 'undefined' && State?.globalTransportMode === 'RAIL')
+                || (typeof State !== 'undefined' && State?.isRail === true);
+
             const ref = (typeof getSafeActiveContractRef === 'function' ? getSafeActiveContractRef() : '') || 'estimacion';
-            const filename = `Land_Charter_Reporte_Ejecutivo_${ref}_${new Date().toISOString().slice(0, 10)}.pdf`;
+            const filename = isRail
+                ? `Land_Charter_Reporte_Ejecutivo_Ferroviario_${ref}_${new Date().toISOString().slice(0, 10)}.pdf`
+                : `Land_Charter_Reporte_Ejecutivo_${ref}_${new Date().toISOString().slice(0, 10)}.pdf`;
 
             if (typeof html2pdf === 'function') {
                 const opt = {
@@ -52913,12 +53033,12 @@ Example:
                     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
                 };
                 if (typeof showToast === 'function') {
-                    showToast('Generando PDF del Reporte Ejecutivo...', false, 'info');
+                    showToast(isRail ? 'Generando PDF del Reporte Ejecutivo Ferroviario...' : 'Generando PDF del Reporte Ejecutivo...', false, 'info');
                 }
                 try {
                     await html2pdf().set(opt).from(content).save();
                     if (typeof showToast === 'function') {
-                        showToast('Reporte Ejecutivo exportado a PDF correctamente.', false, 'success');
+                        showToast(isRail ? 'Reporte Ejecutivo Ferroviario exportado a PDF correctamente.' : 'Reporte Ejecutivo exportado a PDF correctamente.', false, 'success');
                     }
                     return;
                 } catch (e) {
@@ -68639,6 +68759,11 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             const totalKm = Number(State.totalKilometers) || (Number(State.distBallast || 0) + Number(State.distLaden || 0)) || (Number(document.getElementById('dist-total')?.value) || 0);
             const drivingHours = Number(State.drivingHours) || (totalKm > 0 ? totalKm / 75 : 0);
 
+            const isRail = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL')
+                || (typeof State !== 'undefined' && State?.globalTransportMode === 'RAIL')
+                || (typeof State !== 'undefined' && State?.isRail === true)
+                || Boolean(State?.vehicleType && /(tren|tolva|ferroviario|rail)/i.test(State.vehicleType));
+
             const roadRisk = (typeof evaluator === 'function') ? evaluator({
                 pol: State.pol || document.getElementById('port-pol')?.value,
                 pod: State.pod || document.getElementById('port-pod')?.value,
@@ -68650,7 +68775,9 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 cargoProduct: State.cargoProduct,
                 isAdr: State.isAdr || State.isDangerousGoods,
                 isDangerousGoods: State.isDangerousGoods,
-                adrClass: State.adrClass
+                adrClass: State.adrClass,
+                isRail,
+                globalTransportMode: isRail ? 'RAIL' : 'ROAD'
             }) : {
                 hasBorderRisk: false,
                 hasTachographRisk: drivingHours > 9,
@@ -68673,58 +68800,118 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             };
         }
 
-        function renderExecutiveRiskSections() {
+        function renderExecutiveRiskSections(options = {}) {
             const data = getLatestExecutiveRiskReportData();
             const roadRisk = data.roadRisk;
 
-            const borderBadgeClass = roadRisk.hasBorderRisk ? 'text-amber-300 bg-amber-950/40 border-amber-500/50' : 'text-emerald-300 bg-emerald-950/40 border-emerald-500/50';
-            const tacoBadgeClass = roadRisk.hasTachographRisk ? 'text-amber-300 bg-amber-950/40 border-amber-500/50' : 'text-emerald-300 bg-emerald-950/40 border-emerald-500/50';
+            const isRail = typeof options.isRail === 'boolean'
+                ? options.isRail
+                : Boolean(
+                    (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL')
+                    || (typeof State !== 'undefined' && State?.globalTransportMode === 'RAIL')
+                    || (typeof State !== 'undefined' && State?.isRail === true)
+                    || (typeof window !== 'undefined' && (window.State?.vehicleType?.toLowerCase().includes('tren') || window.State?.vehicleType?.toLowerCase().includes('tolva') || window.State?.vehicleType?.toLowerCase().includes('ferroviario') || window.State?.vehicleType?.toLowerCase().includes('rail')))
+                );
+
+            const originStr = String(options.origin || State.pol || (typeof document !== 'undefined' && document.getElementById('port-pol')?.value) || (typeof window !== 'undefined' && window.LandData?.origin) || '');
+            const destStr = String(options.destination || State.pod || (typeof document !== 'undefined' && document.getElementById('port-pod')?.value) || (typeof window !== 'undefined' && window.LandData?.destination) || '');
+            const fullRouteGeo = `${originStr} ${destStr}`;
+            const isUSGeography = typeof options.isUSGeography === 'boolean'
+                ? options.isUSGeography
+                : /(United States|USA|Estados Unidos)/i.test(fullRouteGeo);
+
+            // 1. Configuración dinámica Riesgo Fronterizo
+            let borderTitle = 'Riesgo Fronterizo';
+            let borderBadgeText = '';
+            let borderBadgeClass = '';
+            let borderDescriptionHTML = '';
+
+            if (isRail) {
+                if (isUSGeography) {
+                    borderBadgeText = 'DOMÉSTICO US';
+                    borderBadgeClass = 'text-emerald-300 bg-emerald-950/40 border-emerald-500/50';
+                    borderDescriptionHTML = '<strong class="text-emerald-400">Corredor Ferroviario US (Doméstico):</strong> Tránsito interestatal libre de aduanas.';
+                } else {
+                    borderBadgeText = 'INTEROPERABILIDAD EU';
+                    borderBadgeClass = 'text-amber-300 bg-amber-950/40 border-amber-500/50';
+                    borderDescriptionHTML = '<strong class="text-amber-300">Corredor Ferroviario EU/Internacional:</strong> Sujeto a normativas de interoperabilidad (ancho de vía, señalización ERTMS) y controles aduaneros según pasos fronterizos.';
+                }
+            } else {
+                borderBadgeText = roadRisk.hasBorderRisk ? 'ALERTA ADUANERA' : 'LIBRE TRÁNSITO';
+                borderBadgeClass = roadRisk.hasBorderRisk ? 'text-amber-300 bg-amber-950/40 border-amber-500/50' : 'text-emerald-300 bg-emerald-950/40 border-emerald-500/50';
+                borderDescriptionHTML = roadRisk.hasBorderRisk
+                    ? '<strong class="text-amber-300">Posibles demoras aduaneras:</strong> La ruta cruza fronteras internacionales o zonas aduaneras especiales fuera del espacio Schengen/UE. Prever inspección documental, tránsitos T1/T2 y tiempos de espera en aduana.'
+                    : '<strong class="text-emerald-400">Tránsito Schengen/UE normal:</strong> Sin controles aduaneros en frontera ni demoras de despacho documental.';
+            }
+
+            // 2. Configuración dinámica Riesgo Tacógrafo
+            let tacoTitle = isRail ? 'Régimen de Conducción' : 'Riesgo Tacógrafo';
+            let tacoBadgeText = '';
+            let tacoBadgeClass = '';
+            let tacoDescriptionHTML = '';
+
+            if (isRail) {
+                tacoBadgeText = 'RELEVOS CONTINUOS';
+                tacoBadgeClass = 'text-emerald-300 bg-emerald-950/40 border-emerald-500/50';
+                tacoDescriptionHTML = '<strong class="text-emerald-400">Operación de convoy continuo por relevos. Sin restricciones de tacógrafo vial.</strong>';
+            } else {
+                tacoBadgeText = roadRisk.hasTachographRisk ? '2 CONDUCTORES / PERNOCTA' : '1 CONDUCTOR OK';
+                tacoBadgeClass = roadRisk.hasTachographRisk ? 'text-amber-300 bg-amber-950/40 border-amber-500/50' : 'text-emerald-300 bg-emerald-950/40 border-emerald-500/50';
+                tacoDescriptionHTML = roadRisk.hasTachographRisk
+                    ? '<strong class="text-amber-300">Ruta requiere 2 conductores o pernocta obligatoria:</strong> El tiempo de conducción estimado supera las 9 horas reglamentarias para un solo chófer (Reglamento CE 561/2006). Se requiere tripulación doble o parada de 11h.'
+                    : '<strong class="text-emerald-400">Dentro de límites legales:</strong> Conducción estimada ≤ 9 horas, apta para un único conductor sin pernocta en ruta.';
+            }
+
+            // 3. Configuración dinámica Riesgo ADR / RID
+            const adrTitle = isRail ? 'Riesgo RID / Mercancías Peligrosas' : 'Riesgo ADR';
+            const adrBadgeText = roadRisk.hasAdrRisk ? (isRail ? 'MERCANCÍA PELIGROSA RID' : 'MERCANCÍA PELIGROSA') : (isRail ? 'NO RID / ESTÁNDAR' : 'NO ADR / ESTÁNDAR');
             const adrBadgeClass = roadRisk.hasAdrRisk ? 'text-red-300 bg-red-950/40 border-red-500/50' : 'text-emerald-300 bg-emerald-950/40 border-emerald-500/50';
+            const adrDescriptionHTML = roadRisk.hasAdrRisk
+                ? (isRail
+                    ? '<strong class="text-rose-300">Transporte bajo régimen RID:</strong> Mercancías peligrosas sujetas a protocolos de seguridad en túneles ferroviarios, apartaderos dedicados y señalización de convoy.'
+                    : '<strong class="text-rose-300">Posibles restricciones en túneles o peajes:</strong> Transporte bajo régimen ADR con restricciones de paso en túneles (categorías B a E), itinerarios RIMP obligatorios y recargos especiales de peaje.')
+                : (isRail
+                    ? '<strong class="text-emerald-400">Carga general estándar:</strong> Sin restricciones RID de túneles ni señalización especial ferroviaria.'
+                    : '<strong class="text-emerald-400">Carga general estándar:</strong> Sin restricciones ADR de túneles, peajes ni señalización de paneles naranja.');
 
             return `
                 <div class="official-print-section grid grid-cols-1 md:grid-cols-3 gap-4">
                     <!-- 1. Riesgo Fronterizo -->
                     <div class="official-print-card bg-slate-800/60 p-4 rounded-xl border border-slate-700">
                         <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-1">
-                            <h5 class="font-bold text-amber-400 uppercase flex items-center gap-1.5 text-xs"><i class="fa-solid fa-passport"></i> Riesgo Fronterizo</h5>
+                            <h5 class="font-bold text-amber-400 uppercase flex items-center gap-1.5 text-xs"><i class="fa-solid fa-passport"></i> ${borderTitle}</h5>
                             <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded border ${borderBadgeClass}">
-                                ${roadRisk.hasBorderRisk ? 'ALERTA ADUANERA' : 'LIBRE TRÁNSITO'}
+                                ${borderBadgeText}
                             </span>
                         </div>
                         <p class="text-slate-300 text-[11px] leading-relaxed mt-2">
-                            ${roadRisk.hasBorderRisk
-                                ? '<strong class="text-amber-300">Posibles demoras aduaneras:</strong> La ruta cruza fronteras internacionales o zonas aduaneras especiales fuera del espacio Schengen/UE. Prever inspección documental, tránsitos T1/T2 y tiempos de espera en aduana.'
-                                : '<strong class="text-emerald-400">Tránsito Schengen/UE normal:</strong> Sin controles aduaneros en frontera ni demoras de despacho documental.'}
+                            ${borderDescriptionHTML}
                         </p>
                     </div>
 
                     <!-- 2. Riesgo Tacógrafo -->
                     <div class="official-print-card bg-slate-800/60 p-4 rounded-xl border border-slate-700">
                         <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-1">
-                            <h5 class="font-bold text-indigo-400 uppercase flex items-center gap-1.5 text-xs"><i class="fa-solid fa-clock-rotate-left"></i> Riesgo Tacógrafo</h5>
+                            <h5 class="font-bold text-indigo-400 uppercase flex items-center gap-1.5 text-xs"><i class="fa-solid fa-clock-rotate-left"></i> ${tacoTitle}</h5>
                             <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded border ${tacoBadgeClass}">
-                                ${roadRisk.hasTachographRisk ? '2 CONDUCTORES / PERNOCTA' : '1 CONDUCTOR OK'}
+                                ${tacoBadgeText}
                             </span>
                         </div>
                         <p class="text-slate-300 text-[11px] leading-relaxed mt-2">
-                            ${roadRisk.hasTachographRisk
-                                ? '<strong class="text-amber-300">Ruta requiere 2 conductores o pernocta obligatoria:</strong> El tiempo de conducción estimado supera las 9 horas reglamentarias para un solo chófer (Reglamento CE 561/2006). Se requiere tripulación doble o parada de 11h.'
-                                : '<strong class="text-emerald-400">Dentro de límites legales:</strong> Conducción estimada ≤ 9 horas, apta para un único conductor sin pernocta en ruta.'}
+                            ${tacoDescriptionHTML}
                         </p>
                     </div>
 
                     <!-- 3. Riesgo ADR -->
                     <div class="official-print-card bg-slate-800/60 p-4 rounded-xl border border-slate-700">
                         <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-1">
-                            <h5 class="font-bold text-rose-400 uppercase flex items-center gap-1.5 text-xs"><i class="fa-solid fa-triangle-exclamation"></i> Riesgo ADR</h5>
+                            <h5 class="font-bold text-rose-400 uppercase flex items-center gap-1.5 text-xs"><i class="fa-solid fa-triangle-exclamation"></i> ${adrTitle}</h5>
                             <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded border ${adrBadgeClass}">
-                                ${roadRisk.hasAdrRisk ? 'MERCANCÍA PELIGROSA' : 'NO ADR / ESTÁNDAR'}
+                                ${adrBadgeText}
                             </span>
                         </div>
                         <p class="text-slate-300 text-[11px] leading-relaxed mt-2">
-                            ${roadRisk.hasAdrRisk
-                                ? '<strong class="text-rose-300">Posibles restricciones en túneles o peajes:</strong> Transporte bajo régimen ADR con restricciones de paso en túneles (categorías B a E), itinerarios RIMP obligatorios y recargos especiales de peaje.'
-                                : '<strong class="text-emerald-400">Carga general estándar:</strong> Sin restricciones ADR de túneles, peajes ni señalización de paneles naranja.'}
+                            ${adrDescriptionHTML}
                         </p>
                     </div>
                 </div>
@@ -68737,8 +68924,11 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
             if (!printView || !content) return;
             const original = printView.innerHTML;
             const originalTitle = document.title;
+            const isRail = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL')
+                || (typeof State !== 'undefined' && State?.globalTransportMode === 'RAIL')
+                || (typeof State !== 'undefined' && State?.isRail === true);
             printView.innerHTML = `<div class="screen-report-print official-print-document">${content}</div>`;
-            document.title = 'Land Charter Core PRO - Reporte Ejecutivo';
+            document.title = isRail ? 'Land Charter Core PRO - REPORTE EJECUTIVO DE TRANSPORTE FERROVIARIO' : 'Land Charter Core PRO - Reporte Ejecutivo';
             document.body.classList.add('print-report-mode');
             setTimeout(() => {
                 window.print();
@@ -68749,6 +68939,10 @@ Compara el documento suministrado (que puede ser un contrato, carta de crédito 
                 }, 800);
             }, 100);
         }
+
+        window.getLatestExecutiveRiskReportData = getLatestExecutiveRiskReportData;
+        window.renderExecutiveRiskSections = renderExecutiveRiskSections;
+        window.printExecutiveScreenReport = printExecutiveScreenReport;
 
         function generateCoaExecutiveReportVisual() {
             if (typeof runEngine === 'function') runEngine();
