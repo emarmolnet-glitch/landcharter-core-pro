@@ -97,9 +97,29 @@ function normalizeStr(val) {
  * - Si contiene VRAC, GRANEL o BULK -> 'Graneles Sólidos / Minerales' y CEM II 42,5 VRAC
  */
 export function mapCargoCategoryAndType(rawText = '', currentCategory = '', currentType = '') {
+  const norm = normalizeStr(rawText);
+  let category = currentCategory || 'Carga General';
+  let type = currentType || rawText || 'Mercancía General';
+  const isBulk = norm.includes('vrac') || norm.includes('granel') || norm.includes('bulk');
+  const isUnitized = norm.includes('bigbag') || norm.includes('sac') || norm.includes('fardilise') || norm.includes('tavcim') || norm.includes('paletizada') || norm.includes('palet') || norm.includes('envasad') || norm.includes('yeso');
+  if (isBulk) {
+    category = 'Graneles Sólidos / Minerales';
+    type = 'CEM II 42,5 VRAC';
+  } else if (isUnitized) {
+    category = 'Carga Unitizada / Envasada';
+    if (norm.includes('tavcim')) {
+      type = 'CEM II 42,5N/R FARDILLISE TAVCIM';
+    } else if (norm.includes('fardi')) {
+      type = 'CEM II 42,5N/R FARDILISE';
+    } else if (norm.includes('52.5') && (norm.includes('50kg') || norm.includes('sac'))) {
+      type = 'CEM II 52.5N/R 50KG';
+    } else {
+      type = 'CEM I 52,5N BIGBAG';
+    }
+  }
   return {
-    category: currentCategory || 'Carga General',
-    type: currentType || rawText || 'Mercancía General',
+    category,
+    type,
     shipping_mode_supported: 'Tráiler Lona (13.6m)'
   };
 }
@@ -1967,6 +1987,7 @@ function ForwarderWorkspaceInner(props = {}) {
   const [cbamCompetitorFactor, setCbamCompetitorFactor] = useState('');
 
   const [showExecutiveReport, setShowExecutiveReport] = useState(false);
+  const [executiveReportViewMode, setExecutiveReportViewMode] = useState(typeof window !== 'undefined' ? (window.executiveReportViewMode || 'internal') : 'internal');
   const [reportData, setReportData] = useState(null);
   const [activeReport, setActiveReport] = useState(null);
   const [isAnalyzingFile, setIsAnalyzingFile] = useState(false);
@@ -3242,16 +3263,60 @@ function ForwarderWorkspaceInner(props = {}) {
           ? `${servicePrefix} (${requiredTrucks} ${vehicleCountLabel}: ${syncOriginCity} ➔ ${syncDestCity})`
           : ("Flete Terrestre (" + requiredTrucks + " Camiones: " + syncOriginCity + " ➔ " + syncDestCity + ")");
 
+        const purifiedRailDistSync = isRail
+          ? Number(
+              (typeof window !== 'undefined' && (window.railPurifiedDistanceKm || window.railProxyDistanceKm || window.State?.railPurifiedDistanceKm || window.State?.railProxyDistanceKm)) ||
+              effDistSync ||
+              0
+            )
+          : effDistSync;
+        const finalSyncDist = isRail && purifiedRailDistSync > 0 ? purifiedRailDistSync : effDistSync;
+        const syncTollCost = isRail ? 0 : Number(withSrvs?.tollCost || tollCost || 0);
+        const syncDriverDiets = isRail ? 0 : Number(withSrvs?.driverDiets || driverDiets || 0);
+        const currentSyncMode = isRail ? 'RAIL' : 'ROAD';
+
+        withSrvs.globalTransportMode = currentSyncMode;
+        withSrvs.isRail = isRail;
+        withSrvs.is_rail = isRail;
+        withSrvs.transportMode = currentSyncMode;
+        withSrvs.land_distance = finalSyncDist;
+        withSrvs.land_route = {
+          origin: syncOriginCity,
+          destination: syncDestCity,
+          distance_km: finalSyncDist,
+        };
+        if (isRail) {
+          withSrvs.traction_cost = costeTrenSync;
+          withSrvs.costeTren = costeTrenSync;
+          withSrvs.costeTrenConsolidado = costeTrenSync;
+          withSrvs.tollCost = 0;
+          withSrvs.driverDiets = 0;
+          withSrvs.peajes = 0;
+          withSrvs.dietas = 0;
+        }
+
         const dataBridgePayloadObject = {
           reference: activeProject?.project_ref || withSrvs?.project_ref || ref,
           project_ref: activeProject?.project_ref || withSrvs?.project_ref || ref,
           id: activeProject?.id || withSrvs?.id,
+          globalTransportMode: currentSyncMode,
+          isRail: isRail,
+          is_rail: isRail,
+          transportMode: currentSyncMode,
           total_trucks: requiredTrucks,
+          total_wagons: isRail ? requiredTrucks : undefined,
           land_origin: syncOriginCity,
           land_destination: syncDestCity,
-          land_distance: sDist || effectiveLandDist,
+          land_distance: finalSyncDist,
           land_freight_cost: totalCost,
           land_freight_sale: totalSale,
+          traction_cost: isRail ? costeTrenSync : undefined,
+          costeTren: isRail ? costeTrenSync : undefined,
+          costeTrenConsolidado: isRail ? costeTrenSync : undefined,
+          tollCost: syncTollCost,
+          driverDiets: syncDriverDiets,
+          peajes: syncTollCost,
+          dietas: syncDriverDiets,
           valor_total_mercancia_usd: 0,
           freight_cost: totalCost,
           services: [{
@@ -3261,14 +3326,20 @@ function ForwarderWorkspaceInner(props = {}) {
              cost: totalCost,
              sale: totalSale,
              cost_eur: totalCost,
-             sale_price_eur: totalSale
+             sale_price_eur: totalSale,
+             isRail: isRail,
+             globalTransportMode: currentSyncMode,
+             traction_cost: isRail ? costeTrenSync : undefined,
           }],
           line_items: [{
              id: 'srv-auto-sync',
              name: syncServiceName,
              description: syncServiceName,
              cost_eur: totalCost,
-             sale_price_eur: totalSale
+             sale_price_eur: totalSale,
+             isRail: isRail,
+             globalTransportMode: currentSyncMode,
+             traction_cost: isRail ? costeTrenSync : undefined,
           }],
           items: finalCargoItems,
           cargo_items: finalCargoItems,
@@ -3277,7 +3348,7 @@ function ForwarderWorkspaceInner(props = {}) {
           land_route: {
             origin: syncOriginCity,
             destination: syncDestCity,
-            distance_km: sDist || effectiveLandDist,
+            distance_km: finalSyncDist,
           },
         };
 
@@ -3421,10 +3492,10 @@ function ForwarderWorkspaceInner(props = {}) {
         let currentEffectiveItems = mappedItems;
 
         // Si el proyecto viene de una cotización rápida (ej. 10.000t de Cemento), sincronizar volumen global / input de toneladas
-        const quickTonnage = parseSafeNumber(activeProject.cargoQuantity || activeProject.cargo_quantity || activeProject.toneladas || activeProject.tonnes || activeProject.cargo || (typeof window !== 'undefined' ? window.State?.cargo : 0) || 0);
+        const quickTonnage = parseSafeNumber(activeProject.cargoQuantity || activeProject.cargo_quantity || activeProject.toneladas || activeProject.tonnes || activeProject.cargo || 0);
         if (quickTonnage > 0) {
           if (hydratedItems.length === 0) {
-            const quickProduct = activeProject.cargoType || activeProject.cargo_type || activeProject.product || (typeof window !== 'undefined' ? window.State?.cargoProduct : '') || 'CEM I 52,5N BIGBAG';
+            const quickProduct = activeProject.cargoType || activeProject.cargo_type || activeProject.product || 'CEM I 52,5N BIGBAG';
             const mapped = mapCargoCategoryAndType(quickProduct, activeProject.cargoCategory || activeProject.cargo_category || '', quickProduct);
             const quickItem = buildQuickTonnageCargoItem(quickTonnage, quickProduct, activeProject.cargoCategory || activeProject.cargo_category || '');
             currentEffectiveItems = [quickItem];
@@ -3542,6 +3613,10 @@ function ForwarderWorkspaceInner(props = {}) {
         ? (typeof activeProject.land_freight_sale === 'number' ? activeProject.land_freight_sale.toFixed(2) : String(activeProject.land_freight_sale))
         : (activeProject.targetSalePrice || activeProject.sale || (totalServicesSale > 0 ? totalServicesSale.toFixed(2) : 0));
       
+      const isNewBlankProject = (!activeProject.services || activeProject.services.length === 0) &&
+        (!activeProject.line_items || activeProject.line_items.length === 0) &&
+        !hasNeonCost;
+
       // BLINDAJE DEL FOOTER: Si el proyecto viene con datos guardados desde Neon se rehidratan; si no, evita sobrescrituras con 0 si ya hay cálculo.
       if (isRailProjHydrate) {
         const railCost = Number(
@@ -3552,9 +3627,15 @@ function ForwarderWorkspaceInner(props = {}) {
           setEstimatedCost(railCost.toFixed(2));
           const railSale = Number(activeProject.land_freight_sale || effectiveSale || (railCost * 1.18));
           setSalePrice(railSale.toFixed(2));
+        } else if (isNewBlankProject) {
+          setEstimatedCost('');
+          setSalePrice('');
         }
       } else if (hasNeonCost) {
         // setEstimatedCost anulado: Evita usar el Gran Total de la BD como coste unitario base.
+      } else if (isNewBlankProject) {
+        setEstimatedCost('');
+        setSalePrice('');
       } else {
         setEstimatedCost(prev => ((effectiveCost === 0 || effectiveCost === '0.00') && Number(prev) > 0) ? prev : (effectiveCost ? String(effectiveCost) : prev));
       }
@@ -3563,6 +3644,8 @@ function ForwarderWorkspaceInner(props = {}) {
         // ya asignado arriba
       } else if (hasNeonSale) {
         // setSalePrice anulado: Evita usar el Gran Total de la BD como venta unitaria base.
+      } else if (isNewBlankProject) {
+        setSalePrice('');
       } else {
         setSalePrice(prev => ((effectiveSale === 0 || effectiveSale === '0.00') && Number(prev) > 0) ? prev : (effectiveSale ? String(effectiveSale) : prev));
       }
@@ -4097,9 +4180,31 @@ function ForwarderWorkspaceInner(props = {}) {
           ? Number(mercanciaCost)
           : (Number(projectToSave?.valor_total_mercancia_usd) > 0 ? Number(projectToSave.valor_total_mercancia_usd) : 0));
 
-      const payload = {
+        const purifiedRailDistSaveProject = isRail_save
+          ? Number(
+              (typeof window !== 'undefined' && (window.railPurifiedDistanceKm || window.railProxyDistanceKm || window.State?.railPurifiedDistanceKm || window.State?.railProxyDistanceKm)) ||
+              distanceKm ||
+              projectToSave?.land_distance ||
+              activeProject?.land_distance ||
+              0
+            )
+          : distanceKm;
+        const finalDistSaveProject = isRail_save && purifiedRailDistSaveProject > 0 ? purifiedRailDistSaveProject : distanceKm;
+
+        const payload = {
         ...activeProject, // Heredar todo por defecto
         ...(projectToSave || {}),
+        globalTransportMode: isRail_save ? 'RAIL' : 'ROAD',
+        isRail: isRail_save,
+        is_rail: isRail_save,
+        transportMode: isRail_save ? 'RAIL' : 'ROAD',
+        traction_cost: isRail_save ? costeCalculado : undefined,
+        costeTren: isRail_save ? costeCalculado : undefined,
+        costeTrenConsolidado: isRail_save ? costeCalculado : undefined,
+        tollCost: isRail_save ? 0 : (projectToSave?.tollCost || activeProject?.tollCost || 0),
+        driverDiets: isRail_save ? 0 : (projectToSave?.driverDiets || activeProject?.driverDiets || 0),
+        peajes: isRail_save ? 0 : (projectToSave?.peajes || activeProject?.peajes || 0),
+        dietas: isRail_save ? 0 : (projectToSave?.dietas || activeProject?.dietas || 0),
         project_ref: effectiveProjectRef,
         project_title: extractedTitle || projectToSave?.project_title || activeProject?.project_title || null,
         description: extractedTitle || projectToSave?.description || activeProject?.description || null,
@@ -4108,7 +4213,7 @@ function ForwarderWorkspaceInner(props = {}) {
         cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || projectToSave?.cargo_items || []),
         packing_list: activeProject?.packing_list || projectToSave?.packing_list || null,
         // ... (tus campos terrestres actualizados)
-        land_route: { origin: landOrigin, destination: landDestination, distance_km: distanceKm },
+        land_route: { origin: landOrigin, destination: landDestination, distance_km: finalDistSaveProject },
         truck_type: vehicleType || projectToSave?.truck_type || activeProject?.truck_type,
         vehicle_type: vehicleType || projectToSave?.vehicle_type || activeProject?.vehicle_type,
         vehicle_attributes: activeProject?.vehicle_attributes || projectToSave?.vehicle_attributes || null,
@@ -4121,7 +4226,7 @@ function ForwarderWorkspaceInner(props = {}) {
         valor_total_mercancia_usd: Number(estadoDelValorFobCalculado) || Number(valorCalculadoDeItems) || Number(projectToSave.valor_total_mercancia_usd),
         land_origin: pol || origin || projectToSave.land_origin || projectToSave.pol || activeProject?.land_origin || landOrigin || '',
         land_destination: pod || destination || projectToSave.land_destination || projectToSave.pod || activeProject?.land_destination || landDestination || '',
-        land_distance: distanceKm,
+        land_distance: finalDistSaveProject,
         total_trucks: Number(projectToSave?.total_trucks) > 0 ? Number(projectToSave.total_trucks) : (trucksNeeded || activeProject?.total_trucks),
         dss_optimal_cadence: dssOptimalTrucksPerDay,
         campaign_days: campaignDimensioning.plazoCampanaDias,
@@ -4561,6 +4666,12 @@ function ForwarderWorkspaceInner(props = {}) {
         delete window.State.land_destination;
         delete window.State.land_distance;
         delete window.State.distanceKm;
+        delete window.State.distance;
+        delete window.State.totalKilometers;
+        delete window.State.origin;
+        delete window.State.destination;
+        delete window.State.pol;
+        delete window.State.pod;
         delete window.State.cost;
         delete window.State.land_freight_cost;
         delete window.State.land_freight_sale;
@@ -4580,16 +4691,42 @@ function ForwarderWorkspaceInner(props = {}) {
         delete window.State.dietas;
         delete window.State.vehicleType;
         delete window.State.truckType;
+        delete window.State.railProxyDistanceKm;
+        delete window.State.railPurifiedDistanceKm;
+        delete window.State.costeTrenConsolidado;
+        delete window.State.costeTren;
+        delete window.State.coste_tren;
+        delete window.State.traction_cost;
+        delete window.State.camionesReales;
+        delete window.State.trucks_needed;
+        delete window.State.flota;
+        delete window.State.total_wagons;
+        delete window.State.wagons;
+        delete window.State.total_trucks;
+        delete window.State.cargoName;
+        delete window.State.cargoType;
+        delete window.State.cargoProduct;
+        delete window.State.commodity;
+        delete window.State.product;
+        delete window.State.calculatedState;
       }
       if (window.GlobalStore) {
         delete window.GlobalStore.totalTripCost;
         delete window.GlobalStore.totalCosts;
         delete window.GlobalStore.land_freight_cost;
+        delete window.GlobalStore.calculatedState;
       }
       if (window.currentRoute) {
         window.currentRoute = null;
       }
+      delete window.railProxyDistanceKm;
+      delete window.railPurifiedDistanceKm;
+      delete window.LandData;
+      delete window.__ACTIVE_FORWARDER_TOTAL_WEIGHT_TONS__;
     }
+
+    setTotalProjectTons(0);
+    setRequiredTrucksCount(0);
 
     // 7. Limpieza de elementos DOM residuales de inputs globales
     if (typeof document !== 'undefined') {
@@ -4601,6 +4738,12 @@ function ForwarderWorkspaceInner(props = {}) {
       if (badgeEl) badgeEl.innerText = 'Tráiler Tauliner (13.6m)';
       const execEl = document.getElementById('exec-vessel-type');
       if (execEl) execEl.textContent = 'Tráiler Tauliner (13.6m)';
+      const distEl = document.getElementById('dist-total');
+      if (distEl) distEl.value = '';
+      const distLadenEl = document.getElementById('dist-laden');
+      if (distLadenEl) distLadenEl.value = '';
+      const distBallastEl = document.getElementById('dist-ballast');
+      if (distBallastEl) distBallastEl.value = '';
     }
   };
 
@@ -6733,6 +6876,67 @@ function ForwarderWorkspaceInner(props = {}) {
       const data = buildExecutiveReportData(item);
       setActiveReport(data);
       setReportData(data);
+
+      const targetProject = activeProject || {};
+      const targetVehicle = targetProject?.vehicle_type || targetProject?.truck_type || vehicleType || '';
+      const isRailReport = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+        (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
+        transportMode === 'RAIL' ||
+        targetProject?.globalTransportMode === 'RAIL' ||
+        targetProject?.isRail === true ||
+        targetVehicle.toLowerCase().includes('tren') ||
+        targetVehicle.toLowerCase().includes('tolva') ||
+        targetVehicle.toLowerCase().includes('ferrocarril');
+
+      const projOrigin = targetProject?.land_route?.origin || targetProject?.land_origin || landOrigin || '';
+      const projDest = targetProject?.land_route?.destination || targetProject?.land_destination || landDestination || '';
+      const rawDist = Number(targetProject?.land_route?.distance_km || targetProject?.land_distance || distanceKm || 0);
+      const purifiedDist = isRailReport
+        ? Number((typeof window !== 'undefined' && (window.railPurifiedDistanceKm || window.railProxyDistanceKm || window.State?.railPurifiedDistanceKm || window.State?.railProxyDistanceKm)) || rawDist)
+        : rawDist;
+      const effectiveDist = isRailReport && purifiedDist > 0 ? purifiedDist : rawDist;
+
+      const totalTons = Number(data?.totalWeightTons || targetProject?.cargoQuantity || (totals.weight > 0 ? totals.weight / 1000 : 0));
+      const costTotal = Number(data?.finalTotalCost || targetProject?.land_freight_cost || 0);
+      const saleTotal = Number(data?.finalTotalSale || targetProject?.land_freight_sale || (costTotal * 1.18));
+      const marginTotal = saleTotal - costTotal;
+
+      if (typeof window !== 'undefined') {
+        window.State = window.State || {};
+        window.State.origin = projOrigin;
+        window.State.destination = projDest;
+        window.State.pol = projOrigin;
+        window.State.pod = projDest;
+        window.State.land_origin = projOrigin;
+        window.State.land_destination = projDest;
+        window.State.totalKilometers = effectiveDist;
+        window.State.distLaden = effectiveDist;
+        window.State.distBallast = 0;
+        window.State.distanceKm = effectiveDist;
+        window.State.cargo = totalTons;
+        window.State.cargoQuantity = totalTons;
+        window.State.cargoName = targetProject?.cargo_type || targetProject?.commodity || 'Mercancía General';
+        window.State.cargo_category = targetProject?.cargo_category || '';
+        window.State.vehicleType = targetVehicle;
+        window.State.isRail = isRailReport;
+        window.State.globalTransportMode = isRailReport ? 'RAIL' : 'ROAD';
+        window.globalTransportMode = isRailReport ? 'RAIL' : 'ROAD';
+        window.State.costTotal = costTotal;
+        window.State.totalTripCost = costTotal;
+        window.State.land_freight_cost = costTotal;
+        window.State.land_freight_sale = saleTotal;
+        window.State.margin = marginTotal;
+
+        if (typeof document !== 'undefined') {
+          const distEl = document.getElementById('dist-total');
+          if (distEl) distEl.value = effectiveDist;
+        }
+
+        if (typeof window.generateExecutiveReport === 'function') {
+          window.generateExecutiveReport(window.executiveReportViewMode || executiveReportViewMode || 'internal');
+        }
+      }
+
       setShowExecutiveReport(true);
     } catch (err) {
       console.error('Error al generar el reporte ejecutivo:', err);
@@ -6752,9 +6956,9 @@ function ForwarderWorkspaceInner(props = {}) {
       setShippingMode('Lo-Lo'); setVesselType('Geared Breakbulk (Lo-Lo)');
       setStorageDays(0); setSurveyorCost(0); setInlandCost(0); setCustomsCost(0); setInsuranceCost(0);
       userEditedSurveyor.current = false; // setEstimatedCost(''); setSalePrice('');
-      const defaultOrigin = activeProject?.land_route?.origin || activeProject?.land_origin || routeOriginFromProp || (typeof window !== 'undefined' ? (window.currentRoute?.origin || window.State?.currentRoute?.origin || window.State?.land_origin) : '') || '';
-      const defaultDest = activeProject?.land_route?.destination || activeProject?.land_destination || routeDestinationFromProp || (typeof window !== 'undefined' ? (window.currentRoute?.destination || window.State?.currentRoute?.destination || window.State?.land_destination) : '') || '';
-      const defaultDist = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || rawDistFromProp || (typeof window !== 'undefined' ? (window.currentRoute?.distanceKm || window.currentRoute?.distance || window.State?.currentRoute?.distanceKm || window.State?.land_distance) : 0) || 0);
+      const defaultOrigin = activeProject?.land_route?.origin || activeProject?.land_origin || routeOriginFromProp || '';
+      const defaultDest = activeProject?.land_route?.destination || activeProject?.land_destination || routeDestinationFromProp || '';
+      const defaultDist = Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || rawDistFromProp || 0);
       setLandOrigin(defaultOrigin);
       setLandDestination(defaultDest);
       setDistanceKm(defaultDist);
@@ -7112,8 +7316,30 @@ function ForwarderWorkspaceInner(props = {}) {
           return acc + (Number(it.sale_price_eur) || 0);
         }, absoluteLandSale);
 
+        const isRailSave = isRailSaveCargo || isRail_item || transportMode === 'RAIL' ||
+          (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+          (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
+          activeProject?.globalTransportMode === 'RAIL' ||
+          activeProject?.isRail === true;
+        const currentSaveMode = isRailSave ? 'RAIL' : 'ROAD';
+        const purifiedRailDistSave = isRailSave
+          ? Number(
+              (typeof window !== 'undefined' && (window.railPurifiedDistanceKm || window.railProxyDistanceKm || window.State?.railPurifiedDistanceKm || window.State?.railProxyDistanceKm)) ||
+              safeDist ||
+              activeProject?.land_distance ||
+              0
+            )
+          : safeDist;
+        const finalSaveDist = isRailSave && purifiedRailDistSave > 0 ? purifiedRailDistSave : safeDist;
+        const syncTollCostSave = isRailSave ? 0 : Number(tollCost || 0);
+        const syncDriverDietsSave = isRailSave ? 0 : Number(driverDiets || 0);
+
         const updatedProject = {
           ...activeProject,
+          globalTransportMode: currentSaveMode,
+          isRail: isRailSave,
+          is_rail: isRailSave,
+          transportMode: currentSaveMode,
           land_freight_cost: totalServicesCost,
           land_freight_sale: totalServicesSale,
           valor_total_mercancia_usd: merchandiseValueUsd,
@@ -7121,7 +7347,7 @@ function ForwarderWorkspaceInner(props = {}) {
           services: updatedLineItems,
           cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : (activeProject?.cargo_items || activeProject?.line_items?.[0]?.payload_data?.cargo_items || []),
           packing_list: activeProject?.packing_list || null,
-          land_route: { origin: effectiveLandOrigin, destination: effectiveLandDestination, distance_km: safeDist },
+          land_route: { origin: effectiveLandOrigin, destination: effectiveLandDestination, distance_km: finalSaveDist },
           truck_type: vehicleType,
           vehicle_type: vehicleType,
           vehicle_attributes: activeProject?.vehicle_attributes || null,
@@ -7132,7 +7358,14 @@ function ForwarderWorkspaceInner(props = {}) {
           charteringAssessment: charteringAssessment,
           land_origin: effectiveLandOrigin,
           land_destination: effectiveLandDestination,
-          land_distance: safeDist,
+          land_distance: finalSaveDist,
+          traction_cost: isRailSave ? costeTrenConsolidado : undefined,
+          costeTren: isRailSave ? costeTrenConsolidado : undefined,
+          costeTrenConsolidado: isRailSave ? costeTrenConsolidado : undefined,
+          tollCost: syncTollCostSave,
+          driverDiets: syncDriverDietsSave,
+          peajes: syncTollCostSave,
+          dietas: syncDriverDietsSave,
           pol: pol || activeProject?.pol || '',
           pod: pod || activeProject?.pod || '',
           total_trucks: total_trucks,
@@ -7157,11 +7390,26 @@ function ForwarderWorkspaceInner(props = {}) {
               const dataBridgePayloadObject = {
                 reference: activeProject?.project_ref,
                 project_ref: activeProject?.project_ref,
+                globalTransportMode: currentSaveMode,
+                isRail: isRailSave,
+                is_rail: isRailSave,
+                transportMode: currentSaveMode,
                 is_explicit_save: true,
                 allow_insert: true,
                 total_trucks: updatedProject.total_trucks,
+                total_wagons: isRailSave ? updatedProject.total_trucks : undefined,
+                land_origin: effectiveLandOrigin,
+                land_destination: effectiveLandDestination,
+                land_distance: finalSaveDist,
                 land_freight_cost: finalTotalLandCost,
                 land_freight_sale: finalTotalLandSale,
+                traction_cost: isRailSave ? costeTrenConsolidado : undefined,
+                costeTren: isRailSave ? costeTrenConsolidado : undefined,
+                costeTrenConsolidado: isRailSave ? costeTrenConsolidado : undefined,
+                tollCost: syncTollCostSave,
+                driverDiets: syncDriverDietsSave,
+                peajes: syncTollCostSave,
+                dietas: syncDriverDietsSave,
                 valor_total_mercancia_usd: merchandiseValueUsd,
                 freight_cost: finalTotalLandCost,
                 services: updatedLineItems,
@@ -7169,7 +7417,7 @@ function ForwarderWorkspaceInner(props = {}) {
                 items: (cargoItems && cargoItems.length > 0) ? cargoItems : activeProject?.items,
                 cargo_items: (cargoItems && cargoItems.length > 0) ? cargoItems : activeProject?.cargo_items,
                 packing_list: updatedProject.packing_list,
-                land_route: updatedProject.land_route,
+                land_route: { origin: effectiveLandOrigin, destination: effectiveLandDestination, distance_km: finalSaveDist },
               };
 
               const currentPayloadString = JSON.stringify(dataBridgePayloadObject);
@@ -7624,7 +7872,9 @@ function ForwarderWorkspaceInner(props = {}) {
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Ruta Terrestre</span>
+                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                {isRailResumen ? 'Ruta Ferroviaria' : 'Ruta Terrestre'}
+                              </span>
                               {(activeProject?.land_origin || rOrigin) ? (
                                 <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
                                   ✅ OK
@@ -7693,7 +7943,7 @@ function ForwarderWorkspaceInner(props = {}) {
                             <div>
                               <div className="flex items-center justify-between mb-1.5">
                                 <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                                  {isRailResumen ? 'Tipo de Vagón / Convoy' : 'Tipo de Camión'}
+                                  {isRailResumen ? 'Vagones' : 'Camiones'}
                                 </span>
                                 <span className="text-base">{isRailResumen ? '🚂' : '🚛'}</span>
                               </div>
@@ -7709,29 +7959,37 @@ function ForwarderWorkspaceInner(props = {}) {
                         );
                       })()}
 
-                      {/* Tarjeta 4: Metros Lineales (LDM) / Pallets */}
+                      {/* Tarjeta 4: Metros Lineales (LDM) / Pallets vs Toneladas / Granel */}
                       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between">
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Metros Lineales (LDM)</span>
-                            <span className="text-base">📦</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                              {isRailResumen ? 'Toneladas/Granel' : 'Metros Lineales (LDM) / Palets'}
+                            </span>
+                            <span className="text-base">{isRailResumen ? '⚖️' : '📦'}</span>
                           </div>
                           <div className="text-xl font-mono font-black text-slate-900">
-                            {rLdm} <span className="text-xs font-semibold text-slate-500">LDM</span>
+                            {isRailResumen ? (
+                              <>{pWtTons.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} <span className="text-xs font-semibold text-slate-500">t</span></>
+                            ) : (
+                              <>{rLdm} <span className="text-xs font-semibold text-slate-500">LDM</span></>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center justify-between text-[11px] font-medium text-slate-600 mt-3 pt-2 border-t border-slate-100">
-                          <span>{rPalletsEuro} Europalets</span>
-                          <span className="font-mono font-bold text-blue-600">{rLdmPct}%</span>
+                          <span>{isRailResumen ? `${Math.round(pWtTons)} Toneladas de Granel` : `${rPalletsEuro} Europalets`}</span>
+                          <span className="font-mono font-bold text-blue-600">{isRailResumen ? `${Math.ceil((pWtTons * 1000) / 50000)} Vagones` : `${rLdmPct}%`}</span>
                         </div>
                       </div>
 
-                      {/* Tarjeta 5: Coste de Flete Terrestre vs. Venta */}
+                      {/* Tarjeta 5: Coste de Flete Ferroviario / Terrestre vs. Venta */}
                       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-emerald-300 transition-all flex flex-col justify-between">
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Flete Terrestre vs. Venta</span>
+                              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                {isRailResumen ? 'Flete Ferroviario vs. Venta' : 'Flete Terrestre vs. Venta'}
+                              </span>
                               {rSaleEur > 0 ? (
                                 <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
                                   ✅ OK
@@ -7742,7 +8000,7 @@ function ForwarderWorkspaceInner(props = {}) {
                                 </span>
                               )}
                             </div>
-                            <span className="text-base">💶</span>
+                            <span className="text-base">{isRailResumen ? '🚂' : '💶'}</span>
                           </div>
                           <div className="flex items-baseline gap-1 text-slate-900">
                             <span className="text-xl font-mono font-black text-emerald-600">{rSaleEur.toLocaleString('es-ES')} {currencySymbol}</span>
@@ -7839,18 +8097,20 @@ function ForwarderWorkspaceInner(props = {}) {
                 )}
               </div>
 
-              {/* SERVICIOS DE TRANSPORTE TERRESTRE */}
+              {/* SERVICIOS DE TRANSPORTE TERRESTRE O FERROVIARIO */}
               {(activeProject?.line_items?.length > 0 || activeProject?.services?.length > 0) ? (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-base font-bold text-slate-900">Servicios</h3>
+                    <h3 className="text-base font-bold text-slate-900">{isRailResumen ? 'Servicios Ferroviarios' : 'Servicios'}</h3>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
+                        id="btn-generate-executive-report-project"
                         onClick={() => handleOpenExecutiveReport(((activeProject?.line_items?.length > 0 ? activeProject.line_items : activeProject?.services) || [])[0])}
                         className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-xs rounded-lg shadow-xs cursor-pointer flex items-center gap-1.5 transition"
+                        title="Generar Reporte Ejecutivo"
                       >
-                        📄 Reporte Ejecutivo
+                        📄 Generar Reporte Ejecutivo
                       </button>
                       <button onClick={handleOpenCreateService} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-xs cursor-pointer transition">
                         ➕ Añadir Servicio
@@ -7868,27 +8128,38 @@ function ForwarderWorkspaceInner(props = {}) {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-slate-800">
-                        {((activeProject?.line_items?.length > 0 ? activeProject.line_items : activeProject?.services) || []).map((item) => (
-                          <tr key={item?.id || Math.random()} className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
-                            <td className="px-4 py-3 font-semibold">{item?.description || item?.name || 'Servicio'}</td>
-                            <td className="px-4 py-3 text-right text-rose-600 font-bold font-mono">{Number(item?.cost_eur ?? item?.cost ?? 0).toLocaleString('es-ES')} {currencySymbol}</td>
-                            <td className="px-4 py-3 text-right text-emerald-600 font-bold font-mono">{Number(item?.sale_price_eur ?? item?.sale ?? 0).toLocaleString('es-ES')} {currencySymbol}</td>
-                            <td className="px-4 py-3 text-center">
-                              <button type="button" onClick={() => handleOpenExecutiveReport(item)} className="mx-1 cursor-pointer hover:scale-110 transition-transform" title="Generar Reporte Ejecutivo">📄</button>
-                              <button onClick={() => handleEditService(item)} className="mx-1 cursor-pointer" title="Editar">✏️</button>
-                              <button onClick={() => handleDeleteService(item?.id)} className="mx-1 cursor-pointer" title="Eliminar">🗑️</button>
-                            </td>
-                          </tr>
-                        ))}
+                        {((activeProject?.line_items?.length > 0 ? activeProject.line_items : activeProject?.services) || []).map((item) => {
+                          const itemIsRail = isRailResumen || item?.isRail || item?.globalTransportMode === 'RAIL' || String(item?.name || item?.description || '').toLowerCase().includes('ferroviario') || String(item?.name || item?.description || '').toLowerCase().includes('tren');
+                          let displayServiceName = item?.description || item?.name || 'Servicio';
+                          if (itemIsRail) {
+                            displayServiceName = displayServiceName.replace(/flete terrestre/gi, 'Flete Ferroviario').replace(/camiones/gi, 'Vagones').replace(/camión/gi, 'Vagón');
+                          }
+                          return (
+                            <tr key={item?.id || Math.random()} className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                              <td className="px-4 py-3 font-semibold">{displayServiceName}</td>
+                              <td className="px-4 py-3 text-right text-rose-600 font-bold font-mono">{Number(item?.cost_eur ?? item?.cost ?? 0).toLocaleString('es-ES')} {currencySymbol}</td>
+                              <td className="px-4 py-3 text-right text-emerald-600 font-bold font-mono">{Number(item?.sale_price_eur ?? item?.sale ?? 0).toLocaleString('es-ES')} {currencySymbol}</td>
+                              <td className="px-4 py-3 text-center">
+                                <button type="button" onClick={() => handleOpenExecutiveReport(item)} className="mx-1 cursor-pointer hover:scale-110 transition-transform" title="Generar Reporte Ejecutivo">📄</button>
+                                <button onClick={() => handleEditService(item)} className="mx-1 cursor-pointer" title="Editar">✏️</button>
+                                <button onClick={() => handleDeleteService(item?.id)} className="mx-1 cursor-pointer" title="Eliminar">🗑️</button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
                 </div>
               ) : (
                 <div className="border-2 border-dashed border-slate-300 rounded-2xl p-10 flex flex-col items-center bg-white text-center shadow-xs">
-                  <span className="text-3xl block mb-2">🚛</span>
-                  <p className="text-slate-700 font-bold mb-1">No hay servicios logísticos añadidos a este proyecto</p>
-                  <p className="text-xs text-slate-500 mb-4">Configura un servicio de transporte terrestre por carretera para calcular fletes y emitir reportes.</p>
+                  <span className="text-3xl block mb-2">{isRailResumen ? '🚂' : '🚛'}</span>
+                  <p className="text-slate-700 font-bold mb-1">
+                    {isRailResumen ? 'No hay servicios ferroviarios añadidos a este proyecto' : 'No hay servicios logísticos añadidos a este proyecto'}
+                  </p>
+                  <p className="text-xs text-slate-500 mb-4">
+                    {isRailResumen ? 'Configura un servicio de transporte ferroviario por tren para calcular fletes y emitir reportes.' : 'Configura un servicio de transporte terrestre por carretera para calcular fletes y emitir reportes.'}
+                  </p>
                   <button onClick={handleOpenCreateService} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-xs transition cursor-pointer">➕ Añadir Servicio</button>
                 </div>
               )}
@@ -8991,6 +9262,21 @@ function ForwarderWorkspaceInner(props = {}) {
                 ✖ Cerrar
               </button>
               <button
+                id="btn-export-pdf-executive"
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && typeof window.exportExecutiveReportPdf === 'function') {
+                    window.exportExecutiveReportPdf();
+                  } else {
+                    window.print();
+                  }
+                }}
+                className="bg-rose-600 hover:bg-rose-700 text-white px-6 py-3 rounded-full shadow-2xl font-black flex items-center gap-2 border-2 border-white cursor-pointer hover:scale-105 transition-transform"
+                title="Exportar PDF del Reporte Ejecutivo"
+              >
+                📄 Exportar PDF
+              </button>
+              <button
                 id="btn-print-executive-report"
                 type="button"
                 onClick={() => window.print()}
@@ -9004,6 +9290,49 @@ function ForwarderWorkspaceInner(props = {}) {
 
             <div id="printable-a4-sheet" className="max-w-4xl mx-auto p-10 bg-white text-slate-900 shadow-xl border border-slate-300 rounded">
               
+              {/* SELECTOR DE PRIVACIDAD UNIVERSAL (VISTA INTERNA VS CLIENTE) */}
+              <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                <div className="inline-flex p-1 bg-slate-100 border border-slate-300 rounded-lg shadow-inner mr-1" role="tablist" aria-label="Selector de Privacidad">
+                  <button
+                    id="btn-view-internal"
+                    type="button"
+                    onClick={() => {
+                      setExecutiveReportViewMode('internal');
+                      if (typeof window !== 'undefined' && typeof window.setExecutiveReportView === 'function') {
+                        window.setExecutiveReportView('internal');
+                      }
+                    }}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                      executiveReportViewMode !== 'client' ? 'bg-indigo-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                    role="tab"
+                    aria-selected={executiveReportViewMode !== 'client'}
+                  >
+                    <i className="fa-solid fa-lock-open mr-1"></i> Vista Interna
+                  </button>
+                  <button
+                    id="btn-view-client"
+                    type="button"
+                    onClick={() => {
+                      setExecutiveReportViewMode('client');
+                      if (typeof window !== 'undefined' && typeof window.setExecutiveReportView === 'function') {
+                        window.setExecutiveReportView('client');
+                      }
+                    }}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                      executiveReportViewMode === 'client' ? 'bg-emerald-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                    role="tab"
+                    aria-selected={executiveReportViewMode === 'client'}
+                  >
+                    <i className="fa-solid fa-user-shield mr-1"></i> Vista Cliente
+                  </button>
+                </div>
+                <div className="text-[11px] text-slate-500 font-mono">
+                  {executiveReportViewMode === 'client' ? '🔒 Modo Cliente: Márgenes y costes internos ocultos' : '🔓 Modo Interno: Desglose financiero completo visible'}
+                </div>
+              </div>
+
               <header className="border-b-2 border-slate-200 pb-4 mb-6 flex justify-between items-end">
                 <div>
                   <h1 className="text-xl font-black uppercase tracking-tight text-slate-900">
@@ -9019,6 +9348,69 @@ function ForwarderWorkspaceInner(props = {}) {
                   <div><span className="font-bold text-slate-800 uppercase text-[10px] mr-2">Cliente:</span><span className="font-bold text-blue-700">{activeProject?.client_name || 'Sin Cliente'}</span></div>
                 </div>
               </header>
+
+              {/* VEHICLE HERO SVG RENDER */}
+              <div
+                id="executive-vehicle-hero-container"
+                className="my-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-2"
+                dangerouslySetInnerHTML={{
+                  __html: typeof window !== 'undefined' && typeof window.buildExecutiveVehicleHeroSVG === 'function'
+                    ? window.buildExecutiveVehicleHeroSVG({
+                        isRail,
+                        trucksNeeded: Math.max(1, Number(activeProject?.total_wagons || activeProject?.wagons || activeProject?.total_trucks || activeReport?.total_wagons || activeReport?.total_trucks || (totalWeightTons > 0 ? Math.ceil(totalWeightTons / (isRail ? 50 : 24)) : 1))),
+                        unitsNeeded: Math.max(1, Number(activeProject?.total_wagons || activeProject?.wagons || activeProject?.total_trucks || activeReport?.total_wagons || activeReport?.total_trucks || (totalWeightTons > 0 ? Math.ceil(totalWeightTons / (isRail ? 50 : 24)) : 1))),
+                        ldmValue: Number(totals?.ldm || 13.6),
+                        cargoTon: totalWeightTons,
+                        cargoName: activeProject?.cargo_type || activeReport?.cargoProduct || 'Mercancía General',
+                        cargo_category: activeProject?.cargo_category || activeReport?.cargoCategory || '',
+                        vehicleType: currentVehicle,
+                      })
+                    : ''
+                }}
+              />
+
+              {/* VISTA CLIENTE: COTIZACIÓN COMERCIAL FORMAL SIN MÁRGENES INTERNOS */}
+              {executiveReportViewMode === 'client' && (
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm text-slate-800 space-y-4 mb-6">
+                  <div className="border-b border-slate-200 pb-3">
+                    <h3 className="text-sm font-black uppercase text-indigo-900 tracking-wider">
+                      Cotización Comercial y Precio de Venta Sugerido (Flete Final)
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Oferta formal para cliente final · Modalidad {isRail ? 'Ferroviaria (Convoy / Block Train)' : 'Carretera (FTL)'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <span className="block text-[10px] uppercase font-bold text-slate-500">Ruta Comercial</span>
+                      <span className="text-sm font-bold text-slate-800 block mt-1">
+                        {activeProject?.land_origin || landOrigin || 'Origen'} ➔ {activeProject?.land_destination || landDestination || 'Destino'}
+                      </span>
+                      <span className="text-[11px] text-slate-500 mt-0.5 block font-mono">
+                        Distancia: {Math.round(Number(activeProject?.land_route?.distance_km || activeProject?.land_distance || distanceKm || 0))} km
+                      </span>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <span className="block text-[10px] uppercase font-bold text-slate-500">Unidades Asignadas</span>
+                      <span className="text-sm font-bold text-slate-800 block mt-1">
+                        {Math.max(1, Number(activeProject?.total_wagons || activeProject?.wagons || activeProject?.total_trucks || activeReport?.total_wagons || activeReport?.total_trucks || (totalWeightTons > 0 ? Math.ceil(totalWeightTons / (isRail ? 50 : 24)) : 1)))} {isRail ? 'Vagones Tolva' : 'Camiones Tráiler'}
+                      </span>
+                      <span className="text-[11px] text-slate-500 mt-0.5 block font-mono">
+                        Carga: {totalWeightTons.toFixed(1)} t {activeProject?.cargo_type ? `· ${activeProject.cargo_type}` : ''}
+                      </span>
+                    </div>
+                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+                      <span className="block text-[10px] uppercase font-bold text-emerald-700">Precio Total de Venta al Cliente</span>
+                      <span className="text-2xl font-black text-emerald-700 block mt-1 font-mono">
+                        {finalTotalSale.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </span>
+                      <span className="text-[11px] text-emerald-600 mt-0.5 block">
+                        IVA no incluido · Oferta válida según condiciones estándar
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <section className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6">
                 <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 mb-3 border-b border-slate-200 pb-1.5">
