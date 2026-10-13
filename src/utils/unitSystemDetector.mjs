@@ -680,10 +680,19 @@ export function setupLandCharterUnitObserver(onSystemChange) {
     const inputTotal = document.getElementById('dist-total');
 
     if (inputLaden) {
+      const isRail = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+        (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL');
+      const proxyRailKm = Number(
+        (typeof window !== 'undefined' && (window.railProxyDistanceKm || window.railPurifiedDistanceKm || window.State?.railProxyDistanceKm || window.LandData?.railProxyDistanceKm))
+        || 0
+      );
+      if (isRail && proxyRailKm > 0) {
+        inputLaden.dataset.rawKm = String(proxyRailKm);
+      }
       const rawLaden = Number(inputLaden.dataset?.rawKm || inputLaden.value || 0);
       if (rawLaden > 0) {
         if (!inputLaden.dataset.rawKm) inputLaden.dataset.rawKm = String(rawLaden);
-        const baseKm = Number(inputLaden.dataset.rawKm);
+        const baseKm = (isRail && proxyRailKm > 0) ? proxyRailKm : Number(inputLaden.dataset.rawKm);
         inputLaden.value = isImperial ? Math.round((baseKm / 1.60934) * 10) / 10 : baseKm;
         inputLaden.dispatchEvent(new Event('input', { bubbles: true }));
       }

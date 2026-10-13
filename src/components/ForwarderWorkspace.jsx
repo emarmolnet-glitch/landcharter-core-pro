@@ -2019,6 +2019,12 @@ function ForwarderWorkspaceInner(props = {}) {
       if (railHydrationLockRef) {
         railHydrationLockRef.current = '';
       }
+      if (newMode === 'RAIL') {
+        const proxyRailDist = Number(window.railProxyDistanceKm || window.railPurifiedDistanceKm || window.State?.railProxyDistanceKm);
+        if (proxyRailDist > 0) {
+          setDistanceKm(proxyRailDist);
+        }
+      }
     };
     if (typeof window !== 'undefined') {
       window.addEventListener('globaltransportmodechange', handleModeChange);
@@ -2239,19 +2245,29 @@ function ForwarderWorkspaceInner(props = {}) {
     if (typeof window === 'undefined') return;
     const handleRouteUpdated = (e) => {
       const d = e?.detail || {};
-      const dKm = Number(d.distanceKm ?? d.totalKilometers ?? (d.route?.distance ? d.route.distance / 1000 : 0));
+      const isRailMode = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+        (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
+        transportMode === 'RAIL' || d.isRail === true || d.globalTransportMode === 'RAIL';
+
+      const railDist = Number(d.railProxyDistanceKm ?? d.railPurifiedDistanceKm ?? window.railProxyDistanceKm ?? window.railPurifiedDistanceKm ?? window.State?.railProxyDistanceKm ?? window.State?.railPurifiedDistanceKm);
+      const dKm = (isRailMode && railDist > 0)
+        ? railDist
+        : Number(d.distanceKm ?? d.totalKilometers ?? (d.route?.distance ? d.route.distance / 1000 : 0));
       if (dKm > 0) {
         setDistanceKm(dKm);
       }
     };
     window.addEventListener('osrm:route-updated', handleRouteUpdated);
+    window.addEventListener('rail:route-updated', handleRouteUpdated);
     return () => {
       window.removeEventListener('osrm:route-updated', handleRouteUpdated);
+      window.removeEventListener('rail:route-updated', handleRouteUpdated);
     };
-  }, []);
+  }, [transportMode]);
 
   // Lógica reactiva de conversión dinámica de unidades en LDM (Sección 1):
   // Campos del formulario LDM: "Distancia en Vacío" (dist-ballast), "Distancia en Carga" (dist-laden) y "Total Millas/Km" (dist-total).
+  // Si window.globalTransportMode === 'RAIL', fuerza que consuman estrictamente la variable de distancia devuelta por el proxy.
   // Si la UI está en modo Imperial (millas), el valor inyectado se divide obligatoriamente por 1.60934 (distanceKm / 1.60934).
   // Si está en Métrico, usa distanceKm. Esto evita mostrar kilómetros crudos dentro de inputs etiquetados con "(MI)".
   useEffect(() => {
@@ -2263,8 +2279,29 @@ function ForwarderWorkspaceInner(props = {}) {
 
     if (!ballastEl && !ladenEl && !totalEl) return;
 
-    const effectiveKm = Number(distanceKm || activeProject?.land_distance || activeProject?.land_route?.distance_km || 0);
-    const rawLadenKm = effectiveKm > 0 ? effectiveKm : Number(ladenEl?.dataset?.rawKm || ladenEl?.value || 0);
+    const isRailMode = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+      (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
+      transportMode === 'RAIL';
+
+    const proxyRailKm = Number(
+      (typeof window !== 'undefined' && (window.railProxyDistanceKm || window.railPurifiedDistanceKm || window.State?.railProxyDistanceKm || window.LandData?.railProxyDistanceKm || window.LandData?.distanceKm))
+      || 0
+    );
+
+    let effectiveKm = Number(distanceKm || activeProject?.land_distance || activeProject?.land_route?.distance_km || 0);
+
+    // Cuando window.globalTransportMode === 'RAIL', forzar que consuman estrictamente la variable de distancia devuelta por el proxy
+    if (isRailMode) {
+      if (proxyRailKm > 0) {
+        effectiveKm = proxyRailKm;
+      } else if (typeof window !== 'undefined' && window.LandData?.isRail && Number(window.LandData?.distanceKm) > 0) {
+        effectiveKm = Number(window.LandData.distanceKm);
+      }
+    }
+
+    const rawLadenKm = (isRailMode && proxyRailKm > 0)
+      ? proxyRailKm
+      : (effectiveKm > 0 ? effectiveKm : Number(ladenEl?.dataset?.rawKm || ladenEl?.value || 0));
 
     const injectedLaden = isImperial
       ? (rawLadenKm > 0 ? Math.round((rawLadenKm / 1.60934) * 10) / 10 : 0)
@@ -2279,11 +2316,16 @@ function ForwarderWorkspaceInner(props = {}) {
 
     let injectedBallast = 0;
     if (ballastEl) {
-      const rawBallastKm = Number(ballastEl.dataset?.rawKm || ballastEl.value || 0);
+      const rawBallastKm = isRailMode ? 0 : Number(ballastEl.dataset?.rawKm || ballastEl.value || 0);
       if (rawBallastKm > 0) {
         ballastEl.dataset.rawKm = String(rawBallastKm);
         injectedBallast = isImperial ? Math.round((rawBallastKm / 1.60934) * 10) / 10 : rawBallastKm;
         ballastEl.value = injectedBallast;
+        ballastEl.dispatchEvent(new Event('input', { bubbles: true }));
+        ballastEl.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if (isRailMode && ballastEl.value !== '0') {
+        ballastEl.dataset.rawKm = '0';
+        ballastEl.value = 0;
         ballastEl.dispatchEvent(new Event('input', { bubbles: true }));
         ballastEl.dispatchEvent(new Event('change', { bubbles: true }));
       }
@@ -2295,7 +2337,7 @@ function ForwarderWorkspaceInner(props = {}) {
       totalEl.dispatchEvent(new Event('input', { bubbles: true }));
       totalEl.dispatchEvent(new Event('change', { bubbles: true }));
     }
-  }, [distanceKm, isImperial, activeProject?.land_distance, activeProject?.land_route?.distance_km]);
+  }, [distanceKm, isImperial, activeProject?.land_distance, activeProject?.land_route?.distance_km, transportMode]);
 
   const [subtotalFreight, setSubtotalFreight] = useState('0.00');
   const [subtotalFobOperations, setSubtotalFobOperations] = useState('0.00');
@@ -8289,7 +8331,14 @@ function ForwarderWorkspaceInner(props = {}) {
   id="input-distance-nm"
   type="number"
   min={1}
-  value={distanceKm ? (isImperial ? Math.round((Number(distanceKm) / 1.60934) * 10) / 10 : distanceKm) : ''}
+  value={(() => {
+    const isRailMode = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+      (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
+      transportMode === 'RAIL';
+    const proxyRailKm = Number(typeof window !== 'undefined' && (window.railProxyDistanceKm || window.railPurifiedDistanceKm || window.State?.railProxyDistanceKm));
+    const distToUse = (isRailMode && proxyRailKm > 0) ? proxyRailKm : distanceKm;
+    return distToUse ? (isImperial ? Math.round((Number(distToUse) / 1.60934) * 10) / 10 : distToUse) : '';
+  })()}
   onChange={(e) => {
     const rawVal = e.target.value;
     const num = Number(rawVal);
