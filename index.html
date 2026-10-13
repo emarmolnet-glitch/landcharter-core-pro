@@ -53085,7 +53085,7 @@ Example:
                             <ul class="space-y-1.5">
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">Tipo de Vehículo:</span>
-                                    <span class="font-bold text-white">${isRail ? (vehicleType.toLowerCase().includes('tren') || vehicleType.toLowerCase().includes('tolva') || vehicleType.toLowerCase().includes('ferroviario') ? vehicleType : 'Convoy Ferroviario') : vehicleType}</span>
+                                    <span class="font-bold text-white">${isRail ? (unitsNeeded === 1 ? '1 Vagón Tolva (Ferrocarril)' : `${unitsNeeded} Vagones Tolva (Ferrocarril)`) : vehicleType}</span>
                                 </li>
                                 <li class="flex justify-between">
                                     <span class="text-slate-400">${isRail ? 'Vagones Necesarios:' : 'Camiones Necesarios:'}</span>

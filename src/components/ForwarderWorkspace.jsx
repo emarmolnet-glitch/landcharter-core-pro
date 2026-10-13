@@ -9393,7 +9393,13 @@ function ForwarderWorkspaceInner(props = {}) {
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                       <span className="block text-[10px] uppercase font-bold text-slate-500">Unidades Asignadas</span>
                       <span className="text-sm font-bold text-slate-800 block mt-1">
-                        {Math.max(1, Number(activeProject?.total_wagons || activeProject?.wagons || activeProject?.total_trucks || activeReport?.total_wagons || activeReport?.total_trucks || (totalWeightTons > 0 ? Math.ceil(totalWeightTons / (isRail ? 50 : 24)) : 1)))} {isRail ? 'Vagones Tolva' : 'Camiones Tráiler'}
+                        {(() => {
+                          const assignedUnits = Math.max(1, Number(activeProject?.total_wagons || activeProject?.wagons || activeProject?.total_trucks || activeReport?.total_wagons || activeReport?.total_trucks || (totalWeightTons > 0 ? Math.ceil(totalWeightTons / (isRail ? 50 : 24)) : 1)));
+                          if (isRail) {
+                            return `${assignedUnits} ${assignedUnits === 1 ? 'Vagón Tolva' : 'Vagones Tolva'}`;
+                          }
+                          return `${assignedUnits} ${assignedUnits === 1 ? 'Camión Tráiler' : 'Camiones Tráiler'}`;
+                        })()}
                       </span>
                       <span className="text-[11px] text-slate-500 mt-0.5 block font-mono">
                         Carga: {totalWeightTons.toFixed(1)} t {activeProject?.cargo_type ? `· ${activeProject.cargo_type}` : ''}
