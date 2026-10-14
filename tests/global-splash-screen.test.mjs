@@ -29,12 +29,12 @@ test('startup controller releases the interface after WebGL or a safe timeout', 
 });
 
 test('global splash renders the official combined identity: active LandCharter Core PRO sub-brand and CHARTER CORE PRO master brand', () => {
-  // Active Sub-Brand block with direct clean 100px circular container with #f0f6f8 background and clean typography below
+  // Active Sub-Brand block with direct clean 100px circular container with transparent background and zoomed image to eliminate white margins
   assert.match(indexSource, /<img\s+src="\/assets\/landcharter-icon\.png"\s+alt="LandCharter Logo"/, 'Must render official LandCharter image tag with landcharter-icon.png');
   assert.match(indexSource, /width:\s*100px;\s*height:\s*100px;\s*border-radius:\s*50%;\s*overflow:\s*hidden;/, 'Must render 100px circular container');
-  assert.match(indexSource, /background:\s*#f0f6f8;/, 'Must have #f0f6f8 background for seamless corner blending');
-  assert.match(indexSource, /box-shadow:\s*0\s+10px\s+30px\s+rgba\(10,\s*35,\s*44,\s*0\.12\);/, 'Must have adjusted subtle shadow');
-  assert.match(indexSource, /width:\s*100%;\s*height:\s*100%;\s*object-fit:\s*cover;/, 'Must style image with width: 100%; height: 100%; object-fit: cover;');
+  assert.match(indexSource, /background:\s*transparent;/, 'Must have transparent background for container');
+  assert.match(indexSource, /box-shadow:\s*0\s+10px\s+30px\s+rgba\(10,\s*35,\s*44,\s*0\.18\);/, 'Must have shadow with 0.18 opacity');
+  assert.match(indexSource, /width:\s*120%;\s*height:\s*120%;\s*object-fit:\s*cover;\s*object-position:\s*center;/, 'Must style image with 120% zoom and centered object position');
   assert.match(indexSource, /LandCharter<\/div>\s*<div[^>]*>Core PRO<\/div>/, 'Must render LandCharter Core PRO sub-brand text');
 
   // Loading state block without duplicate title, preserving status and progress bar
