@@ -42,7 +42,10 @@ test('global splash renders the official combined identity: active LandCharter C
   assert.match(indexSource, /<p id="global-splash-status" class="global-splash__status">Preparando logística terrestre\.\.\.<\/p>/);
   assert.match(indexSource, /<div class="global-splash__progress" aria-hidden="true"><\/div>/);
 
-  // Master Brand block
-  assert.match(indexSource, /id="masterGradLand"/, 'Must define master brand linearGradient id masterGradLand');
-  assert.match(indexSource, /CHARTER<\/div>\s*<div[^>]*>\s*<span[^>]*>CORE<\/span>\s*<span[^>]*>PRO<\/span>/, 'Must render CHARTER CORE PRO master brand text');
+  // Master Brand block: official unified circular icon and typography
+  assert.match(indexSource, /<img\s+src="\/assets\/master-brand-unified\.png"\s+alt="Charter Core PRO"/, 'Must render official Master Brand image tag with master-brand-unified.png');
+  assert.match(indexSource, /width:\s*28px;\s*height:\s*28px;\s*border-radius:\s*50%;\s*overflow:\s*hidden;/, 'Must render 28px circular container for master brand');
+  assert.match(indexSource, /background:\s*#FFFFFF;/, 'Must have #FFFFFF background for master brand container');
+  assert.match(indexSource, /box-shadow:\s*0\s+2px\s+6px\s+rgba\(10,\s*35,\s*44,\s*0\.15\);/, 'Must have box-shadow 0 2px 6px rgba(10, 35, 44, 0.15)');
+  assert.match(indexSource, /CHARTER<br\s*\/?>\s*<span\s+style="color:\s*#2898B8;">CORE PRO<\/span>/, 'Must render CHARTER CORE PRO master brand text');
 });
