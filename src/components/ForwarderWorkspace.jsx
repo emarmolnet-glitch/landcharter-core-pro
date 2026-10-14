@@ -7632,6 +7632,19 @@ function ForwarderWorkspaceInner(props = {}) {
 
   // Declarar isRail de forma segura
   const isRail = isRailUpper || currentVehicle.toLowerCase().includes('tren') || currentVehicle.toLowerCase().includes('ferrocarril') || currentVehicle.toLowerCase().includes('tolva');
+  const isRailResumen = Boolean(
+    isRail ||
+    (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+    transportMode === 'RAIL' ||
+    activeProject?.mode === 'RAIL' ||
+    activeProject?.transport_mode === 'RAIL' ||
+    activeProject?.globalTransportMode === 'RAIL' ||
+    activeProject?.isRail ||
+    activeProject?.is_rail ||
+    String(activeProject?.truck_type || activeProject?.vehicle_type || activeProject?.data?.truckType || '').toLowerCase().match(/tren|tolva|vag[oó]n|ferroviario|rail/) ||
+    String(currentVehicle).toLowerCase().match(/tren|tolva|vag[oó]n|ferroviario|rail/) ||
+    String(vehicleType).toLowerCase().match(/tren|tolva|vag[oó]n|ferroviario|rail/)
+  );
 
   const itemsToRender = (cargoItems && cargoItems.length > 0) 
     ? cargoItems 
@@ -7836,7 +7849,8 @@ function ForwarderWorkspaceInner(props = {}) {
 
                 const isRailResumen = vehicleType.includes('Tren') || vehicleType.includes('Tolva') || vehicleType.includes('Vagón') ||
                   rTruckType?.includes('Tren') || rTruckType?.includes('Tolva') || rTruckType?.includes('Vagón') ||
-                  Boolean(String(rTruckType).toLowerCase().match(/tren|tolva|vag[oó]n|ferroviario|rail/));
+                  Boolean(String(rTruckType).toLowerCase().match(/tren|tolva|vag[oó]n|ferroviario|rail/)) ||
+                  Boolean(isRail);
 
                 const isZeroDist = !rDistKm || Number(rDistKm) <= 0;
                 const projectCost = Number(activeProject?.land_freight_cost) > 0
