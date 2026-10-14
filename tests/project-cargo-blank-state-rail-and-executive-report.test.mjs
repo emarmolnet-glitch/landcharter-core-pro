@@ -94,6 +94,12 @@ test('3. Adaptación Dinámica del UI "Project Cargo": etiquetas condicionales p
     workspaceSource,
     /isRailResumen\s*\?\s*['"]Configura un servicio de transporte ferroviario por tren para calcular fletes y emitir reportes\.['"]\s*:\s*['"]Configura un servicio de transporte terrestre por carretera para calcular fletes y emitir reportes\.['"]/
   );
+
+  // d) Declaración segura de isRailResumen en el alcance del componente para evitar ReferenceError en renderizado
+  assert.match(
+    workspaceSource,
+    /const\s+isRailResumen\s*=\s*Boolean\([\s\S]*?isRail[\s\S]*?\);[\s\S]*?return\s*\(/
+  );
 });
 
 test('4. Unificación Absoluta del Reporte Ejecutivo: Vista Interna/Cliente y render de vehículo SVG', async () => {
