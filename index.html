@@ -76343,6 +76343,157 @@ window.actualizarGrabCapacityVisibility = function() {
             }
         })();
     </script>
+    <!-- ======================================================================= -->
+    <!-- DRAWER LATERAL DE MADRE (LAND CHARTER)                                  -->
+    <!-- ======================================================================= -->
+    <div id="madre-drawer" class="fixed top-0 left-0 h-full w-[400px] max-w-[90vw] bg-[#0B1121] text-slate-300 z-[99999] transform -translate-x-full transition-transform duration-300 flex flex-col shadow-2xl border-r border-slate-800">
+        
+        <!-- HEADER MADRE -->
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-[#0F172A]">
+            <div class="flex items-center gap-3">
+                <img src="/MADRE.png" alt="MADRE" class="w-8 h-8 rounded-full border border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]">
+                <div>
+                    <h2 class="text-white font-bold text-sm flex items-center gap-2">MADRE <span class="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider">Cerebro Central</span></h2>
+                    <p class="text-[10px] text-slate-400 leading-tight">Cerebro Operacional Intermodal<br>& Terrestre (Land Charter)</p>
+                </div>
+            </div>
+            <div class="flex gap-1.5">
+                <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-1.5 rounded transition-colors" title="Activar/Desactivar Voz"><i class="fa-solid fa-volume-high text-xs"></i></button>
+                <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-1.5 rounded transition-colors" title="Detener proceso"><i class="fa-solid fa-stop text-xs"></i></button>
+                <button onclick="toggleMadreDrawer()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-1.5 rounded transition-colors" title="Cerrar Panel"><i class="fa-solid fa-xmark text-xs"></i></button>
+            </div>
+        </div>
+
+        <!-- CUERPO DEL CHAT / ESTADO INICIAL -->
+        <div id="madre-chat-history" class="flex-1 overflow-y-auto p-4 flex flex-col gap-4 relative">
+            <!-- Estado Idle (Centrado) -->
+            <div id="madre-idle-state" class="flex flex-col items-center justify-center h-full text-center mt-10 transition-opacity duration-300">
+                 <div class="relative mb-4">
+                    <div class="absolute inset-0 bg-cyan-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
+                    <img src="/MADRE.png" class="w-20 h-20 rounded-full border border-slate-700 relative z-10">
+                 </div>
+                 <h3 class="text-slate-300 font-medium text-sm mb-2">Cerebro Terrestre Activo</h3>
+                 <p class="text-xs text-slate-500 max-w-[250px] mb-6">Escáner visual de pantalla listo para capturar en tiempo real las variables de LDM, peajes, gasóleo y costes terrestres.</p>
+                 <button onclick="triggerLandLaserScan()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs px-4 py-2 rounded-full flex items-center gap-2 transition-colors shadow-lg cursor-pointer">
+                     <span class="text-amber-500">⚡</span> Auditar Operación (DSS)
+                 </button>
+            </div>
+        </div>
+
+        <!-- COMANDOS RÁPIDOS -->
+        <div class="p-3 border-t border-slate-800 bg-[#0F172A]">
+            <p class="text-[9px] text-amber-600 font-bold tracking-wider mb-2 flex items-center gap-1"><i class="fa-solid fa-bolt"></i> COMANDOS RÁPIDOS (1-CLIC)</p>
+            <div class="flex flex-col gap-1.5">
+                <button onclick="triggerLandLaserScan()" class="text-left text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded border border-slate-700 flex items-center justify-between group transition-colors cursor-pointer">
+                    <span><span class="text-cyan-400 mr-2">⚡</span> Escanear Pantalla Terrestre</span>
+                    <span class="text-slate-600 group-hover:text-slate-400">›</span>
+                </button>
+                <button onclick="enviarMensajeMadre('Evaluar viabilidad comercial y Break-Even')" class="text-left text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded border border-slate-700 flex items-center justify-between group transition-colors cursor-pointer">
+                    <span><span class="text-blue-400 mr-2">📊</span> Evaluar viabilidad y Break-Even</span>
+                    <span class="text-slate-600 group-hover:text-slate-400">›</span>
+                </button>
+                <button onclick="enviarMensajeMadre('Redacta el escudo preventivo')" class="text-left text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded border border-slate-700 flex items-center justify-between group transition-colors cursor-pointer">
+                    <span><span class="text-emerald-400 mr-2">🛡️</span> Redacta el escudo preventivo</span>
+                    <span class="text-slate-600 group-hover:text-slate-400">›</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ZONA DE INPUT -->
+        <div class="p-3 bg-[#0B1121] border-t border-slate-800 flex items-center gap-2">
+            <button class="text-slate-400 hover:text-white px-2 cursor-pointer" title="Dictar por voz"><i class="fa-solid fa-microphone"></i></button>
+            <div class="flex-1 bg-slate-800 border border-slate-700 rounded-full flex items-center px-3 py-1.5 focus-within:border-cyan-500 focus-within:ring-1 focus-within:ring-cyan-500 transition-colors">
+                <input type="text" id="madre-chat-input" class="bg-transparent border-none outline-none text-xs text-slate-200 w-full placeholder-slate-500 font-sans" placeholder="Pregunta a MADRE o escribe 'Escanear pantalla'..." onkeydown="if(event.key === 'Enter') enviarMensajeMadre(this.value)">
+            </div>
+            <button onclick="enviarMensajeMadre(document.getElementById('madre-chat-input').value)" class="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold px-4 py-1.5 rounded-full transition-colors cursor-pointer shadow-md">Enviar</button>
+        </div>
+    </div>
+
+    <!-- SCRIPT MADRE DRAWER Y ESCÁNER VISUAL -->
+    <script>
+        window.toggleMadreDrawer = function() {
+            const drawer = document.getElementById('madre-drawer');
+            if (drawer) drawer.classList.toggle('-translate-x-full');
+        };
+
+        window.enviarMensajeMadre = function(texto) {
+            if (!texto || texto.trim() === "") return;
+            const input = document.getElementById('madre-chat-input');
+            if (input) input.value = '';
+            
+            const idle = document.getElementById('madre-idle-state');
+            if (idle) idle.style.display = 'none';
+
+            const esEscaneo = /(?:escan(?:ear|eo)?|scan(?:ner)?|auditar|leer)/i.test(texto);
+            if (esEscaneo) {
+                triggerLandLaserScan();
+            } else {
+                pintarBurbujaChat(texto, 'user');
+                setTimeout(() => pintarBurbujaChat('Procesando tu solicitud en Land Charter...', 'madre'), 500);
+            }
+        };
+
+        window.triggerLandLaserScan = function() {
+            const idle = document.getElementById('madre-idle-state');
+            if (idle) idle.style.display = 'none';
+            pintarBurbujaChat('Iniciando escáner visual de la calculadora terrestre...', 'user');
+
+            const laser = document.createElement('div');
+            laser.id = 'madre-laser-scan-line';
+            laser.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 4px; background-color: #10B981; box-shadow: 0 0 20px #10B981, 0 0 40px #10B981; z-index: 999999; pointer-events: none; transition: top 1.2s cubic-bezier(0.25, 1, 0.5, 1);';
+            document.body.appendChild(laser);
+
+            void laser.offsetWidth; 
+            laser.style.top = '100vh';
+
+            setTimeout(() => {
+                if (laser && laser.parentNode) laser.parentNode.removeChild(laser);
+                const datosExtraidos = extractLandCharterData();
+                pintarBurbujaChat('✅ Escaneo completado. Procesando dictamen estratégico con el backend...', 'madre');
+                console.log("Datos terrestres capturados para MADRE:", datosExtraidos);
+            }, 1250);
+        };
+
+        function extractLandCharterData() {
+            return {
+                ruta: {
+                    origen: document.querySelector('input[placeholder*="Origen"]')?.value || 'N/A',
+                    destino: document.querySelector('input[placeholder*="Destino"]')?.value || 'N/A'
+                },
+                mercancia: {
+                    payload_mt: document.querySelector('#carga-mt, input[name="toneladas"]')?.value || 0,
+                    ldm: document.querySelector('#ldm-input, input[name="ldm"]')?.value || 0,
+                    epal: document.querySelector('#palets-input, input[name="epal"]')?.value || 0
+                },
+                finanzas: {
+                    precio_diesel: document.querySelector('#diesel-price')?.value || 1.45,
+                    break_even_sugerido: document.querySelector('#break-even-result')?.innerText || 0
+                }
+            };
+        }
+
+        function pintarBurbujaChat(texto, remitente) {
+            const history = document.getElementById('madre-chat-history');
+            if (!history) return;
+            const div = document.createElement('div');
+            div.className = `flex gap-3 max-w-[90%] ${remitente === 'user' ? 'ml-auto flex-row-reverse' : 'mr-auto'}`;
+            
+            const avatar = remitente === 'user' 
+                ? '<div class="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center text-xs shrink-0"><i class="fa-solid fa-user text-slate-300"></i></div>'
+                : '<img src="/MADRE.png" class="w-7 h-7 rounded-full border border-cyan-500 shadow-sm shrink-0">';
+                
+            const bgColor = remitente === 'user' ? 'bg-cyan-900 border-cyan-800' : 'bg-slate-800 border-slate-700';
+            
+            div.innerHTML = `
+                ${avatar}
+                <div class="${bgColor} border px-3 py-2 rounded-lg text-xs text-slate-200 leading-relaxed shadow-sm">
+                    ${texto}
+                </div>
+            `;
+            history.appendChild(div);
+            history.scrollTop = history.scrollHeight;
+        }
+    </script>
 </body>
 </html>
 <!-- Phase 1 structural stabilization synchronization marker; no runtime effect. -->
