@@ -9421,7 +9421,21 @@
         </div>
 
         <div class="header-actions-right flex items-center gap-2">
-            <!-- Botones FAQ, OWN, CHR -->
+            
+            <!-- DISPARADOR MADRE (AÑADIDO NUEVO) -->
+            <button
+                type="button"
+                id="btn-madre-trigger"
+                onclick="if(window.toggleMadreDrawer) window.toggleMadreDrawer(); else window.dispatchEvent(new CustomEvent('madre:toggle'));"
+                class="relative group flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-full border-2 border-slate-800 bg-slate-900 hover:scale-110 transition-transform duration-200 shadow-md cursor-pointer shrink-0"
+                title="Auditoría Estratégica MADRE"
+            >
+                <!-- Resplandor trasero animado -->
+                <div id="madre-topbar-glow" class="absolute inset-0 rounded-full animate-pulse bg-cyan-500 blur-md opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                <!-- Logo oficial MADRE -->
+                <img src="/MADRE.png" alt="MADRE" class="w-full h-full rounded-full object-cover relative z-10 pointer-events-none" />
+            </button>
+
             <!-- Botón FAQ / Manual -->
             <button
                 id="btn-open-faq-modal"
@@ -9432,7 +9446,7 @@
                 aria-label="Abrir Manual de Usuario y FAQ"
             >
                 <i class="fa-solid fa-circle-question text-sky-400 text-xs" aria-hidden="true"></i>
-                <span>FAQ</span>
+                <span class="hidden md:inline">FAQ</span>
             </button>
 
             <!-- Interruptor de contexto de transporte ROAD / RAIL -->
