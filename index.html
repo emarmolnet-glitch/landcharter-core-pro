@@ -76446,28 +76446,125 @@ window.actualizarGrabCapacityVisibility = function() {
             void laser.offsetWidth; 
             laser.style.top = '100vh';
 
-            setTimeout(() => {
+            setTimeout(async () => {
                 if (laser && laser.parentNode) laser.parentNode.removeChild(laser);
+                
                 const datosExtraidos = extractLandCharterData();
-                pintarBurbujaChat('✅ Escaneo completado. Procesando dictamen estratégico con el backend...', 'madre');
-                console.log("Datos terrestres capturados para MADRE:", datosExtraidos);
+                pintarBurbujaChat('✅ Escaneo completado. Analizando matriz de datos terrestres con el LLM en Data Bridge...', 'madre');
+
+                try {
+                    // Conexión al endpoint real de Data Bridge
+                    const response = await fetch('https://calm-shortbread-55bcfc.netlify.app/.netlify/functions/madre-chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            prompt: "Audita esta operación de transporte terrestre analizando las variables de los bloques 1 a 8, costes y tiempos de tacógrafo.",
+                            contexto_ui: datosExtraidos
+                        })
+                    });
+
+                    const resultado = await response.json();
+                    
+                    if (resultado && resultado.reporte_estrategico) {
+                        pintarBurbujaChat(`<strong>Veredicto:</strong> ${resultado.veredicto_general}<br><br>${resultado.reporte_estrategico}`, 'madre');
+                    } else {
+                        pintarBurbujaChat('Dictamen recibido correctamente.', 'madre');
+                    }
+                } catch (error) {
+                    console.error("Error MADRE:", error);
+                    pintarBurbujaChat('⚠️ Error de comunicación con el backend central en Data Bridge.', 'madre');
+                }
             }, 1250);
         };
 
         function extractLandCharterData() {
+            const ldmVal = parseFloat(document.getElementById('cargo-sf')?.value) || 0;
+            const epalVal = document.getElementById('palets-input')?.value 
+                ? parseFloat(document.getElementById('palets-input').value) 
+                : (ldmVal > 0 ? Math.floor(ldmVal / 0.4) : 0);
+
             return {
+                bloque1_ruta_distancias: {
+                    origen: document.getElementById('port-pol')?.value || 'N/A',
+                    destino: document.getElementById('port-pod')?.value || 'N/A',
+                    retorno_posicionamiento: document.getElementById('port-ballast')?.value || 'N/A',
+                    distancia_vacio_km: parseFloat(document.getElementById('dist-ballast')?.value) || 0,
+                    distancia_carga_km: parseFloat(document.getElementById('dist-laden')?.value) || 0,
+                    distancia_total_km: parseFloat(document.getElementById('dist-total')?.value) || 0
+                },
+                bloque2_vehiculo_carga: {
+                    tipo_vehiculo: document.getElementById('nombre-buque-calculadora')?.value || 'N/A',
+                    carga_util_tm: parseFloat(document.getElementById('truckPayloadCapacity')?.value || document.getElementById('vessel-dwt')?.value) || 0,
+                    peso_mercancia_tm: parseFloat(document.getElementById('cargo-qty')?.value) || 0,
+                    ldm: ldmVal,
+                    epal: epalVal,
+                    categoria_carga: document.getElementById('cargo-type')?.value || 'N/A',
+                    producto: document.getElementById('cargo-product')?.value || 'N/A',
+                    metodo_carga: document.getElementById('metodo_carga')?.value || 'N/A',
+                    metodo_descarga: document.getElementById('metodo_descarga_pod')?.value || 'N/A',
+                    horas_carga: parseFloat(document.getElementById('horas-previstas-carga')?.value) || 0,
+                    horas_descarga: parseFloat(document.getElementById('horas-previstas-descarga')?.value) || 0
+                },
+                bloque3_tacografo_tiempos: {
+                    velocidad_media_kmh: parseFloat(document.getElementById('tacografo-speed')?.value) || 0,
+                    distancia_tacografo: document.getElementById('tacografo-distance-display')?.value || '0 km',
+                    horas_conduccion_efectiva: parseFloat(document.getElementById('tacografo-driving-hours')?.innerText) || 0,
+                    horas_pausas: parseFloat(document.getElementById('tacografo-break-hours')?.innerText) || 0,
+                    detalle_pausas: document.getElementById('tacografo-break-count')?.innerText || '',
+                    horas_descanso_diario: parseFloat(document.getElementById('tacografo-daily-rest-hours')?.innerText) || 0,
+                    detalle_descansos: document.getElementById('tacografo-rest-days-count')?.innerText || '',
+                    tiempo_total_transito_horas: parseFloat(document.getElementById('tacografo-total-transit-hours')?.innerText) || 0,
+                    tiempo_total_transito_dias: parseFloat(document.getElementById('tacografo-total-transit-days')?.innerText) || 0
+                },
+                bloque4_costes_operativos: {
+                    precio_diesel_eur_l: parseFloat(document.getElementById('price-sea')?.value) || 0,
+                    precio_adblue_eur_l: parseFloat(document.getElementById('price-ifo')?.value) || 0,
+                    consumo_diesel_l_100km: parseFloat(document.getElementById('cons-sea')?.value) || 0,
+                    consumo_adblue_l_100km: parseFloat(document.getElementById('cons-port')?.value) || 0,
+                    consumo_ralenti_l_h: parseFloat(document.getElementById('cons-anchorage')?.value) || 0,
+                    coste_fijo_diario_eur: parseFloat(document.getElementById('opex-daily')?.value) || 0,
+                    peajes_eur: parseFloat(document.getElementById('pda-pol')?.value) || 0,
+                    dietas_pernocta_eur: parseFloat(document.getElementById('pda-pod')?.value) || 0,
+                    gastos_carga_descarga_eur: parseFloat(document.getElementById('stevedoring-costs')?.value) || 0,
+                    extras_ruta_eur: parseFloat(document.getElementById('pda-misc')?.value) || 0
+                },
+                bloques5_6_7_8_financiero_mercado: {
+                    horas_totales_operacion: document.getElementById('res-days-total')?.innerText || '0.00',
+                    coste_combustible_total: document.getElementById('res-cost-bunker')?.innerText || '€0',
+                    costes_fijos_total: document.getElementById('res-cost-opex')?.innerText || '€0',
+                    peajes_dietas_total: document.getElementById('res-cost-pda')?.innerText || '€0',
+                    coste_total: document.getElementById('res-cost-total')?.innerText || '€0',
+                    coste_base_break_even: document.getElementById('res-cost-base-break-even')?.innerText || '',
+                    break_even_flete: document.getElementById('res-breakeven')?.innerText || '$0.00',
+                    venta_sugerida_km: document.getElementById('res-venta-sugerida')?.innerText || '$0.00 /Km',
+                    benchmark_mercado: document.getElementById('res-market-benchmark-rate')?.innerText || '$0.00/TM',
+                    margen_transportista_pct: parseFloat(document.getElementById('margin-owner')?.value) || 0,
+                    venta_sugerida_transportista: document.getElementById('res-sug-owner')?.innerText || '0.00 €',
+                    margen_agencia_pct: parseFloat(document.getElementById('margin-charterer')?.value) || 0,
+                    venta_sugerida_agencia: document.getElementById('res-sug-charterer')?.innerText || '0.00 €',
+                    coste_compra_transportista: parseFloat(document.getElementById('freight-rate')?.value) || 0,
+                    precio_venta_cliente: parseFloat(document.getElementById('freight-sell')?.value) || 0,
+                    paralizaciones_eur_h: parseFloat(document.getElementById('demurrage-rate')?.value) || 0,
+                    margen_neto_transportista: document.getElementById('res-net-profit-owner')?.innerText || '0 €',
+                    margen_neto_agencia: document.getElementById('res-net-profit-charterer')?.innerText || '0 €',
+                    oferta_cliente_mercado: parseFloat(document.getElementById('market-intelligence-client-offer')?.value) || 0,
+                    flete_calculado_mercado: document.querySelector('[data-mi-value="fleteCalculado"]')?.innerText || '0.00 €',
+                    brecha_comercial_mercado: document.querySelector('[data-mi-delta-value]')?.innerText || '-'
+                },
                 ruta: {
-                    origen: document.querySelector('input[placeholder*="Origen"]')?.value || 'N/A',
-                    destino: document.querySelector('input[placeholder*="Destino"]')?.value || 'N/A'
+                    origen: document.getElementById('port-pol')?.value || 'N/A',
+                    destino: document.getElementById('port-pod')?.value || 'N/A'
                 },
                 mercancia: {
-                    payload_mt: document.querySelector('#carga-mt, input[name="toneladas"]')?.value || 0,
-                    ldm: document.querySelector('#ldm-input, input[name="ldm"]')?.value || 0,
-                    epal: document.querySelector('#palets-input, input[name="epal"]')?.value || 0
+                    tipo_vehiculo: document.getElementById('nombre-buque-calculadora')?.value || 'N/A',
+                    payload_mt: parseFloat(document.getElementById('cargo-qty')?.value) || 0,
+                    ldm: ldmVal,
+                    epal: epalVal
                 },
                 finanzas: {
-                    precio_diesel: document.querySelector('#diesel-price')?.value || 1.45,
-                    break_even_sugerido: document.querySelector('#break-even-result')?.innerText || 0
+                    precio_diesel: parseFloat(document.getElementById('price-sea')?.value) || 1.48,
+                    coste_total: document.getElementById('res-cost-total')?.innerText || '€0',
+                    break_even_sugerido: document.getElementById('res-cost-base-break-even')?.innerText || document.getElementById('res-breakeven')?.innerText || '0'
                 }
             };
         }
