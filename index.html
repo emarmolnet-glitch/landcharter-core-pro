@@ -18630,10 +18630,13 @@
         }
 
         function updateRouteSummary() {
-            const totalKm = Number(State.totalMiles) || Number(State.distLaden) || 0;
+            const hasActiveRoute = Boolean(window.currentRoute || (window.LandData && (window.LandData.totalKilometers || window.LandData.distanceKm)));
+            const inputPodVal = (document.getElementById('map-port-pod')?.value || document.getElementById('port-pod')?.value || '').trim();
+            const inputPolVal = (document.getElementById('map-port-pol')?.value || document.getElementById('port-pol')?.value || '').trim();
+            const totalKm = hasActiveRoute ? (Number(State.totalMiles) || Number(State.distLaden) || 0) : 0;
             const pairs = {
-                'sync-pol-label': State.pol || 'TBA',
-                'sync-pod-label': State.pod || 'TBA',
+                'sync-pol-label': inputPolVal || (hasActiveRoute ? State.pol : '') || 'TBA',
+                'sync-pod-label': inputPodVal || (hasActiveRoute ? State.pod : '') || 'TBA',
                 'sync-miles-label': `${Math.round(totalKm).toLocaleString('es-ES')} km`,
                 'sync-miles-breakdown': `${Math.round(totalKm).toLocaleString('es-ES')} km`
             };
@@ -24098,6 +24101,50 @@ function createRouteAnchorElement(type) {
             };
             hydrateMatchingRouteSummaryOnMount();
             window.requestAnimationFrame?.(hydrateMatchingRouteSummaryOnMount);
+
+            // Limpieza forzada de UI al iniciar Land Charter
+            const inputDestino = document.getElementById('map-port-pod'); // Reemplaza por el ID real
+            const inputOrigen = document.getElementById('map-port-pol'); // Reemplaza por el ID real
+            if (inputDestino) inputDestino.value = '';
+            if (inputOrigen) inputOrigen.value = '';
+
+            const inputDestinoCalc = document.getElementById('port-pod');
+            const inputOrigenCalc = document.getElementById('port-pol');
+            if (inputDestinoCalc) inputDestinoCalc.value = '';
+            if (inputOrigenCalc) inputOrigenCalc.value = '';
+
+            try {
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.removeItem('calculator_pod');
+                    localStorage.removeItem('calculator_pol');
+                    localStorage.removeItem('calculator_pod_lat');
+                    localStorage.removeItem('calculator_pod_lon');
+                    localStorage.removeItem('calculator_pol_lat');
+                    localStorage.removeItem('calculator_pol_lon');
+                }
+            } catch (_) {}
+
+            if (window.State) {
+                window.State.pod = '';
+                window.State.pol = '';
+                window.State.distLaden = 0;
+                window.State.totalMiles = 0;
+            }
+            if (window.SeaCharterStore && typeof window.SeaCharterStore.set === 'function') {
+                window.SeaCharterStore.set({ pod: '', pol: '', distLaden: 0, totalMiles: 0 }, { silent: true });
+            }
+
+            // Inicialización de barra inferior de métricas (DESTINO: TBA y DISTANCIA: 0 km)
+            const syncPodLabel = document.getElementById('sync-pod-label');
+            if (syncPodLabel) syncPodLabel.textContent = 'TBA';
+            const syncPolLabel = document.getElementById('sync-pol-label');
+            if (syncPolLabel) syncPolLabel.textContent = 'TBA';
+            const syncMilesLabel = document.getElementById('sync-miles-label');
+            if (syncMilesLabel) syncMilesLabel.textContent = '0 km';
+            const syncMilesBreakdown = document.getElementById('sync-miles-breakdown');
+            if (syncMilesBreakdown) syncMilesBreakdown.textContent = '0 km';
+            const syncMilesCard = document.getElementById('sync-miles-card');
+            if (syncMilesCard) syncMilesCard.title = 'Distancia: 0 km';
         });
 
         window.externalRadarSweepState = Object.assign({
@@ -33351,6 +33398,20 @@ function syncLandBottomMetricsVisibility() {
         itineraryPanel.classList.toggle('hidden', !shouldShowItinerary);
         itineraryPanel.setAttribute('aria-hidden', String(!shouldShowItinerary));
         itineraryPanel.style.display = shouldShowItinerary ? 'block' : 'none';
+    }
+    if (!window.currentRoute) {
+        const syncPod = document.getElementById('sync-pod-label');
+        if (syncPod && (!window.State?.pod || !document.getElementById('map-port-pod')?.value)) {
+            syncPod.textContent = 'TBA';
+        }
+        const syncMiles = document.getElementById('sync-miles-label');
+        if (syncMiles && (!window.currentRoute && !window.LandData)) {
+            syncMiles.textContent = '0 km';
+            const syncMilesBreakdown = document.getElementById('sync-miles-breakdown');
+            if (syncMilesBreakdown) syncMilesBreakdown.textContent = '0 km';
+            const syncMilesCard = document.getElementById('sync-miles-card');
+            if (syncMilesCard) syncMilesCard.title = 'Distancia: 0 km';
+        }
     }
 }
 window.syncLandBottomMetricsVisibility = syncLandBottomMetricsVisibility;
