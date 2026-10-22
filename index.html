@@ -9972,11 +9972,11 @@
                         </div>
                         <div class="input-group">
                             <label data-i18n="map_label_pol">Origen</label>
-                            <input type="text" id="map-port-pol" class="input-gc" placeholder="Ej: Madrid" autocomplete="off" inputmode="text" spellcheck="false">
+                            <input type="text" id="map-port-pol" name="origen" class="input-gc" placeholder="Ej: Madrid" autocomplete="off" inputmode="text" spellcheck="false">
                         </div>
                         <div class="input-group">
                             <label data-i18n="map_label_pod">Destino</label>
-                            <input type="text" id="map-port-pod" class="input-gc" placeholder="Ej: París" autocomplete="off" inputmode="text" spellcheck="false">
+                            <input type="text" id="map-port-pod" name="destino" class="input-gc" placeholder="Ej: París" autocomplete="off" inputmode="text" spellcheck="false">
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 hidden" style="display: none;">
                             <div class="input-group">
@@ -9995,8 +9995,8 @@
                 </section>
                 <div id="nlp-input-widget-root"></div>
                 <div id="land-bottom-metrics" data-legacy-id="map-route-summary" class="map-route-summary-overlay grid grid-cols-2 md:grid-cols-3 text-xs hidden" aria-hidden="true" style="display: none;">
-                        <div class="w-full border border-slate-200 rounded p-3"><span class="block text-slate-500 uppercase">Origen</span><strong id="sync-pol-label">TBA</strong></div>
-                        <div class="w-full border border-slate-200 rounded p-3"><span class="block text-slate-500 uppercase">Destino</span><strong id="sync-pod-label">TBA</strong></div>
+                        <div class="w-full border border-slate-200 rounded p-3"><span class="block text-slate-500 uppercase">Origen</span><strong id="sync-pol-label">TBA</strong><span id="ui-origen" class="origen-label hidden" data-id="origen-text" style="display:none;">TBA</span></div>
+                        <div class="w-full border border-slate-200 rounded p-3"><span class="block text-slate-500 uppercase">Destino</span><strong id="sync-pod-label">TBA</strong><span id="ui-destino" class="destino-label hidden" data-id="destino-text" style="display:none;">TBA</span></div>
                         <div id="sync-miles-card" class="w-full border border-slate-200 rounded p-3" title="Distancia: 0 km"><span class="block text-slate-500 uppercase">Kilómetros</span><strong id="sync-miles-label">0 km</strong><small id="sync-miles-breakdown">0 km</small></div>
                 </div>
             </div>
@@ -10227,7 +10227,7 @@
                                         <i class="fa-solid fa-robot mr-0.5"></i> Info IA
                                     </button>
                                 </div>
-                                <input type="text" id="port-pol" class="input-gc text-emerald-300 font-bold" value="" placeholder="Ej: Madrid, 28001" autocomplete="off" inputmode="text" spellcheck="false">
+                                <input type="text" id="port-pol" name="origen" class="input-gc text-emerald-300 font-bold" value="" placeholder="Ej: Madrid, 28001" autocomplete="off" inputmode="text" spellcheck="false">
                                 <div id="port-pol-limits" class="text-[10px] text-emerald-500/80 font-medium mt-1"></div>
                                 <div class="grid grid-cols-2 gap-2 mt-1.5 hidden">
                                     <div>
@@ -10247,7 +10247,7 @@
                                         <i class="fa-solid fa-robot mr-0.5"></i> Info IA
                                     </button>
                                 </div>
-                                <input type="text" id="port-pod" class="input-gc text-emerald-300 font-bold" value="" placeholder="Ej: Berlín, 10115" autocomplete="off" inputmode="text" spellcheck="false">
+                                <input type="text" id="port-pod" name="destino" class="input-gc text-emerald-300 font-bold" value="" placeholder="Ej: Berlín, 10115" autocomplete="off" inputmode="text" spellcheck="false">
                                 <div id="port-pod-limits" class="text-[10px] text-emerald-500/80 font-medium mt-1"></div>
                                 <div class="grid grid-cols-2 gap-2 mt-1.5 hidden">
                                     <div>
@@ -17361,7 +17361,7 @@
             userHasEditedSpecialty: false,
             uploadedFile: null,
             nplDataOrigin: "Externo",
-            portBallast: "", pol: "", pod: "", portBallastCoordinates: null, polCoordinates: null, podCoordinates: null,
+            portBallast: "", pol: "", pod: "", origen: "", destino: "", portBallastCoordinates: null, polCoordinates: null, podCoordinates: null,
             distBallast: 0, distLaden: 0, totalDays: 0,
             cargo: 0, cargoQuantity: 0, stowageFactor: 1.20, cargoTolerance: 0, loadRate: 0, dischRate: 0, dischargeRate: 0,
             cargoType: "",
@@ -17426,6 +17426,10 @@
         };
         if (typeof window !== 'undefined') {
             window.State = State;
+            window.appState = State;
+            window.state = State;
+            window.datosGlobales = State;
+            window.estadoGlobal = State;
         }
 
         function normalizeActiveVoyageState(partial = {}, baseState = State) {
@@ -18022,6 +18026,12 @@
             window.SeaCharterSessionDraftController = window.SeaCharterSessionDraft?.initialize({
                 store: SeaCharterStore,
                 hydrate: (sessionState) => {
+                    if (sessionState) {
+                        sessionState.pol = '';
+                        sessionState.pod = '';
+                        sessionState.origen = '';
+                        sessionState.destino = '';
+                    }
                     SeaCharterStore.set(sessionState);
                     syncGlobalStateToForms();
                 }
@@ -21545,7 +21555,7 @@ window.applyMultimodalPortPreload = applyMultimodalPortPreload;
 window.setMultimodalMode = setMultimodalMode;
 window.fetchAndApplyMultimodalPorts = fetchAndApplyMultimodalPorts;
 
-// Bloqueo de Referencia y Precarga Automática en Carga Inicial
+// Bloqueo de Referencia y Purga de Memoria Marítima en Carga Inicial
 (function initReferenceAndMultimodal() {
     function runInit() {
         try {
@@ -21568,8 +21578,15 @@ window.fetchAndApplyMultimodalPorts = fetchAndApplyMultimodalPorts;
                     const el = document.getElementById(id);
                     if (el) el.value = cleanRef;
                 });
+            }
 
-                void fetchAndApplyMultimodalPorts(cleanRef);
+            // TAREA CRÍTICA: Erradicar la herencia del POL (Port of Loading) marítimo en la memoria de estado de Land Charter para evitar que sobrescriba el origen/destino con puertos como "Tampa".
+            const estado = window.appState || window.State || window.state || window.datosGlobales;
+            if (estado) {
+                estado.pol = '';
+                estado.pod = '';
+                estado.origen = '';
+                estado.destino = '';
             }
         } catch (_) {}
     }
@@ -24102,6 +24119,33 @@ function createRouteAnchorElement(type) {
             hydrateMatchingRouteSummaryOnMount();
             window.requestAnimationFrame?.(hydrateMatchingRouteSummaryOnMount);
 
+            // --- PURGA DE MEMORIA MARÍTIMA (POL/POD) ---
+            // Eliminar las variables geográficas del estado global en Land Charter
+            // (Ajusta 'window.appState' o 'estadoGlobal' a la variable real que uses en este proyecto)
+            const estado = window.appState || window.state || window.datosGlobales; 
+            if (estado) {
+                estado.pol = '';
+                estado.pod = '';
+                estado.origen = '';
+                estado.destino = '';
+            }
+
+            // Forzar limpieza extrema en el DOM (Inputs)
+            const inputsGeograficos = document.querySelectorAll('input[name="origen"], input[name="destino"], input[id*="origen"], input[id*="destino"]');
+            inputsGeograficos.forEach(input => {
+                input.value = '';
+                // Disparar evento para que cualquier framework reactivo se entere del borrado
+                input.dispatchEvent(new Event('input', { bubbles: true })); 
+            });
+
+            // Forzar limpieza extrema en la barra inferior (Métricas)
+            // (Ajusta los selectores a las clases/IDs reales de la barra de Land Charter)
+            const etiquetasOrigen = document.querySelectorAll('.origen-label, #ui-origen, [data-id="origen-text"], #sync-pol-label');
+            const etiquetasDestino = document.querySelectorAll('.destino-label, #ui-destino, [data-id="destino-text"], #sync-pod-label');
+            
+            etiquetasOrigen.forEach(el => el.textContent = 'TBA');
+            etiquetasDestino.forEach(el => el.textContent = 'TBA');
+
             // Limpieza forzada de UI al iniciar Land Charter
             const inputDestino = document.getElementById('map-port-pod'); // Reemplaza por el ID real
             const inputOrigen = document.getElementById('map-port-pol'); // Reemplaza por el ID real
@@ -24127,11 +24171,13 @@ function createRouteAnchorElement(type) {
             if (window.State) {
                 window.State.pod = '';
                 window.State.pol = '';
+                window.State.origen = '';
+                window.State.destino = '';
                 window.State.distLaden = 0;
                 window.State.totalMiles = 0;
             }
             if (window.SeaCharterStore && typeof window.SeaCharterStore.set === 'function') {
-                window.SeaCharterStore.set({ pod: '', pol: '', distLaden: 0, totalMiles: 0 }, { silent: true });
+                window.SeaCharterStore.set({ pod: '', pol: '', origen: '', destino: '', distLaden: 0, totalMiles: 0 }, { silent: true });
             }
 
             // Inicialización de barra inferior de métricas (DESTINO: TBA y DISTANCIA: 0 km)
