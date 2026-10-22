@@ -76453,23 +76453,23 @@ window.actualizarGrabCapacityVisibility = function() {
                 pintarBurbujaChat('✅ Escaneo completado. Analizando matriz de datos terrestres con el LLM en Data Bridge...', 'madre');
 
                 try {
-                    // Conexión al endpoint real de Data Bridge
                     const response = await fetch('https://calm-shortbread-55bcfc.netlify.app/.netlify/functions/madre-chat', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            prompt: "Audita esta operación de transporte terrestre analizando las variables de los bloques 1 a 8, costes y tiempos de tacógrafo.",
+                            origen: "Land Charter",
+                            mensajeUsuario: "Audita esta operación de transporte terrestre.",
                             contexto_ui: datosExtraidos
                         })
                     });
 
                     const resultado = await response.json();
                     
-                    if (resultado && resultado.reporte_estrategico) {
-                        pintarBurbujaChat(`<strong>Veredicto:</strong> ${resultado.veredicto_general}<br><br>${resultado.reporte_estrategico}`, 'madre');
-                    } else {
-                        pintarBurbujaChat('Dictamen recibido correctamente.', 'madre');
-                    }
+                    // Simplificación radical: pintar la respuesta venga como venga
+                    const textoRespuesta = resultado.respuesta || resultado.reply || resultado.mensaje_voz || resultado.resultado || "Auditoría recibida, revisa la consola.";
+                    
+                    pintarBurbujaChat(textoRespuesta, 'madre');
+                    
                 } catch (error) {
                     console.error("Error MADRE:", error);
                     pintarBurbujaChat('⚠️ Error de comunicación con el backend central en Data Bridge.', 'madre');
