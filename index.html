@@ -76453,26 +76453,36 @@ window.actualizarGrabCapacityVisibility = function() {
                 pintarBurbujaChat('✅ Escaneo completado. Analizando matriz de datos terrestres con el LLM en Data Bridge...', 'madre');
 
                 try {
+                    // Inyectamos la vista activa para activar la directiva terrestre
+                    datosExtraidos.vista_activa = "dss";
+
                     const response = await fetch('https://calm-shortbread-55bcfc.netlify.app/.netlify/functions/madre-chat', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             origen: "Land Charter",
-                            mensajeUsuario: "Audita esta operación de transporte terrestre.",
+                            current_module: "land_charter",
+                            mensajeUsuario: "Emite un veredicto estratégico evaluando la viabilidad de esta ruta por carretera.",
                             contexto_ui: datosExtraidos
                         })
                     });
 
                     const resultado = await response.json();
                     
-                    // Simplificación radical: pintar la respuesta venga como venga
-                    const textoRespuesta = resultado.respuesta || resultado.reply || resultado.mensaje_voz || resultado.resultado || "Auditoría recibida, revisa la consola.";
-                    
-                    pintarBurbujaChat(textoRespuesta, 'madre');
+                    // Renderizado inteligente según la herramienta que devuelva el backend
+                    if (resultado.texto_preformateado) {
+                        pintarBurbujaChat(resultado.texto_preformateado, 'madre');
+                    } else if (resultado.datos_auditoria) {
+                        const aud = resultado.datos_auditoria;
+                        pintarBurbujaChat(`<strong>Veredicto:</strong> ${aud.veredicto_general}<br><br>${aud.reporte_estrategico}`, 'madre');
+                    } else {
+                        const texto = resultado.respuesta || resultado.resultado || resultado.reply || "Auditoría de carretera completada.";
+                        pintarBurbujaChat(texto, 'madre');
+                    }
                     
                 } catch (error) {
                     console.error("Error MADRE:", error);
-                    pintarBurbujaChat('⚠️ Error de comunicación con el backend central en Data Bridge.', 'madre');
+                    pintarBurbujaChat('⚠️ Error de comunicación con Data Bridge.', 'madre');
                 }
             }, 1250);
         };
