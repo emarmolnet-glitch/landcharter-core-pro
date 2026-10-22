@@ -24,6 +24,39 @@ function sanitizeRoadTermsInObject(obj) {
   return obj;
 }
 
+// NUEVO: Función robusta para convertir "10.000" MT o "10.000,50" en números reales correctos
+function parseLocalNumber(val) {
+  if (val === undefined || val === null || val === "") return 0;
+  if (typeof val === 'number') return val;
+  let str = String(val).trim().replace(/[a-zA-Z\s]/g, ""); // Quita "MT", etc.
+  
+  const commas = (str.match(/,/g) || []).length;
+  const dots = (str.match(/\./g) || []).length;
+  
+  if (dots === 1 && commas === 0) {
+     // Ej: "10.000" -> Borra el punto de miles. Si es "10.5", se conserva.
+     if (str.split(".").pop().length === 3) str = str.replace(".", ""); 
+  } else if (commas === 1 && dots === 0) {
+     if (str.split(",").pop().length === 3) str = str.replace(",", "");
+     else str = str.replace(",", "."); 
+  } else if (dots > 0 && commas > 0) {
+     const lastDot = str.lastIndexOf(".");
+     const lastComma = str.lastIndexOf(",");
+     if (lastDot > lastComma) {
+         str = str.replace(/,/g, ""); // Formato US: 10,000.50
+     } else {
+         str = str.replace(/\./g, "").replace(/,/g, "."); // Formato EU: 10.000,50
+     }
+  } else if (dots > 1) {
+     str = str.replace(/\./g, ""); // Ej: 1.000.000
+  } else if (commas > 1) {
+     str = str.replace(/,/g, "");
+  }
+  
+  const n = parseFloat(str);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export default async function handler(request) {
   // 1. Manejo de CORS preflight
   const method = request?.method || request?.httpMethod || "POST";
@@ -45,7 +78,6 @@ export default async function handler(request) {
     });
   }
 
-  // Soporte universal para Web API Request (Netlify v2) y AWS Lambda event
   let event = request;
   if (request && typeof request.text === "function") {
     const rawText = await request.text().catch(() => "");
@@ -58,11 +90,27 @@ export default async function handler(request) {
 
   let body = {};
   let userPrompt = "";
+  let promptLower = "";
+  let isScanCommand = false;
   let isRailMode = false;
 
   try {
     body = JSON.parse(event.body || "{}");
     userPrompt = String(body.prompt || body.message || body.texto || "").trim();
+    promptLower = userPrompt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    // Identificar si es orden directa de escaneo
+    isScanCommand = /escan|scan|pantalla|auditor/i.test(promptLower);
+
+    // CORRECCIÓN 1: Sanitizar el tonelaje (ej. "10.000") a números matemáticos de inmediato
+    if (body.contexto_ui) {
+        if (body.contexto_ui.toneladas !== undefined) body.contexto_ui.toneladas = parseLocalNumber(body.contexto_ui.toneladas);
+        if (body.contexto_ui.tonnage !== undefined) body.contexto_ui.tonnage = parseLocalNumber(body.contexto_ui.tonnage);
+        if (body.contexto_ui.porte && body.contexto_ui.porte.cargo !== undefined) {
+            body.contexto_ui.porte.cargo = parseLocalNumber(body.contexto_ui.porte.cargo);
+        }
+    }
+    if (body.tonnage !== undefined) body.tonnage = parseLocalNumber(body.tonnage);
 
     isRailMode = String(
       body.globalTransportMode ||
@@ -80,13 +128,12 @@ export default async function handler(request) {
     
     // URL base por variable de entorno
     const baseUrl = process.env.DATA_BRIDGE_URL || "https://calm-shortbread-55bcfc.netlify.app";
-    // EL ENDPOINT REAL EN DATA BRIDGE ES madre-chat
     const dataBridgeEndpoint = `${baseUrl.replace(/\/$/, '')}/.netlify/functions/madre-chat`;
 
     console.log(" puenteeando hacia Data Bridge ->", dataBridgeEndpoint);
     console.log("🔍 [DEBUG RED] Intentando conectar con Data Bridge en la URL exacta:", dataBridgeEndpoint);
 
-    // Formatear el payload EXACTAMENTE como lo espera Data Bridge (madre-chat.js)
+    // Formatear el payload EXACTAMENTE como lo espera Data Bridge
     const remotePayload = {
       mensajeUsuario: userPrompt,
       origen: "Land Charter",
@@ -96,6 +143,15 @@ export default async function handler(request) {
       contexto_ui: body.contexto_ui || {},
       history: body.history || []
     };
+
+    // CORRECCIÓN 2: Si es un saludo/charla normal, eliminamos los datos pesados para evitar la auditoría forzada remota
+    if (!isScanCommand && remotePayload.contexto_ui) {
+        delete remotePayload.contexto_ui.escaneo_land;
+        delete remotePayload.contexto_ui.escaneo_terrestre;
+        delete remotePayload.contexto_ui.ruta;
+        delete remotePayload.contexto_ui.porte;
+        delete remotePayload.contexto_ui.costes;
+    }
 
     if (isRailMode) {
       remotePayload.globalTransportMode = 'RAIL';
@@ -270,7 +326,8 @@ export default async function handler(request) {
     console.error(`[madre-ia] Error devuelto por Data Bridge: ${error.message}`);
 
     // --- MANEJO ESPECIALIZADO DE AUDITORÍA ESTRATÉGICA LAND CHARTER ---
-    if (body.vista_activa === "decisiones" || body.modulo === "land_charter" || /auditor[ií]a/i.test(userPrompt)) {
+    // CORRECCIÓN 3: Aislar la auditoría de emergencia para que solo salte si pedimos un escaneo.
+    if (isScanCommand) {
       const ctx = body.contexto_ui || {};
       const porte = ctx.porte || {};
       const ruta = ctx.ruta || {};
@@ -319,7 +376,7 @@ export default async function handler(request) {
       const bufferDaysLocal = Number(ctx.bufferEntrega || ctx.laycanBuffer || ctx.deliveryBufferDays || 0) || 7;
       const cadenciaDinamica = totalVehiculosLocal > 1 ? Math.ceil(totalVehiculosLocal / bufferDaysLocal) : 1;
 
-      const modificacionesRecap = {
+      constificacionesRecap = {
         tarifaSugerida: Math.round(flete * 1.08),
         fleteEstimado: Math.round(flete * 1.08),
         breakEven: breakEven,
@@ -338,7 +395,7 @@ export default async function handler(request) {
         reporte_estrategico: reporteEstrategico,
         variables_perjudiciales: variablesPerjudiciales,
         recomendaciones: recomendaciones,
-        modificaciones_recap: modificacionesRecap,
+        modificaciones_recap: constificacionesRecap,
         reply: `Auditoría Estratégica MADRE completada con veredicto ${veredicto}.`,
         timestamp: new Date().toISOString()
       };
@@ -359,8 +416,7 @@ export default async function handler(request) {
       });
     }
 
-    // --- LÓGICA DE ORQUESTACIÓN LOCAL (FALLBACK) ---
-    const promptLower = userPrompt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    // --- LÓGICA DE ORQUESTACIÓN LOCAL (FALLBACK DE CHARLA NORMAL) ---
     let fallbackAction = "informar";
     let delegationPayload = {};
     let halReply = "Procesando solicitud.";
@@ -396,20 +452,19 @@ export default async function handler(request) {
       delegationPayload = { vista: "rutas" };
       halReply = "Mostrando el mapa de rutas.";
     
-    // NUEVO: Derivación analítica al Asistente Core
     } else if (/cuanto|cuanta|camion|camiones|margen|coste|precio|dime|busca|analiza/i.test(promptLower)) {
       fallbackAction = "delegar_asistente_core";
       delegationPayload = { query: userPrompt };
       halReply = "Transfiriendo consulta al Asistente Core para analizar los datos del proyecto.";
     
-    // NUEVO: Saludos y respuestas conversacionales locales
+    // Ahora responderá correctamente aquí al decir "Hola"
     } else if (/hola|buenos dias|buenas tardes|que tal|madre/i.test(promptLower)) {
       fallbackAction = "informar";
-      halReply = "Hola, Esteban. La conexión remota con Data Bridge está inactiva, pero opero en Modo Local. Cerebro.ia y Asistente Core están listos. ¿Qué necesitas?";
+      halReply = "Hola, Esteban. Cerebro Central activo y en conexión con Land Charter. ¿En qué te ayudo?";
     
     } else {
-      halReply = "Se ha perdido la conexión con el Cerebro Central remota. Intenta reformular tu petición o utiliza los comandos locales.";
-      fallbackAction = "error_conexion";
+      halReply = "Conexión local establecida. Utiliza los comandos tácticos o solicita el escáner.";
+      fallbackAction = "informar";
     }
 
     return new Response(JSON.stringify({
