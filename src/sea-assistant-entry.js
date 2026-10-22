@@ -4,7 +4,8 @@ import { evaluateBasicRisks } from "./basic-risk-evaluator.js";
 import { evaluateModuleSuggestions, SUPPORTED_MODULES } from "./universal-module-suggestions.js";
 import { getApiUrl } from "./utils/apiConfig.js";
 
-const DEFAULT_CEREBRO_IA_ENDPOINT = getApiUrl("/api/cerebro-ia");
+// 1. CORRECCIÓN: Apuntando al proxy unificado
+const DEFAULT_CEREBRO_IA_ENDPOINT = getApiUrl("/.netlify/functions/madre-ia");
 const DEFAULT_CHAT_ASSISTANT_ENDPOINT = getApiUrl("/.netlify/functions/chat-assistant");
 const REQUEST_TIMEOUT_MS = 45_000;
 const AI_HISTORY_LIMIT = 6;
@@ -414,9 +415,12 @@ async function requestAssistantResponse(userText, historyElement, signal, attach
   const agentType = iaActiva === 'cerebro' ? 'cerebro' : 'asistente';
   const currentTransportMode = (typeof window !== 'undefined' && window.globalTransportMode) ? window.globalTransportMode : 'ROAD';
   
+  // 2. CORRECCIÓN: Detectamos si pide escanear o es un simple "Hola"
+  const isScanCommand = /escan|scan|pantalla|auditor/i.test(String(userText || "").toLowerCase());
+
   const requestPayload = {
-    CalculationData: collectCalculationData(),
-    MarketData: collectMarketData(),
+    CalculationData: isScanCommand ? collectCalculationData() : {},
+    MarketData: isScanCommand ? collectMarketData() : {},
     UserContext: userText,
     ConversationHistory: historial,
     message: userText,
@@ -467,7 +471,9 @@ async function requestAssistantResponse(userText, historyElement, signal, attach
       });
     } else {
       const sanitizedPayload = sanitizePayloadForAI(requestPayload);
-      sanitizedPayload.contexto = collectChatContext();
+      // CORRECCIÓN 2b: Limpiamos contexto UI si no es escaneo
+      sanitizedPayload.contexto_ui = isScanCommand ? collectChatContext() : {};
+      sanitizedPayload.contexto = sanitizedPayload.contexto_ui;
       sanitizedPayload.mensaje = userText;
       sanitizedPayload.message = userText;
       sanitizedPayload.uiLanguage = uiLanguage;
@@ -527,6 +533,8 @@ function normalizeDataBridgeAssistantResponse(payload) {
     payload?.answer,
     payload?.content,
     payload?.result,
+    // 3. CORRECCIÓN: Detectar reporte_estrategico
+    payload?.reporte_estrategico,
     payload?.data?.informe,
     payload?.data?.reply,
     payload?.data?.message,
@@ -2211,10 +2219,16 @@ const fileInput = root.querySelector("#sca-file-input");
     return (container.textContent || "").replace(/\s+/g, " ").trim();
   };
 
+  // 4. CORRECCIÓN: Evitar que el lector de voz crashee con textos largos
   const speakText = (text) => {
     if (!speechEnabled || !supportsSpeechSynthesis || panel.hidden) return;
-    const cleanText = cleanTextForSpeech(text);
+    let cleanText = cleanTextForSpeech(text);
     if (!cleanText) return;
+
+    if (cleanText.length > 250) {
+      const firstPeriod = cleanText.indexOf(".");
+      cleanText = firstPeriod > 0 ? cleanText.substring(0, firstPeriod + 1) : cleanText.substring(0, 250) + "...";
+    }
 
     const utterance = new window.SpeechSynthesisUtterance(cleanText);
     const uiLanguage = getAppUiLanguage();
@@ -2633,9 +2647,6 @@ const fileInput = root.querySelector("#sca-file-input");
       );
       console.groupEnd();
 
-      // Hand-off automático: Si la respuesta actual viene de Cerebro.ia y es un cálculo exitoso
-      // (ej. contiene action: "update_fields" o actualizó el contexto de la calculadora),
-      // el frontend cambia programáticamente el estado del dropdown a Asistente Core e inyecta la bienvenida.
       const isCerebro = currentAgentAtRequest === 'cerebro' || iaActiva === 'cerebro';
       const actionName = action?.action || action?.name || action?.type || (typeof response?.action === 'string' ? response.action : response?.action?.action);
       const isSuccessfulCalculation = isCerebro && actionResult?.error !== true && (
