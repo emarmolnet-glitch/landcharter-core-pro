@@ -76453,8 +76453,19 @@ window.actualizarGrabCapacityVisibility = function() {
                 pintarBurbujaChat('✅ Escaneo completado. Analizando matriz de datos terrestres con el LLM en Data Bridge...', 'madre');
 
                 try {
-                    // Inyectamos la vista activa para activar la directiva terrestre
                     datosExtraidos.vista_activa = "dss";
+
+                    // 1. Detectar el estado "Road / Rail" en el Header (Ajusta los selectores a los IDs o clases reales de tu HTML)
+                    // Ejemplo genérico: const isRailActive = document.querySelector('.selector-rail')?.classList.contains('active');
+                    // INSTRUCCIÓN PARA EL AGENTE: Escribe la línea exacta de JS que lee si el modo 'Rail' está activo en esta UI.
+                    const isRailActive = document.getElementById('btn-view-mode-charterer')?.getAttribute('aria-pressed') === 'true';
+                    const modoTransporteActivo = isRailActive ? "rail" : "carretera"; // Por defecto
+                    
+                    const modoFinal = (modoTransporteActivo.includes("rail") || modoTransporteActivo === "ferrocarril") 
+                        ? "ferrocarril" 
+                        : "carretera";
+
+                    datosExtraidos.modo_transporte_activo = modoFinal;
 
                     const response = await fetch('https://calm-shortbread-55bcfc.netlify.app/.netlify/functions/madre-chat', {
                         method: 'POST',
@@ -76462,21 +76473,20 @@ window.actualizarGrabCapacityVisibility = function() {
                         body: JSON.stringify({
                             origen: "Land Charter",
                             current_module: "land_charter",
-                            mensajeUsuario: "Emite un veredicto estratégico evaluando la viabilidad de esta ruta por carretera.",
+                            mensajeUsuario: `Emite un veredicto estratégico evaluando la viabilidad de esta ruta por ${modoFinal}.`,
                             contexto_ui: datosExtraidos
                         })
                     });
 
                     const resultado = await response.json();
                     
-                    // Renderizado inteligente según la herramienta que devuelva el backend
                     if (resultado.texto_preformateado) {
                         pintarBurbujaChat(resultado.texto_preformateado, 'madre');
                     } else if (resultado.datos_auditoria) {
                         const aud = resultado.datos_auditoria;
                         pintarBurbujaChat(`<strong>Veredicto:</strong> ${aud.veredicto_general}<br><br>${aud.reporte_estrategico}`, 'madre');
                     } else {
-                        const texto = resultado.respuesta || resultado.resultado || resultado.reply || "Auditoría de carretera completada.";
+                        const texto = resultado.respuesta || resultado.resultado || resultado.reply || `Auditoría por ${modoFinal} completada.`;
                         pintarBurbujaChat(texto, 'madre');
                     }
                     
