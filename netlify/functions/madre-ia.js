@@ -1,5 +1,5 @@
 // netlify/functions/madre-ia.js
-// Proxy / Gateway hacia el Cerebro Central de MADRE en Data Bridge
+// Proxy Puro hacia el Cerebro Central de MADRE en Data Bridge
 
 function replaceRoadTermsWithRail(text) {
   if (typeof text !== 'string') return text;
@@ -24,17 +24,16 @@ function sanitizeRoadTermsInObject(obj) {
   return obj;
 }
 
-// NUEVO: Función robusta para convertir "10.000" MT o "10.000,50" en números reales correctos
+// Limpiador robusto para números europeos (ej. "10.000" -> 10000)
 function parseLocalNumber(val) {
   if (val === undefined || val === null || val === "") return 0;
   if (typeof val === 'number') return val;
-  let str = String(val).trim().replace(/[a-zA-Z\s]/g, ""); // Quita "MT", etc.
+  let str = String(val).trim().replace(/[a-zA-Z\s]/g, ""); 
   
   const commas = (str.match(/,/g) || []).length;
   const dots = (str.match(/\./g) || []).length;
   
   if (dots === 1 && commas === 0) {
-     // Ej: "10.000" -> Borra el punto de miles. Si es "10.5", se conserva.
      if (str.split(".").pop().length === 3) str = str.replace(".", ""); 
   } else if (commas === 1 && dots === 0) {
      if (str.split(",").pop().length === 3) str = str.replace(",", "");
@@ -42,13 +41,10 @@ function parseLocalNumber(val) {
   } else if (dots > 0 && commas > 0) {
      const lastDot = str.lastIndexOf(".");
      const lastComma = str.lastIndexOf(",");
-     if (lastDot > lastComma) {
-         str = str.replace(/,/g, ""); // Formato US: 10,000.50
-     } else {
-         str = str.replace(/\./g, "").replace(/,/g, "."); // Formato EU: 10.000,50
-     }
+     if (lastDot > lastComma) str = str.replace(/,/g, "");
+     else str = str.replace(/\./g, "").replace(/,/g, ".");
   } else if (dots > 1) {
-     str = str.replace(/\./g, ""); // Ej: 1.000.000
+     str = str.replace(/\./g, ""); 
   } else if (commas > 1) {
      str = str.replace(/,/g, "");
   }
@@ -58,7 +54,6 @@ function parseLocalNumber(val) {
 }
 
 export default async function handler(request) {
-  // 1. Manejo de CORS preflight
   const method = request?.method || request?.httpMethod || "POST";
   if (method === "OPTIONS") {
     return new Response(null, {
@@ -81,28 +76,23 @@ export default async function handler(request) {
   let event = request;
   if (request && typeof request.text === "function") {
     const rawText = await request.text().catch(() => "");
-    event = {
-      body: rawText,
-      headers: request.headers,
-      method: request.method
-    };
+    event = { body: rawText, headers: request.headers, method: request.method };
   }
 
   let body = {};
   let userPrompt = "";
-  let promptLower = "";
   let isScanCommand = false;
   let isRailMode = false;
 
   try {
     body = JSON.parse(event.body || "{}");
     userPrompt = String(body.prompt || body.message || body.texto || "").trim();
-    promptLower = userPrompt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const promptLower = userPrompt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     
-    // Identificar si es orden directa de escaneo
+    // 1. Detectar si piden escaneo explícito
     isScanCommand = /escan|scan|pantalla|auditor/i.test(promptLower);
 
-    // CORRECCIÓN 1: Sanitizar el tonelaje (ej. "10.000") a números matemáticos de inmediato
+    // 2. Sanitizar las toneladas para que la IA vea "10000" y no "10"
     if (body.contexto_ui) {
         if (body.contexto_ui.toneladas !== undefined) body.contexto_ui.toneladas = parseLocalNumber(body.contexto_ui.toneladas);
         if (body.contexto_ui.tonnage !== undefined) body.contexto_ui.tonnage = parseLocalNumber(body.contexto_ui.tonnage);
@@ -113,27 +103,18 @@ export default async function handler(request) {
     if (body.tonnage !== undefined) body.tonnage = parseLocalNumber(body.tonnage);
 
     isRailMode = String(
-      body.globalTransportMode ||
-      body.transportMode ||
-      body.transport_mode ||
-      body.contexto_ui?.globalTransportMode ||
-      body.contexto_ui?.transport_mode ||
-      body.contexto_ui?.porte?.transportMode ||
-      body.contexto_ui?.porte?.globalTransportMode ||
-      (body.isRail ? 'RAIL' : '') ||
-      (body.contexto_ui?.isRail ? 'RAIL' : '')
+      body.globalTransportMode || body.transportMode || body.transport_mode ||
+      body.contexto_ui?.globalTransportMode || body.contexto_ui?.transport_mode ||
+      body.contexto_ui?.porte?.transportMode || body.contexto_ui?.porte?.globalTransportMode ||
+      (body.isRail ? 'RAIL' : '') || (body.contexto_ui?.isRail ? 'RAIL' : '')
     ).toUpperCase() === 'RAIL' ||
     /tren|tolva|vag[oó]n|ferrocarril|rail/i.test(userPrompt) ||
     /tren|tolva|vag[oó]n|ferrocarril|rail/i.test(String(body.contexto_ui?.tipo_vehiculo || body.contexto_ui?.vehicle_type || body.contexto_ui?.porte?.vehicleType || ''));
     
-    // URL base por variable de entorno
     const baseUrl = process.env.DATA_BRIDGE_URL || "https://calm-shortbread-55bcfc.netlify.app";
     const dataBridgeEndpoint = `${baseUrl.replace(/\/$/, '')}/.netlify/functions/madre-chat`;
 
-    console.log(" puenteeando hacia Data Bridge ->", dataBridgeEndpoint);
-    console.log("🔍 [DEBUG RED] Intentando conectar con Data Bridge en la URL exacta:", dataBridgeEndpoint);
-
-    // Formatear el payload EXACTAMENTE como lo espera Data Bridge
+    // 3. Preparar el paquete exacto para Data Bridge
     const remotePayload = {
       mensajeUsuario: userPrompt,
       origen: "Land Charter",
@@ -144,7 +125,7 @@ export default async function handler(request) {
       history: body.history || []
     };
 
-    // CORRECCIÓN 2: Si es un saludo/charla normal, eliminamos los datos pesados para evitar la auditoría forzada remota
+    // 4. Si NO es un comando de escaneo, VACIAR la biblia de datos terrestres
     if (!isScanCommand && remotePayload.contexto_ui) {
         delete remotePayload.contexto_ui.escaneo_land;
         delete remotePayload.contexto_ui.escaneo_terrestre;
@@ -156,157 +137,70 @@ export default async function handler(request) {
     if (isRailMode) {
       remotePayload.globalTransportMode = 'RAIL';
       remotePayload.transport_mode = 'RAIL';
-      remotePayload.transportMode = 'RAIL';
       remotePayload.isRail = true;
-      remotePayload.fleet_tonnage_divisor = 50;
       remotePayload.divisor_flota = 50;
-      remotePayload.wagon_capacity = 50;
-      remotePayload.vagon_capacity = 50;
-      remotePayload.truck_capacity = 50;
-      remotePayload.vehicle_capacity = 50;
-      remotePayload.fleet_capacity = 50;
       remotePayload.vehicle_type = 'Vagón Tolva (Ferrocarril)';
-      remotePayload.tipo_vehiculo = 'Vagón Tolva (Ferrocarril)';
 
       if (remotePayload.contexto_ui) {
         remotePayload.contexto_ui.globalTransportMode = 'RAIL';
-        remotePayload.contexto_ui.transport_mode = 'RAIL';
         remotePayload.contexto_ui.isRail = true;
-        remotePayload.contexto_ui.fleet_tonnage_divisor = 50;
         remotePayload.contexto_ui.divisor_flota = 50;
-        remotePayload.contexto_ui.wagon_capacity = 50;
-        remotePayload.contexto_ui.vagon_capacity = 50;
-        remotePayload.contexto_ui.truck_capacity = 50;
         remotePayload.contexto_ui.vehicle_type = 'Vagón Tolva (Ferrocarril)';
-        remotePayload.contexto_ui.tipo_vehiculo = 'Vagón Tolva (Ferrocarril)';
       }
 
-      const ctxTonnage = Number(
-        body.contexto_ui?.toneladas ||
-        body.contexto_ui?.porte?.cargo ||
-        body.contexto_ui?.tonnage ||
-        body.tonnage || 0
-      );
+      const ctxTonnage = Number(body.contexto_ui?.toneladas || body.contexto_ui?.porte?.cargo || body.tonnage || 0);
       if (ctxTonnage > 0) {
         const railWagons = Math.ceil(ctxTonnage / 50);
         remotePayload.flota = railWagons;
-        remotePayload.total_trucks = railWagons;
         remotePayload.total_wagons = railWagons;
-        remotePayload.totalVehiculos = railWagons;
         if (remotePayload.contexto_ui) {
           remotePayload.contexto_ui.flota = railWagons;
-          remotePayload.contexto_ui.total_trucks = railWagons;
           remotePayload.contexto_ui.total_wagons = railWagons;
         }
       }
-
-      const railDirective = " [DIRECTIVA FERROVIARIA ESTRICTA: Transporte mediante convoy ferroviario (tren con vagones tolva). Capacidad por vagón tolva = 50 toneladas (divisor de cálculo de flota = 50t, NO 24t). Usa siempre la palabra 'vagones' en lugar de 'camiones' o 'trailers'. Operación ferroviaria sin peajes de carretera ni dietas de chófer.]";
+      const railDirective = " [DIRECTIVA FERROVIARIA ESTRICTA: Transporte mediante convoy ferroviario (tren con vagones tolva). Capacidad por vagón tolva = 50 toneladas. Usa siempre la palabra 'vagones' en lugar de 'camiones'. Operación ferroviaria sin peajes de carretera ni dietas de chófer.]";
       remotePayload.mensajeUsuario = userPrompt ? `${userPrompt} ${railDirective}` : railDirective;
     }
 
-    // Intentar conexión real con el Cerebro Central
+    // 5. Conexión real con Data Bridge (Cerebro Central)
     const backendResponse = await fetch(dataBridgeEndpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(remotePayload)
     });
 
     if (backendResponse.ok) {
       let data = await backendResponse.json();
       
-      // --- CAPA DE ADAPTACIÓN: DATA BRIDGE (LLM) -> LAND CHARTER (FRONTEND) ---
-      
-      // 1. Mapeo de navegación directa (Data Bridge devuelve "navegar" y "destino")
+      // Adaptación de Interfaz para Land Charter
       if (data.accion_ui === "navegar") {
         data.accion_ui = "navegar_vista";
         data.delegation_payload = { vista: data.destino };
       }
       
-      // 2. Mapeo de herramientas ejecutadas en background (Cerebro IA, Asistente Core)
-      if (!data.accion_ui && data.herramientasEjecutadas && data.herramientasEjecutadas.length > 0) {
-        const ultimaHerramienta = data.herramientasEjecutadas[data.herramientasEjecutadas.length - 1];
-        const nombre = ultimaHerramienta.herramienta;
-        const args = ultimaHerramienta.argumentos || {};
-        const res = ultimaHerramienta.resultado || {};
-
-        if (nombre === "delegar_cerebro_ia") {
-          data.accion_ui = "delegar_cerebro_ia";
-          data.delegation_payload = {
-            pol: res.origen || args.origen || "Sétif",
-            pod: res.destino || args.destino || "Béjaïa",
-            tonnage: 8000,
-            vehicle_type: isRailMode ? "Vagón Tolva (Ferrocarril)" : (res.tipo_vehiculo || args.tipo_vehiculo || "Camión Plataforma")
-          };
-        } else if (nombre === "delegar_asistente_core") {
-          data.accion_ui = "delegar_asistente_core";
-          data.delegation_payload = { query: args.consulta || args.query };
-        } else if (nombre === "delegar_agente_proyectos") {
-          data.accion_ui = "delegar_agente_proyectos";
-          data.delegation_payload = { operacion: args.operacion, expediente_id: args.expediente_id };
-        }
-      }
-
-      // Asegurar que el remitente sea MADRE para los estilos de chat
       data.sender = "MADRE";
-      // Asegurar que el mensaje de voz se renderice en el chat si viene como 'respuesta'
-      data.reply = data.mensaje_voz || data.respuesta || data.reply || "Operación completada.";
+      data.reply = data.mensaje_voz || data.respuesta || data.reply || "Operación procesada en Data Bridge.";
 
       if (isRailMode) {
         data.globalTransportMode = 'RAIL';
-        data.fleet_tonnage_divisor = 50;
         data.divisor_flota = 50;
-        data.wagon_capacity = 50;
-
-        const ctxPayload = body.contexto_ui || {};
-        const ctxTonnage = Number(
-          ctxPayload.toneladas || ctxPayload.porte?.cargo || ctxPayload.tonnage || data.delegation_payload?.tonnage || 0
-        );
-        let railWagons = 0;
-        if (ctxTonnage > 0) {
-          railWagons = Math.ceil(ctxTonnage / 50);
-        } else {
-          const rawVehicles = Number(data.total_trucks || data.totalVehiculos || ctxPayload.total_trucks || ctxPayload.flota || 0);
-          if (rawVehicles > 0) {
-            railWagons = Math.ceil((rawVehicles * 24) / 50);
-          }
-        }
-        if (railWagons > 0) {
-          data.total_trucks = railWagons;
-          data.total_wagons = railWagons;
-          data.totalVehiculos = railWagons;
-          data.flota = railWagons;
-          if (data.delegation_payload) {
-            data.delegation_payload.total_trucks = railWagons;
-            data.delegation_payload.total_wagons = railWagons;
-          }
-        }
-
         sanitizeRoadTermsInObject(data);
       }
 
-      // Regla Fase 4: MADRE jamás debe sugerir una cadencia de 1 vehículo al día en operaciones de alto volumen
-      const ctxPayload = body.contexto_ui || {};
+      // Regla cadencia (No permitir 1 vehículo/día en volumen alto)
       const divisorRemote = isRailMode ? 50 : 24;
+      const ctxPayload = body.contexto_ui || {};
       const totalVehiculosRemote = Number(
         data.total_wagons || data.total_trucks || data.totalVehiculos || ctxPayload.total_wagons || ctxPayload.total_trucks || ctxPayload.flota ||
-        (ctxPayload.toneladas ? Math.ceil(Number(ctxPayload.toneladas) / divisorRemote) : 0) ||
-        (data.delegation_payload?.tonnage ? Math.ceil(Number(data.delegation_payload.tonnage) / divisorRemote) : 0) || 0
+        (ctxPayload.toneladas ? Math.ceil(Number(ctxPayload.toneladas) / divisorRemote) : 0) || 0
       );
-      const bufferDaysRemote = Number(ctxPayload.bufferEntrega || ctxPayload.laycanBuffer || ctxPayload.deliveryBufferDays || data.bufferDays || 0) || 7;
+      const bufferDaysRemote = Number(ctxPayload.bufferEntrega || ctxPayload.laycanBuffer || data.bufferDays || 0) || 7;
+      
       if (totalVehiculosRemote > 1) {
         const dynamicCadence = Math.ceil(totalVehiculosRemote / bufferDaysRemote);
-        if (data.cadencia === 1 || data.modificacionesRecap?.cadencia === 1 || data.cadenciaSugerida === 1) {
+        if (data.cadencia === 1 || data.cadenciaSugerida === 1) {
           data.cadencia = dynamicCadence;
-          if (data.modificacionesRecap) {
-            data.modificacionesRecap.cadencia = dynamicCadence;
-            data.modificacionesRecap.cadenciaSugerida = dynamicCadence;
-          }
           if (data.cadenciaSugerida) data.cadenciaSugerida = dynamicCadence;
-        }
-        if (data.delegation_payload && data.delegation_payload.cadencia === 1) {
-          data.delegation_payload.cadencia = dynamicCadence;
         }
         if (typeof data.reply === "string" && /1\s*(?:camión|vehículo)\s*al\s*día/i.test(data.reply)) {
           data.reply = data.reply.replace(/1\s*(?:camión|vehículo)\s*al\s*día/gi, `${dynamicCadence} vehículos al día`);
@@ -319,163 +213,19 @@ export default async function handler(request) {
       });
     }
 
-    throw new Error(`Data Bridge respondió con estado: ${backendResponse.status}`);
+    throw new Error(`Data Bridge devolvió HTTP ${backendResponse.status}`);
 
   } catch (error) {
+    // 6. Si Data Bridge falla, lo reporta explícitamente en vez de inventar respuestas locales
     console.error("⚠️ [MADRE Proxy] Fallo de conexión remota:", error.message);
-    console.error(`[madre-ia] Error devuelto por Data Bridge: ${error.message}`);
-
-    // --- MANEJO ESPECIALIZADO DE AUDITORÍA ESTRATÉGICA LAND CHARTER ---
-    // CORRECCIÓN 3: Aislar la auditoría de emergencia para que solo salte si pedimos un escaneo.
-    if (isScanCommand) {
-      const ctx = body.contexto_ui || {};
-      const porte = ctx.porte || {};
-      const ruta = ctx.ruta || {};
-      const costes = ctx.costes || {};
-      const peajes = Number(ctx.peajes) || 0;
-      const ldm = Number(ctx.ldm) || 13.6;
-      const flete = Number(porte.fleteEstimado) || 1200;
-      const breakEven = Number(porte.breakEven) || 950;
-      const margen = flete > 0 ? ((flete - breakEven) / flete) * 100 : 0;
-
-      let veredicto = "🟢";
-      if (margen < 5) veredicto = "🔴";
-      else if (margen < 18) veredicto = "🟡";
-
-      const variablesPerjudiciales = [
-        "Riesgo de paralización en frontera / aduana (>3h sin indemnización)",
-        "Retorno en vacío no cubierto en destino secundario",
-        peajes > 200 ? "Sobrecoste elevado de peajes y euroviñeta no repercutidos" : "Volatilidad del gasóleo profesional sin cláusula de indexación"
-      ];
-
-      const recomendaciones = [
-        {
-          tipo: "pro",
-          titulo: "Cláusula de Paralización Estricta",
-          descripcion: "Exigir compensación contractual de 60 €/hora a partir de la 3ª hora de demora en carga, descarga o aduana."
-        },
-        {
-          tipo: "pro",
-          titulo: "Recargo por Reposicionamiento en Vacío",
-          descripcion: `Garantizar una tarifa base revisada de ${(flete * 1.08).toFixed(2)} € para absorber retornos vacíos.`
-        },
-        {
-          tipo: "contra",
-          titulo: "Aceptar Flete Cerrado sin Cláusula de Combustible",
-          descripcion: "Un aumento del 5% en diésel neutralizaría el margen neto proyectado del transporte."
-        }
-      ];
-
-      const reporteEstrategico = `Auditoría Estratégica Terrestre completada para la ruta ${ruta.origen || 'Origen'} ➔ ${ruta.destino || 'Destino'} (${ruta.distanciaKm || 0} km, ${ldm} LDM). Con un flete proyectado de ${flete} € y un coste operativo base de ${breakEven} € (incluyendo ${peajes} € en peajes), el margen bruto estimado se sitúa en el ${margen.toFixed(1)}%. Se detecta exposición comercial crítica ante demoras en muelle o retornos en vacío. Se recomienda proceder bajo la Opción B contractual con blindaje de paralizaciones.`;
-
-      const divisorLocal = isRailMode ? 50 : 24;
-      const totalVehiculosLocal = Number(
-        porte.total_wagons || porte.total_trucks || porte.trucks_needed || ctx.flota || ctx.total_trucks ||
-        (ctx.toneladas ? Math.ceil(Number(ctx.toneladas) / divisorLocal) : (porte.cargo ? Math.ceil(Number(porte.cargo) / divisorLocal) : 0)) || 0
-      );
-      const bufferDaysLocal = Number(ctx.bufferEntrega || ctx.laycanBuffer || ctx.deliveryBufferDays || 0) || 7;
-      const cadenciaDinamica = totalVehiculosLocal > 1 ? Math.ceil(totalVehiculosLocal / bufferDaysLocal) : 1;
-
-      constificacionesRecap = {
-        tarifaSugerida: Math.round(flete * 1.08),
-        fleteEstimado: Math.round(flete * 1.08),
-        breakEven: breakEven,
-        clausulaParalizacion: "Indemnización por paralización de 60,00 €/hora tras 3 horas de espera en origen, destino o aduana.",
-        condicionesEspeciales: "Opción B Estratégica MADRE: Retorno en vacío cubierto al 70%, peajes incluidos y franquicia de espera limitada a 3h.",
-        peajes: peajes,
-        cadenciaSugerida: cadenciaDinamica,
-        cadencia: cadenciaDinamica
-      };
-
-      const auditResponse = {
-        success: true,
-        sender: "MADRE",
-        status: "success",
-        veredicto_general: veredicto,
-        reporte_estrategico: reporteEstrategico,
-        variables_perjudiciales: variablesPerjudiciales,
-        recomendaciones: recomendaciones,
-        modificaciones_recap: constificacionesRecap,
-        reply: `Auditoría Estratégica MADRE completada con veredicto ${veredicto}.`,
-        timestamp: new Date().toISOString()
-      };
-
-      if (isRailMode) {
-        auditResponse.globalTransportMode = 'RAIL';
-        auditResponse.fleet_tonnage_divisor = 50;
-        auditResponse.total_wagons = totalVehiculosLocal;
-        sanitizeRoadTermsInObject(auditResponse);
-      }
-
-      return new Response(JSON.stringify(auditResponse), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*"
-        }
-      });
-    }
-
-    // --- LÓGICA DE ORQUESTACIÓN LOCAL (FALLBACK DE CHARLA NORMAL) ---
-    let fallbackAction = "informar";
-    let delegationPayload = {};
-    let halReply = "Procesando solicitud.";
-
-    // Captura: "de barcelona a zaragoza", "ir desde madrid hasta paris"
-    const rutaRegex = /(?:de|desde)\s+([a-z\s]+?)\s+(?:a|hasta)\s+([a-z\s]+)/i;
-    const rutaMatch = promptLower.match(rutaRegex);
-
-    if (rutaMatch) {
-      const cap = str => str.charAt(0).toUpperCase() + str.slice(1);
-      fallbackAction = "delegar_cerebro_ia";
-      delegationPayload = {
-        pol: cap(rutaMatch[1].trim()),
-        pod: cap(rutaMatch[2].trim()),
-        tonnage: 8000,
-        vehicle_type: "Camión Plataforma"
-      };
-      halReply = `Entendido. He transferido los parámetros a Cerebro.ia para calcular la ruta de ${delegationPayload.pol} a ${delegationPayload.pod}.`;
-    } else if (/recalcula|calcula|ruta|distancia/i.test(promptLower)) {
-      fallbackAction = "delegar_cerebro_ia";
-      delegationPayload = { pol: "Sétif", pod: "Béjaïa" };
-      halReply = "Calculando ruta predeterminada.";
-    } else if (/llevame|abre|ir a|calculadora|calculo|ldm/i.test(promptLower)) {
-      fallbackAction = "navegar_vista";
-      delegationPayload = { vista: "calculadora" };
-      halReply = "Abriendo la calculadora.";
-    } else if (/proyecto|expediente|transitario/i.test(promptLower)) {
-      fallbackAction = "navegar_vista";
-      delegationPayload = { vista: "proyectos" };
-      halReply = "Cambiando a gestión de proyectos.";
-    } else if (/ruta|mapa/i.test(promptLower)) {
-      fallbackAction = "navegar_vista";
-      delegationPayload = { vista: "rutas" };
-      halReply = "Mostrando el mapa de rutas.";
-    
-    } else if (/cuanto|cuanta|camion|camiones|margen|coste|precio|dime|busca|analiza/i.test(promptLower)) {
-      fallbackAction = "delegar_asistente_core";
-      delegationPayload = { query: userPrompt };
-      halReply = "Transfiriendo consulta al Asistente Core para analizar los datos del proyecto.";
-    
-    // Ahora responderá correctamente aquí al decir "Hola"
-    } else if (/hola|buenos dias|buenas tardes|que tal|madre/i.test(promptLower)) {
-      fallbackAction = "informar";
-      halReply = "Hola, Esteban. Cerebro Central activo y en conexión con Land Charter. ¿En qué te ayudo?";
-    
-    } else {
-      halReply = "Conexión local establecida. Utiliza los comandos tácticos o solicita el escáner.";
-      fallbackAction = "informar";
-    }
-
     return new Response(JSON.stringify({
-      success: true,
-      sender: "MADRE",
-      reply: halReply,
-      accion_ui: fallbackAction,
-      delegation_payload: delegationPayload,
+      success: false,
+      sender: "Sistema",
+      reply: `⚠️ Error de conexión con MADRE en Data Bridge: ${error.message}. Por favor, revisa el servidor central.`,
+      isError: true,
       timestamp: new Date().toISOString()
     }), {
-      status: 200,
+      status: 500,
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*"
