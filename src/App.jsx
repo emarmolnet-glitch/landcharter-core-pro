@@ -1373,8 +1373,15 @@ export function useUrlReferenceSync() {
         if (el && el.value !== cleanRef) el.value = cleanRef;
       });
 
-      // 2. Precarga Inteligente de Puertos (POL / POD)
-      void fetchAndApplyMultimodalPorts(cleanRef);
+      // TAREA CRÍTICA: Erradicar la herencia del POL (Port of Loading) marítimo en la memoria de estado de Land Charter para evitar que sobrescriba el origen/destino con puertos como "Tampa".
+      // Preservar la referencia del dossier (cleanRef) sin heredar POL/POD marítimos en el estado terrestre.
+      const estado = typeof window !== 'undefined' ? (window.appState || window.State || window.state || window.datosGlobales) : null;
+      if (estado) {
+        estado.pol = '';
+        estado.pod = '';
+        estado.origen = '';
+        estado.destino = '';
+      }
     }
   }, []);
 }
