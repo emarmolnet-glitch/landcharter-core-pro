@@ -76461,12 +76461,12 @@ window.actualizarGrabCapacityVisibility = function() {
                 <img src="/MADRE.png" alt="MADRE" class="w-8 h-8 rounded-full border border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]">
                 <div>
                     <h2 class="text-white font-bold text-sm flex items-center gap-2">MADRE <span class="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider">Cerebro Central</span></h2>
-                    <p class="text-[10px] text-slate-400 leading-tight">Cerebro Operacional Intermodal<br>& Terrestre (Land Charter)</p>
+                    <p class="text-[10px] text-slate-300 leading-tight">Cerebro Operacional Intermodal<br>& Terrestre (Land Charter)</p>
                 </div>
             </div>
             <div class="flex gap-1.5">
-                <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-1.5 rounded transition-colors" title="Activar/Desactivar Voz"><i class="fa-solid fa-volume-high text-xs"></i></button>
-                <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-1.5 rounded transition-colors" title="Detener proceso"><i class="fa-solid fa-stop text-xs"></i></button>
+    <button id="btn-madre-toggle-voice" onclick="toggleMadreVoice()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-1.5 rounded transition-colors" title="Activar/Desactivar Voz"><i id="icon-madre-voice" class="fa-solid fa-volume-xmark text-xs"></i></button>
+    <button id="btn-madre-stop-speech" onclick="stopMadreSpeech()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-1.5 rounded transition-colors" title="Detener proceso"><i class="fa-solid fa-stop text-xs"></i></button>
                 <button onclick="toggleMadreDrawer()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-1.5 rounded transition-colors" title="Cerrar Panel"><i class="fa-solid fa-xmark text-xs"></i></button>
             </div>
         </div>
@@ -76479,8 +76479,8 @@ window.actualizarGrabCapacityVisibility = function() {
                     <div class="absolute inset-0 bg-cyan-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
                     <img src="/MADRE.png" class="w-20 h-20 rounded-full border border-slate-700 relative z-10">
                  </div>
-                 <h3 class="text-slate-300 font-medium text-sm mb-2">Cerebro Terrestre Activo</h3>
-                 <p class="text-xs text-slate-500 max-w-[250px] mb-6">Escáner visual de pantalla listo para capturar en tiempo real las variables de LDM, peajes, gasóleo y costes terrestres.</p>
+                 <h3 class="text-white font-medium text-sm mb-2">Cerebro Terrestre Activo</h3>
+<p class="text-xs text-slate-300 max-w-[250px]">Escáner visual de pantalla listo para capturar en tiempo real las variables de LDM, peajes, gasóleo y costes terrestres.</p>
                  <button onclick="triggerLandLaserScan()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs px-4 py-2 rounded-full flex items-center gap-2 transition-colors shadow-lg cursor-pointer">
                      <span class="text-amber-500">⚡</span> Auditar Operación (DSS)
                  </button>
@@ -76489,7 +76489,7 @@ window.actualizarGrabCapacityVisibility = function() {
 
         <!-- COMANDOS RÁPIDOS -->
         <div class="p-3 border-t border-slate-800 bg-[#0F172A]">
-            <p class="text-[9px] text-amber-600 font-bold tracking-wider mb-2 flex items-center gap-1"><i class="fa-solid fa-bolt"></i> COMANDOS RÁPIDOS (1-CLIC)</p>
+            <p class="text-[9px] text-white font-bold tracking-wider mb-2 flex items-center gap-1"><i class="fa-solid fa-bolt"></i> COMANDOS RÁPIDOS (1-CLIC)</p>
             <div class="flex flex-col gap-1.5">
                 <button onclick="triggerLandLaserScan()" class="text-left text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded border border-slate-700 flex items-center justify-between group transition-colors cursor-pointer">
                     <span><span class="text-cyan-400 mr-2">⚡</span> Escanear Pantalla Terrestre</span>
@@ -76523,22 +76523,93 @@ window.actualizarGrabCapacityVisibility = function() {
             if (drawer) drawer.classList.toggle('-translate-x-full');
         };
 
-        window.enviarMensajeMadre = function(texto) {
-            if (!texto || texto.trim() === "") return;
-            const input = document.getElementById('madre-chat-input');
-            if (input) input.value = '';
-            
-            const idle = document.getElementById('madre-idle-state');
-            if (idle) idle.style.display = 'none';
+        // --- ESTADO Y FUNCIONES DE VOZ ---
+window.madreVoiceEnabled = false;
 
-            const esEscaneo = /(?:escan(?:ear|eo)?|scan(?:ner)?|auditar|leer)/i.test(texto);
-            if (esEscaneo) {
-                triggerLandLaserScan();
-            } else {
-                pintarBurbujaChat(texto, 'user');
-                setTimeout(() => pintarBurbujaChat('Procesando tu solicitud en Land Charter...', 'madre'), 500);
-            }
-        };
+window.toggleMadreVoice = function() {
+    window.madreVoiceEnabled = !window.madreVoiceEnabled;
+    const icon = document.getElementById('icon-madre-voice');
+    if (icon) {
+        icon.className = window.madreVoiceEnabled ? "fa-solid fa-volume-high text-xs text-green-400" : "fa-solid fa-volume-xmark text-xs text-slate-300";
+    }
+    if (!window.madreVoiceEnabled && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+};
+
+window.stopMadreSpeech = function() {
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+};
+
+window.hablarMadre = function(texto) {
+    if (!window.madreVoiceEnabled || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    
+    let cleanText = texto.replace(/<[^>]*>?/gm, '').replace(/[*#_`~[\]]/g, "").trim();
+    if (cleanText.length > 250) {
+        const firstPeriod = cleanText.indexOf(".");
+        cleanText = firstPeriod > 0 ? cleanText.substring(0, firstPeriod + 1) : cleanText.substring(0, 250) + "...";
+    }
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = 'es-ES';
+    utterance.rate = 1.05;
+    window.speechSynthesis.speak(utterance);
+};
+
+// --- ENVÍO CONECTADO AL PROXY DE DATA BRIDGE ---
+window.enviarMensajeMadre = async function(texto) {
+    if (!texto || texto.trim() === "") return;
+    const input = document.getElementById('madre-chat-input');
+    if (input) input.value = '';
+    
+    const idle = document.getElementById('madre-idle-state');
+    if (idle) idle.style.display = 'none';
+
+    const esEscaneo = /(?:escan(?:ear|eo)?|scan(?:ner)?|auditar|leer)/i.test(texto);
+    if (esEscaneo) {
+        if (typeof triggerLandLaserScan === 'function') triggerLandLaserScan();
+    } else {
+        pintarBurbujaChat(texto, 'user');
+        
+        const chatHistory = document.getElementById('madre-chat-history');
+        const tempId = 'msg-temp-' + Date.now();
+        if (chatHistory) {
+            chatHistory.insertAdjacentHTML('beforeend', `<div id="${tempId}" class="flex gap-3 mb-4"><div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0"><i class="fa-solid fa-robot text-teal-500 text-xs"></i></div><div class="bg-slate-800 border border-slate-700 text-slate-300 px-3 py-2 rounded-lg text-sm"><i class="fa-solid fa-circle-notch fa-spin"></i> Conectando con Cerebro Central...</div></div>`);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        try {
+            const contextoUI = typeof extractLandCharterData === 'function' ? extractLandCharterData() : {};
+            const response = await fetch('/.netlify/functions/madre-ia', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    origen: "Land Charter",
+                    current_module: "land_charter",
+                    mensajeUsuario: texto,
+                    prompt: texto,
+                    contexto_ui: contextoUI
+                })
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            const data = await response.json();
+            const respuestaIA = data.reply || data.respuesta || data.mensaje_voz || "Operación procesada.";
+
+            const tempBubble = document.getElementById(tempId);
+            if (tempBubble) tempBubble.remove();
+
+            pintarBurbujaChat(respuestaIA, 'madre');
+        } catch (error) {
+            console.error("Error MADRE:", error);
+            const tempBubble = document.getElementById(tempId);
+            if (tempBubble) tempBubble.remove();
+            pintarBurbujaChat("⚠️ Error de conexión con Cerebro Central. Revisa el proxy.", 'madre');
+        }
+    }
+};
 
         window.triggerLandLaserScan = function() {
             const idle = document.getElementById('madre-idle-state');
@@ -76715,8 +76786,13 @@ window.actualizarGrabCapacityVisibility = function() {
                 </div>
             `;
             history.appendChild(div);
-            history.scrollTop = history.scrollHeight;
-        }
+    history.scrollTop = history.scrollHeight;
+    
+    // --- PEGA ESTO AQUÍ ---
+    if (remitente === 'madre' && typeof window.hablarMadre === 'function') {
+        window.hablarMadre(texto);
+    }
+} // <-- Esta es la llave que cierra la función
     </script>
 </body>
 </html>
