@@ -76589,14 +76589,20 @@ window.enviarMensajeMadre = async function(texto) {
             delete contextoUI.bloque4_costes_operativos;
             delete contextoUI.bloque5_6_7_8_financiero_mercado;
 
+            // --- INSTRUCCIÓN PARA BÚSQUEDA EN BASE DE DATOS REAL ---
+            let promptFinal = texto;
+            if (/(?:coste|precio|diesel|combustible|gasolina|gasoil)/i.test(texto)) {
+                promptFinal += ` [INSTRUCCIÓN INTERNA PARA SQL: Para consultar el precio del combustible, busca en la base de datos el último registro disponible (ej. tabla LandFuelIndex). IMPORTANTE: NO filtres por CURRENT_DATE. Simplemente ordena por fecha descendente (ORDER BY date DESC LIMIT 1) para obtener la última actualización válida.]`;
+            }
+
             const response = await fetch('https://calm-shortbread-55bcfc.netlify.app/.netlify/functions/madre-chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     origen: "Land Charter",
                     current_module: "land_charter",
-                    mensajeUsuario: texto,
-                    prompt: texto,
+                    mensajeUsuario: promptFinal,
+                    prompt: promptFinal,
                     contexto_ui: contextoUI
                 })
             });
