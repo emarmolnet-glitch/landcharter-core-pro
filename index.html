@@ -76778,13 +76778,13 @@ window.enviarMensajeMadre = async function(texto) {
                 : '<img src="/MADRE.png" class="w-7 h-7 rounded-full border border-cyan-500 shadow-sm shrink-0">';
                 
             const bgColor = remitente === 'user' ? 'bg-cyan-900 border-cyan-800' : 'bg-slate-800 border-slate-700';
-            
-            div.innerHTML = `
-                ${avatar}
-                <div class="${bgColor} border px-3 py-2 rounded-lg text-xs text-slate-200 leading-relaxed shadow-sm">
-                    ${texto}
-                </div>
-            `;
+
+        div.innerHTML = `
+            ${avatar}
+            <div class="${bgColor} border px-3 py-2 rounded-lg text-[13px] leading-relaxed shadow-sm" style="color: #ffffff !important;">
+                ${texto}
+            </div>
+        `;
             history.appendChild(div);
     history.scrollTop = history.scrollHeight;
     
