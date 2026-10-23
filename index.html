@@ -76589,13 +76589,14 @@ window.enviarMensajeMadre = async function(texto) {
             delete contextoUI.bloque4_costes_operativos;
             delete contextoUI.bloque5_6_7_8_financiero_mercado;
 
-            // --- INSTRUCCIÓN PARA BÚSQUEDA EN BASE DE DATOS REAL ---
+            // --- INSTRUCCIÓN SIMPLIFICADA PARA BÚSQUEDA RÁPIDA EN NEON ---
             let promptFinal = texto;
             if (/(?:coste|precio|diesel|combustible|gasolina|gasoil)/i.test(texto)) {
-                promptFinal += ` [INSTRUCCIÓN INTERNA: ESTÁS EN LAND CHARTER. PROHIBIDO buscar MGO o marítimo. Ejecuta en Neon: SELECT "pricePerLiter", "currency" FROM "LandFuelIndex" ORDER BY "date" DESC LIMIT 1; REGLA DE FORMATO CRÍTICA: NO devuelvas nunca el resultado en formato JSON crudo. Lee el dato y responde EXCLUSIVAMENTE con una frase natural, directa y amigable. Ejemplo de respuesta esperada: "El precio actual del diésel terrestre es de 1.45 €/L."]`;
+                promptFinal += ` [INSTRUCCIÓN: Ejecuta en Neon: SELECT "pricePerLiter" FROM "LandFuelIndex" ORDER BY "date" DESC LIMIT 1. Responde solo con una frase muy corta indicando el precio.]`;
             }
 
-            const response = await fetch('https://calm-shortbread-55bcfc.netlify.app/.netlify/functions/madre-chat', {
+            // VOLVEMOS AL PROXY LOCAL PARA EVITAR EL BLOQUEO CORS
+            const response = await fetch('/.netlify/functions/madre-ia', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
