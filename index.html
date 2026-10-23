@@ -76460,8 +76460,8 @@ window.actualizarGrabCapacityVisibility = function() {
             <div class="flex items-center gap-3">
                 <img src="/MADRE.png" alt="MADRE" class="w-8 h-8 rounded-full border border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]">
                 <div>
-                    <h2 class="text-white font-bold text-sm flex items-center gap-2">MADRE <span class="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider">Cerebro Central</span></h2>
-                    <p class="text-[10px] text-slate-300 leading-tight">Cerebro Operacional Intermodal<br>& Terrestre (Land Charter)</p>
+                    <h2 style="color: #ffffff !important;" class="font-bold text-lg flex items-center gap-2">MADRE <span class="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider">Cerebro Central</span></h2>
+                    <p style="color: #cbd5e1 !important;" class="text-[10px] leading-tight">Cerebro Operacional Intermodal<br>& Terrestre (Land Charter)</p>
                 </div>
             </div>
             <div class="flex gap-1.5">
@@ -76489,7 +76489,7 @@ window.actualizarGrabCapacityVisibility = function() {
 
         <!-- COMANDOS RÁPIDOS -->
         <div class="p-3 border-t border-slate-800 bg-[#0F172A]">
-            <p class="text-[9px] text-white font-bold tracking-wider mb-2 flex items-center gap-1"><i class="fa-solid fa-bolt"></i> COMANDOS RÁPIDOS (1-CLIC)</p>
+            <p style="color: #ffffff !important;" class="text-[9px] font-bold tracking-wider mb-2 flex items-center gap-1"><i class="fa-solid fa-bolt"></i> COMANDOS RÁPIDOS (1-CLIC)</p>
             <div class="flex flex-col gap-1.5">
                 <button onclick="triggerLandLaserScan()" class="text-left text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded border border-slate-700 flex items-center justify-between group transition-colors cursor-pointer">
                     <span><span class="text-cyan-400 mr-2">⚡</span> Escanear Pantalla Terrestre</span>
@@ -76777,14 +76777,15 @@ window.enviarMensajeMadre = async function(texto) {
                 ? '<div class="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center text-xs shrink-0"><i class="fa-solid fa-user text-slate-300"></i></div>'
                 : '<img src="/MADRE.png" class="w-7 h-7 rounded-full border border-cyan-500 shadow-sm shrink-0">';
                 
-            const bgColor = remitente === 'user' ? 'bg-cyan-900 border-cyan-800' : 'bg-slate-800 border-slate-700';
+            const isUser = remitente === 'user';
+    const bgStyle = isUser ? 'background-color: #164e63 !important; border-color: #155e75 !important;' : 'background-color: #1e293b !important; border-color: #334155 !important;';
 
-        div.innerHTML = `
-            ${avatar}
-            <div class="${bgColor} border px-3 py-2 rounded-lg text-[13px] leading-relaxed shadow-sm" style="color: #ffffff !important;">
-                ${texto}
-            </div>
-        `;
+    div.innerHTML = `
+        ${avatar}
+        <div class="border px-3 py-2 rounded-lg text-[13px] leading-relaxed shadow-sm" style="${bgStyle} color: #ffffff !important;">
+            ${texto}
+        </div>
+    `;
             history.appendChild(div);
     history.scrollTop = history.scrollHeight;
     
