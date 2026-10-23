@@ -127,6 +127,14 @@ export default async function handler(request) {
 
     // 4. Si NO es un comando de escaneo, VACIAR la biblia de datos terrestres
     if (!isScanCommand && remotePayload.contexto_ui) {
+        // 1. Borramos los bloques nuevos que causan el Timeout (Error 504)
+        delete remotePayload.contexto_ui.bloque1_ruta_distancias;
+        delete remotePayload.contexto_ui.bloque2_vehiculo_carga;
+        delete remotePayload.contexto_ui.bloque3_tacografo_tiempos;
+        delete remotePayload.contexto_ui.bloque4_costes_operativos;
+        delete remotePayload.contexto_ui.bloque5_6_7_8_financiero_mercado;
+
+        // 2. Borramos también el formato antiguo por seguridad
         delete remotePayload.contexto_ui.escaneo_land;
         delete remotePayload.contexto_ui.escaneo_terrestre;
         delete remotePayload.contexto_ui.ruta;
