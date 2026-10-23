@@ -76599,8 +76599,8 @@ window.enviarMensajeMadre = async function(texto) {
                     
                 promptFinal += ` [INSTRUCCIÓN CRÍTICA: Ejecuta EXACTAMENTE esta consulta en Neon: ${sqlQuery} . Cuando obtengas el dato, responde con una frase natural indicando la zona. Ejemplo: "El precio actual del diésel terrestre en Estados Unidos es de 1.51 USD/L." NO devuelvas JSON.]`;
             }
-// CONEXIÓN DIRECTA A DATA BRIDGE (CEREBRO CENTRAL)
-            const response = await fetch('https://calm-shortbread-55bcfc.netlify.app/.netlify/functions/madre-chat', {
+// CONEXIÓN DIRECTA AL MOTOR DE CÁLCULO CEREBRO-IA EN DATA BRIDGE
+            const response = await fetch('https://calm-shortbread-55bcfc.netlify.app/.netlify/functions/cerebro-ia', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
