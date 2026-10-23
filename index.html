@@ -76611,7 +76611,15 @@ window.enviarMensajeMadre = async function(texto) {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             
             const data = await response.json();
-            const respuestaIA = data.reply || data.respuesta || data.mensaje_voz || "Operación procesada.";
+            let respuestaIA = data.reply || data.respuesta || data.mensaje_voz || "Operación procesada.";
+
+            // --- FILTRO ANTIMANCHAS PARA SQL RUDO ---
+            if (respuestaIA.includes('"pricePerLiter"')) {
+                const match = respuestaIA.match(/"pricePerLiter"\s*:\s*([\d.]+)/);
+                if (match && match[1]) {
+                    respuestaIA = `El precio actual del diésel terrestre es de ${match[1]} €/L.`;
+                }
+            }
 
             const tempBubble = document.getElementById(tempId);
             if (tempBubble) tempBubble.remove();
