@@ -30,51 +30,51 @@ const MODULE_LABELS = Object.freeze({
 
 const icons = {
   assistant: `
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M4 15.5c3.2-5.1 6.2-7.7 9-7.7 2.6 0 4.9 1.7 7 5.2" />
       <path d="M4 18.5c3.1-2 6-3 8.8-3 2.4 0 4.8.7 7.2 2.2" />
       <path d="M12 4v3.8" />
       <path d="m9.8 5.3 2.2-2 2.2 2" />
     </svg>`,
   send: `
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="m4 12 16-7-5.8 14-2.8-5.7L4 12Z" />
       <path d="m11.4 13.3 3.5-3.4" />
     </svg>`,
   microphone: `
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <rect x="9" y="3" width="6" height="11" rx="3" />
       <path d="M6.5 11.5a5.5 5.5 0 0 0 11 0" />
       <path d="M12 17v4" />
       <path d="M9 21h6" />
     </svg>`,
   speaker: `
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z" />
       <path d="M15 9a4.2 4.2 0 0 1 0 6" />
       <path d="M17.7 6.4a8 8 0 0 1 0 11.2" />
     </svg>`,
   speakerMuted: `
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z" />
       <path d="m15.5 9.5 5 5" />
       <path d="m20.5 9.5-5 5" />
     </svg>`,
     stop: `
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <rect x="7" y="7" width="10" height="10" rx="2" />
     </svg>`,
   minimize: `
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M6 12h12" />
     </svg>`,
   close: `
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="m7 7 10 10" />
       <path d="m17 7-10 10" />
     </svg>`,
   clip: `
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
     </svg>`,
 };
