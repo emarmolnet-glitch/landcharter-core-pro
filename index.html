@@ -76592,7 +76592,7 @@ window.enviarMensajeMadre = async function(texto) {
             // --- INSTRUCCIÓN PARA BÚSQUEDA EN BASE DE DATOS REAL ---
             let promptFinal = texto;
             if (/(?:coste|precio|diesel|combustible|gasolina|gasoil)/i.test(texto)) {
-                promptFinal += ` [INSTRUCCIÓN INTERNA PARA SQL: Para consultar el precio del combustible, busca en la base de datos el último registro disponible (ej. tabla LandFuelIndex). IMPORTANTE: NO filtres por CURRENT_DATE. Simplemente ordena por fecha descendente (ORDER BY date DESC LIMIT 1) para obtener la última actualización válida.]`;
+                promptFinal += ` [INSTRUCCIÓN INTERNA PARA SQL: ESTÁS EN LAND CHARTER. ESTRICTAMENTE PROHIBIDO buscar MGO, VLSFO o combustible marítimo. Busca EXCLUSIVAMENTE el precio del diésel terrestre en la tabla "LandFuelIndex" (usa comillas dobles para respetar las mayúsculas en PostgreSQL). Extrae "pricePerLiter". IMPORTANTE: NO filtres por CURRENT_DATE. Simplemente ejecuta: SELECT "pricePerLiter", "currency" FROM "LandFuelIndex" ORDER BY "date" DESC LIMIT 1;]`;
             }
 
             const response = await fetch('https://calm-shortbread-55bcfc.netlify.app/.netlify/functions/madre-chat', {
