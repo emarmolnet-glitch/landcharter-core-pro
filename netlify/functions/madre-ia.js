@@ -115,8 +115,14 @@ export default async function handler(request) {
     const dataBridgeEndpoint = `${baseUrl.replace(/\/$/, '')}/.netlify/functions/madre-chat`;
 
     // 3. Preparar el paquete exacto para Data Bridge
+    
+    // Si la pregunta es sobre precios, costes o combustible, le damos una instrucción clara
+    // al Cerebro Central para que no intente usar calculadoras complejas y vaya al grano.
+    const isPricingQuery = /coste|precio|diesel|combustible|gasolina|gasoil|tarifa/i.test(userPrompt);
+    const directivaRapida = isPricingQuery ? " [INSTRUCCIÓN INTERNA: El usuario consulta un dato de mercado (ej. precio del diésel). Responde de forma directa, rápida y concisa basándote en tu conocimiento general o en el índice LandFuelIndex si tienes acceso. NO intentes ejecutar herramientas de cálculo de rutas ni simulaciones pesadas que requieran más de 5 segundos. Mantén la respuesta por debajo de las 50 palabras.]" : "";
+
     const remotePayload = {
-      mensajeUsuario: userPrompt,
+      mensajeUsuario: userPrompt + directivaRapida,
       origen: "Land Charter",
       current_module: body.modulo || "land_charter",
       modulo: body.modulo || "land_charter",
