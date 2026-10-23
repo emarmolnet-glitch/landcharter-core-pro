@@ -76589,13 +76589,13 @@ window.enviarMensajeMadre = async function(texto) {
             delete contextoUI.bloque4_costes_operativos;
             delete contextoUI.bloque5_6_7_8_financiero_mercado;
 
-            // --- INSTRUCCIÓN SIMPLIFICADA PARA BÚSQUEDA RÁPIDA EN NEON ---
+            // --- INSTRUCCIÓN DINÁMICA POR REGIONES ---
             let promptFinal = texto;
             if (/(?:coste|precio|diesel|combustible|gasolina|gasoil)/i.test(texto)) {
-                promptFinal += ` [INSTRUCCIÓN: Ejecuta en Neon: SELECT "pricePerLiter" FROM "LandFuelIndex" ORDER BY "date" DESC LIMIT 1. Responde solo con una frase muy corta indicando el precio.]`;
+                let zona = /estados unidos|usa|eeuu/i.test(texto) ? "Estados Unidos (filtrando por moneda USD o región US)" : "Europa (filtrando por moneda EUR o región EU)";
+                promptFinal += ` [INSTRUCCIÓN: Busca el diésel para ${zona} en la tabla "LandFuelIndex". IMPORTANTE: Aplica el filtro (WHERE) correspondiente a la región o moneda solicitada. PROHIBIDO usar CURRENT_DATE. Ordena por "date" DESC LIMIT 1. Responde con una frase natural, NUNCA en JSON.]`;
             }
 
-            // VOLVEMOS AL PROXY LOCAL PARA EVITAR EL BLOQUEO CORS
             const response = await fetch('/.netlify/functions/madre-ia', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -76613,11 +76613,13 @@ window.enviarMensajeMadre = async function(texto) {
             const data = await response.json();
             let respuestaIA = data.reply || data.respuesta || data.mensaje_voz || "Operación procesada.";
 
-            // --- FILTRO ANTIMANCHAS PARA SQL RUDO ---
+            // --- FILTRO ANTIMANCHAS DINÁMICO (Soporta EUR y USD) ---
             if (respuestaIA.includes('"pricePerLiter"')) {
-                const match = respuestaIA.match(/"pricePerLiter"\s*:\s*([\d.]+)/);
-                if (match && match[1]) {
-                    respuestaIA = `El precio actual del diésel terrestre es de ${match[1]} €/L.`;
+                const num = respuestaIA.match(/"pricePerLiter"\s*:\s*([\d.]+)/);
+                const moneda = respuestaIA.match(/"currency"\s*:\s*"([^"]+)"/);
+                if (num && num[1]) {
+                    const divisa = (moneda && moneda[1]) ? moneda[1] : '€';
+                    respuestaIA = `El precio actual del diésel terrestre es de ${num[1]} ${divisa}/L.`;
                 }
             }
 
