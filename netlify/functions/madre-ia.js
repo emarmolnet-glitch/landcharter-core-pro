@@ -111,8 +111,9 @@ export default async function handler(request) {
     /tren|tolva|vag[oó]n|ferrocarril|rail/i.test(userPrompt) ||
     /tren|tolva|vag[oó]n|ferrocarril|rail/i.test(String(body.contexto_ui?.tipo_vehiculo || body.contexto_ui?.vehicle_type || body.contexto_ui?.porte?.vehicleType || ''));
     
+    // CRÍTICO: El proxy debe apuntar al motor de cálculo (cerebro-ia), NO al chat.
     const baseUrl = process.env.DATA_BRIDGE_URL || "https://calm-shortbread-55bcfc.netlify.app";
-    const dataBridgeEndpoint = `${baseUrl.replace(/\/$/, '')}/.netlify/functions/madre-chat`;
+    const dataBridgeEndpoint = `${baseUrl}/.netlify/functions/cerebro-ia`;
 
     // 3. Preparar el paquete exacto para Data Bridge
     
