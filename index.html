@@ -76581,7 +76581,18 @@ window.enviarMensajeMadre = async function(texto) {
 
         try {
             const contextoUI = typeof extractLandCharterData === 'function' ? extractLandCharterData() : {};
-            const response = await fetch('/.netlify/functions/madre-ia', {
+            
+            // Si es una pregunta normal, vaciamos la mochila pesada antes de mandarla a Data Bridge
+            if (!/(?:escan(?:ear|eo)?|scan(?:ner)?|auditar|leer)/i.test(texto)) {
+                delete contextoUI.bloque1_ruta_distancias;
+                delete contextoUI.bloque2_vehiculo_carga;
+                delete contextoUI.bloque3_tacografo_tiempos;
+                delete contextoUI.bloque4_costes_operativos;
+                delete contextoUI.bloque5_6_7_8_financiero_mercado;
+            }
+
+            // APUNTAMOS DIRECTAMENTE A DATA BRIDGE (CALM)
+            const response = await fetch('https://calm-shortbread-55bcfc.netlify.app/.netlify/functions/madre-chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -76606,10 +76617,8 @@ window.enviarMensajeMadre = async function(texto) {
             console.error("Error MADRE:", error);
             const tempBubble = document.getElementById(tempId);
             if (tempBubble) tempBubble.remove();
-            pintarBurbujaChat("⚠️ Error de conexión con Cerebro Central. Revisa el proxy.", 'madre');
+            pintarBurbujaChat("⚠️ Error de conexión directa con Cerebro Central.", 'madre');
         }
-    }
-};
 
         window.triggerLandLaserScan = function() {
             const idle = document.getElementById('madre-idle-state');
