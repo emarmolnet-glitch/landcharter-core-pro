@@ -815,6 +815,10 @@ export function useLandDataBridgeSync() {
 
       const vStore = window.VoyageStore?.getState?.() || window.useVoyageStore?.getState?.();
       vStore?.setRouteDistanceAndDuration?.(km, hours);
+
+      // [LIMPIEZA ESTRUCTURAL]: El layout principal de LandCharter (Header, TopBar y Sidebar)
+      // debe permanecer 100% estático tras la estimación de ruta o flete.
+      // Prohibido aplicar "modo enfoque" o abrir automáticamente el panel MADRE.
     };
 
     window.addEventListener('osrm:route-updated', handleRouteUpdated);

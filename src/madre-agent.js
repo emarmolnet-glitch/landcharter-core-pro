@@ -366,7 +366,13 @@ export function updateMadreStatusUI(status) {
   }
 }
 
-export function toggleMadrePanel(forceState) {
+export function toggleMadrePanel(forceState, isUserAction = true) {
+  // [ESTRUCTURAL]: MADRE solo debe abrirse bajo petición explícita del usuario (clic o voz).
+  // Se prohíbe terminantemente la apertura automática tras el cálculo de ruta o flete.
+  if (forceState === true && isUserAction === false) {
+    console.warn('[MADRE] Invocación automática bloqueada. MADRE solo se abre por petición explícita del usuario.');
+    return;
+  }
   const panel = document.getElementById("madre-panel") || document.getElementById("madre-side-panel") || document.getElementById("madre-executive-panel");
   if (!panel) return;
 

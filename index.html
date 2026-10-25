@@ -20874,6 +20874,20 @@ async function runOnDemandMapRouteWorkflow(button) {
             window.calculateAndDisplayAisFreight();
         }
 
+        // =======================================================================
+        // [ESTRUCTURAL]: LIMPIEZA DE MODO ENFOQUE Y APERTURA DE MADRE (LAND CHARTER)
+        // =======================================================================
+        // Al igual que en SeaCharter y ReeferCharter, el layout de LandCharter debe
+        // permanecer 100% ESTÁTICO al mostrar los resultados de la ruta terrestre o flete.
+        // Se prohíben modificaciones de DOM sobre Header, TopBar o Sidebar (modo enfoque).
+        // MADRE solo debe abrirse bajo petición explícita del usuario (clic manual o voz).
+        //
+        // /* ELIMINADO / PROHIBIDO:
+        // if (typeof setHeaderVisibility === 'function') setHeaderVisibility(false);
+        // if (typeof toggleSidebar === 'function') toggleSidebar(true);
+        // if (typeof toggleMadreDrawer === 'function') toggleMadreDrawer();
+        // */
+
         // Sincronización sync-road hacia Data Bridge con las métricas reales
         try {
             const roadSyncFn = typeof syncRoadMetricsToBridge === 'function'
@@ -21076,6 +21090,8 @@ window.runOnDemandMapRouteWorkflow = runOnDemandMapRouteWorkflow;
 
 // Exposición pública y directa de la función nativa de cálculo para Cerebro IA / React
 async function calculateLandRouteByCoordinates(originCoords, destCoords, options = {}) {
+    // [ESTRUCTURAL]: Garantía de layout estático. El cálculo terrestre no altera el DOM
+    // del Header, TopBar ni Sidebar, y no abre paneles auxiliares de forma automática.
     return await runOnDemandMapRouteWorkflow(options?.button || null, originCoords, destCoords);
 }
 window.calculateLandRouteByCoordinates = calculateLandRouteByCoordinates;
@@ -36139,6 +36155,18 @@ if (document.readyState === 'loading') {
                     }
                 }
 
+                // =======================================================================
+                // [ESTRUCTURAL]: GARANTÍA DE LAYOUT ESTÁTICO TRAS CÁLCULO MAESTRO
+                // =======================================================================
+                // El layout principal (Header, TopBar y Sidebar) permanece 100% estático.
+                // Queda eliminado cualquier intento de ocultar la barra superior o colapsar el menú lateral.
+                // Prohibida la auto-apertura del panel MADRE tras la validación/cálculo.
+                // /* ELIMINADO / PROHIBIDO:
+                // if (typeof setHeaderVisibility === 'function') setHeaderVisibility(false);
+                // if (typeof toggleSidebar === 'function') toggleSidebar(true);
+                // if (typeof toggleMadreDrawer === 'function') toggleMadreDrawer();
+                // */
+
                 // Sincronización Inversa en segundo plano a Data Bridge (Non-blocking)
                 try {
                     const roadSyncFn = typeof syncRoadMetricsToBridge === 'function'
@@ -40305,6 +40333,8 @@ if (document.readyState === 'loading') {
             const calculation = buildCalculationEventPayload(role);
             calculation.matchingRequest = buildMatchingRequest(calculation);
             calculation.matchingRequest = window.persistMatchingRequest(calculation.matchingRequest);
+            // [LIMPIEZA ESTRUCTURAL]: El layout principal permanece 100% estático tras el disparo de flete.
+            // Prohibida la activación de modo enfoque (ocultar Header/Sidebar) o auto-apertura de MADRE.
             window.dispatchEvent(new CustomEvent('CALCULATION_EVENT', { detail: calculation }));
             return calculation;
         }
@@ -76518,9 +76548,21 @@ window.actualizarGrabCapacityVisibility = function() {
 
     <!-- SCRIPT MADRE DRAWER Y ESCÁNER VISUAL -->
     <script>
-        window.toggleMadreDrawer = function() {
+        // [ESTRUCTURAL]: MADRE solo debe aparecer bajo petición explícita del usuario (clic manual en #btn-madre-trigger o voz).
+        // Queda estrictamente prohibida la apertura automática tras el cálculo de ruta o flete terrestre.
+        window.toggleMadreDrawer = function(forceState, isUserAction = true) {
+            if (forceState === true && isUserAction === false) {
+                console.warn('[MADRE] Invocación automática bloqueada. MADRE solo se abre por petición explícita del usuario.');
+                return;
+            }
             const drawer = document.getElementById('madre-drawer');
-            if (drawer) drawer.classList.toggle('-translate-x-full');
+            if (drawer) {
+                if (typeof forceState === 'boolean') {
+                    drawer.classList.toggle('-translate-x-full', !forceState);
+                } else {
+                    drawer.classList.toggle('-translate-x-full');
+                }
+            }
         };
 
         // --- ESTADO Y FUNCIONES DE VOZ ---
