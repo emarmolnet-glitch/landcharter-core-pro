@@ -56,12 +56,15 @@ const EMPTY_DRAFT = Object.freeze({
     totalKilometers: 0,
     drivingHours: 0,
     dieselPrice: 1.48,
+    adBluePrice: 0.72,
     vehicleType: 'Lona Estándar',
     vehicleConsumption: 31.5,
     payloadKg: 24000,
     tollCostPerKm: 0.19,
     fixedDailyCost: 350,
     fuelCost: 0,
+    adBlueCost: 0,
+    totalFuelCost: 0,
     tollCost: 0,
     fixedCost: 0,
     totalTripCost: 0,
@@ -571,18 +574,25 @@ export const voyageStore = createStore(subscribeWithSelector((set, get) => ({
         const totalKm = current.draft.totalKilometers || 0;
         const cons = current.draft.vehicleConsumption || 31.5;
         const fuelCost = (totalKm / 100) * cons * price;
+        const adBluePrice = current.draft.adBluePrice || 0.72;
+        const adBlueLiters = ((totalKm / 100) * cons) * 0.06;
+        const adBlueCost = adBlueLiters * adBluePrice;
+        const totalFuelCost = fuelCost + adBlueCost;
         const tollCost = totalKm * (current.draft.tollCostPerKm || 0.19);
         const hours = current.draft.drivingHours || 0;
         const fixedDailyCost = current.draft.fixedDailyCost || 350;
         // 1 día de coste = 9 horas máximas de conducción (CE 561/2006)
         const drivingDays = Math.ceil(hours / 9); 
         const fixedCost = drivingDays * fixedDailyCost;
-        const totalTripCost = fuelCost + tollCost + fixedCost;
+        const totalTripCost = totalFuelCost + tollCost + fixedCost;
         return {
             draft: {
                 ...current.draft,
                 dieselPrice: price,
+                adBluePrice,
                 fuelCost,
+                adBlueCost,
+                totalFuelCost,
                 fixedCost,
                 totalTripCost,
                 updatedAt: new Date().toISOString()
@@ -597,11 +607,15 @@ export const voyageStore = createStore(subscribeWithSelector((set, get) => ({
         const tollPerKm = current.draft.tollCostPerKm || 0.19;
         const fixedDailyCost = current.draft.fixedDailyCost || 350;
         const fuelCost = (km / 100) * cons * diesel;
+        const adBluePrice = current.draft.adBluePrice || 0.72;
+        const adBlueLiters = ((km / 100) * cons) * 0.06;
+        const adBlueCost = adBlueLiters * adBluePrice;
+        const totalFuelCost = fuelCost + adBlueCost;
         const tollCost = km * tollPerKm;
         // 1 día de coste = 9 horas máximas de conducción (CE 561/2006)
         const drivingDays = Math.ceil(hours / 9); 
         const fixedCost = drivingDays * fixedDailyCost;
-        const totalTripCost = fuelCost + tollCost + fixedCost;
+        const totalTripCost = totalFuelCost + tollCost + fixedCost;
         return {
             draft: {
                 ...current.draft,
@@ -609,6 +623,8 @@ export const voyageStore = createStore(subscribeWithSelector((set, get) => ({
                 distanceNm: km,
                 drivingHours: hours,
                 fuelCost,
+                adBlueCost,
+                totalFuelCost,
                 tollCost,
                 fixedCost,
                 totalTripCost,
@@ -650,11 +666,15 @@ export const voyageStore = createStore(subscribeWithSelector((set, get) => ({
         const fixedDailyCost = current.draft.fixedDailyCost || 350;
         const hours = current.draft.drivingHours || (km > 0 ? km / 75 : 0);
         const fuelCost = (km / 100) * cons * diesel;
+        const adBluePrice = current.draft.adBluePrice || 0.72;
+        const adBlueLiters = ((km / 100) * cons) * 0.06;
+        const adBlueCost = adBlueLiters * adBluePrice;
+        const totalFuelCost = fuelCost + adBlueCost;
         const tollCost = km * tollPerKm;
         // 1 día de coste = 9 horas máximas de conducción (CE 561/2006)
         const drivingDays = Math.ceil(hours / 9); 
         const fixedCost = drivingDays * fixedDailyCost;
-        const totalTripCost = fuelCost + tollCost + fixedCost;
+        const totalTripCost = totalFuelCost + tollCost + fixedCost;
 
         return {
             draft: {
@@ -664,6 +684,8 @@ export const voyageStore = createStore(subscribeWithSelector((set, get) => ({
                 dwt: payload,
                 payloadKg: payload,
                 fuelCost,
+                adBlueCost,
+                totalFuelCost,
                 tollCost,
                 fixedCost,
                 totalTripCost,
@@ -691,11 +713,15 @@ setLandRoute: (routeData = {}) => set((current) => {
         const tollPerKm = current.draft.tollCostPerKm || 0.19;
         const fixedDailyCost = current.draft.fixedDailyCost || 350;
         const fuelCost = (km / 100) * cons * diesel;
+        const adBluePrice = current.draft.adBluePrice || 0.72;
+        const adBlueLiters = ((km / 100) * cons) * 0.06;
+        const adBlueCost = adBlueLiters * adBluePrice;
+        const totalFuelCost = fuelCost + adBlueCost;
         const tollCost = km * tollPerKm;
         // 1 día de coste = 9 horas máximas de conducción (CE 561/2006)
         const drivingDays = Math.ceil(hours / 9); 
         const fixedCost = drivingDays * fixedDailyCost;
-        const totalTripCost = fuelCost + tollCost + fixedCost;
+        const totalTripCost = totalFuelCost + tollCost + fixedCost;
 
         return {
             draft: {
@@ -708,6 +734,8 @@ setLandRoute: (routeData = {}) => set((current) => {
                 distanceNm: km,
                 drivingHours: hours,
                 fuelCost,
+                adBlueCost,
+                totalFuelCost,
                 tollCost,
                 fixedCost,
                 totalTripCost,
@@ -726,22 +754,28 @@ setLandRoute: (routeData = {}) => set((current) => {
         const fixedDailyCost = d.fixedDailyCost || 350;
         const hours = d.drivingHours || (km > 0 ? km / 75 : 0);
         const fuelCost = (km / 100) * cons * diesel;
+        const adBluePrice = d.adBluePrice || 0.72;
+        const adBlueLiters = ((km / 100) * cons) * 0.06;
+        const adBlueCost = adBlueLiters * adBluePrice;
+        const totalFuelCost = fuelCost + adBlueCost;
         const tollCost = km * tollPerKm;
         // 1 día de coste = 9 horas máximas de conducción (CE 561/2006)
         const drivingDays = Math.ceil(hours / 9); 
         const fixedCost = drivingDays * fixedDailyCost;
-        const totalTripCost = fuelCost + tollCost + fixedCost;
+        const totalTripCost = totalFuelCost + tollCost + fixedCost;
         set((current) => ({
             draft: {
                 ...current.draft,
                 fuelCost,
+                adBlueCost,
+                totalFuelCost,
                 tollCost,
                 fixedCost,
                 totalTripCost,
                 updatedAt: new Date().toISOString()
             }
         }));
-        return { fuelCost, tollCost, fixedCost, totalTripCost };
+        return { fuelCost, adBlueCost, totalFuelCost, tollCost, fixedCost, totalTripCost };
     },
     fetchLandData: async () => {
         try {
@@ -749,8 +783,8 @@ setLandRoute: (routeData = {}) => set((current) => {
             if (!res.ok) return null;
             const data = await res.json();
             if (data && data.success) {
-                // DO NOT extract adBluePrice per specification
                 const dieselPrice = Number(data.dieselPrice) || 1.48;
+                const adBluePrice = Number(data.adBluePrice) || 0.72;
                 const tollCostPerKm = Number(data.tollCostPerKm) || 0.19;
                 const fixedDailyCost = Number(data.fixedDailyCost) || 350;
                 const vehicleTypes = Array.isArray(data.vehicleTypes) ? data.vehicleTypes : [];
@@ -758,6 +792,7 @@ setLandRoute: (routeData = {}) => set((current) => {
                     draft: {
                         ...current.draft,
                         dieselPrice,
+                        adBluePrice,
                         tollCostPerKm,
                         fixedDailyCost,
                         vehicleTypes,
