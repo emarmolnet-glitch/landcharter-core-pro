@@ -1,4 +1,10 @@
 [[redirects]]
+  from = "/api/routing/truck"
+  to = "/.netlify/functions/routing-truck"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/get-rail-route"
   to = "/.netlify/functions/get-rail-route"
   status = 200

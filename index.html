@@ -20046,15 +20046,13 @@ async function runOnDemandMapRouteWorkflow(button) {
                 const theoreticalRailMeters = theoreticalRailKm * 1000;
                 const railDurationSec = Math.round((theoreticalRailKm / 65) * 3600);
 
-                // a) Intento con ORS HGV
+                // a) Intento con ORS HGV (vía proxy backend /api/routing/truck - OpenRouteService https://api.openrouteservice.org/v2/directions/driving-hgv/geojson)
                 try {
                     console.warn('[Workflow] Buscando geometría terrestre protegida para tren vía ORS HGV...');
-                    const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0=';
-                    const orsRes = await fetch('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson', {
+                    const orsRes = await fetch('/api/routing/truck', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': orsApiKey
+                            'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
                             coordinates: [[origLon, origLat], [destLon, destLat]],
@@ -20137,15 +20135,13 @@ async function runOnDemandMapRouteWorkflow(button) {
 
         } else {
             // MODO ROAD: Mantener OpenRouteService HGV para perfiles de carretera
-            // a) Intento 1 (OpenRouteService HGV): perfil driving-hgv, radiuses [5000, 5000], formato /geojson
-            const orsApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImZiMzUxZDEyZmE2YzQ5ODk4MWE0NzA2Y2Y4YjEyZjQwIiwiaCI6Im11cm11cjY0In0=';
+            // a) Intento 1 (OpenRouteService HGV vía backend /api/routing/truck - https://api.openrouteservice.org/v2/directions/driving-hgv/geojson): perfil driving-hgv, radiuses [5000, 5000], formato /geojson
             try {
                 console.log('[Workflow] Intento 1: OpenRouteService HGV con radiuses [5000, 5000] y /geojson...');
-                const orsRes = await fetch('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson', {
+                const orsRes = await fetch('/api/routing/truck', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': orsApiKey
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         coordinates: [[origLon, origLat], [destLon, destLat]],
