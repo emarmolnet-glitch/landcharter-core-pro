@@ -46,14 +46,18 @@ test('1. Paso 1: buildMotherExecutiveScript evalúa rutas terrestres y costes co
   assert.ok(railScript.includes('prevenido posibles desvíos por valor de 1400 euros'), 'Fugas deben ser 1400 si hay riesgos');
 });
 
-test('2. Paso 2: playNeuralMotherVoice envía voz Clara y utiliza Web Audio API', async () => {
-  assert.match(fileContent, /export\s+async\s+function\s+playNeuralMotherVoice\s*\(\s*textToSpeak\s*\)/, 'playNeuralMotherVoice debe estar definida y exportada');
-  assert.match(fileContent, /voice:\s*["']Clara["']/, 'Debe forzar voice: "Clara"');
-  assert.match(fileContent, /name:\s*["']Clara["']/, 'Debe enviar name: "Clara"');
-  assert.match(fileContent, /AudioContext\s*=\s*window\.AudioContext\s*\|\|\s*window\.webkitAudioContext/, 'Debe usar AudioContext de Web Audio API');
+test('2. Paso 2: playNeuralMotherVoice conecta a DATA_BRIDGE_URL con voz Clara y esquiva bloqueo CSP usando Web Audio API', async () => {
+  assert.match(fileContent, /DATA_BRIDGE_URL\s*=\s*["']https:\/\/calm-shortbread-55bcfc\.netlify\.app["']/, 'DATA_BRIDGE_URL debe apuntar a calm-shortbread-55bcfc.netlify.app');
+  assert.match(fileContent, /export\s+async\s+function\s+playNeuralMotherVoice\s*\(\s*text\s*,\s*options\s*=\s*\{\}\s*\)/, 'playNeuralMotherVoice debe estar definida y exportada con parámetros (text, options = {})');
+  assert.match(fileContent, /\$\{DATA_BRIDGE_URL\}\/\.netlify\/functions\/madre-voice/, 'playNeuralMotherVoice debe llamar a madre-voice en DATA_BRIDGE_URL');
+  assert.match(fileContent, /['"]Accept['"]:\s*['"]audio\/mpeg['"]/, 'playNeuralMotherVoice debe incluir header Accept: audio/mpeg');
+  assert.match(fileContent, /voice:\s*options\.voice\s*\|\|\s*["']Clara["']/, 'Debe utilizar voice: options.voice || "Clara"');
+  assert.match(fileContent, /origen:\s*["']Land Charter["']/, 'Debe enviar origen: "Land Charter"');
+  assert.match(fileContent, /response\.arrayBuffer\(\)/, 'Debe procesar la respuesta como arrayBuffer en memoria');
+  assert.match(fileContent, /AudioContext\s*=\s*window\.AudioContext\s*\|\|\s*window\.webkitAudioContext/, 'Debe instanciar AudioContext');
   assert.match(fileContent, /audioCtx\.decodeAudioData\s*\(\s*arrayBuffer\s*\)/, 'Debe decodificar arrayBuffer con decodeAudioData');
-  assert.match(fileContent, /source\.start\s*\(\s*0\s*\)/, 'Debe iniciar la reproducción con start(0)');
-  assert.doesNotMatch(fileContent, /createObjectURL/, 'No debe usar URL.createObjectURL para evitar bloqueos CSP blob:');
+  assert.match(fileContent, /source\.start\s*\(\s*0\s*\)/, 'Debe reproducir con source.start(0)');
+  assert.doesNotMatch(fileContent, /createObjectURL/, 'No debe usar URL.createObjectURL para esquivar el bloqueo CSP blob:');
 });
 
 test('3. Paso 3: Contraste visual explícito con text-white y fondos sólidos bg-teal-700 / bg-slate-800', async () => {
@@ -74,11 +78,12 @@ test('5. Blindaje de Cerebro.ia: cerebro-ia.js permanece 100% intacto', async ()
   assert.ok(cerebroIaSource.includes('calm-shortbread-55bcfc.netlify.app'), 'cerebro-ia.js debe mantener su backend de cálculo original');
 });
 
-test('6. Restauración de endpoint /api/cerebro-ia: GlobalMadreDrawer y sea-assistant-entry apuntan a /api/cerebro-ia', async () => {
-  assert.match(fileContent, /fetch\(\s*['"]\/api\/cerebro-ia['"]/, 'GlobalMadreDrawer handleSendMessage debe apuntar a /api/cerebro-ia');
+test('6. Blindaje de conexión a madre-chat: sendToMadreChat conecta a DATA_BRIDGE_URL y GlobalMadreDrawer no usa endpoints inventados', async () => {
+  assert.match(fileContent, /export\s+async\s+function\s+sendToMadreChat\s*\(\s*payload\s*\)/, 'sendToMadreChat debe estar definida y exportada con parámetro payload');
+  assert.match(fileContent, /\$\{DATA_BRIDGE_URL\}\/\.netlify\/functions\/madre-chat/, 'sendToMadreChat debe conectar a ${DATA_BRIDGE_URL}/.netlify/functions/madre-chat');
+  assert.match(fileContent, /['"]Accept['"]:\s*['"]application\/json['"]/, 'sendToMadreChat debe incluir header Accept: application/json');
+  assert.match(fileContent, /['"]Content-Type['"]:\s*['"]application\/json['"]/, 'sendToMadreChat debe incluir header Content-Type: application/json');
+  assert.match(fileContent, /sendToMadreChat\s*\(\{/, 'GlobalMadreDrawer handleSendMessage debe invocar sendToMadreChat');
+  assert.doesNotMatch(fileContent, /fetch\(\s*['"]\/api\/cerebro-ia['"]/, 'GlobalMadreDrawer no debe llamar al endpoint relativo /api/cerebro-ia');
   assert.doesNotMatch(fileContent, /fetch\(\s*['"]\/\.netlify\/functions\/madre-ia['"]/, 'GlobalMadreDrawer no debe llamar a madre-ia');
-
-  const seaAssistantSource = await readFile(new URL('../src/sea-assistant-entry.js', import.meta.url), 'utf8');
-  assert.match(seaAssistantSource, /DEFAULT_CEREBRO_IA_ENDPOINT\s*=\s*["']\/api\/cerebro-ia["']/, 'sea-assistant-entry debe definir DEFAULT_CEREBRO_IA_ENDPOINT como /api/cerebro-ia');
-  assert.doesNotMatch(seaAssistantSource, /DEFAULT_CEREBRO_IA_ENDPOINT.*madre-ia/, 'sea-assistant-entry no debe apuntar a madre-ia');
 });

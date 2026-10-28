@@ -1,5 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
 
+export const DATA_BRIDGE_URL = "https://calm-shortbread-55bcfc.netlify.app";
+
+/**
+ * Función inquebrantable para enviar mensajes de texto a MADRE mediante Data Bridge
+ */
+export async function sendToMadreChat(payload) {
+    try {
+        const response = await fetch(`${DATA_BRIDGE_URL}/.netlify/functions/madre-chat`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error("Fallo de conexión frontend con madre-chat:", error);
+        throw error;
+    }
+}
+
 /**
  * Paso 1: Guion Ejecutivo Adaptado a Land Charter (Camión y Tren)
  * Evalúa rutas terrestres y costes por kilómetro sin tocar la lógica de cálculo externa.
@@ -18,37 +42,54 @@ export function buildMotherExecutiveScript(state = {}) {
 }
 
 /**
- * Paso 2: Motor de Voz Neuronal con la Voz de Clara (Web Audio API)
- * Utiliza Web Audio API para evitar bloqueos por CSP (blob:),
- * enviando el parámetro de voz de Clara hacia el servicio TTS de Data Bridge.
+ * Blindar la conexión a madre-voice:
+ * Reproducción de audio asegurándose de procesar el Base64 que envía Data Bridge correctamente.
  */
-export async function playNeuralMotherVoice(textToSpeak) {
-  if (!textToSpeak) return null;
-  try {
-    const databridgeUrl = (typeof window !== 'undefined' && window.DATABRIDGE_API_URL) ? window.DATABRIDGE_API_URL : 'https://calm-shortbread-55bcfc.netlify.app';
-    const response = await fetch(`${databridgeUrl}/.netlify/functions/madre-voice`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: textToSpeak,
-        voice: "Clara", // EXIGENCIA: Forzar la voz de Clara en el motor TTS
-        name: "Clara"
-      })
-    });
-    if (!response.ok) throw new Error('Error TTS');
-    const arrayBuffer = await response.arrayBuffer();
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    const audioCtx = new AudioContext();
-    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-    const source = audioCtx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(audioCtx.destination);
-    source.start(0);
-    return source;
-  } catch (error) {
-    console.error("Fallo de voz neuronal (Clara):", error);
-    return null;
-  }
+export async function playNeuralMotherVoice(text, options = {}) {
+    if (!text) return;
+
+    try {
+        const response = await fetch(`${DATA_BRIDGE_URL}/.netlify/functions/madre-voice`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'audio/mpeg'
+            },
+            body: JSON.stringify({ 
+                text: text, 
+                voice: options.voice || "Clara",
+                origen: "Land Charter"
+            })
+        });
+
+        if (!response.ok) throw new Error(`Error HTTP madre-voice: ${response.status}`);
+
+        // Esquivar bloqueo CSP (blob:) procesando en memoria con Web Audio API
+        const arrayBuffer = await response.arrayBuffer();
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+        const source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioCtx.destination);
+        source.start(0);
+        return source;
+
+    } catch (error) {
+        console.error("Fallo de conexión frontend con madre-voice:", error);
+        // Fallback nativo de emergencia
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "es-ES";
+        window.speechSynthesis.speak(utterance);
+        return null;
+    }
+}
+
+if (typeof window !== 'undefined') {
+  window.DATA_BRIDGE_URL = DATA_BRIDGE_URL;
+  window.sendToMadreChat = sendToMadreChat;
+  window.playNeuralMotherVoice = playNeuralMotherVoice;
 }
 
 /**
@@ -97,6 +138,8 @@ export default function GlobalMadreDrawer({
     window.addEventListener('madre:close-drawer', handleClose);
 
     // Asignar funciones a window para retrocompatibilidad
+    window.DATA_BRIDGE_URL = DATA_BRIDGE_URL;
+    window.sendToMadreChat = sendToMadreChat;
     window.buildMotherExecutiveScript = buildMotherExecutiveScript;
     window.playNeuralMotherVoice = playNeuralMotherVoice;
 
@@ -172,7 +215,7 @@ export default function GlobalMadreDrawer({
   };
 
   /**
-   * Enrutamiento de comandos y mensajes sin tocar cerebro-ia.js
+   * Enrutamiento de comandos y mensajes conectado directamente a Data Bridge
    */
   const handleSendMessage = async (textToSend) => {
     const query = (textToSend || inputText).trim();
@@ -192,40 +235,30 @@ export default function GlobalMadreDrawer({
 
       if (isVoiceEnabled) {
         stopAudio();
-        const source = await playNeuralMotherVoice(script);
+        const source = await playNeuralMotherVoice(script, { voice: "Clara" });
         if (source) activeAudioSourceRef.current = source;
       }
       return;
     }
 
-    // Consulta de chat conectada al motor de cálculo terrestre en /api/cerebro-ia
+    // Consulta de chat conectada directamente a madre-chat en Data Bridge
     setIsLoading(true);
     try {
-      const response = await fetch('/api/cerebro-ia', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          origen: "Land Charter",
-          current_module: "land_charter",
-          mensajeUsuario: query,
-          contexto_ui: extractCurrentState()
-        })
+      const data = await sendToMadreChat({
+        origen: "Land Charter",
+        current_module: "land_charter",
+        mensajeUsuario: query,
+        contexto_ui: extractCurrentState()
       });
 
-      let replyText = "Instrucción recibida y procesada en Land Charter.";
-      if (response.ok) {
-        const data = await response.json();
-        replyText = data.respuesta || data.reply || data.texto_preformateado || data.mensaje_voz || replyText;
-      } else {
-        replyText = "Supervisión de Land Charter en línea. Operativa terrestre verificada.";
-      }
+      const replyText = data?.respuesta || data?.reply || data?.texto_preformateado || data?.mensaje_voz || "Instrucción recibida y procesada en Land Charter.";
 
       const assistantMsg = { id: 'asst-' + Date.now(), sender: 'assistant', role: 'assistant', text: replyText };
       setMessages(prev => [...prev, assistantMsg]);
 
       if (isVoiceEnabled) {
         stopAudio();
-        const source = await playNeuralMotherVoice(replyText);
+        const source = await playNeuralMotherVoice(replyText, { voice: "Clara" });
         if (source) activeAudioSourceRef.current = source;
       }
     } catch (err) {
@@ -237,7 +270,7 @@ export default function GlobalMadreDrawer({
 
       if (isVoiceEnabled) {
         stopAudio();
-        const source = await playNeuralMotherVoice(fallbackScript);
+        const source = await playNeuralMotherVoice(fallbackScript, { voice: "Clara" });
         if (source) activeAudioSourceRef.current = source;
       }
     } finally {
