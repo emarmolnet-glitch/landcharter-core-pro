@@ -4,8 +4,8 @@ import { evaluateBasicRisks } from "./basic-risk-evaluator.js";
 import { evaluateModuleSuggestions, SUPPORTED_MODULES } from "./universal-module-suggestions.js";
 import { getApiUrl } from "./utils/apiConfig.js";
 
-// 1. CORRECCIÓN: Apuntando al proxy unificado
-const DEFAULT_CEREBRO_IA_ENDPOINT = getApiUrl("/.netlify/functions/madre-ia");
+// 1. CORRECCIÓN: Apuntando al endpoint de cálculo de Cerebro.ia
+const DEFAULT_CEREBRO_IA_ENDPOINT = "/api/cerebro-ia";
 const DEFAULT_CHAT_ASSISTANT_ENDPOINT = getApiUrl("/.netlify/functions/chat-assistant");
 const REQUEST_TIMEOUT_MS = 45_000;
 const AI_HISTORY_LIMIT = 6;
