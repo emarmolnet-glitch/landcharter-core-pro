@@ -87,3 +87,21 @@ test('6. Blindaje de conexión a madre-chat: sendToMadreChat conecta a DATA_BRID
   assert.doesNotMatch(fileContent, /fetch\(\s*['"]\/api\/cerebro-ia['"]/, 'GlobalMadreDrawer no debe llamar al endpoint relativo /api/cerebro-ia');
   assert.doesNotMatch(fileContent, /fetch\(\s*['"]\/\.netlify\/functions\/madre-ia['"]/, 'GlobalMadreDrawer no debe llamar a madre-ia');
 });
+
+test('7. Activación de micrófono con pitido de inicio y auto-envío, y altavoz por defecto en GlobalMadreDrawer e index.html', async () => {
+  // GlobalMadreDrawer.jsx
+  assert.match(fileContent, /const\s+\[isVoiceEnabled,\s*setIsVoiceEnabled\]\s*=\s*useState\(true\)/, 'isVoiceEnabled debe ser true por defecto');
+  assert.match(fileContent, /const\s+handleMicrophoneClick\s*=\s*\(\)\s*=>/, 'handleMicrophoneClick debe estar definida');
+  assert.match(fileContent, /onClick=\{handleMicrophoneClick\}/, 'El botón de micrófono debe enlazar onClick={handleMicrophoneClick}');
+  assert.match(fileContent, /createOscillator\(\)/, 'GlobalMadreDrawer debe incluir pitido sonoro de inicio');
+  assert.match(fileContent, /setTimeout\s*\([\s\S]*?2000\s*\)/, 'GlobalMadreDrawer debe incluir auto-envío tras 2 segundos');
+
+  // index.html
+  const indexHtml = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(indexHtml, /window\.madreVoiceEnabled\s*=\s*true;/, 'madreVoiceEnabled debe ser true por defecto en index.html');
+  assert.match(indexHtml, /onclick="handleMicrophoneClick\(\)"/, 'El botón de micrófono en index.html debe invocar handleMicrophoneClick()');
+  assert.match(indexHtml, /handleMicrophoneClick/, 'handleMicrophoneClick debe estar definida en index.html');
+  assert.match(indexHtml, /createOscillator\(\)/, 'index.html debe incluir pitido sonoro de inicio');
+  assert.match(indexHtml, /setTimeout\s*\([\s\S]*?2000\s*\)/, 'index.html debe incluir auto-envío tras 2 segundos');
+});
+
