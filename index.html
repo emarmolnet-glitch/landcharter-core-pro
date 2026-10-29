@@ -76519,15 +76519,174 @@ window.actualizarGrabCapacityVisibility = function() {
         // --- ESTADO Y FUNCIONES DE VOZ ---
 const DATA_BRIDGE_URL = "https://calm-shortbread-55bcfc.netlify.app";
 
+const LANDCHARTER_DOM_DICTIONARY = {
+  "flota": { "contenedor": "#view-matching", "inputs": ["#vehicle_type", "#metodo_carga", "#metodo_descarga", "#input-loading-rate", "#input-discharging-rate", "#ais-vessel-search"], "metricas": ["#val-dss-cadencia-camiones-dia", "#val-dss-plazo-campana", "#matching-compatible-count", "#fleet-intel-count"] },
+  "rutas": { "contenedor": "#view-map", "inputs": ["#map-port-pol", "#map-port-pod", "#map-laycan-date", "#map-cancelling-date"], "metricas": ["#sync-miles-card", "#sync-pol-label", "#sync-pod-label", "#header-sync-status-badge"] },
+  "calculadora": { "contenedor": "#view-estimator", "inputs": ["#port-pol", "#port-pod", "#dist-laden", "#nombre-buque-calculadora", "#truckPayloadCapacity", "#cargo-qty", "#cargo-type", "#tacografo-speed", "#price-sea", "#opex-daily"], "metricas": ["#exec-buy-freight-total", "#exec-sell-freight-total", "#res-cost-bunker", "#res-cost-opex", "#res-cost-pda", "#res-cost-base-break-even", "#res-breakeven", "#res-net-profit-owner", "#res-net-profit-charterer"] },
+  "proyectos": { "contenedor": "#view-forwarders", "inputs": ["#top-cargo-category", "#input-pol", "#input-pod", "#input-distance-nm", "#input-valor-mercancia", "#dossiers-search"], "metricas": ["#financial-breakdown-card", "#financial-unit-ratios-summary", "#capacity-overload-warning", "#dossiers-count"] },
+  "decisiones": { "contenedor": "#view-decisiones", "inputs": ["#input-pol", "#input-pod", "#input-cargoQty", "#input-fleteEstimado", "#input-breakEven", "#input-km-vacio", "#input-sobrecostes-ruta"], "metricas": ["#val-transito-estimado", "#val-flota-total", "#val-cadencia-sugerida", "#val-margen-neto-proyecto", "#display-all-in-gross", "#display-net-freight", "#madre-audit-veredicto-badge"] }
+};
+window.LANDCHARTER_DOM_DICTIONARY = LANDCHARTER_DOM_DICTIONARY;
+
+function detectCurrentModule(specifiedModule) {
+  if (specifiedModule && typeof specifiedModule === 'string') {
+    const norm = specifiedModule.toLowerCase().trim();
+    if (LANDCHARTER_DOM_DICTIONARY[norm]) return norm;
+    if (norm === 'matching' || norm === '#view-matching' || norm === 'view-matching') return 'flota';
+    if (norm === 'map' || norm === '#view-map' || norm === 'view-map') return 'rutas';
+    if (norm === 'estimator' || norm === '#view-estimator' || norm === 'view-estimator') return 'calculadora';
+    if (norm === 'forwarders' || norm === '#view-forwarders' || norm === 'view-forwarders') return 'proyectos';
+    if (norm === 'decisiones' || norm === '#view-decisiones' || norm === 'view-decisiones') return 'decisiones';
+  }
+
+  if (typeof window !== 'undefined') {
+    const current = window.currentView || window.State?.activeModule || window.State?.currentView;
+    if (current && typeof current === 'string') {
+      const norm = current.toLowerCase().trim();
+      if (LANDCHARTER_DOM_DICTIONARY[norm]) return norm;
+      if (norm === 'matching') return 'flota';
+      if (norm === 'map') return 'rutas';
+      if (norm === 'estimator') return 'calculadora';
+      if (norm === 'forwarders') return 'proyectos';
+      if (norm === 'decisiones') return 'decisiones';
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    for (const [key, conf] of Object.entries(LANDCHARTER_DOM_DICTIONARY)) {
+      try {
+        const el = document.querySelector(conf.contenedor);
+        if (el) {
+          const isHidden = el.classList.contains('hidden') || el.style.display === 'none';
+          const isActive = el.classList.contains('active-block') || el.classList.contains('active-flex') || (!isHidden && el.style.display !== 'none');
+          if (isActive && !isHidden) {
+            return key;
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  return 'calculadora';
+}
+window.detectCurrentModule = detectCurrentModule;
+
+function captureScreenDOM(specifiedModuleId) {
+  let moduloId = specifiedModuleId || detectCurrentModule();
+  if (!LANDCHARTER_DOM_DICTIONARY[moduloId]) {
+    moduloId = detectCurrentModule(moduloId);
+  }
+
+  let elementosVisibles = "";
+  const metricasCapturadas = {};
+  const inputsCapturados = {};
+  const listaMetricas = [];
+  const listaInputs = [];
+
+  // Busca si el ID del módulo actual existe en LANDCHARTER_DOM_DICTIONARY
+  if (LANDCHARTER_DOM_DICTIONARY[moduloId]) {
+    const configModulo = LANDCHARTER_DOM_DICTIONARY[moduloId];
+
+    // Iterar sobre array de inputs usando document.querySelector para extraer los valores prioritarios
+    if (Array.isArray(configModulo.inputs) && typeof document !== 'undefined') {
+      configModulo.inputs.forEach((selector) => {
+        try {
+          const el = document.querySelector(selector);
+          if (el) {
+            const val = el.value !== undefined ? el.value.trim() : (el.textContent ? el.textContent.trim().replace(/\s+/g, ' ') : '');
+            inputsCapturados[selector] = val;
+            listaInputs.push(`${selector}: ${val}`);
+          }
+        } catch (err) {
+          console.warn(`[UniversalScanner] Selector input inválido ${selector}:`, err);
+        }
+      });
+    }
+
+    // Iterar sobre array de metricas usando document.querySelector para extraer los valores prioritarios
+    if (Array.isArray(configModulo.metricas) && typeof document !== 'undefined') {
+      configModulo.metricas.forEach((selector) => {
+        try {
+          const el = document.querySelector(selector);
+          if (el) {
+            const val = el.textContent !== undefined ? el.textContent.trim().replace(/\s+/g, ' ') : (el.value !== undefined ? el.value.trim() : '');
+            metricasCapturadas[selector] = val;
+            listaMetricas.push(`${selector}: ${val}`);
+          }
+        } catch (err) {
+          console.warn(`[UniversalScanner] Selector métrica inválido ${selector}:`, err);
+        }
+      });
+    }
+
+    // Añade las métricas encontradas en una lista llamada [Métricas Clave]: dentro del string de elementos visibles antes del fallback genérico
+    if (listaMetricas.length > 0) {
+      elementosVisibles += `[Métricas Clave]:\n` + listaMetricas.map(m => `- ${m}`).join('\n') + '\n\n';
+    }
+
+    if (listaInputs.length > 0) {
+      elementosVisibles += `[Inputs Prioritarios]:\n` + listaInputs.map(i => `- ${i}`).join('\n') + '\n\n';
+    }
+  }
+
+  // Fallback genérico de elementos visibles
+  let fallbackGenerico = "";
+  if (typeof document !== 'undefined') {
+    const contenedorSelector = LANDCHARTER_DOM_DICTIONARY[moduloId]?.contenedor;
+    const container = contenedorSelector ? document.querySelector(contenedorSelector) : document.body;
+    if (container) {
+      const itemsGenericos = [];
+      const fields = container.querySelectorAll('input:not([type="hidden"]), select, textarea');
+      fields.forEach((field) => {
+        const id = field.id ? `#${field.id}` : (field.name ? `[name="${field.name}"]` : null);
+        if (id && (!LANDCHARTER_DOM_DICTIONARY[moduloId]?.inputs?.includes(id))) {
+          const val = field.value !== undefined ? field.value.trim() : '';
+          if (val) {
+            itemsGenericos.push(`${id}: ${val}`);
+          }
+        }
+      });
+      if (itemsGenericos.length > 0) {
+        fallbackGenerico = `[Elementos DOM Generales]:\n` + itemsGenericos.map(item => `- ${item}`).join('\n');
+      }
+    }
+  }
+
+  if (fallbackGenerico) {
+    elementosVisibles += fallbackGenerico;
+  }
+  elementosVisibles = elementosVisibles.trim();
+
+  return {
+    suite: "Land Charter",
+    modulo_actual: moduloId,
+    elementos_visibles: elementosVisibles,
+    metricas_clave: metricasCapturadas,
+    inputs: inputsCapturados,
+    datos_extraidos: { ...inputsCapturados, ...metricasCapturadas }
+  };
+}
+window.captureScreenDOM = captureScreenDOM;
+
 async function sendToMadreChat(payload) {
     try {
+        const safePayload = payload || {};
+        const moduloActual = safePayload.modulo_actual || safePayload.moduloActual || detectCurrentModule(safePayload.current_module || safePayload.modulo);
+        const enrichedPayload = {
+            ...safePayload,
+            suite: "Land Charter",
+            modulo_actual: moduloActual,
+            origen: safePayload.origen || "Land Charter",
+            current_module: safePayload.current_module || "land_charter"
+        };
+
         const response = await fetch(`${DATA_BRIDGE_URL}/.netlify/functions/madre-chat`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(enrichedPayload)
         });
 
         if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
@@ -76754,7 +76913,9 @@ window.enviarMensajeMadre = async function(texto) {
         window.triggerLandLaserScan = function() {
             const idle = document.getElementById('madre-idle-state');
             if (idle) idle.style.display = 'none';
-            pintarBurbujaChat('Iniciando escáner visual de la calculadora terrestre...', 'user');
+            const domCapture = typeof captureScreenDOM === 'function' ? captureScreenDOM() : {};
+            const moduloActual = domCapture.modulo_actual || (typeof detectCurrentModule === 'function' ? detectCurrentModule() : 'calculadora');
+            pintarBurbujaChat(`Iniciando escáner universal de pantalla en ${moduloActual}...`, 'user');
 
             const laser = document.createElement('div');
             laser.id = 'madre-laser-scan-line';
@@ -76767,11 +76928,11 @@ window.enviarMensajeMadre = async function(texto) {
             setTimeout(async () => {
                 if (laser && laser.parentNode) laser.parentNode.removeChild(laser);
                 
-                const datosExtraidos = extractLandCharterData();
-                pintarBurbujaChat('✅ Escaneo completado. Analizando matriz de datos terrestres con el LLM en Data Bridge...', 'madre');
+                const datosExtraidos = typeof extractLandCharterData === 'function' ? extractLandCharterData() : {};
+                pintarBurbujaChat(`✅ Escaneo completado [Módulo: ${moduloActual}]. Analizando métricas clave con el LLM en Data Bridge...`, 'madre');
 
                 try {
-                    datosExtraidos.vista_activa = "dss";
+                    datosExtraidos.vista_activa = moduloActual;
 
                     // 1. Detectar el estado "Road / Rail" en el Header (Ajusta los selectores a los IDs o clases reales de tu HTML)
                     // Ejemplo genérico: const isRailActive = document.querySelector('.selector-rail')?.classList.contains('active');
@@ -76786,10 +76947,19 @@ window.enviarMensajeMadre = async function(texto) {
                     datosExtraidos.modo_transporte_activo = modoFinal;
 
                     const resultado = await sendToMadreChat({
+                        suite: "Land Charter",
+                        modulo_actual: moduloActual,
                         origen: "Land Charter",
                         current_module: "land_charter",
-                        mensajeUsuario: `Emite un veredicto estratégico evaluando la viabilidad de esta ruta por ${modoFinal}.`,
-                        contexto_ui: datosExtraidos
+                        mensajeUsuario: `Emite un veredicto estratégico evaluando la viabilidad operativa por ${modoFinal} con los datos capturados de pantalla en ${moduloActual}.`,
+                        prompt: `Escaneo de pantalla en ${moduloActual} por ${modoFinal}`,
+                        elementos_visibles: domCapture.elementos_visibles,
+                        contexto_ui: {
+                            ...datosExtraidos,
+                            ...domCapture,
+                            vista_activa: moduloActual,
+                            modo_transporte_activo: modoFinal
+                        }
                     });
                     
                     if (resultado.texto_preformateado) {

@@ -2,18 +2,195 @@ import React, { useState, useEffect, useRef } from 'react';
 
 export const DATA_BRIDGE_URL = "https://calm-shortbread-55bcfc.netlify.app";
 
+export const LANDCHARTER_DOM_DICTIONARY = {
+  "flota": { "contenedor": "#view-matching", "inputs": ["#vehicle_type", "#metodo_carga", "#metodo_descarga", "#input-loading-rate", "#input-discharging-rate", "#ais-vessel-search"], "metricas": ["#val-dss-cadencia-camiones-dia", "#val-dss-plazo-campana", "#matching-compatible-count", "#fleet-intel-count"] },
+  "rutas": { "contenedor": "#view-map", "inputs": ["#map-port-pol", "#map-port-pod", "#map-laycan-date", "#map-cancelling-date"], "metricas": ["#sync-miles-card", "#sync-pol-label", "#sync-pod-label", "#header-sync-status-badge"] },
+  "calculadora": { "contenedor": "#view-estimator", "inputs": ["#port-pol", "#port-pod", "#dist-laden", "#nombre-buque-calculadora", "#truckPayloadCapacity", "#cargo-qty", "#cargo-type", "#tacografo-speed", "#price-sea", "#opex-daily"], "metricas": ["#exec-buy-freight-total", "#exec-sell-freight-total", "#res-cost-bunker", "#res-cost-opex", "#res-cost-pda", "#res-cost-base-break-even", "#res-breakeven", "#res-net-profit-owner", "#res-net-profit-charterer"] },
+  "proyectos": { "contenedor": "#view-forwarders", "inputs": ["#top-cargo-category", "#input-pol", "#input-pod", "#input-distance-nm", "#input-valor-mercancia", "#dossiers-search"], "metricas": ["#financial-breakdown-card", "#financial-unit-ratios-summary", "#capacity-overload-warning", "#dossiers-count"] },
+  "decisiones": { "contenedor": "#view-decisiones", "inputs": ["#input-pol", "#input-pod", "#input-cargoQty", "#input-fleteEstimado", "#input-breakEven", "#input-km-vacio", "#input-sobrecostes-ruta"], "metricas": ["#val-transito-estimado", "#val-flota-total", "#val-cadencia-sugerida", "#val-margen-neto-proyecto", "#display-all-in-gross", "#display-net-freight", "#madre-audit-veredicto-badge"] }
+};
+
+/**
+ * Detecta el módulo actual de Land Charter mapeándolo al diccionario DOM
+ */
+export function detectCurrentModule(specifiedModule) {
+  if (specifiedModule && typeof specifiedModule === 'string') {
+    const norm = specifiedModule.toLowerCase().trim();
+    if (LANDCHARTER_DOM_DICTIONARY[norm]) return norm;
+    if (norm === 'matching' || norm === '#view-matching' || norm === 'view-matching') return 'flota';
+    if (norm === 'map' || norm === '#view-map' || norm === 'view-map') return 'rutas';
+    if (norm === 'estimator' || norm === '#view-estimator' || norm === 'view-estimator') return 'calculadora';
+    if (norm === 'forwarders' || norm === '#view-forwarders' || norm === 'view-forwarders') return 'proyectos';
+    if (norm === 'decisiones' || norm === '#view-decisiones' || norm === 'view-decisiones') return 'decisiones';
+  }
+
+  if (typeof window !== 'undefined') {
+    const current = window.currentView || window.State?.activeModule || window.State?.currentView;
+    if (current && typeof current === 'string') {
+      const norm = current.toLowerCase().trim();
+      if (LANDCHARTER_DOM_DICTIONARY[norm]) return norm;
+      if (norm === 'matching') return 'flota';
+      if (norm === 'map') return 'rutas';
+      if (norm === 'estimator') return 'calculadora';
+      if (norm === 'forwarders') return 'proyectos';
+      if (norm === 'decisiones') return 'decisiones';
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    for (const [key, conf] of Object.entries(LANDCHARTER_DOM_DICTIONARY)) {
+      try {
+        const el = document.querySelector(conf.contenedor);
+        if (el) {
+          const isHidden = el.classList.contains('hidden') || el.style.display === 'none';
+          const isActive = el.classList.contains('active-block') || el.classList.contains('active-flex') || (!isHidden && el.style.display !== 'none');
+          if (isActive && !isHidden) {
+            return key;
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  return 'calculadora';
+}
+
+/**
+ * Motor de captura del DOM para Escáner Universal en Land Charter
+ */
+export function captureScreenDOM(specifiedModuleId) {
+  let moduloId = specifiedModuleId || detectCurrentModule();
+  if (!LANDCHARTER_DOM_DICTIONARY[moduloId]) {
+    moduloId = detectCurrentModule(moduloId);
+  }
+
+  let elementosVisibles = "";
+  const metricasCapturadas = {};
+  const inputsCapturados = {};
+  const listaMetricas = [];
+  const listaInputs = [];
+
+  // Busca si el ID del módulo actual existe en LANDCHARTER_DOM_DICTIONARY
+  if (LANDCHARTER_DOM_DICTIONARY[moduloId]) {
+    const configModulo = LANDCHARTER_DOM_DICTIONARY[moduloId];
+
+    // Iterar sobre array de inputs usando document.querySelector para extraer los valores prioritarios
+    if (Array.isArray(configModulo.inputs) && typeof document !== 'undefined') {
+      configModulo.inputs.forEach((selector) => {
+        try {
+          const el = document.querySelector(selector);
+          if (el) {
+            const val = el.value !== undefined ? el.value.trim() : (el.textContent ? el.textContent.trim().replace(/\s+/g, ' ') : '');
+            inputsCapturados[selector] = val;
+            listaInputs.push(`${selector}: ${val}`);
+          }
+        } catch (err) {
+          console.warn(`[UniversalScanner] Selector input inválido ${selector}:`, err);
+        }
+      });
+    }
+
+    // Iterar sobre array de metricas usando document.querySelector para extraer los valores prioritarios
+    if (Array.isArray(configModulo.metricas) && typeof document !== 'undefined') {
+      configModulo.metricas.forEach((selector) => {
+        try {
+          const el = document.querySelector(selector);
+          if (el) {
+            const val = el.textContent !== undefined ? el.textContent.trim().replace(/\s+/g, ' ') : (el.value !== undefined ? el.value.trim() : '');
+            metricasCapturadas[selector] = val;
+            listaMetricas.push(`${selector}: ${val}`);
+          }
+        } catch (err) {
+          console.warn(`[UniversalScanner] Selector métrica inválido ${selector}:`, err);
+        }
+      });
+    }
+
+    // Añade las métricas encontradas en una lista llamada [Métricas Clave]: dentro del string de elementos visibles antes del fallback genérico
+    if (listaMetricas.length > 0) {
+      elementosVisibles += `[Métricas Clave]:\n` + listaMetricas.map(m => `- ${m}`).join('\n') + '\n\n';
+    }
+
+    if (listaInputs.length > 0) {
+      elementosVisibles += `[Inputs Prioritarios]:\n` + listaInputs.map(i => `- ${i}`).join('\n') + '\n\n';
+    }
+  }
+
+  // Fallback genérico de elementos visibles
+  let fallbackGenerico = "";
+  if (typeof document !== 'undefined') {
+    const contenedorSelector = LANDCHARTER_DOM_DICTIONARY[moduloId]?.contenedor;
+    const container = contenedorSelector ? document.querySelector(contenedorSelector) : document.body;
+    if (container) {
+      const itemsGenericos = [];
+      const fields = container.querySelectorAll('input:not([type="hidden"]), select, textarea');
+      fields.forEach((field) => {
+        const id = field.id ? `#${field.id}` : (field.name ? `[name="${field.name}"]` : null);
+        if (id && (!LANDCHARTER_DOM_DICTIONARY[moduloId]?.inputs?.includes(id))) {
+          const val = field.value !== undefined ? field.value.trim() : '';
+          if (val) {
+            itemsGenericos.push(`${id}: ${val}`);
+          }
+        }
+      });
+      if (itemsGenericos.length > 0) {
+        fallbackGenerico = `[Elementos DOM Generales]:\n` + itemsGenericos.map(item => `- ${item}`).join('\n');
+      }
+    }
+  }
+
+  if (fallbackGenerico) {
+    elementosVisibles += fallbackGenerico;
+  }
+  elementosVisibles = elementosVisibles.trim();
+
+  const toneladas = parseFloat(inputsCapturados['#cargo-qty'] || document.getElementById?.('cargo-qty')?.value) || (typeof window !== 'undefined' ? (window.State?.cargoQty || window.State?.toneladas) : 25) || 25;
+  const distanciaKm = parseFloat(inputsCapturados['#dist-laden'] || document.getElementById?.('dist-total')?.value) || (typeof window !== 'undefined' ? (window.State?.totalKilometers || window.State?.distanciaKm) : 850) || 850;
+  const isRail = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
+    (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
+    (typeof document !== 'undefined' && document.getElementById?.('btn-view-mode-charterer')?.getAttribute('aria-pressed') === 'true');
+  const peajesAltos = (parseFloat(inputsCapturados['#input-sobrecostes-ruta'] || document.getElementById?.('pda-pol')?.value) || 0) > 150;
+  const riesgosDetectados = Boolean(typeof window !== 'undefined' && window.State?.riesgosDetectados);
+  const costPerKm = (typeof window !== 'undefined' && window.State?.costPerKm !== undefined) ? window.State.costPerKm : 1.65;
+
+  return {
+    suite: "Land Charter",
+    modulo_actual: moduloId,
+    elementos_visibles: elementosVisibles,
+    metricas_clave: metricasCapturadas,
+    inputs: inputsCapturados,
+    datos_extraidos: { ...inputsCapturados, ...metricasCapturadas },
+    toneladas,
+    distanciaKm,
+    costPerKm,
+    esTren: isRail,
+    peajesAltos,
+    riesgosDetectados
+  };
+}
+
 /**
  * Función inquebrantable para enviar mensajes de texto a MADRE mediante Data Bridge
  */
 export async function sendToMadreChat(payload) {
     try {
+        const safePayload = payload || {};
+        const moduloActual = safePayload.modulo_actual || safePayload.moduloActual || detectCurrentModule(safePayload.current_module || safePayload.modulo);
+        const enrichedPayload = {
+            ...safePayload,
+            suite: "Land Charter",
+            modulo_actual: moduloActual,
+            origen: safePayload.origen || "Land Charter",
+            current_module: safePayload.current_module || "land_charter"
+        };
+
         const response = await fetch(`${DATA_BRIDGE_URL}/.netlify/functions/madre-chat`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(enrichedPayload)
         });
 
         if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
@@ -88,6 +265,9 @@ export async function playNeuralMotherVoice(text, options = {}) {
 
 if (typeof window !== 'undefined') {
   window.DATA_BRIDGE_URL = DATA_BRIDGE_URL;
+  window.LANDCHARTER_DOM_DICTIONARY = LANDCHARTER_DOM_DICTIONARY;
+  window.detectCurrentModule = detectCurrentModule;
+  window.captureScreenDOM = captureScreenDOM;
   window.sendToMadreChat = sendToMadreChat;
   window.playNeuralMotherVoice = playNeuralMotherVoice;
 }
@@ -139,6 +319,9 @@ export default function GlobalMadreDrawer({
 
     // Asignar funciones a window para retrocompatibilidad
     window.DATA_BRIDGE_URL = DATA_BRIDGE_URL;
+    window.LANDCHARTER_DOM_DICTIONARY = LANDCHARTER_DOM_DICTIONARY;
+    window.detectCurrentModule = detectCurrentModule;
+    window.captureScreenDOM = captureScreenDOM;
     window.sendToMadreChat = sendToMadreChat;
     window.buildMotherExecutiveScript = buildMotherExecutiveScript;
     window.playNeuralMotherVoice = playNeuralMotherVoice;
@@ -194,24 +377,7 @@ export default function GlobalMadreDrawer({
    * Extrae el estado terrestre actual del DOM o de window.State
    */
   const extractCurrentState = () => {
-    if (typeof window === 'undefined') return {};
-    const toneladas = parseFloat(document.getElementById('cargo-qty')?.value) || window.State?.cargoQty || window.State?.toneladas || 25;
-    const distanciaKm = parseFloat(document.getElementById('dist-total')?.value) || window.State?.totalKilometers || window.State?.distanciaKm || 850;
-    const isRail = (typeof window !== 'undefined' && window.globalTransportMode === 'RAIL') ||
-      (typeof window !== 'undefined' && window.State?.globalTransportMode === 'RAIL') ||
-      document.getElementById('btn-view-mode-charterer')?.getAttribute('aria-pressed') === 'true';
-    const peajesAltos = (parseFloat(document.getElementById('pda-pol')?.value) || 0) > 150;
-    const riesgosDetectados = Boolean(window.State?.riesgosDetectados);
-    const costPerKm = window.State?.costPerKm ?? 1.65;
-
-    return {
-      toneladas,
-      distanciaKm,
-      costPerKm,
-      esTren: isRail,
-      peajesAltos,
-      riesgosDetectados
-    };
+    return captureScreenDOM();
   };
 
   /**
@@ -228,15 +394,46 @@ export default function GlobalMadreDrawer({
     const esEscaneo = /(?:escan(?:ear|eo)?|scan(?:ner)?|auditar|leer)/i.test(query);
 
     if (esEscaneo) {
-      const stateSnapshot = extractCurrentState();
-      const script = buildMotherExecutiveScript(stateSnapshot);
-      const assistantMsg = { id: 'asst-' + Date.now(), sender: 'assistant', role: 'assistant', text: script };
-      setMessages(prev => [...prev, assistantMsg]);
+      setIsLoading(true);
+      const domCapture = captureScreenDOM();
+      const detectedModule = domCapture.modulo_actual;
 
-      if (isVoiceEnabled) {
-        stopAudio();
-        const source = await playNeuralMotherVoice(script, { voice: "Clara" });
-        if (source) activeAudioSourceRef.current = source;
+      try {
+        const payload = {
+          suite: "Land Charter",
+          modulo_actual: detectedModule,
+          origen: "Land Charter",
+          current_module: "land_charter",
+          mensajeUsuario: `Escaneo universal de pantalla en el módulo ${detectedModule}. Analiza las métricas clave y elementos visibles para emitir dictamen operativo.`,
+          prompt: `Escaneo universal de pantalla en ${detectedModule}`,
+          elementos_visibles: domCapture.elementos_visibles,
+          contexto_ui: domCapture
+        };
+
+        const data = await sendToMadreChat(payload);
+        const replyText = data?.respuesta || data?.reply || data?.texto_preformateado || data?.mensaje_voz || buildMotherExecutiveScript(domCapture);
+
+        const assistantMsg = { id: 'asst-' + Date.now(), sender: 'assistant', role: 'assistant', text: replyText };
+        setMessages(prev => [...prev, assistantMsg]);
+
+        if (isVoiceEnabled) {
+          stopAudio();
+          const source = await playNeuralMotherVoice(replyText, { voice: "Clara" });
+          if (source) activeAudioSourceRef.current = source;
+        }
+      } catch (err) {
+        console.warn("[GlobalMadreDrawer] Modo contingencia para escaneo:", err);
+        const script = buildMotherExecutiveScript(domCapture);
+        const assistantMsg = { id: 'asst-' + Date.now(), sender: 'assistant', role: 'assistant', text: script };
+        setMessages(prev => [...prev, assistantMsg]);
+
+        if (isVoiceEnabled) {
+          stopAudio();
+          const source = await playNeuralMotherVoice(script, { voice: "Clara" });
+          if (source) activeAudioSourceRef.current = source;
+        }
+      } finally {
+        setIsLoading(false);
       }
       return;
     }
@@ -244,11 +441,18 @@ export default function GlobalMadreDrawer({
     // Consulta de chat conectada directamente a madre-chat en Data Bridge
     setIsLoading(true);
     try {
+      const domCapture = captureScreenDOM();
+      const detectedModule = domCapture.modulo_actual;
+
       const data = await sendToMadreChat({
+        suite: "Land Charter",
+        modulo_actual: detectedModule,
         origen: "Land Charter",
         current_module: "land_charter",
         mensajeUsuario: query,
-        contexto_ui: extractCurrentState()
+        prompt: query,
+        elementos_visibles: domCapture.elementos_visibles,
+        contexto_ui: domCapture
       });
 
       const replyText = data?.respuesta || data?.reply || data?.texto_preformateado || data?.mensaje_voz || "Instrucción recibida y procesada en Land Charter.";
@@ -263,7 +467,7 @@ export default function GlobalMadreDrawer({
       }
     } catch (err) {
       console.warn("[GlobalMadreDrawer] Modo contingencia para chat:", err);
-      const stateSnapshot = extractCurrentState();
+      const stateSnapshot = captureScreenDOM();
       const fallbackScript = buildMotherExecutiveScript(stateSnapshot);
       const assistantMsg = { id: 'asst-' + Date.now(), sender: 'assistant', role: 'assistant', text: fallbackScript };
       setMessages(prev => [...prev, assistantMsg]);
