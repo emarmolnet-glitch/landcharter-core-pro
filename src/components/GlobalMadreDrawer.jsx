@@ -279,6 +279,72 @@ export default function GlobalMadreDrawer({
   };
 
   /**
+   * Reconocimiento de voz nativo (Micrófono) vía Web Speech API
+   */
+  const handleMicrophoneClick = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      console.error("Web Speech API no soportada en este navegador.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-ES';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    // 1. PITIDO DE FEEDBACK SONORO AL EMPEZAR A ESCUCHAR
+    recognition.onstart = () => {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); 
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.15);
+      } catch (e) {
+        console.warn("No se pudo reproducir el pitido:", e);
+      }
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      
+      // 2. MOSTRAR TRANSCRIPCIÓN
+      if (typeof setInputText === 'function') {
+        setInputText(transcript); // Para GlobalMadreDrawer.jsx
+      } else {
+        const input = document.getElementById('madre-chat-input');
+        if (input) input.value = transcript; // Para index.html
+      }
+      
+      // 3. AUTO-ENVÍO DESPUÉS DE 2 SEGUNDOS
+      setTimeout(() => {
+        if (typeof handleSendMessage === 'function') {
+          handleSendMessage(transcript);
+          setInputText('');
+        } else if (typeof enviarMensajeMadre === 'function') {
+          enviarMensajeMadre(transcript);
+          const input = document.getElementById('madre-chat-input');
+          if (input) input.value = '';
+        }
+      }, 2000);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Error en micrófono:", event.error);
+    };
+
+    recognition.start();
+  };
+
+  /**
    * Paso 4: Manos Libres en el Micrófono
    * Evento de reconocimiento de voz que auto-envía el comando transcrito al completarse (isFinal).
    */
@@ -517,13 +583,13 @@ export default function GlobalMadreDrawer({
       <div className="p-3 bg-[#0B1121] border-t border-slate-800 flex items-center gap-2">
         <button
           type="button"
-          onClick={handleToggleListening}
+          onClick={handleMicrophoneClick}
           className={`p-2 rounded-full cursor-pointer transition-all ${
             isListening
               ? 'bg-red-500 text-white animate-pulse'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
-          title={isListening ? 'Escuchando... Di tu orden' : 'Dictar por voz (Manos libres)'}
+          title={isListening ? 'Escuchando... Di tu orden' : 'Dictar por voz'}
         >
           <i className="fa-solid fa-microphone text-xs" />
         </button>
