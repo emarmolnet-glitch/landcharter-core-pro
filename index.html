@@ -8578,80 +8578,25 @@
             }
 
             header.app-header {
-                grid-template-columns: minmax(0, 1fr) auto auto !important;
+                display: flex !important;
+                flex-direction: row !important;
                 align-items: center !important;
-                justify-items: stretch !important;
-                gap: 0.35rem !important;
+                justify-content: flex-end !important;
+                gap: 0.5rem !important;
                 min-height: 0 !important;
-                padding: 0.35rem 0.4rem !important;
+                padding: 0.35rem 0.5rem !important;
                 overflow: visible !important;
             }
 
-            header.app-header > .flex.items-center.gap-3 {
-                width: auto !important;
-                min-width: 0 !important;
-                gap: 0.4rem !important;
-                justify-self: stretch !important;
-            }
-
-            header.app-header > .flex.items-center.gap-3 > .bg-blue-600 {
+            header.app-header > .hidden.md\:flex,
+            header.app-header .module-tabs-wrapper {
                 display: none !important;
             }
 
-            header.app-header h1 {
-                display: flex !important;
-                align-items: center !important;
-                min-width: 0 !important;
-                font-size: 0.76rem !important;
-                line-height: 1 !important;
-                white-space: nowrap !important;
-            }
-
-            header.app-header h1 span {
-                display: none !important;
-            }
-
-            header.app-header > .flex.items-center.gap-3 p,
+            header.app-header #header-vessel-search-container,
+            header.app-header #header-voyage-ref-container,
             header.app-header #connection-status-root {
                 display: none !important;
-            }
-
-            header.app-header .module-tabs-wrapper {
-                order: initial !important;
-                display: flex !important;
-                flex: 1 1 auto !important;
-                width: 100% !important;
-                max-width: none !important;
-                min-width: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                gap: 0.35rem !important;
-                overflow: visible !important;
-                justify-self: stretch !important;
-            }
-
-            header.app-header #header-vessel-search-container {
-                flex: 1 1 0% !important;
-                min-width: 0 !important;
-                max-width: none !important;
-                width: 100% !important;
-            }
-
-            header.app-header #header-vessel-search-input {
-                flex: 1 1 0% !important;
-                min-width: 0 !important;
-                width: 100% !important;
-            }
-
-            header.app-header #header-voyage-ref-container {
-                flex: 0 1 auto !important;
-                min-width: 0 !important;
-            }
-
-            header.app-header #quick-ref {
-                flex: 1 1 0% !important;
-                min-width: 0 !important;
-                width: 100% !important;
             }
 
             header.app-header .tools-dropdown-trigger,
@@ -8723,13 +8668,23 @@
             header.app-header > .header-actions-right {
                 order: initial !important;
                 display: flex !important;
+                align-items: center !important;
                 width: auto !important;
-                gap: 0 !important;
-                justify-self: end !important;
+                gap: 0.5rem !important;
+                justify-content: flex-end !important;
+                margin-left: auto !important;
             }
 
-            header.app-header > .header-actions-right > :not(#session-actions) {
-                display: none !important;
+            header.app-header > .header-actions-right #btn-madre-trigger {
+                display: flex !important;
+            }
+
+            header.app-header > .header-actions-right #btn-open-faq-modal {
+                display: flex !important;
+            }
+
+            header.app-header > .header-actions-right #global-view-mode-switch {
+                display: inline-flex !important;
             }
 
             header.app-header #session-actions {
@@ -9376,8 +9331,8 @@
     </div>
 
     <!-- NAVBAR TOP -->
-    <header class="app-header bg-white border-b border-slate-200 px-4 py-2 md:px-6 flex flex-col lg:flex-row items-center lg:items-center lg:justify-between gap-3 lg:gap-4 shadow-md shrink-0 no-print z-50">
-        <div class="flex items-center gap-3">
+    <header class="app-header bg-white border-b border-slate-200 px-4 py-2 md:px-6 flex items-center justify-end md:justify-between gap-3 lg:gap-4 shadow-md shrink-0 no-print z-50">
+        <div class="hidden md:flex items-center gap-3">
             <div class="bg-blue-600 p-2 rounded-lg text-white shadow-lg">
                 <i class="fa-solid fa-truck text-base"></i>
             </div>
@@ -9389,7 +9344,7 @@
         <div class="module-tabs-wrapper flex items-center">
             <div id="connection-status-root"></div>
             <!-- BUSCADOR DIRECTO DE TRANSPORTE / CONTRATO -->
-            <div id="header-vessel-search-container" class="hidden sm:inline-flex relative items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-300 text-slate-700 text-xs shadow-2xs flex-1 min-w-0 w-full sm:max-w-xs focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-sky-500 transition-all">
+            <div id="header-vessel-search-container" class="hidden md:flex relative items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-300 text-slate-700 text-xs shadow-2xs flex-1 min-w-0 w-full md:max-w-xs focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-sky-500 transition-all">
                 <i class="fa-solid fa-magnifying-glass text-[11px] text-slate-400 shrink-0"></i>
                 <input
                     type="text"
@@ -9409,7 +9364,7 @@
                     <i class="fa-solid fa-arrow-right"></i>
                 </button>
             </div>
-            <div id="header-voyage-ref-container" translate="no" class="notranslate inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-600 text-xs font-mono shadow-2xs flex-1 sm:flex-initial min-w-0" title="Referencia Única del Viaje / Contrato">
+            <div id="header-voyage-ref-container" translate="no" class="notranslate hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-600 text-xs font-mono shadow-2xs flex-1 md:flex-initial min-w-0" title="Referencia Única del Viaje / Contrato">
                 <i class="fa-solid fa-hashtag text-[10px] text-slate-400 shrink-0"></i>
                 <span translate="no" class="notranslate text-slate-400 font-sans text-[10px] uppercase font-bold tracking-wider shrink-0">Ref:</span>
                 <input type="text" id="quick-ref" translate="no" class="notranslate bg-transparent font-mono text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1 flex-1 min-w-0 w-full sm:w-36 transition-all" value="" oninput="syncQuickRef(this.value)" title="Referencia Única del Viaje / Contrato">
