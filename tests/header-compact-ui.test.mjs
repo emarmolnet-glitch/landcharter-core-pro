@@ -55,7 +55,7 @@ test('adjacent header elements maintain vertical centering with items-center', (
   );
   assert.match(
     indexSource,
-    /<div class="header-actions-right flex items-center">/,
+    /<div class="header-actions-right flex items-center[^"]*">/,
     'Right header actions must have items-center'
   );
 });
