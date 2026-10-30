@@ -710,59 +710,46 @@ export default function GlobalMadreDrawer({
         className="fixed bottom-4 right-4 z-[60] w-[450px] bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col text-gray-800 overflow-hidden"
         data-testid="global-madre-drawer"
       >
-        {/* Cabecera (Drag Handle) */}
-        <div className="drag-handle cursor-move bg-white border-b border-gray-100 p-3 flex justify-between items-center">
-          <div className="flex items-center gap-2 select-none pointer-events-none">
-            <img
-              src="/MADRE.png"
-              alt="MADRE"
-              className="w-7 h-7 rounded-full border border-gray-200 shadow-xs"
-            />
+        {/* Cabecera (Drag Handle) unificada con SeaCharter */}
+        <div className="drag-handle cursor-move bg-white border-b border-gray-100 p-3 flex flex-row justify-between items-center select-none w-full overflow-hidden gap-4">
+          <div className="flex flex-row items-center gap-2 shrink-0 pointer-events-none">
+            <img src="/MADRE.png" alt="MADRE" className="w-6 h-6 rounded-full shadow-sm shrink-0" />
             <div>
-              <h2 className="font-bold text-sm flex items-center gap-1.5 text-gray-800 leading-none">
-                MADRE{' '}
-                <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider">
-                  Cerebro Central
-                </span>
-              </h2>
-              <p className="text-[10px] text-gray-500 leading-tight">
-                Supervisión Terrestre
-              </p>
+              <span className="font-bold text-sm text-gray-800 whitespace-nowrap">MADRE</span>
+              <span className="ml-1.5 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider">
+                Cerebro Central
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+
+          <div className="flex flex-row items-center justify-end gap-1.5 shrink-0">
             <button
               type="button"
               id="btn-madre-scan"
               onClick={handleScan}
-              className="text-gray-600 hover:bg-gray-100 rounded-md p-1 transition-colors cursor-pointer"
-              title="Escanear pantalla"
-              aria-label="Escanear pantalla"
+              className="text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-md px-2 py-1 text-xs font-semibold flex flex-row items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              title="Escanear pantalla Terrestre"
             >
-              <i className="fa-solid fa-expand text-xs" />
+              <span className="text-emerald-600 font-bold text-sm">⚡</span>
+              <span className="hidden sm:inline-block">Escanear</span>
             </button>
             <button
               type="button"
               id="btn-madre-toggle-voice"
               onClick={handleToggleVoice}
-              className="text-gray-600 hover:bg-gray-100 rounded-md p-1 transition-colors cursor-pointer"
+              className="text-gray-600 hover:bg-gray-100 rounded-md w-7 h-7 flex items-center justify-center transition-colors text-sm cursor-pointer shrink-0"
               title={isVoiceEnabled ? 'Desactivar Voz (Clara)' : 'Activar Voz (Clara)'}
-              aria-label="Altavoz"
             >
-              <i
-                id="icon-madre-voice"
-                className={`fa-solid ${isVoiceEnabled ? 'fa-volume-high text-emerald-600' : 'fa-volume-xmark text-gray-400'} text-xs`}
-              />
+              <i className={`fa-solid ${isVoiceEnabled ? 'fa-volume-high text-emerald-600' : 'fa-volume-xmark text-gray-400'} text-xs`} />
             </button>
             <button
               type="button"
               id="btn-madre-close"
               onClick={() => setIsMadreOpen(false)}
-              className="text-gray-600 hover:bg-gray-100 rounded-md p-1 transition-colors cursor-pointer"
+              className="text-gray-600 hover:bg-gray-100 rounded-md w-7 h-7 flex items-center justify-center transition-colors font-bold text-sm cursor-pointer shrink-0"
               title="Cerrar MADRE"
-              aria-label="Cerrar"
             >
-              <i className="fa-solid fa-xmark text-xs" />
+              ✕
             </button>
           </div>
         </div>
@@ -770,7 +757,7 @@ export default function GlobalMadreDrawer({
         {/* Cuerpo del Chat */}
         <div
           id="madre-chat-history"
-          className="overflow-y-auto max-h-[60vh] bg-gray-50 p-4 flex flex-col gap-3 relative font-sans"
+          className="overflow-y-auto max-h-[60vh] min-h-[300px] bg-gray-50 p-4 flex flex-col gap-3 relative font-sans"
         >
           {messages.length === 0 ? (
             <div id="madre-idle-state" className="flex flex-col items-center justify-center h-full text-center py-6 text-gray-600">
@@ -786,7 +773,7 @@ export default function GlobalMadreDrawer({
                 onClick={handleScan}
                 className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 text-xs px-3.5 py-1.5 rounded-full flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
               >
-                <i className="fa-solid fa-expand text-xs text-blue-600" />
+                <span className="text-emerald-600 font-bold">⚡</span>
                 <span>Escanear pantalla</span>
               </button>
             </div>
@@ -838,7 +825,7 @@ export default function GlobalMadreDrawer({
         </div>
 
         {/* Footer / Input de Texto */}
-        <div className="bg-white border-t border-gray-100 p-3 flex items-center gap-2">
+        <div className="bg-white border-t border-gray-100 p-3 flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={handleMicrophoneClick}
