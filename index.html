@@ -76434,47 +76434,8 @@ window.actualizarGrabCapacityVisibility = function() {
     <!-- ======================================================================= -->
     <!-- DRAWER FLOTANTE DE MADRE (LAND CHARTER - TEMA CLARO)                    -->
     <!-- ======================================================================= -->
-    <div id="madre-drawer" class="fixed bottom-4 right-4 z-[60] w-[450px] bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col text-gray-800 overflow-hidden hidden">
-        
-        <!-- HEADER MADRE (DRAG HANDLE) -->
-        <div class="drag-handle cursor-move bg-white border-b border-gray-100 p-3 flex justify-between items-center">
-            <div class="flex items-center gap-2 select-none pointer-events-none">
-                <img src="/MADRE.png" alt="MADRE" class="w-7 h-7 rounded-full border border-gray-200 shadow-xs">
-                <div>
-                    <h2 class="font-bold text-sm flex items-center gap-1.5 text-gray-800 leading-none">MADRE <span class="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider">Cerebro Central</span></h2>
-                    <p class="text-[10px] text-gray-500 leading-tight">Supervisión Terrestre</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-1">
-                <button type="button" id="btn-madre-scan" onclick="triggerLandLaserScan()" class="text-gray-600 hover:bg-gray-100 rounded-md p-1 transition-colors cursor-pointer" title="Escanear pantalla" aria-label="Escanear pantalla"><i class="fa-solid fa-expand text-xs"></i></button>
-                <button type="button" id="btn-madre-toggle-voice" onclick="toggleMadreVoice()" class="text-gray-600 hover:bg-gray-100 rounded-md p-1 transition-colors cursor-pointer" title="Activar/Desactivar Voz" aria-label="Altavoz"><i id="icon-madre-voice" class="fa-solid fa-volume-high text-xs text-green-600"></i></button>
-                <button type="button" onclick="toggleMadreDrawer(false)" class="text-gray-600 hover:bg-gray-100 rounded-md p-1 transition-colors cursor-pointer" title="Cerrar MADRE" aria-label="Cerrar"><i class="fa-solid fa-xmark text-xs"></i></button>
-            </div>
-        </div>
-
-        <!-- CUERPO DEL CHAT / ESTADO INICIAL -->
-        <div id="madre-chat-history" class="overflow-y-auto max-h-[60vh] bg-gray-50 p-4 flex flex-col gap-3 relative font-sans">
-            <!-- Estado Idle (Centrado) -->
-            <div id="madre-idle-state" class="flex flex-col items-center justify-center h-full text-center py-6 text-gray-600">
-                 <div class="relative mb-3">
-                    <img src="/MADRE.png" class="w-16 h-16 rounded-full border border-gray-200 shadow-sm">
-                 </div>
-                 <h3 class="font-semibold text-sm mb-1 text-gray-800">Cerebro Terrestre Activo</h3>
-                 <p class="text-xs max-w-[260px] text-gray-500 mb-3">Escáner visual y soporte operativo en tiempo real para variables de transporte terrestre.</p>
-                 <button type="button" onclick="triggerLandLaserScan()" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 text-xs px-3.5 py-1.5 rounded-full flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer">
-                     <i class="fa-solid fa-expand text-xs text-blue-600"></i>
-                     <span>Escanear pantalla</span>
-                 </button>
-            </div>
-        </div>
-
-        <!-- FOOTER / INPUT DE TEXTO -->
-        <div class="bg-white border-t border-gray-100 p-3 flex items-center gap-2">
-            <button type="button" onclick="handleMicrophoneClick()" class="p-2 rounded-lg cursor-pointer transition-colors text-gray-500 hover:text-gray-700 hover:bg-gray-100" title="Dictar por voz" aria-label="Micrófono"><i class="fa-solid fa-microphone text-xs"></i></button>
-            <input type="text" id="madre-chat-input" class="bg-white border border-gray-200 text-gray-800 placeholder-gray-400 rounded-lg p-2 w-full text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="Pregunta a MADRE o escribe 'Escanear pantalla'..." onkeydown="if(event.key === 'Enter') enviarMensajeMadre(this.value)">
-            <button type="button" onclick="enviarMensajeMadre(document.getElementById('madre-chat-input').value)" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors cursor-pointer shadow-xs shrink-0">Enviar</button>
-        </div>
-    </div>
+    <div id="global-madre-root"></div>
+    <script type="module" src="./src/global-madre-entry.jsx"></script>
 
     <!-- SCRIPT MADRE DRAWER Y ESCÁNER VISUAL -->
     <script>
@@ -76486,15 +76447,7 @@ window.actualizarGrabCapacityVisibility = function() {
                 return;
             }
             window.dispatchEvent(new CustomEvent('madre:toggle-drawer', { detail: { forceState, isUserAction } }));
-            window.dispatchEvent(new CustomEvent('madre:toggle', { detail: { forceState, isUserAction } }));
-            const drawer = document.getElementById('madre-drawer');
-            if (drawer) {
-                if (typeof forceState === 'boolean') {
-                    drawer.classList.toggle('hidden', !forceState);
-                } else {
-                    drawer.classList.toggle('hidden');
-                }
-            }
+
         };
 
         // --- ESTADO Y FUNCIONES DE VOZ ---
