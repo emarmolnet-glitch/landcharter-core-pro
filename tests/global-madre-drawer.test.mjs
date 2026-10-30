@@ -60,10 +60,18 @@ test('2. Paso 2: playNeuralMotherVoice conecta a DATA_BRIDGE_URL con voz Clara y
   assert.doesNotMatch(fileContent, /createObjectURL/, 'No debe usar URL.createObjectURL para esquivar el bloqueo CSP blob:');
 });
 
-test('3. Paso 3: Contraste visual explícito con text-white y fondos sólidos bg-teal-700 / bg-slate-800', async () => {
-  assert.match(fileContent, /text-white/, 'Debe incluir explícitamente text-white para garantizar contraste');
-  assert.match(fileContent, /bg-teal-700/, 'Debe incluir explícitamente bg-teal-700 para mensajes de usuario');
-  assert.match(fileContent, /bg-slate-800/, 'Debe incluir explícitamente bg-slate-800 para mensajes del asistente');
+test('3. Paso 3: Widget flotante arrastrable con react-draggable y tema claro', async () => {
+  assert.match(fileContent, /react-draggable/, 'Debe importar react-draggable');
+  assert.match(fileContent, /handle=["']\.drag-handle["']/, 'Draggable debe configurarse con handle .drag-handle');
+  assert.match(fileContent, /if\s*\(\s*!isMadreOpen\s*\)\s*return\s+null|if\s*\(\s*!isMadreOpen\s*\)\s*\{\s*return\s+null;\s*\}/, 'Debe retornar null si !isMadreOpen');
+  assert.match(fileContent, /fixed bottom-4 right-4 z-\[60\] w-\[450px\] bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col text-gray-800 overflow-hidden/, 'Contenedor principal debe usar las clases requeridas');
+  assert.match(fileContent, /drag-handle cursor-move bg-white border-b border-gray-100 p-3 flex justify-between items-center/, 'Cabecera debe usar las clases de drag-handle');
+  assert.match(fileContent, /overflow-y-auto max-h-\[60vh\] bg-gray-50 p-4/, 'Cuerpo del chat debe usar max-h-[60vh] y bg-gray-50');
+  assert.match(fileContent, /bg-(?:gray-100|blue-50)/, 'Mensajes de usuario deben usar bg-gray-100 o bg-blue-50');
+  assert.match(fileContent, /bg-white border border-gray-200 text-gray-800/, 'Mensajes de MADRE deben usar bg-white border border-gray-200 text-gray-800');
+  assert.match(fileContent, /bg-white border-t border-gray-100 p-3/, 'Footer debe tener fondo blanco y borde');
+  assert.match(fileContent, /bg-white border border-gray-200 text-gray-800 placeholder-gray-400 rounded-lg p-2 w-full/, 'Input debe usar clases requeridas');
+  assert.doesNotMatch(fileContent, /COMANDOS RÁPIDOS/, 'Debe eliminar por completo la sección de Comandos Rápidos');
 });
 
 test('4. Paso 4: Manos libres en micrófono auto-envía comando cuando isFinal es verdadero', async () => {

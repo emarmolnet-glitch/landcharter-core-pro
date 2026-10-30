@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Draggable from 'react-draggable';
 
 export const DATA_BRIDGE_URL = "https://calm-shortbread-55bcfc.netlify.app";
 
@@ -273,15 +274,57 @@ if (typeof window !== 'undefined') {
 }
 
 /**
+ * Componente Header con toggle de MADRE para Land Charter
+ */
+export function Header({ isMadreOpen: controlledOpen, setIsMadreOpen: controlledSetOpen } = {}) {
+  const [isMadreOpen, setIsMadreOpen] = useState(false);
+  const currentOpen = controlledOpen !== undefined ? controlledOpen : isMadreOpen;
+  const toggleOpen = controlledSetOpen ? () => controlledSetOpen(!currentOpen) : () => setIsMadreOpen(!isMadreOpen);
+
+  return (
+    <header className="app-header bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          id="btn-madre-header-toggle"
+          onClick={() => setIsMadreOpen(!isMadreOpen)}
+          className="relative group flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-full border border-slate-200 hover:scale-105 transition-transform duration-200 shadow-sm cursor-pointer shrink-0"
+          title="Auditoría Estratégica MADRE"
+          aria-label="Toggle MADRE"
+        >
+          <img src="/MADRE.png" alt="MADRE" className="w-full h-full rounded-full object-cover pointer-events-none" />
+        </button>
+      </div>
+    </header>
+  );
+}
+
+export function MadreHeaderButton({ isMadreOpen, setIsMadreOpen }) {
+  return (
+    <button
+      type="button"
+      id="btn-madre-header-toggle"
+      onClick={() => setIsMadreOpen(!isMadreOpen)}
+      className="relative group flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-full border border-slate-200 hover:scale-105 transition-transform duration-200 shadow-sm cursor-pointer shrink-0"
+      title="Auditoría Estratégica MADRE"
+      aria-label="Toggle MADRE"
+    >
+      <img src="/MADRE.png" alt="MADRE" className="w-full h-full rounded-full object-cover pointer-events-none" />
+    </button>
+  );
+}
+
+/**
  * Componente React GlobalMadreDrawer para Land Charter
  */
 export default function GlobalMadreDrawer({
   isOpen: controlledIsOpen,
+  isMadreOpen: controlledIsMadreOpen,
+  setIsMadreOpen: controlledSetIsMadreOpen,
   onClose,
   initialMessages = []
-}) {
-  const [internalIsOpen, setInternalIsOpen] = useState(false);
-  const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
+} = {}) {
+  const [isMadreOpen, setIsMadreOpen] = useState(false);
 
   const [messages, setMessages] = useState(initialMessages);
   const [inputText, setInputText] = useState('');
@@ -289,9 +332,19 @@ export default function GlobalMadreDrawer({
   const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const nodeRef = useRef(null);
   const activeAudioSourceRef = useRef(null);
   const recognitionRef = useRef(null);
   const chatBottomRef = useRef(null);
+
+  // Sincronización con props controladas
+  useEffect(() => {
+    if (controlledIsMadreOpen !== undefined) {
+      setIsMadreOpen(controlledIsMadreOpen);
+    } else if (controlledIsOpen !== undefined) {
+      setIsMadreOpen(controlledIsOpen);
+    }
+  }, [controlledIsMadreOpen, controlledIsOpen]);
 
   // Sincronización con eventos globales y toggle externo de MADRE
   useEffect(() => {
@@ -304,16 +357,26 @@ export default function GlobalMadreDrawer({
         console.warn('[MADRE] Invocación automática bloqueada. MADRE solo se abre por petición explícita del usuario.');
         return;
       }
-      setInternalIsOpen(prev => (typeof forceState === 'boolean' ? forceState : !prev));
+      setIsMadreOpen(prev => {
+        const next = typeof forceState === 'boolean' ? forceState : !prev;
+        controlledSetIsMadreOpen?.(next);
+        return next;
+      });
     };
 
-    const handleOpen = () => setInternalIsOpen(true);
+    const handleOpen = () => {
+      setIsMadreOpen(true);
+      controlledSetIsMadreOpen?.(true);
+    };
+
     const handleClose = () => {
-      setInternalIsOpen(false);
+      setIsMadreOpen(false);
+      controlledSetIsMadreOpen?.(false);
       stopAudio();
     };
 
     window.addEventListener('madre:toggle-drawer', handleToggle);
+    window.addEventListener('madre:toggle', handleToggle);
     window.addEventListener('madre:open-drawer', handleOpen);
     window.addEventListener('madre:close-drawer', handleClose);
 
@@ -328,10 +391,11 @@ export default function GlobalMadreDrawer({
 
     return () => {
       window.removeEventListener('madre:toggle-drawer', handleToggle);
+      window.removeEventListener('madre:toggle', handleToggle);
       window.removeEventListener('madre:open-drawer', handleOpen);
       window.removeEventListener('madre:close-drawer', handleClose);
     };
-  }, []);
+  }, [controlledSetIsMadreOpen]);
 
   // Scroll automático al recibir nuevos mensajes
   useEffect(() => {
@@ -366,10 +430,10 @@ export default function GlobalMadreDrawer({
       } catch (_) {}
       setIsListening(false);
     }
+    setIsMadreOpen(false);
+    controlledSetIsMadreOpen?.(false);
     if (onClose) {
       onClose();
-    } else {
-      setInternalIsOpen(false);
     }
   };
 
@@ -378,6 +442,13 @@ export default function GlobalMadreDrawer({
    */
   const extractCurrentState = () => {
     return captureScreenDOM();
+  };
+
+  /**
+   * Dispara el escaneo del DOM de Land Charter enviando el comando a MADRE
+   */
+  const handleScan = () => {
+    handleSendMessage('Escanear pantalla');
   };
 
   /**
@@ -627,177 +698,160 @@ export default function GlobalMadreDrawer({
     handleSendMessage(text);
   };
 
-  return (
-    <div
-      id="madre-drawer"
-      className={`fixed top-0 left-0 h-full w-[400px] max-w-[90vw] bg-[#0B1121] text-slate-300 z-[99999] transform transition-transform duration-300 flex flex-col shadow-2xl border-r border-slate-800 ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}
-      data-testid="global-madre-drawer"
-    >
-      {/* HEADER MADRE */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-[#0F172A]">
-        <div className="flex items-center gap-3">
-          <img
-            src="/MADRE.png"
-            alt="MADRE"
-            className="w-8 h-8 rounded-full border border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]"
-          />
-          <div>
-            <h2 className="font-bold text-lg flex items-center gap-2 text-white">
-              MADRE{' '}
-              <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider">
-                Cerebro Central
-              </span>
-            </h2>
-            <p className="text-[10px] leading-tight text-slate-300">
-              Cerebro Operacional Intermodal<br />& Terrestre (Land Charter)
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-1.5">
-          <button
-            id="btn-madre-toggle-voice"
-            onClick={handleToggleVoice}
-            className={`p-1.5 rounded transition-colors cursor-pointer ${
-              isVoiceEnabled
-                ? 'bg-slate-800 hover:bg-slate-700 text-emerald-400'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
-            }`}
-            title={isVoiceEnabled ? 'Desactivar Voz (Clara)' : 'Activar Voz (Clara)'}
-          >
-            <i className={`fa-solid ${isVoiceEnabled ? 'fa-volume-high' : 'fa-volume-xmark'} text-xs`} />
-          </button>
-          <button
-            id="btn-madre-stop-speech"
-            onClick={stopAudio}
-            className="bg-slate-800 hover:bg-slate-700 text-slate-300 p-1.5 rounded transition-colors cursor-pointer"
-            title="Detener voz"
-          >
-            <i className="fa-solid fa-stop text-xs" />
-          </button>
-          <button
-            onClick={handleCloseDrawer}
-            className="bg-slate-800 hover:bg-slate-700 text-slate-300 p-1.5 rounded transition-colors cursor-pointer"
-            title="Cerrar Panel"
-          >
-            <i className="fa-solid fa-xmark text-xs" />
-          </button>
-        </div>
-      </div>
+  if (!isMadreOpen) {
+    return null;
+  }
 
-      {/* CUERPO DEL CHAT / HISTORIAL */}
-      <div id="madre-chat-history" className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 relative font-sans">
-        {messages.length === 0 ? (
-          <div id="madre-idle-state" className="flex flex-col items-center justify-center h-full text-center mt-10 transition-opacity duration-300">
-            <div className="relative mb-4">
-              <div className="absolute inset-0 bg-cyan-500 blur-xl opacity-20 rounded-full animate-pulse" />
-              <img src="/MADRE.png" alt="MADRE" className="w-20 h-20 rounded-full border border-slate-700 relative z-10" />
+  return (
+    <Draggable handle=".drag-handle" nodeRef={nodeRef}>
+      <div
+        ref={nodeRef}
+        id="madre-drawer"
+        className="fixed bottom-4 right-4 z-[60] w-[450px] bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col text-gray-800 overflow-hidden"
+        data-testid="global-madre-drawer"
+      >
+        {/* Cabecera (Drag Handle) */}
+        <div className="drag-handle cursor-move bg-white border-b border-gray-100 p-3 flex justify-between items-center">
+          <div className="flex items-center gap-2 select-none pointer-events-none">
+            <img
+              src="/MADRE.png"
+              alt="MADRE"
+              className="w-7 h-7 rounded-full border border-gray-200 shadow-xs"
+            />
+            <div>
+              <h2 className="font-bold text-sm flex items-center gap-1.5 text-gray-800 leading-none">
+                MADRE{' '}
+                <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider">
+                  Cerebro Central
+                </span>
+              </h2>
+              <p className="text-[10px] text-gray-500 leading-tight">
+                Supervisión Terrestre
+              </p>
             </div>
-            <h3 className="font-medium text-sm mb-2 text-white">Cerebro Terrestre Activo</h3>
-            <p className="text-xs max-w-[250px] mb-4 text-slate-300">
-              Escáner visual de pantalla listo para capturar en tiempo real las variables de LDM, peajes, gasóleo y costes terrestres.
-            </p>
+          </div>
+          <div className="flex items-center gap-1">
             <button
-              onClick={() => handleQuickCommand('Escanear pantalla')}
-              className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs px-4 py-2 rounded-full flex items-center gap-2 transition-colors shadow-lg cursor-pointer"
+              type="button"
+              id="btn-madre-scan"
+              onClick={handleScan}
+              className="text-gray-600 hover:bg-gray-100 rounded-md p-1 transition-colors cursor-pointer"
+              title="Escanear pantalla"
+              aria-label="Escanear pantalla"
             >
-              <span className="text-amber-500">⚡</span> Auditar Operación (DSS)
+              <i className="fa-solid fa-expand text-xs" />
+            </button>
+            <button
+              type="button"
+              id="btn-madre-toggle-voice"
+              onClick={handleToggleVoice}
+              className="text-gray-600 hover:bg-gray-100 rounded-md p-1 transition-colors cursor-pointer"
+              title={isVoiceEnabled ? 'Desactivar Voz (Clara)' : 'Activar Voz (Clara)'}
+              aria-label="Altavoz"
+            >
+              <i
+                id="icon-madre-voice"
+                className={`fa-solid ${isVoiceEnabled ? 'fa-volume-high text-emerald-600' : 'fa-volume-xmark text-gray-400'} text-xs`}
+              />
+            </button>
+            <button
+              type="button"
+              id="btn-madre-close"
+              onClick={() => setIsMadreOpen(false)}
+              className="text-gray-600 hover:bg-gray-100 rounded-md p-1 transition-colors cursor-pointer"
+              title="Cerrar MADRE"
+              aria-label="Cerrar"
+            >
+              <i className="fa-solid fa-xmark text-xs" />
             </button>
           </div>
-        ) : (
-          /* Paso 3: Contraste Visual y Burbujas de Chat (text-white y fondos sólidos bg-teal-700 / bg-slate-800) */
-          messages.map((msg, index) => {
-            const isUser = msg.sender === 'user' || msg.role === 'user';
-            return (
-              <div
-                key={msg.id || index}
-                className={`flex gap-3 max-w-[90%] ${isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
-              >
-                {isUser ? (
-                  <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center text-xs shrink-0 text-white">
-                    <i className="fa-solid fa-user text-slate-300" />
-                  </div>
-                ) : (
-                  <img
-                    src="/MADRE.png"
-                    alt="MADRE"
-                    className="w-7 h-7 rounded-full border border-cyan-500 shadow-sm shrink-0"
-                  />
-                )}
-                <div
-                  className={`border px-3 py-2 rounded-lg text-[13px] leading-relaxed shadow-sm text-white ${
-                    isUser
-                      ? 'bg-teal-700 border-teal-600'
-                      : 'bg-slate-800 border-slate-700'
-                  }`}
-                >
-                  {msg.text}
-                </div>
-              </div>
-            );
-          })
-        )}
-
-        {isLoading && (
-          <div className="flex gap-3 mr-auto items-center text-slate-400 text-xs py-1">
-            <div className="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
-              <i className="fa-solid fa-robot text-teal-400 text-xs" />
-            </div>
-            <div className="bg-slate-800 text-white border border-slate-700 px-3 py-2 rounded-lg text-[13px] flex items-center gap-2">
-              <i className="fa-solid fa-circle-notch fa-spin text-teal-400" />
-              <span>Conectando con Cerebro Central...</span>
-            </div>
-          </div>
-        )}
-        <div ref={chatBottomRef} />
-      </div>
-
-      {/* COMANDOS RÁPIDOS (1-CLIC) */}
-      <div className="p-3 border-t border-slate-800 bg-[#0F172A]">
-        <p className="text-[9px] font-bold tracking-wider mb-2 flex items-center gap-1 text-white">
-          <i className="fa-solid fa-bolt text-amber-400" /> COMANDOS RÁPIDOS (1-CLIC)
-        </p>
-        <div className="flex flex-col gap-1.5">
-          <button
-            onClick={() => handleQuickCommand('Escanear Pantalla Terrestre')}
-            className="text-left text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded border border-slate-700 flex items-center justify-between group transition-colors cursor-pointer"
-          >
-            <span><span className="text-cyan-400 mr-2">⚡</span> Escanear Pantalla Terrestre</span>
-            <span className="text-slate-500 group-hover:text-slate-300">›</span>
-          </button>
-          <button
-            onClick={() => handleQuickCommand('Evaluar viabilidad comercial y Break-Even')}
-            className="text-left text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded border border-slate-700 flex items-center justify-between group transition-colors cursor-pointer"
-          >
-            <span><span className="text-blue-400 mr-2">📊</span> Evaluar viabilidad y Break-Even</span>
-            <span className="text-slate-500 group-hover:text-slate-300">›</span>
-          </button>
-          <button
-            onClick={() => handleQuickCommand('Redacta el escudo preventivo')}
-            className="text-left text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded border border-slate-700 flex items-center justify-between group transition-colors cursor-pointer"
-          >
-            <span><span className="text-emerald-400 mr-2">🛡️</span> Redacta el escudo preventivo</span>
-            <span className="text-slate-500 group-hover:text-slate-300">›</span>
-          </button>
         </div>
-      </div>
 
-      {/* ZONA DE INPUT Y MICRÓFONO */}
-      <div className="p-3 bg-[#0B1121] border-t border-slate-800 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={handleMicrophoneClick}
-          className={`p-2 rounded-full cursor-pointer transition-all ${
-            isListening
-              ? 'bg-red-500 text-white animate-pulse'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800'
-          }`}
-          title={isListening ? 'Escuchando... Di tu orden' : 'Dictar por voz'}
+        {/* Cuerpo del Chat */}
+        <div
+          id="madre-chat-history"
+          className="overflow-y-auto max-h-[60vh] bg-gray-50 p-4 flex flex-col gap-3 relative font-sans"
         >
-          <i className="fa-solid fa-microphone text-xs" />
-        </button>
-        <div className="flex-1 bg-slate-800 border border-slate-700 rounded-full flex items-center px-3 py-1.5 focus-within:border-cyan-500 focus-within:ring-1 focus-within:ring-cyan-500 transition-colors">
+          {messages.length === 0 ? (
+            <div id="madre-idle-state" className="flex flex-col items-center justify-center h-full text-center py-6 text-gray-600">
+              <div className="relative mb-3">
+                <img src="/MADRE.png" alt="MADRE" className="w-16 h-16 rounded-full border border-gray-200 shadow-sm" />
+              </div>
+              <h3 className="font-semibold text-sm mb-1 text-gray-800">Cerebro Terrestre Activo</h3>
+              <p className="text-xs max-w-[260px] text-gray-500 mb-3">
+                Escáner visual y soporte operativo en tiempo real para variables de transporte terrestre.
+              </p>
+              <button
+                type="button"
+                onClick={handleScan}
+                className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 text-xs px-3.5 py-1.5 rounded-full flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+              >
+                <i className="fa-solid fa-expand text-xs text-blue-600" />
+                <span>Escanear pantalla</span>
+              </button>
+            </div>
+          ) : (
+            messages.map((msg, index) => {
+              const isUser = msg.sender === 'user' || msg.role === 'user';
+              return (
+                <div
+                  key={msg.id || index}
+                  className={`flex gap-2.5 max-w-[90%] ${isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
+                >
+                  {isUser ? (
+                    <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs shrink-0 font-bold">
+                      <i className="fa-solid fa-user text-xs" />
+                    </div>
+                  ) : (
+                    <img
+                      src="/MADRE.png"
+                      alt="MADRE"
+                      className="w-7 h-7 rounded-full border border-gray-200 shadow-2xs shrink-0"
+                    />
+                  )}
+                  <div
+                    className={`px-3 py-2 rounded-lg text-xs leading-relaxed ${
+                      isUser
+                        ? 'bg-blue-50 text-gray-800'
+                        : 'bg-white border border-gray-200 text-gray-800'
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                </div>
+              );
+            })
+          )}
+
+          {isLoading && (
+            <div className="flex gap-2 mr-auto items-center text-gray-500 text-xs py-1">
+              <div className="w-7 h-7 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+                <i className="fa-solid fa-robot text-blue-600 text-xs" />
+              </div>
+              <div className="bg-white text-gray-800 border border-gray-200 px-3 py-2 rounded-lg text-xs flex items-center gap-2 shadow-xs">
+                <i className="fa-solid fa-circle-notch fa-spin text-blue-600" />
+                <span>Conectando con Cerebro Central...</span>
+              </div>
+            </div>
+          )}
+          <div ref={chatBottomRef} />
+        </div>
+
+        {/* Footer / Input de Texto */}
+        <div className="bg-white border-t border-gray-100 p-3 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleMicrophoneClick}
+            className={`p-2 rounded-lg cursor-pointer transition-colors ${
+              isListening
+                ? 'bg-red-500 text-white animate-pulse'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+            }`}
+            title={isListening ? 'Escuchando... Di tu orden' : 'Dictar por voz'}
+            aria-label="Micrófono"
+          >
+            <i className="fa-solid fa-microphone text-xs" />
+          </button>
           <input
             type="text"
             id="madre-chat-input"
@@ -809,19 +863,19 @@ export default function GlobalMadreDrawer({
                 handleSendMessage();
               }
             }}
-            className="bg-transparent border-none outline-none text-xs text-slate-200 w-full placeholder-slate-500 font-sans"
+            className="bg-white border border-gray-200 text-gray-800 placeholder-gray-400 rounded-lg p-2 w-full text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
             placeholder="Pregunta a MADRE o escribe 'Escanear pantalla'..."
           />
+          <button
+            type="button"
+            onClick={() => handleSendMessage()}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors cursor-pointer shadow-xs shrink-0"
+          >
+            Enviar
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => handleSendMessage()}
-          className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold px-4 py-1.5 rounded-full transition-colors cursor-pointer shadow-md"
-        >
-          Enviar
-        </button>
       </div>
-    </div>
+    </Draggable>
   );
 }
 

@@ -3,6 +3,7 @@ import { HashRouter, HashRouter as BrowserRouter } from 'react-router-dom';
 import { ForwarderWorkspace } from './components/ForwarderWorkspace.jsx';
 import { parseSafeNumber } from './components/ForwarderWorkspace.jsx';
 import { getApiUrl } from './utils/apiConfig.js';
+import GlobalMadreDrawer, { MadreHeaderButton, Header } from './components/GlobalMadreDrawer.jsx';
 
 /**
  * Normalizes reference identifiers for cross-module session matching.
@@ -1402,6 +1403,7 @@ export function AppLayout({ children, currentView: initialView = 'MAP', defaultH
 
   const [currentView, setCurrentView] = useState(initialView);
   const { isHeaderVisible, toggleHeader } = useHeaderVisibility(defaultHeaderVisible);
+  const [isMadreOpen, setIsMadreOpen] = useState(false);
 
   useEffect(() => {
     const handleViewChange = (event) => {
@@ -1460,13 +1462,28 @@ export function AppLayout({ children, currentView: initialView = 'MAP', defaultH
       >
         {isHeaderVisible ? 'Ocultar cabecera' : 'Mostrar cabecera'}
       </button>
+
+      {/* Botón con el icono de MADRE en el header */}
+      <button
+        type="button"
+        id="btn-madre-header-toggle"
+        onClick={() => setIsMadreOpen(!isMadreOpen)}
+        className="header-madre-toggle-btn sr-only"
+        aria-label="Abrir MADRE"
+      >
+        <img src="/MADRE.png" alt="MADRE" />
+      </button>
+
       {currentView === 'FORWARDERS' ? (
         <ForwarderWorkspace />
       ) : (
         children
       )}
+
+      {/* Widget flotante arrastrable de MADRE */}
+      <GlobalMadreDrawer isMadreOpen={isMadreOpen} setIsMadreOpen={setIsMadreOpen} onClose={() => setIsMadreOpen(false)} />
     </div>
   );
 }
 
-export { HashRouter, HashRouter as BrowserRouter };
+export { Header, MadreHeaderButton, HashRouter, HashRouter as BrowserRouter };

@@ -76432,68 +76432,47 @@ window.actualizarGrabCapacityVisibility = function() {
         })();
     </script>
     <!-- ======================================================================= -->
-    <!-- DRAWER LATERAL DE MADRE (LAND CHARTER)                                  -->
+    <!-- DRAWER FLOTANTE DE MADRE (LAND CHARTER - TEMA CLARO)                    -->
     <!-- ======================================================================= -->
-    <div id="madre-drawer" class="fixed top-0 left-0 h-full w-[400px] max-w-[90vw] bg-[#0B1121] text-slate-300 z-[99999] transform -translate-x-full transition-transform duration-300 flex flex-col shadow-2xl border-r border-slate-800">
+    <div id="madre-drawer" class="fixed bottom-4 right-4 z-[60] w-[450px] bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col text-gray-800 overflow-hidden hidden">
         
-        <!-- HEADER MADRE -->
-        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-[#0F172A]">
-            <div class="flex items-center gap-3">
-                <img src="/MADRE.png" alt="MADRE" class="w-8 h-8 rounded-full border border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]">
+        <!-- HEADER MADRE (DRAG HANDLE) -->
+        <div class="drag-handle cursor-move bg-white border-b border-gray-100 p-3 flex justify-between items-center">
+            <div class="flex items-center gap-2 select-none pointer-events-none">
+                <img src="/MADRE.png" alt="MADRE" class="w-7 h-7 rounded-full border border-gray-200 shadow-xs">
                 <div>
-                    <h2 style="color: #ffffff !important;" class="font-bold text-lg flex items-center gap-2">MADRE <span class="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider">Cerebro Central</span></h2>
-                    <p style="color: #cbd5e1 !important;" class="text-[10px] leading-tight">Cerebro Operacional Intermodal<br>& Terrestre (Land Charter)</p>
+                    <h2 class="font-bold text-sm flex items-center gap-1.5 text-gray-800 leading-none">MADRE <span class="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider">Cerebro Central</span></h2>
+                    <p class="text-[10px] text-gray-500 leading-tight">Supervisión Terrestre</p>
                 </div>
             </div>
-            <div class="flex gap-1.5">
-    <button id="btn-madre-toggle-voice" onclick="toggleMadreVoice()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-1.5 rounded transition-colors" title="Activar/Desactivar Voz"><i id="icon-madre-voice" class="fa-solid fa-volume-high text-xs text-green-400"></i></button>
-    <button id="btn-madre-stop-speech" onclick="stopMadreSpeech()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-1.5 rounded transition-colors" title="Detener proceso"><i class="fa-solid fa-stop text-xs"></i></button>
-                <button onclick="toggleMadreDrawer()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-1.5 rounded transition-colors" title="Cerrar Panel"><i class="fa-solid fa-xmark text-xs"></i></button>
+            <div class="flex items-center gap-1">
+                <button type="button" id="btn-madre-scan" onclick="triggerLandLaserScan()" class="text-gray-600 hover:bg-gray-100 rounded-md p-1 transition-colors cursor-pointer" title="Escanear pantalla" aria-label="Escanear pantalla"><i class="fa-solid fa-expand text-xs"></i></button>
+                <button type="button" id="btn-madre-toggle-voice" onclick="toggleMadreVoice()" class="text-gray-600 hover:bg-gray-100 rounded-md p-1 transition-colors cursor-pointer" title="Activar/Desactivar Voz" aria-label="Altavoz"><i id="icon-madre-voice" class="fa-solid fa-volume-high text-xs text-green-600"></i></button>
+                <button type="button" onclick="toggleMadreDrawer(false)" class="text-gray-600 hover:bg-gray-100 rounded-md p-1 transition-colors cursor-pointer" title="Cerrar MADRE" aria-label="Cerrar"><i class="fa-solid fa-xmark text-xs"></i></button>
             </div>
         </div>
 
         <!-- CUERPO DEL CHAT / ESTADO INICIAL -->
-        <div id="madre-chat-history" class="flex-1 overflow-y-auto p-4 flex flex-col gap-4 relative">
+        <div id="madre-chat-history" class="overflow-y-auto max-h-[60vh] bg-gray-50 p-4 flex flex-col gap-3 relative font-sans">
             <!-- Estado Idle (Centrado) -->
-            <div id="madre-idle-state" class="flex flex-col items-center justify-center h-full text-center mt-10 transition-opacity duration-300">
-                 <div class="relative mb-4">
-                    <div class="absolute inset-0 bg-cyan-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
-                    <img src="/MADRE.png" class="w-20 h-20 rounded-full border border-slate-700 relative z-10">
+            <div id="madre-idle-state" class="flex flex-col items-center justify-center h-full text-center py-6 text-gray-600">
+                 <div class="relative mb-3">
+                    <img src="/MADRE.png" class="w-16 h-16 rounded-full border border-gray-200 shadow-sm">
                  </div>
-                 <h3 style="color: #ffffff !important;" class="font-medium text-sm mb-2">Cerebro Terrestre Activo</h3>
-<p style="color: #cbd5e1 !important;" class="text-xs max-w-[250px]">Escáner visual de pantalla listo para capturar en tiempo real las variables de LDM, peajes, gasóleo y costes terrestres.</p>
-                 <button onclick="triggerLandLaserScan()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs px-4 py-2 rounded-full flex items-center gap-2 transition-colors shadow-lg cursor-pointer">
-                     <span class="text-amber-500">⚡</span> Auditar Operación (DSS)
+                 <h3 class="font-semibold text-sm mb-1 text-gray-800">Cerebro Terrestre Activo</h3>
+                 <p class="text-xs max-w-[260px] text-gray-500 mb-3">Escáner visual y soporte operativo en tiempo real para variables de transporte terrestre.</p>
+                 <button type="button" onclick="triggerLandLaserScan()" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 text-xs px-3.5 py-1.5 rounded-full flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer">
+                     <i class="fa-solid fa-expand text-xs text-blue-600"></i>
+                     <span>Escanear pantalla</span>
                  </button>
             </div>
         </div>
 
-        <!-- COMANDOS RÁPIDOS -->
-        <div class="p-3 border-t border-slate-800 bg-[#0F172A]">
-            <p style="color: #ffffff !important;" class="text-[9px] font-bold tracking-wider mb-2 flex items-center gap-1"><i class="fa-solid fa-bolt"></i> COMANDOS RÁPIDOS (1-CLIC)</p>
-            <div class="flex flex-col gap-1.5">
-                <button onclick="triggerLandLaserScan()" class="text-left text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded border border-slate-700 flex items-center justify-between group transition-colors cursor-pointer">
-                    <span><span class="text-cyan-400 mr-2">⚡</span> Escanear Pantalla Terrestre</span>
-                    <span class="text-slate-600 group-hover:text-slate-400">›</span>
-                </button>
-                <button onclick="enviarMensajeMadre('Evaluar viabilidad comercial y Break-Even')" class="text-left text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded border border-slate-700 flex items-center justify-between group transition-colors cursor-pointer">
-                    <span><span class="text-blue-400 mr-2">📊</span> Evaluar viabilidad y Break-Even</span>
-                    <span class="text-slate-600 group-hover:text-slate-400">›</span>
-                </button>
-                <button onclick="enviarMensajeMadre('Redacta el escudo preventivo')" class="text-left text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded border border-slate-700 flex items-center justify-between group transition-colors cursor-pointer">
-                    <span><span class="text-emerald-400 mr-2">🛡️</span> Redacta el escudo preventivo</span>
-                    <span class="text-slate-600 group-hover:text-slate-400">›</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- ZONA DE INPUT -->
-        <div class="p-3 bg-[#0B1121] border-t border-slate-800 flex items-center gap-2">
-            <button onclick="handleMicrophoneClick()" class="text-slate-400 hover:text-white px-2 cursor-pointer" title="Dictar por voz"><i class="fa-solid fa-microphone"></i></button>
-            <div class="flex-1 bg-slate-800 border border-slate-700 rounded-full flex items-center px-3 py-1.5 focus-within:border-cyan-500 focus-within:ring-1 focus-within:ring-cyan-500 transition-colors">
-                <input type="text" id="madre-chat-input" class="bg-transparent border-none outline-none text-xs text-slate-200 w-full placeholder-slate-500 font-sans" placeholder="Pregunta a MADRE o escribe 'Escanear pantalla'..." onkeydown="if(event.key === 'Enter') enviarMensajeMadre(this.value)">
-            </div>
-            <button onclick="enviarMensajeMadre(document.getElementById('madre-chat-input').value)" class="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold px-4 py-1.5 rounded-full transition-colors cursor-pointer shadow-md">Enviar</button>
+        <!-- FOOTER / INPUT DE TEXTO -->
+        <div class="bg-white border-t border-gray-100 p-3 flex items-center gap-2">
+            <button type="button" onclick="handleMicrophoneClick()" class="p-2 rounded-lg cursor-pointer transition-colors text-gray-500 hover:text-gray-700 hover:bg-gray-100" title="Dictar por voz" aria-label="Micrófono"><i class="fa-solid fa-microphone text-xs"></i></button>
+            <input type="text" id="madre-chat-input" class="bg-white border border-gray-200 text-gray-800 placeholder-gray-400 rounded-lg p-2 w-full text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="Pregunta a MADRE o escribe 'Escanear pantalla'..." onkeydown="if(event.key === 'Enter') enviarMensajeMadre(this.value)">
+            <button type="button" onclick="enviarMensajeMadre(document.getElementById('madre-chat-input').value)" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors cursor-pointer shadow-xs shrink-0">Enviar</button>
         </div>
     </div>
 
@@ -76506,12 +76485,14 @@ window.actualizarGrabCapacityVisibility = function() {
                 console.warn('[MADRE] Invocación automática bloqueada. MADRE solo se abre por petición explícita del usuario.');
                 return;
             }
+            window.dispatchEvent(new CustomEvent('madre:toggle-drawer', { detail: { forceState, isUserAction } }));
+            window.dispatchEvent(new CustomEvent('madre:toggle', { detail: { forceState, isUserAction } }));
             const drawer = document.getElementById('madre-drawer');
             if (drawer) {
                 if (typeof forceState === 'boolean') {
-                    drawer.classList.toggle('-translate-x-full', !forceState);
+                    drawer.classList.toggle('hidden', !forceState);
                 } else {
-                    drawer.classList.toggle('-translate-x-full');
+                    drawer.classList.toggle('hidden');
                 }
             }
         };
