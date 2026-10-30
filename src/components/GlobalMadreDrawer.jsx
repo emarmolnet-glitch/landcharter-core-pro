@@ -209,14 +209,17 @@ export async function sendToMadreChat(payload) {
 export function buildMotherExecutiveScript(state = {}) {
   const horasAhorradas = 2.0;
   const ahorroAdmin = horasAhorradas * 45;
-  const toneladas = state?.toneladas || 25;
+  const toneladas = state?.toneladas || 4000; // Tomar las toneladas reales
+  const capacidadCamion = 21; // Capacidad estándar por camión en MT
+  const camionesNecesarios = Math.ceil(toneladas / capacidadCamion); // Cálculo exacto (ej. 191)
+  
   const distanciaKm = state?.distanciaKm || 850;
   const costPerKm = state?.costPerKm ?? 1.65;
-  const modalidad = state?.esTren ? 'transporte ferroviario intermodal' : 'flota de camiones de gran tonelaje';
+  const modalidad = state?.esTren ? 'transporte ferroviario intermodal' : `${camionesNecesarios} camiones de gran tonelaje`;
   const peajesDetectados = state?.peajesAltos ? 'Se han registrado peajes elevados en los corredores seleccionados.' : 'Ruta optimizada sin sobrecostes severos de peaje.';
   const fugas = state?.riesgosDetectados ? 1400 : 0;
 
-  return `Escaneo terrestre completado para ${modalidad}. Distancia: ${distanciaKm} km con un bloque de ${toneladas} toneladas. Coste operativo: ${costPerKm} euros por kilómetro. Atención: ${peajesDetectados} Impacto: se han ahorrado ${ahorroAdmin} euros de gestión y prevenido posibles desvíos por valor de ${fugas} euros. Operación validada.`;
+  return `Escaneo terrestre completado para ${modalidad}. Distancia: ${distanciaKm} km con un bloque de ${toneladas} toneladas (${camionesNecesarios} unidades requeridas). Coste operativo: ${costPerKm} euros por kilómetro. Atención: ${peajesDetectados} Impacto: se han ahorrado ${ahorroAdmin} euros de gestión y prevenido posibles desvíos por valor de ${fugas} euros. Operación validada.`;
 }
 
 /**
