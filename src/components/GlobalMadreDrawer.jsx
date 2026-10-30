@@ -548,12 +548,11 @@ export default function GlobalMadreDrawer({
   }
 
   return (
-    <Draggable handle=".drag-handle" nodeRef={nodeRef} bounds="parent">
+    <Draggable handle=".drag-handle" nodeRef={nodeRef} cancel="button, input, textarea, select, a">
       <div
         ref={nodeRef}
         id="madre-drawer"
         className="fixed bottom-4 right-4 z-[9999] w-[450px] bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col text-gray-800 overflow-hidden"
-        style={{ position: 'fixed' }}
         data-testid="global-madre-drawer"
       >
         {/* Cabecera (Drag Handle) idéntica a SeaCharter */}
@@ -583,7 +582,7 @@ export default function GlobalMadreDrawer({
               type="button"
               id="btn-madre-toggle-voice"
               onClick={handleToggleVoice}
-              className="text-gray-600 hover:bg-gray-100 rounded-md w-7 h-7 flex items-center justify-center transition-colors text-sm cursor-pointer shrink-0"
+              className="text-gray-600 hover:bg-gray-100 rounded-md w-7 h-7 flex items-center justify-center transition-colors text-sm cursor-pointer shrink-0 whitespace-nowrap"
               title={isVoiceEnabled ? 'Desactivar Voz (Clara)' : 'Activar Voz (Clara)'}
             >
               <i className={`fa-solid ${isVoiceEnabled ? 'fa-volume-high text-emerald-600' : 'fa-volume-xmark text-gray-400'} text-xs`} />
@@ -592,7 +591,7 @@ export default function GlobalMadreDrawer({
               type="button"
               id="btn-madre-close"
               onClick={() => setIsMadreOpen(false)}
-              className="text-gray-600 hover:bg-gray-100 rounded-md w-7 h-7 flex items-center justify-center transition-colors font-bold text-sm cursor-pointer shrink-0"
+              className="text-gray-600 hover:bg-gray-100 rounded-md w-7 h-7 flex items-center justify-center transition-colors font-bold text-sm cursor-pointer shrink-0 whitespace-nowrap"
               title="Cerrar MADRE"
             >
               ✕
