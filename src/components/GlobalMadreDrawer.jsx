@@ -559,12 +559,10 @@ export default function GlobalMadreDrawer({
         <div className="drag-handle cursor-move bg-white border-b border-gray-100 p-3 flex flex-row justify-between items-center select-none w-full overflow-hidden gap-4">
           <div className="flex flex-row items-center gap-2 shrink-0 pointer-events-none">
             <img src="/MADRE.png" alt="MADRE" className="w-6 h-6 rounded-full shadow-sm shrink-0" />
-            <div>
-              <span className="font-bold text-sm text-gray-800 whitespace-nowrap">MADRE</span>
-              <span className="ml-1.5 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider">
-                Cerebro Central
-              </span>
-            </div>
+            <div className="flex flex-row items-center gap-2 shrink-0 pointer-events-none">
+  <img src="/MADRE.png" alt="MADRE" className="w-6 h-6 rounded-full shadow-sm shrink-0" />
+  <span className="font-bold text-sm text-gray-800 whitespace-nowrap">MADRE</span>
+</div>
           </div>
 
           <div className="flex flex-row items-center justify-end gap-1.5 shrink-0">
