@@ -5,7 +5,9 @@ import GlobalMadreDrawer, {
   captureScreenDOM,
   sendToMadreChat,
   buildMotherExecutiveScript,
-  playNeuralMotherVoice
+  playNeuralMotherVoice,
+  Header,
+  MadreHeaderButton
 } from './GlobalMadreDrawer.jsx';
 
 export {
@@ -15,7 +17,9 @@ export {
   captureScreenDOM,
   sendToMadreChat,
   buildMotherExecutiveScript,
-  playNeuralMotherVoice
+  playNeuralMotherVoice,
+  Header,
+  MadreHeaderButton
 };
 
 export default GlobalMadreDrawer;
