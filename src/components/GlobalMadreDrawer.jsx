@@ -556,44 +556,43 @@ export default function GlobalMadreDrawer({
         data-testid="global-madre-drawer"
       >
         {/* Cabecera (Drag Handle) idéntica a SeaCharter */}
-        <div className="drag-handle cursor-move bg-white border-b border-gray-100 p-3 flex flex-row justify-between items-center select-none w-full overflow-hidden gap-4">
-  <div className="flex flex-row items-center gap-2 shrink-0 pointer-events-none">
-    <img src="/MADRE.png" alt="MADRE" className="w-6 h-6 rounded-full shadow-sm shrink-0" />
-    <span className="font-bold text-sm text-gray-800 whitespace-nowrap">MADRE</span>
-  </div>
-          </div>
-
-          <div className="flex flex-row items-center justify-end gap-1.5 shrink-0">
-            <button
-              type="button"
-              id="btn-madre-scan"
-              onClick={handleScan}
-              className="text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-md px-2 py-1 text-xs font-semibold flex flex-row items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-              title="Escanear pantalla Terrestre"
-            >
-              <span className="text-emerald-600 font-bold text-sm">⚡</span>
-              <span className="hidden sm:inline-block">Escanear</span>
-            </button>
-            <button
-              type="button"
-              id="btn-madre-toggle-voice"
-              onClick={handleToggleVoice}
-              className="text-gray-600 hover:bg-gray-100 rounded-md w-7 h-7 flex items-center justify-center transition-colors text-sm cursor-pointer shrink-0 whitespace-nowrap"
-              title={isVoiceEnabled ? 'Desactivar Voz (Clara)' : 'Activar Voz (Clara)'}
-            >
-              <i className={`fa-solid ${isVoiceEnabled ? 'fa-volume-high text-emerald-600' : 'fa-volume-xmark text-gray-400'} text-xs`} />
-            </button>
-            <button
-              type="button"
-              id="btn-madre-close"
-              onClick={() => setIsMadreOpen(false)}
-              className="text-gray-600 hover:bg-gray-100 rounded-md w-7 h-7 flex items-center justify-center transition-colors font-bold text-sm cursor-pointer shrink-0 whitespace-nowrap"
-              title="Cerrar MADRE"
-            >
-              ✕
-            </button>
-          </div>
+      <div className="drag-handle cursor-move bg-white border-b border-gray-100 p-3 flex flex-row justify-between items-center select-none w-full overflow-hidden gap-4">
+        <div className="flex flex-row items-center gap-2 shrink-0 pointer-events-none">
+          <img src="/MADRE.png" alt="MADRE" className="w-6 h-6 rounded-full shadow-sm shrink-0" />
+          <span className="font-bold text-sm text-gray-800 whitespace-nowrap">MADRE</span>
         </div>
+
+        <div className="flex flex-row items-center justify-end gap-1.5 shrink-0" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            id="btn-madre-scan"
+            onClick={handleScan}
+            className="text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-md px-2 py-1 text-xs font-semibold flex flex-row items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            title="Escanear pantalla Terrestre"
+          >
+            <span className="text-emerald-600 font-bold text-sm">⚡</span>
+            <span className="hidden sm:inline-block">Escanear</span>
+          </button>
+          <button
+            type="button"
+            id="btn-madre-toggle-voice"
+            onClick={handleToggleVoice}
+            className="text-gray-600 hover:bg-gray-100 rounded-md w-7 h-7 flex items-center justify-center transition-colors text-sm cursor-pointer shrink-0 whitespace-nowrap"
+            title={isVoiceEnabled ? 'Desactivar Voz (Clara)' : 'Activar Voz (Clara)'}
+          >
+            <i className={`fa-solid ${isVoiceEnabled ? 'fa-volume-high text-emerald-600' : 'fa-volume-xmark text-gray-400'} text-xs`} />
+          </button>
+          <button
+            type="button"
+            id="btn-madre-close"
+            onClick={() => setIsMadreOpen(false)}
+            className="text-gray-600 hover:bg-gray-100 rounded-md w-7 h-7 flex items-center justify-center transition-colors font-bold text-sm cursor-pointer shrink-0 whitespace-nowrap"
+            title="Cerrar MADRE"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
 
         {/* Cuerpo del Chat */}
         <div
