@@ -380,7 +380,6 @@ export default function GlobalMadreDrawer({
     window.addEventListener('madre:open-drawer', handleOpen);
     window.addEventListener('madre:close-drawer', handleClose);
 
-    // Asignar funciones a window para retrocompatibilidad
     window.DATA_BRIDGE_URL = DATA_BRIDGE_URL;
     window.LANDCHARTER_DOM_DICTIONARY = LANDCHARTER_DOM_DICTIONARY;
     window.detectCurrentModule = detectCurrentModule;
@@ -422,38 +421,10 @@ export default function GlobalMadreDrawer({
     }
   };
 
-  const handleCloseDrawer = () => {
-    stopAudio();
-    if (isListening && recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (_) {}
-      setIsListening(false);
-    }
-    setIsMadreOpen(false);
-    controlledSetIsMadreOpen?.(false);
-    if (onClose) {
-      onClose();
-    }
-  };
-
-  /**
-   * Extrae el estado terrestre actual del DOM o de window.State
-   */
-  const extractCurrentState = () => {
-    return captureScreenDOM();
-  };
-
-  /**
-   * Dispara el escaneo del DOM de Land Charter enviando el comando a MADRE
-   */
   const handleScan = () => {
     handleSendMessage('Escanear pantalla');
   };
 
-  /**
-   * Enrutamiento de comandos y mensajes conectado directamente a Data Bridge
-   */
   const handleSendMessage = async (textToSend) => {
     const query = (textToSend || inputText).trim();
     if (!query) return;
@@ -509,7 +480,6 @@ export default function GlobalMadreDrawer({
       return;
     }
 
-    // Consulta de chat conectada directamente a madre-chat en Data Bridge
     setIsLoading(true);
     try {
       const domCapture = captureScreenDOM();
@@ -553,149 +523,24 @@ export default function GlobalMadreDrawer({
     }
   };
 
-  /**
-   * Reconocimiento de voz nativo (Micrófono) vía Web Speech API
-   */
   const handleMicrophoneClick = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) {
-      console.error("Web Speech API no soportada en este navegador.");
-      return;
-    }
+    if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
     recognition.lang = 'es-ES';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
-    // 1. PITIDO DE FEEDBACK SONORO AL EMPEZAR A ESCUCHAR
-    recognition.onstart = () => {
-      try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const audioCtx = new AudioContext();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); 
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.15);
-      } catch (e) {
-        console.warn("No se pudo reproducir el pitido:", e);
-      }
-    };
-
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
-      
-      // 2. MOSTRAR TRANSCRIPCIÓN
-      if (typeof setInputText === 'function') {
-        setInputText(transcript); // Para GlobalMadreDrawer.jsx
-      } else {
-        const input = document.getElementById('madre-chat-input');
-        if (input) input.value = transcript; // Para index.html
-      }
-      
-      // 3. AUTO-ENVÍO DESPUÉS DE 2 SEGUNDOS
+      setInputText(transcript);
       setTimeout(() => {
-        if (typeof handleSendMessage === 'function') {
-          handleSendMessage(transcript);
-          setInputText('');
-        } else if (typeof enviarMensajeMadre === 'function') {
-          enviarMensajeMadre(transcript);
-          const input = document.getElementById('madre-chat-input');
-          if (input) input.value = '';
-        }
+        handleSendMessage(transcript);
+        setInputText('');
       }, 2000);
     };
-
-    recognition.onerror = (event) => {
-      console.error("Error en micrófono:", event.error);
-    };
-
     recognition.start();
-  };
-
-  /**
-   * Paso 4: Manos Libres en el Micrófono
-   * Evento de reconocimiento de voz que auto-envía el comando transcrito al completarse (isFinal).
-   */
-  const handleToggleListening = () => {
-    if (typeof window === 'undefined') return;
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      console.warn('[GlobalMadreDrawer] Reconocimiento de voz no soportado en este navegador.');
-      return;
-    }
-
-    if (isListening && recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (_) {}
-      setIsListening(false);
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
-      recognition.lang = 'es-ES';
-      recognition.continuous = false;
-      recognition.interimResults = true;
-
-      recognition.onstart = () => {
-        setIsListening(true);
-      };
-
-      recognition.onresult = (event) => {
-        let finalTranscript = '';
-        let interimTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const res = event.results[i];
-          if (res.isFinal) {
-            finalTranscript += res[0].transcript;
-          } else {
-            interimTranscript += res[0].transcript;
-          }
-        }
-
-        const isFinal = Boolean(finalTranscript) || Boolean(event.results?.[event.resultIndex]?.isFinal);
-        const completeTranscript = (finalTranscript || interimTranscript).trim();
-
-        if (isFinal && completeTranscript) {
-          setIsListening(false);
-          setInputText('');
-          // Auto-envío hands-free del comando transcrito
-          handleSendMessage(completeTranscript);
-        } else if (completeTranscript) {
-          setInputText(completeTranscript);
-        }
-      };
-
-      recognition.onerror = (err) => {
-        console.warn('[GlobalMadreDrawer] Error de reconocimiento:', err);
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognition.start();
-      setIsListening(true);
-    } catch (err) {
-      console.error('[GlobalMadreDrawer] No se pudo activar el micrófono:', err);
-      setIsListening(false);
-    }
-  };
-
-  const handleQuickCommand = (text) => {
-    handleSendMessage(text);
   };
 
   if (!isMadreOpen) {
@@ -703,14 +548,15 @@ export default function GlobalMadreDrawer({
   }
 
   return (
-    <Draggable handle=".drag-handle" nodeRef={nodeRef}>
+    <Draggable handle=".drag-handle" nodeRef={nodeRef} bounds="parent">
       <div
         ref={nodeRef}
         id="madre-drawer"
-        className="fixed bottom-4 right-4 z-[60] w-[450px] bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col text-gray-800 overflow-hidden"
+        className="fixed bottom-4 right-4 z-[9999] w-[450px] bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col text-gray-800 overflow-hidden"
+        style={{ position: 'fixed' }}
         data-testid="global-madre-drawer"
       >
-        {/* Cabecera (Drag Handle) unificada con SeaCharter */}
+        {/* Cabecera (Drag Handle) idéntica a SeaCharter */}
         <div className="drag-handle cursor-move bg-white border-b border-gray-100 p-3 flex flex-row justify-between items-center select-none w-full overflow-hidden gap-4">
           <div className="flex flex-row items-center gap-2 shrink-0 pointer-events-none">
             <img src="/MADRE.png" alt="MADRE" className="w-6 h-6 rounded-full shadow-sm shrink-0" />
@@ -829,12 +675,8 @@ export default function GlobalMadreDrawer({
           <button
             type="button"
             onClick={handleMicrophoneClick}
-            className={`p-2 rounded-lg cursor-pointer transition-colors ${
-              isListening
-                ? 'bg-red-500 text-white animate-pulse'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-            }`}
-            title={isListening ? 'Escuchando... Di tu orden' : 'Dictar por voz'}
+            className="p-2 rounded-lg cursor-pointer transition-colors text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            title="Dictar por voz"
             aria-label="Micrófono"
           >
             <i className="fa-solid fa-microphone text-xs" />
