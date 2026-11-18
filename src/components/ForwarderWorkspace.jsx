@@ -5969,16 +5969,17 @@ function ForwarderWorkspaceInner(props = {}) {
       payload.payload?.category,
     ].filter(Boolean).join(' ');
 
-    const PACKAGED_REGEX = /(big\s*bag|saco|sling|paletizad|envasad)/i;
+    const PACKAGED_REGEX = /(big\s*bag|saco|sling|paletizad|envasad|unitizad|unitarizad)/i;
     const BULK_REGEX = /(granel|bulk)/i;
+    const MACHINERY_PROJECT_REGEX = /(maquinaria|proyecto|estructura|indivisible|pesad|tubo|viga)/i;
     const isExplicitBigBag = /big\s*bag/i.test(detectedCargoCandidate);
     const isPackagedFromNlp = isExplicitBigBag || (PACKAGED_REGEX.test(detectedCargoCandidate) && !BULK_REGEX.test(detectedCargoCandidate));
+    const isMachineryFromNlp = MACHINERY_PROJECT_REGEX.test(detectedCargoCandidate);
 
-    // Solo establecer por defecto Camión Plataforma si NO hay un vehículo explícito en el payload y NO es tren
-    if (isPackagedFromNlp && !payloadExplicitVehicle && !isCurrentOrPayloadRail) {
+    if (isMachineryFromNlp && !payloadExplicitVehicle && !isCurrentOrPayloadRail) {
       const targetVehicle = 'Camión Plataforma con Grúa Autocarga';
-      handleVehicleTypeChange('Camión Plataforma con Grúa Autocarga');
-      setVehicleType('Camión Plataforma con Grúa Autocarga');
+      handleVehicleTypeChange(targetVehicle);
+      setVehicleType(targetVehicle);
       setLoadingMethod('Autocarga con Grúa del Camión');
       setDischargeMethod('Autocarga con Grúa del Camión');
       updatedProject.truck_type = targetVehicle;
@@ -6005,6 +6006,37 @@ function ForwarderWorkspaceInner(props = {}) {
         if (truckCapEl) truckCapEl.value = 21;
         const dwtEl = document.getElementById('vessel-dwt');
         if (dwtEl) dwtEl.value = 21;
+      }
+      hasChanges = true;
+    } else if (isPackagedFromNlp && !payloadExplicitVehicle && !isCurrentOrPayloadRail) {
+      // Big Bags / Paletizado / Carga Envasada -> Tauliner / Lona Corredera (24 MT -> 417 camiones para 10.000 MT)
+      const targetVehicle = 'Tauliner / Lona Corredera';
+      handleVehicleTypeChange(targetVehicle);
+      setVehicleType(targetVehicle);
+      updatedProject.truck_type = targetVehicle;
+      updatedProject.vehicle_type = targetVehicle;
+      if (typeof window !== 'undefined') {
+        window.State = window.State || {};
+        window.State.vehicleType = targetVehicle;
+        window.State.truckType = targetVehicle;
+        window.State.truckPayloadCapacity = 24;
+        window.State.cargaUtil = 24;
+        window.State.dwt = 24;
+        if (typeof window.handleVehicleTypeSelection === 'function') {
+          window.handleVehicleTypeSelection(targetVehicle);
+        }
+      }
+      if (typeof document !== 'undefined') {
+        const inputEl = document.getElementById('nombre-buque-calculadora');
+        if (inputEl) inputEl.value = targetVehicle;
+        const badgeEl = document.getElementById('vessel-badge');
+        if (badgeEl) badgeEl.innerText = targetVehicle;
+        const execEl = document.getElementById('exec-vessel-type');
+        if (execEl) execEl.textContent = targetVehicle;
+        const truckCapEl = document.getElementById('truckPayloadCapacity');
+        if (truckCapEl) truckCapEl.value = 24;
+        const dwtEl = document.getElementById('vessel-dwt');
+        if (dwtEl) dwtEl.value = 24;
       }
       hasChanges = true;
     }
