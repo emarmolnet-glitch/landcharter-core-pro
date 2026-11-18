@@ -49,6 +49,8 @@ const STRICT_MERCHANT_CARGO_RE = /\b(truck|trailer|camion|camión|tauliner|lona|
 // Strict dry bulk cargo taxonomy patterns
 const DRY_BULK_CARGO_RE = /\b(cement|cemento|clinker|clinquer|yeso|gypsum|cal|lime|aridos?|aggregates?|mineral|granel\s*seco|dry\s*bulk|grain|grano|cereales?|fertilizante|abono|bauxita|carbon|carb[oó]n|slags?|cenizas?)\b/i;
 
+const ALGERIA_NORTH_AFRICA_RE = /argelia|algeria|algerie|algérie|sétif|setif|bejaia|oran|algiers|mostaganem|skikda/i;
+
 // Mandatory excluded vessel types for dry bulk cargoes
 const MANDATORY_DRY_BULK_EXCLUDED_TYPES_RE = /\b(passenger|cruise|ferry|ropax|ro-pax|pasaje|pasajeros|crucero|pleasure|yacht|yate|sailing|velero|fishing|pesquero|trawler)\b/i;
 
@@ -88,13 +90,13 @@ export interface TerrestrialVehicleSpec {
   draftMeters: number;
 }
 
-export function getTerrestrialVehicleSpec(vehicleType = "", cargoName = ""): TerrestrialVehicleSpec {
+export function getTerrestrialVehicleSpec(vehicleType = "", cargoName = "", excludeRail = false): TerrestrialVehicleSpec {
   const v = (vehicleType || "").toLowerCase();
   const c = (cargoName || "").toLowerCase();
 
   // 1. Graneles sólidos / Áridos / Minerales: Bañera Basculante (26 MT · 35 L/100km) y Tren Tolva Ferroviario (50 MT/vagón)
   if (/granel|arido|árido|mineral|yeso|cal|carb|clinker|clinquer|arena|grava/i.test(c)) {
-    if (/tren|ferro|tolva/i.test(v)) {
+    if (!excludeRail && /tren|ferro|tolva/i.test(v)) {
       return {
         type: "Tren Tolva Ferroviario",
         payloadMt: 50,
@@ -122,7 +124,7 @@ export function getTerrestrialVehicleSpec(vehicleType = "", cargoName = ""): Ter
 
   // 2. Cemento a granel / Polvo / Líquidos: Cisterna / Silo Neumático (25 MT · 33 L/100km) y Tren Tolva (50 MT)
   if (/cemento|polvo|quimic|líquid|liquid|harina|ceniza/i.test(c)) {
-    if (/tren|ferro/i.test(v)) {
+    if (!excludeRail && /tren|ferro/i.test(v)) {
       return {
         type: "Tren Tolva Ferroviario",
         payloadMt: 50,
@@ -178,7 +180,7 @@ export function getTerrestrialVehicleSpec(vehicleType = "", cargoName = ""): Ter
 
   // 5. Contenedores: Chasis Portacontenedores (26 MT · 20'/40') y Tren Plataforma Intermodal (50 MT)
   if (/contenedor|container|intermodal|maritimo|marítimo|iso/i.test(c)) {
-    if (/tren|ferro|intermodal/i.test(v)) {
+    if (!excludeRail && /tren|ferro|intermodal/i.test(v)) {
       return {
         type: "Tren Plataforma Intermodal",
         payloadMt: 50,
@@ -201,6 +203,21 @@ export function getTerrestrialVehicleSpec(vehicleType = "", cargoName = ""): Ter
       loaMeters: 13.80,
       beamMeters: 2.50,
       draftMeters: 2.60,
+    };
+  }
+
+  // Plataforma reforzada
+  if (/reforzada|plataforma abierta/i.test(v)) {
+    return {
+      type: "Plataforma Abierta / Lona Reforzada",
+      payloadMt: 24,
+      dimensions: "13.60m x 2.48m x 2.70m (90 m³ · 33 Pallets)",
+      consumption: "31 L/100km",
+      unitsLabel: "camiones (FTL)",
+      scoreBoost: 28,
+      loaMeters: 13.60,
+      beamMeters: 2.48,
+      draftMeters: 2.70,
     };
   }
 
@@ -239,16 +256,132 @@ export function getHomologatedFleetCandidates(
   cargoVolumeMt: number,
   polCoords: { lat: number; lon: number },
   podCoords: { lat: number; lon: number },
+  excludeRail = false,
 ) {
-  const origin = (polName || "Hub Origen").toUpperCase();
-  const dest = (podName || "Destino").toUpperCase();
-  const isAlgeria = /s[eé]tif|bejaia|b[eé]ja[iï]a|argel|alger|oran|annaba|skikda/i.test(`${origin} ${dest}`);
+  const shortPol = (polName || "Hub Origen").split(",")[0].trim();
+  const shortPod = (podName || "Destino").split(",")[0].trim();
+  const origin = shortPol.toUpperCase();
+  const dest = shortPod.toUpperCase();
+  const isAlgeria = ALGERIA_NORTH_AFRICA_RE.test(`${polName} ${podName}`);
   const flag = isAlgeria ? "🇩🇿" : "🇪🇸";
 
   const pLat = polCoords?.lat || (isAlgeria ? 36.19 : 40.41);
   const pLon = polCoords?.lon || (isAlgeria ? 5.41 : -3.70);
   const dLat = podCoords?.lat || (isAlgeria ? 36.75 : 41.38);
   const dLon = podCoords?.lon || (isAlgeria ? 5.08 : 2.16);
+
+  const cStr = (cargoName || "").toLowerCase();
+  const isPackaged = /big\s*bag|saco|palet|envasad|unitizad|unitarizad/i.test(cStr);
+  const isGranel = /granel|arido|árido|mineral|clinker|clinquer/i.test(cStr);
+  const isContainer = /contenedor|container/i.test(cStr);
+
+  const vehicle6 = excludeRail
+    ? (isContainer
+      ? {
+          imo: 9310006,
+          name: `FLOTA PORTACONTENEDORES / GRÚA (FTL 26 MT) · BASE ${origin}`,
+          mmsi: "224901006",
+          vesselType: "Chasis Portacontenedores / Grúa",
+          tipo_buque: "Chasis Portacontenedores / Grúa",
+          categoria_buque: "Chasis Portacontenedores / Grúa",
+          dwt: 26,
+          draftMeters: 2.60,
+          loaMeters: 13.80,
+          beamMeters: 2.50,
+          yearBuilt: 2022,
+          flag,
+          latitude: pLat + 0.005,
+          longitude: pLon - 0.008,
+          speedKnots: 85,
+          headingDeg: 10,
+          navStatus: "Disponible en Base",
+          operationalStatus: "DISPONIBLE EN BASE / HUB ORIGEN",
+          locationContext: "POL" as const,
+          distancePolNm: 0.8,
+          distancePodNm: 105.0,
+          isLiveRadar: true,
+          ownerManager: "Red Terrestre Homologada FTL / LandCharter Fleet",
+          stowageFactor: "1.40 m³/MT",
+        }
+      : (isGranel && !isPackaged
+        ? {
+            imo: 9310006,
+            name: `FLOTA BAÑERA BASCULANTE REFORZADA HARD-OX (FTL 26 MT) · BASE ${origin}`,
+            mmsi: "224901006",
+            vesselType: "Bañera Basculante",
+            tipo_buque: "Bañera Basculante",
+            categoria_buque: "Bañera Basculante",
+            dwt: 26,
+            draftMeters: 2.00,
+            loaMeters: 9.80,
+            beamMeters: 2.45,
+            yearBuilt: 2022,
+            flag,
+            latitude: pLat + 0.005,
+            longitude: pLon - 0.008,
+            speedKnots: 80,
+            headingDeg: 10,
+            navStatus: "Disponible en Base",
+            operationalStatus: "DISPONIBLE EN BASE / HUB ORIGEN",
+            locationContext: "POL" as const,
+            distancePolNm: 0.8,
+            distancePodNm: 105.0,
+            isLiveRadar: true,
+            ownerManager: "Flota Áridos y Graneles Hard-Ox / LandCharter",
+            stowageFactor: "0.85 m³/MT",
+          }
+        : {
+            imo: 9310006,
+            name: `FLOTA PLATAFORMA ABIERTA / LONA REFORZADA (FTL 24 MT) · BASE ${origin}`,
+            mmsi: "224901006",
+            vesselType: "Plataforma Abierta / Lona Reforzada",
+            tipo_buque: "Plataforma Abierta / Lona Reforzada",
+            categoria_buque: "Plataforma Abierta / Lona Reforzada",
+            dwt: 24,
+            draftMeters: 2.70,
+            loaMeters: 13.60,
+            beamMeters: 2.48,
+            yearBuilt: 2022,
+            flag,
+            latitude: pLat + 0.005,
+            longitude: pLon - 0.008,
+            speedKnots: 85,
+            headingDeg: 10,
+            navStatus: "Disponible en Base",
+            operationalStatus: "DISPONIBLE EN BASE / HUB ORIGEN",
+            locationContext: "POL" as const,
+            distancePolNm: 0.8,
+            distancePodNm: 105.0,
+            isLiveRadar: true,
+            ownerManager: "Red Terrestre Homologada FTL / LandCharter Fleet",
+            stowageFactor: "1.40 m³/MT",
+          }))
+    : {
+        imo: 9310006,
+        name: `CONVOY FERROVIARIO TREN TOLVA / INTERMODAL (50 MT/Vagón) · TERMINAL ${origin}`,
+        mmsi: "224901006",
+        vesselType: "Tren Tolva Ferroviario",
+        tipo_buque: "Tren Tolva Ferroviario",
+        categoria_buque: "Tren Tolva Ferroviario",
+        dwt: 50,
+        draftMeters: 4.25,
+        loaMeters: 14.50,
+        beamMeters: 3.10,
+        yearBuilt: 2021,
+        flag,
+        latitude: pLat + 0.005,
+        longitude: pLon - 0.008,
+        speedKnots: 65,
+        headingDeg: 10,
+        navStatus: "Disponible en Terminal",
+        operationalStatus: "DISPONIBLE EN BASE / HUB ORIGEN",
+        locationContext: "POL" as const,
+        distancePolNm: 0.8,
+        distancePodNm: 105.0,
+        isLiveRadar: true,
+        ownerManager: "Operador Ferroviario de Mercancías / Red de Tolvas y Plataformas",
+        stowageFactor: "0.80 m³/MT",
+      };
 
   return [
     {
@@ -381,32 +514,7 @@ export function getHomologatedFleetCandidates(
       ownerManager: "División Especial Maquinaria y Proyecto LandCharter",
       stowageFactor: "2.10 m³/MT",
     },
-    {
-      imo: 9310006,
-      name: `CONVOY FERROVIARIO TREN TOLVA / INTERMODAL (50 MT/Vagón) · TERMINAL ${origin}`,
-      mmsi: "224901006",
-      vesselType: "Tren Tolva Ferroviario",
-      tipo_buque: "Tren Tolva Ferroviario",
-      categoria_buque: "Tren Tolva Ferroviario",
-      dwt: 50,
-      draftMeters: 4.25,
-      loaMeters: 14.50,
-      beamMeters: 3.10,
-      yearBuilt: 2021,
-      flag,
-      latitude: pLat + 0.005,
-      longitude: pLon - 0.008,
-      speedKnots: 65,
-      headingDeg: 10,
-      navStatus: "Disponible en Terminal",
-      operationalStatus: `DISPONIBLE EN BASE / HUB ORIGEN`,
-      locationContext: "POL" as const,
-      distancePolNm: 0.8,
-      distancePodNm: 105.0,
-      isLiveRadar: true,
-      ownerManager: "Operador Ferroviario de Mercancías / Red de Tolvas y Plataformas",
-      stowageFactor: "0.80 m³/MT",
-    },
+    vehicle6,
     {
       imo: 9310007,
       name: `FLOTA TAULINER LONA CORREDERA (FTL 24 MT) · RETORNO / BACKHAUL ${dest}`,
@@ -575,17 +683,19 @@ export function evaluateMathematicalMatch(
     podMaxDraftMeters: number;
     laycan: string;
     loadingRate: string;
+    excludeRail?: boolean;
   },
 ) {
-  const { cargoVolumeMt, polMaxDraftMeters, podMaxDraftMeters, polName, podName, cargoName } = op;
+  const { cargoVolumeMt, polMaxDraftMeters, podMaxDraftMeters, polName, podName, cargoName, excludeRail = false } = op;
   const { dwt, draftMeters, distancePolNm, distancePodNm, locationContext, yearBuilt, vesselType } = candidate;
 
-  const isMandatoryExcluded = MANDATORY_DRY_BULK_EXCLUDED_TYPES_RE.test(vesselType);
+  const isMandatoryExcluded = MANDATORY_DRY_BULK_EXCLUDED_TYPES_RE.test(vesselType) || (excludeRail && /tren|tolva|ferro|convoy/i.test(vesselType));
 
   if (isMandatoryExcluded) {
     let exclusionTypeLabel = vesselType;
     if (/passenger|cruise|ferry|pasaje|crucero/i.test(vesselType)) exclusionTypeLabel = "Pasaje / Pasajeros";
     else if (/fishing|pesquero/i.test(vesselType)) exclusionTypeLabel = "Pesquero";
+    else if (/tren|tolva|ferro|convoy/i.test(vesselType)) exclusionTypeLabel = "Convoy Ferroviario (Modo Carretera)";
 
     const stowageFactorStr = `${op.stowageFactorM3Mt.toFixed(2)} m³/MT`;
 
@@ -605,7 +715,7 @@ export function evaluateMathematicalMatch(
     };
   }
 
-  const spec = getTerrestrialVehicleSpec(vesselType, cargoName);
+  const spec = getTerrestrialVehicleSpec(vesselType, cargoName, excludeRail);
   const effectivePayload = spec.payloadMt;
   const targetVolume = cargoVolumeMt > 0 ? cargoVolumeMt : effectivePayload;
   const neededUnits = Math.ceil(targetVolume / effectivePayload);
@@ -646,11 +756,14 @@ export function evaluateMathematicalMatch(
   const compositeScore = Math.min(100, Math.max(10, Math.round(rawComposite)));
   const stowageFactorStr = `${op.stowageFactorM3Mt.toFixed(2)} m³/MT`;
 
+  const shortPol = (polName || "Hub Origen").split(",")[0].trim();
+  const shortPod = (podName || "Destino").split(",")[0].trim();
+
   let locationLabel = "";
   if (locationContext === "POD") {
-    locationLabel = `posición en destino (${distancePodNm.toFixed(1)} km - Retorno / Backhaul en ruta)`;
+    locationLabel = `posición en destino (${shortPod} · ${distancePodNm.toFixed(1)} km - Retorno / Backhaul en ruta)`;
   } else if (locationContext === "POL") {
-    locationLabel = `posición en origen (${distancePolNm.toFixed(1)} km - Disponible en Base / Hub)`;
+    locationLabel = `posición en origen (${shortPol} · ${distancePolNm.toFixed(1)} km - Disponible en Base / Hub)`;
   } else {
     locationLabel = `en tránsito (${distancePolNm.toFixed(1)} km a origen / ${distancePodNm.toFixed(1)} km a destino)`;
   }
@@ -689,10 +802,16 @@ export default async function handler(req: Request, _context: Context) {
 
     const polName = String(bodyData.polName || bodyData.pol || url.searchParams.get("pol") || "Madrid Hub Logístico").trim();
     const podName = String(bodyData.podName || bodyData.pod || url.searchParams.get("pod") || "Barcelona ZAL").trim();
-    const polFlag = String(bodyData.polFlag || url.searchParams.get("polFlag") || "🇪🇸").trim();
-    const polCountry = String(bodyData.polCountry || url.searchParams.get("polCountry") || "España").trim();
-    const podFlag = String(bodyData.podFlag || url.searchParams.get("podFlag") || "🇪🇸").trim();
-    const podCountry = String(bodyData.podCountry || url.searchParams.get("podCountry") || "España").trim();
+    const shortPol = (polName || "Hub Origen").split(",")[0].trim();
+    const shortPod = (podName || "Destino").split(",")[0].trim();
+    const transportMode = String(bodyData.transportMode || bodyData.mode || url.searchParams.get("transportMode") || url.searchParams.get("mode") || "").trim().toUpperCase();
+    const isAlgeriaRoute = ALGERIA_NORTH_AFRICA_RE.test(`${polName} ${podName}`);
+    const isRoad = transportMode ? transportMode !== "RAIL" : true;
+    const excludeRail = isRoad || isAlgeriaRoute;
+    const polFlag = String(bodyData.polFlag || url.searchParams.get("polFlag") || (isAlgeriaRoute ? "🇩🇿" : "🇪🇸")).trim();
+    const polCountry = String(bodyData.polCountry || url.searchParams.get("polCountry") || (isAlgeriaRoute ? "Argelia" : "España")).trim();
+    const podFlag = String(bodyData.podFlag || url.searchParams.get("podFlag") || (isAlgeriaRoute ? "🇩🇿" : "🇪🇸")).trim();
+    const podCountry = String(bodyData.podCountry || url.searchParams.get("podCountry") || (isAlgeriaRoute ? "Argelia" : "España")).trim();
     const cargoName = String(bodyData.cargoName || bodyData.cargoType || url.searchParams.get("cargoName") || url.searchParams.get("cargo") || "Paletizado / Mercancía General").trim();
     const cargoVolumeMt = Number(bodyData.cargoVolumeMt || bodyData.cargoQuantity || bodyData.cargoQty || url.searchParams.get("cargoVolumeMt") || url.searchParams.get("qty") || 0) || 24;
     const commercialDwtBounds = resolveCommercialDwtBounds(cargoVolumeMt);
@@ -843,6 +962,7 @@ export default async function handler(req: Request, _context: Context) {
       activeOperation.cargoVolumeMt,
       polCoords,
       podCoords,
+      excludeRail,
     );
 
     for (const h of homologatedFleet) {
@@ -867,6 +987,9 @@ export default async function handler(req: Request, _context: Context) {
       if (Number(r.dwt) > 100 || /^MV\s+/i.test(rawName) || /vessel/i.test(rawName) || /bulker/i.test(rawName) || /carrier/i.test(rawName) || /tanker/i.test(rawName)) {
         continue;
       }
+      if (excludeRail && (/tren|tolva|ferro|convoy/i.test(rawName) || /tren|tolva|ferro|convoy/i.test(String(r.vessel_type || '')))) {
+        continue;
+      }
       const vLat = Number(r.latitude ?? 0);
       const vLon = Number(r.longitude ?? 0);
 
@@ -879,7 +1002,7 @@ export default async function handler(req: Request, _context: Context) {
       const locationContext = determineLocationContext(distPolNm, distPodNm, hasPolCoords, hasPodCoords);
 
       const resolvedType = String(r.vessel_type || "Tauliner / Lona Corredera");
-      const spec = getTerrestrialVehicleSpec(resolvedType, cargoName);
+      const spec = getTerrestrialVehicleSpec(resolvedType, cargoName, excludeRail);
       const loaMeters = Number(r.loa_meters || 0) > 0 ? Number(r.loa_meters) : spec.loaMeters;
       const beamMeters = Number(r.beam_meters || 0) > 0 ? Number(r.beam_meters) : spec.beamMeters;
       const draftMeters = Number(r.draft_meters || 0) > 0 ? Number(r.draft_meters) : spec.draftMeters;
@@ -931,6 +1054,9 @@ export default async function handler(req: Request, _context: Context) {
       if (Number(ship.dwt) > 100 || /^MV\s+/i.test(rawName) || /vessel/i.test(rawName) || /bulker/i.test(typeStr) || /tanker/i.test(typeStr) || /carrier/i.test(typeStr)) {
         continue;
       }
+      if (excludeRail && (/tren|tolva|ferro|convoy/i.test(rawName) || /tren|tolva|ferro|convoy/i.test(typeStr))) {
+        continue;
+      }
 
       const isValidImo = imoClean.length === 7 && imoNum > 1000000;
       const isValidMmsi = mmsiClean.length === 9;
@@ -958,7 +1084,7 @@ export default async function handler(req: Request, _context: Context) {
       const locationContext = determineLocationContext(distPolNm, distPodNm, hasPolCoords, hasPodCoords);
 
       const resolvedType = String(dbRow?.vessel_type || rawType || "Tauliner / Lona Corredera");
-      const spec = getTerrestrialVehicleSpec(resolvedType, cargoName);
+      const spec = getTerrestrialVehicleSpec(resolvedType, cargoName, excludeRail);
       const loaMeters = Number(dbRow?.loa_meters ?? ship.loa ?? ship.loa_meters ?? 0) > 0 ? Number(dbRow?.loa_meters ?? ship.loa ?? ship.loa_meters) : spec.loaMeters;
       const beamMeters = Number(dbRow?.beam_meters ?? ship.beam ?? ship.beam_meters ?? 0) > 0 ? Number(dbRow?.beam_meters ?? ship.beam ?? ship.beam_meters) : spec.beamMeters;
       const draftMeters = Number(dbRow?.draft_meters ?? ship.draft ?? ship.draft_meters ?? ship.max_draft ?? 0) > 0 ? Number(dbRow?.draft_meters ?? ship.draft ?? ship.draft_meters ?? ship.max_draft) : spec.draftMeters;
@@ -996,10 +1122,23 @@ export default async function handler(req: Request, _context: Context) {
       liveRadarCandidatesCount++;
     }
 
+    if (excludeRail) {
+      for (const [imo, cand] of candidateMap.entries()) {
+        const fullStr = `${cand.vesselType} ${cand.tipo_buque || ''} ${cand.categoria_buque || ''} ${cand.name}`.toLowerCase();
+        if (/tren|tolva|ferro|convoy/i.test(fullStr)) {
+          candidateMap.delete(imo);
+        }
+      }
+    }
+
     // Filtro de tolerancia comercial: acota el tamaño de flota a la banda
     // en camiones (21-50 MT) o fletamento fraccionado
     const allCandidates = Array.from(candidateMap.values());
     const commerciallySizedCandidates = allCandidates.filter((cand) => {
+      if (excludeRail) {
+        const fullStr = `${cand.vesselType} ${cand.tipo_buque || ''} ${cand.categoria_buque || ''} ${cand.name}`.toLowerCase();
+        if (/tren|tolva|ferro|convoy/i.test(fullStr)) return false;
+      }
       if (cand.dwt <= 60) return true;
       return isDwtWithinCommercialBand(cand.dwt, commercialDwtBounds.tonnage);
     });
@@ -1011,8 +1150,12 @@ export default async function handler(req: Request, _context: Context) {
     const opennessReferenceNow = new Date();
 
     const evaluatedList = commerciallySizedCandidates.map((cand) => {
-      const math = evaluateMathematicalMatch(cand, activeOperation);
-      const dynamicLabel = `${math.compatibilityScore}% - ${cand.name} - ${cand.vesselType}`;
+      const math = evaluateMathematicalMatch(cand, { ...activeOperation, excludeRail });
+      const spec = getTerrestrialVehicleSpec(cand.vesselType, activeOperation.cargoName, excludeRail);
+      const cargoVol = Number(activeOperation.cargoVolumeMt) || 24;
+      const neededUnits = Math.max(1, Math.ceil(cargoVol / (spec.payloadMt || 24)));
+      const shortName = cand.tipo_buque || cand.categoria_buque || cand.vesselType || spec.type || "Tauliner / Lona Corredera";
+      const dynamicTagLabel = `${math.compatibilityScore}% · ${shortName} · ${neededUnits} unidades FTL`;
       const openness = classifyVesselOpenness(
         {
           draught: cand.currentDraftMeters,
@@ -1038,7 +1181,8 @@ export default async function handler(req: Request, _context: Context) {
         mmsi: cand.mmsi,
         tipo_buque: cand.tipo_buque,
         categoria_buque: cand.categoria_buque,
-        dynamicLabel,
+        dynamicLabel: dynamicTagLabel,
+        dynamicTagLabel,
         isLiveRadar: cand.isLiveRadar ?? false,
         distancePolNm: cand.distancePolNm,
         distancePodNm: cand.distancePodNm,
@@ -1053,8 +1197,8 @@ export default async function handler(req: Request, _context: Context) {
           headingDeg: cand.headingDeg,
           navStatus: cand.navStatus,
           operationalStatus: cand.operationalStatus,
-          polZone: activeOperation.polName,
-          podZone: activeOperation.podName,
+          polZone: shortPol,
+          podZone: shortPod,
           verifiedImo: true,
           excludedNoiseCategory: null,
           lastSeen: "En Vivo · Transmisión AIS Activa",
@@ -1138,7 +1282,7 @@ export default async function handler(req: Request, _context: Context) {
         strictImoFilterApplied: true,
         commercialDwtBandApplied: commercialDwtBounds.applied,
         excludedByDwtBandCount,
-        exclusionCriteria: "Vehículos no comerciales y embarcaciones de recreo o pasaje excluidos tajantemente.",
+        exclusionCriteria: "Excluidos tajantemente: Vehículos ligeros (<3.5t), reparto urbano y turismo | 100% Flota Pesada Homologada",
         dwtBandCriteria: "Flota Terrestre y Ferroviaria sincronizada con asignación dinámica de carga útil (21-50 MT).",
       },
       neonDbSummary: {
