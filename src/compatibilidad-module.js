@@ -28,20 +28,30 @@ const DEFAULT_ACTIVE_OPERATION = Object.freeze({
     loadingRate: "33 Pallets / 2h",
 });
 
-export function getTerrestrialVehicleSpec(vehicleType, cargoName = '') {
+const ALGERIA_NORTH_AFRICA_RE = /argelia|algeria|algerie|algérie|sétif|setif|bejaia|oran|algiers|mostaganem|skikda/i;
+
+export function isRailExcludedForRoute(polName = '', podName = '') {
+    const isAlgeria = ALGERIA_NORTH_AFRICA_RE.test(`${polName} ${podName}`);
+    const isRoadMode = typeof window !== 'undefined' ? (window.State?.transportMode !== 'RAIL') : true;
+    return isRoadMode || isAlgeria;
+}
+
+export function getTerrestrialVehicleSpec(vehicleType, cargoName = '', polName = '', podName = '') {
     const vStr = String(vehicleType || '').toLowerCase();
     const cStr = String(cargoName || '').toLowerCase();
+    const excludeRail = isRailExcludedForRoute(polName, podName);
 
     const isPackaged = cStr.includes('big') || cStr.includes('bag') || cStr.includes('palet') || cStr.includes('envasad') || cStr.includes('unitizad') || cStr.includes('unitarizad') || cStr.includes('saco');
-    const isRail = vStr.includes('tren') || vStr.includes('tolva') || vStr.includes('ferrocarril') || vStr.includes('vagón') || vStr.includes('vagon');
+    const isRail = vStr.includes('tren') || vStr.includes('tolva') || vStr.includes('ferrocarril') || vStr.includes('vagón') || vStr.includes('vagon') || vStr.includes('convoy');
     const isBanera = vStr.includes('bañera') || vStr.includes('banera') || vStr.includes('basculante') || ((cStr.includes('árido') || cStr.includes('arido') || cStr.includes('clinker') || cStr.includes('clinquer') || (cStr.includes('mineral') && !isPackaged) || (cStr.includes('granel') && !cStr.includes('líquid') && !cStr.includes('cemento') && !cStr.includes('químic'))) && !isPackaged);
     const isCisterna = vStr.includes('cisterna') || vStr.includes('silo') || ((cStr.includes('cemento') || cStr.includes('líquid') || cStr.includes('liquid') || cStr.includes('polvo') || cStr.includes('químic')) && !isPackaged);
     const isDuo = vStr.includes('duo') || vStr.includes('dúo') || vStr.includes('tren de carretera');
     const isPlataformaGrua = vStr.includes('grúa') || vStr.includes('grua') || vStr.includes('autocarga');
     const isGondolaPlataforma = vStr.includes('gondola') || vStr.includes('góndola') || vStr.includes('plataforma') || cStr.includes('maquinaria') || cStr.includes('proyecto') || cStr.includes('estructura');
     const isPortacontenedores = vStr.includes('portacontenedor') || vStr.includes('contenedor') || cStr.includes('contenedor');
+    const isPlataformaReforzada = vStr.includes('reforzada') || (vStr.includes('plataforma') && !isPlataformaGrua && !isGondolaPlataforma);
 
-    if (isRail) {
+    if (isRail && !excludeRail) {
         return {
             id: 'tren_tolva',
             name: 'CONVOY FERROVIARIO TREN TOLVA / INTERMODAL (50 MT/Vagón)',
@@ -59,6 +69,66 @@ export function getTerrestrialVehicleSpec(vehicleType, cargoName = '') {
             availColor: '#059669',
             badgeIcon: '🟢',
             description: 'Convoy ferroviario de tolvas y plataformas intermodales (50 MT/vagón)'
+        };
+    }
+    if (isRail && excludeRail) {
+        if (isBanera) {
+            return {
+                id: 'banera_basculante',
+                name: 'FLOTA BAÑERA BASCULANTE HARD-OX (FTL 26 MT)',
+                payloadMt: 26,
+                mmaMt: 40,
+                dimensions: '9.80m x 2.45m (48 m³ Basculante)',
+                volumeM3: 48,
+                isRail: false,
+                consumption: '35 L/100km',
+                loaMeters: 9.8,
+                beamMeters: 2.45,
+                draftMeters: 2.0,
+                availability: 'DISPONIBLE EN BASE / HUB ORIGEN',
+                availStatus: 'hub_origin',
+                availColor: '#059669',
+                badgeIcon: '🟢',
+                description: 'Semirremolque basculante Hard-Ox reforzado para granel sólido, áridos y clinker'
+            };
+        }
+        if (isPortacontenedores) {
+            return {
+                id: 'chasis_portacontenedor',
+                name: 'FLOTA CHASIS PORTACONTENEDORES (FTL 26 MT)',
+                payloadMt: 26,
+                mmaMt: 40,
+                dimensions: '13.80m x 2.50m (Chasis Multimodal 20\'/40\')',
+                volumeM3: 76,
+                isRail: false,
+                consumption: '32 L/100km',
+                loaMeters: 13.8,
+                beamMeters: 2.5,
+                draftMeters: 2.6,
+                availability: 'RETORNO / BACKHAUL EN RUTA',
+                availStatus: 'backhaul',
+                availColor: '#d97706',
+                badgeIcon: '🟡',
+                description: 'Semirremolque portacontenedor extensible multimodal'
+            };
+        }
+        return {
+            id: 'plataforma_reforzada',
+            name: 'FLOTA PLATAFORMA ABIERTA / LONA REFORZADA (FTL 24 MT)',
+            payloadMt: 24,
+            mmaMt: 40,
+            dimensions: '13.60m x 2.48m x 2.70m (90 m³ · 33 Pallets)',
+            volumeM3: 90,
+            isRail: false,
+            consumption: '31 L/100km',
+            loaMeters: 13.6,
+            beamMeters: 2.48,
+            draftMeters: 2.7,
+            availability: 'DISPONIBLE EN BASE / HUB ORIGEN',
+            availStatus: 'hub_origin',
+            availColor: '#059669',
+            badgeIcon: '🟢',
+            description: 'Plataforma abierta y lona reforzada 24 MT para transporte pesado de mercancías por carretera'
         };
     }
     if (isBanera && !isCisterna && !isPackaged) {
@@ -119,6 +189,26 @@ export function getTerrestrialVehicleSpec(vehicleType, cargoName = '') {
             availColor: '#d97706',
             badgeIcon: '🟡',
             description: 'Composición doble de alta capacidad para mercancía paletizada masiva (66 pallets)'
+        };
+    }
+    if (isPlataformaReforzada) {
+        return {
+            id: 'plataforma_reforzada',
+            name: 'FLOTA PLATAFORMA ABIERTA / LONA REFORZADA (FTL 24 MT)',
+            payloadMt: 24,
+            mmaMt: 40,
+            dimensions: '13.60m x 2.48m x 2.70m (90 m³ · 33 Pallets)',
+            volumeM3: 90,
+            isRail: false,
+            consumption: '31 L/100km',
+            loaMeters: 13.6,
+            beamMeters: 2.48,
+            draftMeters: 2.7,
+            availability: 'DISPONIBLE EN BASE / HUB ORIGEN',
+            availStatus: 'hub_origin',
+            availColor: '#059669',
+            badgeIcon: '🟢',
+            description: 'Semirremolque plataforma abierta con lona reforzada 24 MT para transporte pesado'
         };
     }
     if (isPlataformaGrua || (isGondolaPlataforma && !isPortacontenedores && !isPackaged)) {
@@ -182,14 +272,104 @@ export function getTerrestrialVehicleSpec(vehicleType, cargoName = '') {
 }
 
 export function generateHomologatedTerrestrialFleet(polName = '', podName = '', cargoVolumeMt = 24, cargoName = '') {
-    const origin = (polName || 'Hub Origen').toUpperCase();
-    const dest = (podName || 'Destino').toUpperCase();
-    const isAlgeria = /s[eé]tif|bejaia|b[eé]ja[iï]a|argel|alger|oran|annaba|skikda/i.test(`${origin} ${dest}`);
+    const rawOrigin = polName || 'Hub Origen';
+    const rawDest = podName || 'Destino';
+    const shortPol = rawOrigin.split(',')[0].trim();
+    const shortPod = rawDest.split(',')[0].trim();
+    const origin = shortPol.toUpperCase();
+    const dest = shortPod.toUpperCase();
+    const isAlgeria = ALGERIA_NORTH_AFRICA_RE.test(`${polName} ${podName}`);
+    const excludeRail = isRailExcludedForRoute(polName, podName);
     const flag = isAlgeria ? '🇩🇿' : '🇪🇸';
     const cStr = String(cargoName || '').toLowerCase();
     const isPackaged = cStr.includes('big') || cStr.includes('bag') || cStr.includes('palet') || cStr.includes('envasad') || cStr.includes('unitizad') || cStr.includes('unitarizad') || cStr.includes('saco');
     const isGranel = cStr.includes('árido') || cStr.includes('arido') || cStr.includes('mineral') || cStr.includes('clinker') || cStr.includes('granel');
     const isCisterna = cStr.includes('cemento') || cStr.includes('polvo') || cStr.includes('líquid');
+    const isContainer = cStr.includes('contenedor') || cStr.includes('container');
+
+    const vehicle6 = excludeRail
+        ? (isContainer
+            ? {
+                imo: 9310006,
+                name: `FLOTA PORTACONTENEDORES / GRÚA (FTL 26 MT) · BASE ${origin}`,
+                mmsi: '224901006',
+                tipo_buque: 'Chasis Portacontenedores / Grúa',
+                categoria_buque: 'Chasis Portacontenedores / Grúa',
+                dwt: 26,
+                draftMeters: 2.60,
+                loaMeters: 13.80,
+                beamMeters: 2.50,
+                yearBuilt: 2022,
+                flag,
+                isLiveRadar: true,
+                compatibilityScore: 92,
+                isTopMatch: false,
+                ownerManager: 'Red Terrestre Homologada FTL / LandCharter Fleet',
+                radarLive: { distancePolNm: 0.8, distancePodNm: 105.0, speedKnots: 85, headingDeg: 10, navStatus: 'Disponible en Base', operationalStatus: 'DISPONIBLE EN BASE / HUB ORIGEN' },
+                neonDbMaster: { dwt: 26, draftMeters: 2.60, loaMeters: 13.80, beamMeters: 2.50, flag, yearBuilt: 2022, stowageFactor: '1.40 m³/MT', vesselType: 'Chasis Portacontenedores / Grúa', ownerManager: 'Red Terrestre Homologada FTL' },
+                technicalJustification: `FLOTA PORTACONTENEDORES / GRÚA (26 MT útil / MMA 40 MT) óptimo para ${cargoVolumeMt || 26} MT de ${cargoName || 'contenedores'}. Exactamente ${Math.ceil((cargoVolumeMt || 26) / 26)} camiones requeridos. Disponible en Base.`
+            }
+            : (isGranel && !isPackaged
+                ? {
+                    imo: 9310006,
+                    name: `FLOTA BAÑERA BASCULANTE REFORZADA HARD-OX (FTL 26 MT) · BASE ${origin}`,
+                    mmsi: '224901006',
+                    tipo_buque: 'Bañera Basculante',
+                    categoria_buque: 'Bañera Basculante',
+                    dwt: 26,
+                    draftMeters: 2.00,
+                    loaMeters: 9.80,
+                    beamMeters: 2.45,
+                    yearBuilt: 2022,
+                    flag,
+                    isLiveRadar: true,
+                    compatibilityScore: 94,
+                    isTopMatch: false,
+                    ownerManager: 'Flota Áridos y Graneles Hard-Ox / LandCharter',
+                    radarLive: { distancePolNm: 0.8, distancePodNm: 105.0, speedKnots: 80, headingDeg: 10, navStatus: 'Disponible en Base', operationalStatus: 'DISPONIBLE EN BASE / HUB ORIGEN' },
+                    neonDbMaster: { dwt: 26, draftMeters: 2.00, loaMeters: 9.80, beamMeters: 2.45, flag, yearBuilt: 2022, stowageFactor: '0.85 m³/MT', vesselType: 'Bañera Basculante', ownerManager: 'Flota Áridos y Graneles Hard-Ox' },
+                    technicalJustification: `FLOTA BAÑERA BASCULANTE (26 MT útil / MMA 40 MT) óptimo para ${cargoVolumeMt || 26} MT de ${cargoName || 'granel'}. Exactamente ${Math.ceil((cargoVolumeMt || 26) / 26)} camiones requeridos. Disponible en Base.`
+                }
+                : {
+                    imo: 9310006,
+                    name: `FLOTA PLATAFORMA ABIERTA / LONA REFORZADA (FTL 24 MT) · BASE ${origin}`,
+                    mmsi: '224901006',
+                    tipo_buque: 'Plataforma Abierta / Lona Reforzada',
+                    categoria_buque: 'Plataforma Abierta / Lona Reforzada',
+                    dwt: 24,
+                    draftMeters: 2.70,
+                    loaMeters: 13.60,
+                    beamMeters: 2.48,
+                    yearBuilt: 2022,
+                    flag,
+                    isLiveRadar: true,
+                    compatibilityScore: 92,
+                    isTopMatch: false,
+                    ownerManager: 'Red Terrestre Homologada FTL / LandCharter Fleet',
+                    radarLive: { distancePolNm: 0.8, distancePodNm: 105.0, speedKnots: 85, headingDeg: 10, navStatus: 'Disponible en Base', operationalStatus: 'DISPONIBLE EN BASE / HUB ORIGEN' },
+                    neonDbMaster: { dwt: 24, draftMeters: 2.70, loaMeters: 13.60, beamMeters: 2.48, flag, yearBuilt: 2022, stowageFactor: '1.40 m³/MT', vesselType: 'Plataforma Abierta / Lona Reforzada', ownerManager: 'Red Terrestre Homologada FTL' },
+                    technicalJustification: `FLOTA PLATAFORMA ABIERTA / LONA REFORZADA (24 MT útil / MMA 40 MT) óptimo para ${cargoVolumeMt || 24} MT de ${cargoName || 'mercancía'}. Exactamente ${Math.ceil((cargoVolumeMt || 24) / 24)} tráilers requeridos. Dimensiones: 13.60m x 2.48m x 2.70m; Disponible en Base.`
+                }))
+        : {
+            imo: 9310006,
+            name: `CONVOY FERROVIARIO TREN TOLVA / INTERMODAL (50 MT/Vagón) · TERMINAL ${origin}`,
+            mmsi: '224901006',
+            tipo_buque: 'Tren Tolva Ferroviario',
+            categoria_buque: 'Tren Tolva Ferroviario',
+            dwt: 50,
+            draftMeters: 4.25,
+            loaMeters: 14.50,
+            beamMeters: 3.10,
+            yearBuilt: 2021,
+            flag,
+            isLiveRadar: true,
+            compatibilityScore: 92,
+            isTopMatch: false,
+            ownerManager: 'Operador Ferroviario de Mercancías / Red de Tolvas y Plataformas',
+            radarLive: { distancePolNm: 0.8, distancePodNm: 105.0, speedKnots: 65, headingDeg: 10, navStatus: 'Disponible en Terminal', operationalStatus: 'DISPONIBLE EN BASE / HUB ORIGEN' },
+            neonDbMaster: { dwt: 50, draftMeters: 4.25, loaMeters: 14.50, beamMeters: 3.10, flag, yearBuilt: 2021, stowageFactor: '0.80 m³/MT', vesselType: 'Tren Tolva Ferroviario', ownerManager: 'Operador Ferroviario de Mercancías' },
+            technicalJustification: `CONVOY FERROVIARIO TREN TOLVA / INTERMODAL (50 MT/Vagón) óptimo para ${cargoVolumeMt || 50} MT de ${cargoName || 'carga masiva'}. Exactamente ${Math.ceil((cargoVolumeMt || 50) / 50)} vagones requeridos. Dimensiones: 14.50m x 3.10m · Tracción Ferroviaria; Terminal Ferroviaria.`
+        };
 
     return [
         {
@@ -292,26 +472,7 @@ export function generateHomologatedTerrestrialFleet(polName = '', podName = '', 
             neonDbMaster: { dwt: 24, draftMeters: 3.00, loaMeters: 13.60, beamMeters: 2.55, flag, yearBuilt: 2020, stowageFactor: '2.10 m³/MT', vesselType: 'Góndola / Plataforma Abierta', ownerManager: 'División Especial Maquinaria y Proyecto LandCharter' },
             technicalJustification: `FLOTA GÓNDOLA / PLATAFORMA GRÚA (24 MT útil / MMA 40 MT) óptimo para ${cargoVolumeMt || 24} MT de ${cargoName || 'proyecto'}. Exactamente ${Math.ceil((cargoVolumeMt || 24) / 24)} camiones requeridos. Dimensiones: 13.60m x 2.55m · Cama Rebajada / Autocarga; Consumo: 36 L/100km; Flota Dedicada.`
         },
-        {
-            imo: 9310006,
-            name: `CONVOY FERROVIARIO TREN TOLVA / INTERMODAL (50 MT/Vagón) · TERMINAL ${origin}`,
-            mmsi: '224901006',
-            tipo_buque: 'Tren Tolva Ferroviario',
-            categoria_buque: 'Tren Tolva Ferroviario',
-            dwt: 50,
-            draftMeters: 4.25,
-            loaMeters: 14.50,
-            beamMeters: 3.10,
-            yearBuilt: 2021,
-            flag,
-            isLiveRadar: true,
-            compatibilityScore: 92,
-            isTopMatch: false,
-            ownerManager: 'Operador Ferroviario de Mercancías / Red de Tolvas y Plataformas',
-            radarLive: { distancePolNm: 0.8, distancePodNm: 105.0, speedKnots: 65, headingDeg: 10, navStatus: 'Disponible en Terminal', operationalStatus: 'DISPONIBLE EN BASE / HUB ORIGEN' },
-            neonDbMaster: { dwt: 50, draftMeters: 4.25, loaMeters: 14.50, beamMeters: 3.10, flag, yearBuilt: 2021, stowageFactor: '0.80 m³/MT', vesselType: 'Tren Tolva Ferroviario', ownerManager: 'Operador Ferroviario de Mercancías' },
-            technicalJustification: `CONVOY FERROVIARIO TREN TOLVA / INTERMODAL (50 MT/Vagón) óptimo para ${cargoVolumeMt || 50} MT de ${cargoName || 'carga masiva'}. Exactamente ${Math.ceil((cargoVolumeMt || 50) / 50)} vagones requeridos. Dimensiones: 14.50m x 3.10m · Tracción Ferroviaria; Terminal Ferroviaria.`
-        },
+        vehicle6,
         {
             imo: 9310007,
             name: `FLOTA TAULINER LONA CORREDERA (FTL 24 MT) · RETORNO / BACKHAUL ${dest}`,
@@ -330,7 +491,7 @@ export function generateHomologatedTerrestrialFleet(polName = '', podName = '', 
             ownerManager: 'Red Terrestre Homologada FTL / Retornos Vacíos',
             radarLive: { distancePolNm: 102.0, distancePodNm: 3.2, speedKnots: 85, headingDeg: 270, navStatus: 'Retorno en Ruta', operationalStatus: 'RETORNO / BACKHAUL EN RUTA' },
             neonDbMaster: { dwt: 24, draftMeters: 2.70, loaMeters: 13.60, beamMeters: 2.48, flag, yearBuilt: 2022, stowageFactor: '1.45 m³/MT', vesselType: 'Tauliner / Lona Corredera', ownerManager: 'Red Terrestre Homologada FTL' },
-            technicalJustification: `FLOTA TAULINER LONA CORREDERA (24 MT útil / MMA 40 MT) en posición de retorno hacia ${dest}. Exactamente ${Math.ceil((cargoVolumeMt || 24) / 24)} tráilers requeridos. Dimensiones: 13.60m x 2.48m x 2.70m; Retorno / Backhaul en ruta.`
+            technicalJustification: `FLOTA TAULINER LONA CORREDERA (24 MT útil / MMA 40 MT) en posición de retorno hacia ${shortPod}. Exactamente ${Math.ceil((cargoVolumeMt || 24) / 24)} tráilers requeridos. Dimensiones: 13.60m x 2.48m x 2.70m; Retorno / Backhaul en ruta.`
         },
         {
             imo: 9310008,
@@ -350,7 +511,7 @@ export function generateHomologatedTerrestrialFleet(polName = '', podName = '', 
             ownerManager: 'Flota Áridos y Graneles Hard-Ox / Backhaul',
             radarLive: { distancePolNm: 104.0, distancePodNm: 4.1, speedKnots: 80, headingDeg: 260, navStatus: 'Retorno en Ruta', operationalStatus: 'RETORNO / BACKHAUL EN RUTA' },
             neonDbMaster: { dwt: 26, draftMeters: 2.00, loaMeters: 9.80, beamMeters: 2.45, flag, yearBuilt: 2020, stowageFactor: '0.85 m³/MT', vesselType: 'Bañera Basculante', ownerManager: 'Flota Áridos y Graneles Hard-Ox' },
-            technicalJustification: `FLOTA BAÑERA BASCULANTE HARD-OX (26 MT útil / MMA 40 MT) en posición de retorno hacia ${dest}. Exactamente ${Math.ceil((cargoVolumeMt || 26) / 26)} camiones requeridos. Dimensiones: 9.80m x 2.45m; Retorno / Backhaul en ruta.`
+            technicalJustification: `FLOTA BAÑERA BASCULANTE HARD-OX (26 MT útil / MMA 40 MT) en posición de retorno hacia ${shortPod}. Exactamente ${Math.ceil((cargoVolumeMt || 26) / 26)} camiones requeridos. Dimensiones: 9.80m x 2.45m; Retorno / Backhaul en ruta.`
         }
     ];
 }
@@ -519,6 +680,10 @@ class CompatibilityModuleManager {
             }
         }
 
+        const storeState = (typeof window !== 'undefined' && (window.SeaCharterStore?.getState?.() || window.State)) || {};
+        const transportMode = (typeof window !== 'undefined' && window.State?.transportMode) || storeState.transportMode || 'ROAD';
+        const excludeRail = isRailExcludedForRoute(activeOp.polName, activeOp.podName);
+
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 6000);
@@ -528,6 +693,7 @@ class CompatibilityModuleManager {
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify({
                     ...activeOp,
+                    transportMode,
                     liveRadarVessels: rawLiveFleet,
                 }),
                 signal: controller.signal,
@@ -537,6 +703,13 @@ class CompatibilityModuleManager {
             if (res.ok) {
                 const data = await res.json();
                 if (data && data.success && Array.isArray(data.pairedMatches)) {
+                    if (excludeRail) {
+                        data.pairedMatches = data.pairedMatches.filter(item => {
+                            const rawName = String(item.name || '').toLowerCase();
+                            const rawType = String(item.tipo_buque || item.categoria_buque || item.neonDbMaster?.vesselType || '').toLowerCase();
+                            return !/tren|tolva|ferro|convoy/i.test(rawName) && !/tren|tolva|ferro|convoy/i.test(rawType);
+                        });
+                    }
                     this.cache = data;
                     this.cacheTimestamp = now;
                     return data;
@@ -565,6 +738,7 @@ class CompatibilityModuleManager {
                     // Excluir buques mercantes masivos o buques marítimos legacy
                     if (/^MV\s+/i.test(rawName) || /vessel/i.test(rawName) || reportedDwt > 100) return false;
                     if (/bulk carrier|handysize|panamax|supramax|tanker|container ship/i.test(rawType)) return false;
+                    if (excludeRail && (/tren|tolva|ferro|convoy/i.test(rawName) || /tren|tolva|ferro|convoy/i.test(rawType))) return false;
                     return true;
                 })
                 : [];
@@ -580,7 +754,14 @@ class CompatibilityModuleManager {
             hasLiveCompatibleVessels = true;
         }
 
-        const pairedMatches = dynamicRadarMatches.map(v => ({ ...v }));
+        let pairedMatches = dynamicRadarMatches.map(v => ({ ...v }));
+        if (excludeRail) {
+            pairedMatches = pairedMatches.filter(item => {
+                const rawName = String(item.name || '').toLowerCase();
+                const rawType = String(item.tipo_buque || item.categoria_buque || item.neonDbMaster?.vesselType || '').toLowerCase();
+                return !/tren|tolva|ferro|convoy/i.test(rawName) && !/tren|tolva|ferro|convoy/i.test(rawType);
+            });
+        }
         pairedMatches.sort((a, b) => (Number(b.compatibilityScore) || 0) - (Number(a.compatibilityScore) || 0));
         for (const item of pairedMatches) {
             item.isTopMatch = false;
@@ -615,7 +796,7 @@ class CompatibilityModuleManager {
                 commercialDwtBandApplied: commercialDwtBand.applied,
                 minDwt: commercialDwtBand.minDwt,
                 maxDwt: commercialDwtBand.maxDwt,
-                exclusionCriteria: "Pesqueros, Remolcadores (Tugs), Embarcaciones de Pasaje/Recreo y No-Mercantes excluidos tajantemente.",
+                exclusionCriteria: "Excluidos tajantemente: Vehículos ligeros (<3.5t), reparto urbano y turismo | 100% Flota Pesada Homologada",
             },
             neonDbSummary: {
                 connected: true,
@@ -633,6 +814,8 @@ class CompatibilityModuleManager {
     }
 
     renderHeader(op) {
+        const shortPol = (op.polName || 'Seleccionar POL').split(',')[0].trim();
+        const shortPod = (op.podName || 'Seleccionar POD').split(',')[0].trim();
         return `
             <!-- Cabecera de Carga Activa (Fija) - Diseño Luminoso y Limpio -->
             <section class="compatibility-cargo-header p-5 md:p-6 mb-6" id="compatibility-cargo-header-section" aria-label="Parámetros de la Operación Comercial Activa">
@@ -661,13 +844,13 @@ class CompatibilityModuleManager {
                         <div class="px-2.5">
                             <span class="block text-[10px] font-bold uppercase text-slate-500 tracking-wider">POL (Origen)</span>
                             <span class="text-xs font-black text-slate-800 flex items-center gap-1.5 mt-0.5" id="compat-header-pol">
-                                <span>${op.polName || 'Seleccionar POL'}</span> <span class="text-sm">${op.polFlag}</span>
+                                <span>${shortPol}</span> <span class="text-sm">${op.polFlag}</span>
                             </span>
                         </div>
                         <div class="px-2.5 border-l border-slate-200">
                             <span class="block text-[10px] font-bold uppercase text-slate-500 tracking-wider">POD (Destino)</span>
                             <span class="text-xs font-black text-slate-800 flex items-center gap-1.5 mt-0.5" id="compat-header-pod">
-                                <span>${op.podName || 'Seleccionar POD'}</span> <span class="text-sm">${op.podFlag}</span>
+                                <span>${shortPod}</span> <span class="text-sm">${op.podFlag}</span>
                             </span>
                         </div>
                         <div class="px-2.5 border-l border-slate-200">
@@ -745,7 +928,9 @@ class CompatibilityModuleManager {
     }
 
     renderLeftRadarBlock(matches, summary, selectedImo, hasAvailability = true, alternativeDbVessel = null) {
-        const polZone = this.currentOperation?.polName || "Zona no definida";
+        const rawPol = this.currentOperation?.polName || "Zona no definida";
+        const shortPol = rawPol.split(',')[0].trim();
+        const polZone = shortPol;
         const compatibleMatches = (matches || []).filter(m => m.compatibilityScore > 0);
         // Banda de DWT admitida para el lote activo, resuelta desde el motor o recalculada en cliente.
         const dwtBand = summary?.commercialDwtBandApplied
@@ -776,20 +961,20 @@ class CompatibilityModuleManager {
         if (!hasAvailability || compatibleMatches.length === 0) {
             const fallbackVessel = alternativeDbVessel || (matches && matches[0]) || null;
             return `
-            <!-- Bloque Izquierdo (Radar en Vivo - Densidad · Sin Datos) -->
+            <!-- Bloque Izquierdo (Disponibilidad de Flota en Hub Origen · Sin Datos) -->
             <div class="compatibility-panel radar-blocked-view-container" id="panel-radar-densidad">
                 <div class="compatibility-panel-header">
                     <div class="flex items-center gap-2.5">
                         <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
                         <div>
                             <h3 class="text-xs font-black uppercase text-slate-900 tracking-wider flex items-center gap-2">
-                                <span>Radar en Vivo · Densidad POL</span>
+                                <span>DISPONIBILIDAD DE FLOTA EN HUB ORIGEN</span>
                             </h3>
-                            <p class="text-[11px] text-slate-500 mt-0.5">${polZone ? `Zona ${polZone}` : 'Define una ruta en el mapa o calculadora'}</p>
+                            <p class="text-[11px] text-slate-500 mt-0.5">${shortPol ? `Zona ${shortPol}` : 'Define una ruta en el mapa o calculadora'}</p>
                         </div>
                     </div>
                     <span class="compatibility-badge-pill" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">
-                        <i class="fa-solid fa-info-circle"></i> Sin datos en radar
+                        <i class="fa-solid fa-info-circle"></i> Sin datos en base
                     </span>
                 </div>
 
@@ -823,28 +1008,28 @@ class CompatibilityModuleManager {
         }
 
         return `
-            <!-- Bloque Izquierdo (Radar en Vivo - Densidad) -->
+            <!-- Bloque Izquierdo (Disponibilidad de Flota en Hub Origen) -->
             <div class="compatibility-panel" id="panel-radar-densidad">
                 <div class="compatibility-panel-header">
                     <div class="flex items-center gap-2.5">
                         <span class="radar-pulse-dot"></span>
                         <div>
                             <h3 class="text-xs font-black uppercase text-slate-900 tracking-wider flex items-center gap-2">
-                                <span>Radar en Vivo · Densidad POL</span>
+                                <span>DISPONIBILIDAD DE FLOTA EN HUB ORIGEN</span>
                             </h3>
-                            <p class="text-[11px] text-slate-500 mt-0.5">Zona ${polZone} (Filtro Estricto: solo buques mercantes con IMO)</p>
+                            <p class="text-[11px] text-slate-500 mt-0.5">Zona ${shortPol} (Filtro Estricto: solo transporte pesado de mercancías (HGV / FTL))</p>
                         </div>
                     </div>
                     <span class="compatibility-badge-pill radar">
-                        <i class="fa-solid fa-satellite-dish"></i> ${summary?.filteredMerchantCount || compatibleMatches.length} Mercantes
+                        <i class="fa-solid fa-truck-moving"></i> ${summary?.filteredMerchantCount || compatibleMatches.length} UNIDADES HGV
                     </span>
                 </div>
 
                 <div class="p-3 bg-rose-50/70 border-b border-rose-100 text-xs text-rose-800 flex items-center justify-between px-4">
                     <span class="flex items-center gap-1.5 font-bold">
-                        <i class="fa-solid fa-filter text-rose-500"></i> Excluidos tajantemente: Pesqueros, Remolcadores (Tugs), Recreo
+                        <i class="fa-solid fa-filter text-rose-500"></i> Excluidos tajantemente: Vehículos ligeros (&lt;3.5t), reparto urbano y turismo
                     </span>
-                    <span class="text-emerald-700 font-black text-[11px] hidden sm:inline">100% IMO Validado</span>
+                    <span class="text-emerald-700 font-black text-[11px] hidden sm:inline">100% Flota Pesada Homologada</span>
                 </div>
                 ${dwtBandLabel ? `
                 <div class="p-3 bg-sky-50/70 border-b border-sky-100 text-xs text-sky-900 flex items-center gap-1.5 px-4 font-bold">
@@ -858,9 +1043,12 @@ class CompatibilityModuleManager {
                 <div class="compatibility-panel-body overflow-y-auto max-h-[520px]">
                     ${compatibleMatches.map((item) => {
                         const isSelected = item.imo === selectedImo;
-                        const vSpec = getTerrestrialVehicleSpec(item.neonDbMaster?.vesselType || item.tipo_buque || item.categoria_buque || item.vesselType || item.name, this.currentOperation?.cargoName);
+                        const vSpec = getTerrestrialVehicleSpec(item.neonDbMaster?.vesselType || item.tipo_buque || item.categoria_buque || item.vesselType || item.name, this.currentOperation?.cargoName, this.currentOperation?.polName, this.currentOperation?.podName);
                         const fleetDisplayName = (item.name && !/^MV\s+/i.test(item.name) && !/vessel/i.test(item.name)) ? item.name : vSpec.name;
-                        const dynamicTagLabel = `${item.compatibilityScore}% - ${fleetDisplayName} - ${vSpec.name}`;
+                        const cargoVol = Number(this.currentOperation?.cargoVolumeMt) || 24;
+                        const neededUnits = Math.max(1, Math.ceil(cargoVol / (vSpec.payloadMt || 24)));
+                        const shortName = item.tipo_buque || item.categoria_buque || item.neonDbMaster?.vesselType || (vSpec.name ? vSpec.name.split('(')[0].replace(/^FLOTA\s+/i, '').trim() : 'Tauliner / Lona Corredera');
+                        const dynamicTagLabel = `${item.compatibilityScore}% · ${shortName} · ${neededUnits} unidades FTL`;
 
                         return `
                         <div class="compatibility-vessel-card ${item.isTopMatch ? 'top-match-card' : ''} ${isSelected ? 'is-selected' : ''}" 
@@ -876,11 +1064,11 @@ class CompatibilityModuleManager {
                                     <div class="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
                                         <span class="font-mono text-blue-700 font-bold">FLOTA ID ${item.imo}</span>
                                         <span>•</span>
-                                        <span class="font-semibold text-slate-600">${vSpec.name}</span>
+                                        <span class="font-semibold text-slate-600">${shortName}</span>
                                     </div>
                                 </div>
                                 <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${item.isTopMatch ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-700 border border-slate-200'}">
-                                    ${item.radarLive.distancePolNm ? `${item.radarLive.distancePolNm} km de Hub` : 'En Base'}
+                                    ${item.radarLive?.distancePolNm ? `${item.radarLive.distancePolNm} km de Hub` : 'En Base'}
                                 </span>
                             </div>
 
@@ -973,10 +1161,11 @@ class CompatibilityModuleManager {
                 <div class="compatibility-panel-body overflow-y-auto max-h-[520px]">
                     ${compatibleMatches.map((item) => {
                         const isSelected = item.imo === selectedImo;
-                        const vSpec = getTerrestrialVehicleSpec(item.neonDbMaster?.vesselType || item.tipo_buque || item.categoria_buque || item.vesselType || item.name, this.currentOperation?.cargoName);
+                        const vSpec = getTerrestrialVehicleSpec(item.neonDbMaster?.vesselType || item.tipo_buque || item.categoria_buque || item.vesselType || item.name, this.currentOperation?.cargoName, this.currentOperation?.polName, this.currentOperation?.podName);
                         const fleetDisplayName = (item.name && !/^MV\s+/i.test(item.name) && !/vessel/i.test(item.name)) ? item.name : vSpec.name;
                         const cargoVol = Number(this.currentOperation?.cargoVolumeMt) || 24;
                         const unitsCount = Math.max(1, Math.ceil(cargoVol / vSpec.payloadMt));
+                        const shortName = item.tipo_buque || item.categoria_buque || item.neonDbMaster?.vesselType || (vSpec.name ? vSpec.name.split('(')[0].replace(/^FLOTA\s+/i, '').trim() : 'Tauliner / Lona Corredera');
 
                         return `
                         <div class="compatibility-vessel-card ${item.isTopMatch ? 'top-match-card' : ''} ${isSelected ? 'is-selected' : ''}" 
@@ -986,7 +1175,7 @@ class CompatibilityModuleManager {
                             <div class="flex items-start justify-between gap-2 mb-2">
                                 <div>
                                     <span class="font-black text-sm text-slate-900">${fleetDisplayName}</span>
-                                    <span class="text-xs text-indigo-700 font-bold block mt-0.5">${vSpec.name}</span>
+                                    <span class="text-xs text-indigo-700 font-bold block mt-0.5">${shortName}</span>
                                 </div>
                                 <span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                                     ${item.neonDbMaster?.flag || '🇪🇸'}
@@ -1036,9 +1225,12 @@ class CompatibilityModuleManager {
         }
         const isLocked = this.lockedVesselId === candidate.imo;
         const op = this.currentOperation || DEFAULT_ACTIVE_OPERATION;
-        const heroVSpec = getTerrestrialVehicleSpec(candidate.neonDbMaster?.vesselType || candidate.tipo_buque || candidate.name, op.cargoName);
+        const heroVSpec = getTerrestrialVehicleSpec(candidate.neonDbMaster?.vesselType || candidate.tipo_buque || candidate.name, op.cargoName, op.polName, op.podName);
         const heroDisplayName = (candidate.name && !/^MV\s+/i.test(candidate.name) && !/vessel/i.test(candidate.name)) ? candidate.name : heroVSpec.name;
         const heroUnits = Math.max(1, Math.ceil((Number(op.cargoVolumeMt) || 24) / heroVSpec.payloadMt));
+        const heroShortName = candidate.tipo_buque || candidate.categoria_buque || candidate.neonDbMaster?.vesselType || (heroVSpec.name ? heroVSpec.name.split('(')[0].replace(/^FLOTA\s+/i, '').trim() : 'Tauliner / Lona Corredera');
+        const shortPol = (op.polName || 'Origen').split(',')[0].trim();
+        const shortPod = (op.podName || 'Destino').split(',')[0].trim();
 
         return `
             <!-- Bloque Inferior (Recomendación Inteligente / Top Match) - Formato Hero Luminoso -->
@@ -1058,7 +1250,7 @@ class CompatibilityModuleManager {
                                     <i class="fa-solid ${candidate.isTopMatch ? 'fa-crown text-amber-600' : 'fa-hand-pointer text-blue-600'} mr-1"></i> ${candidate.isTopMatch ? 'Vehículo Óptimo Seleccionado' : 'Vehículo Seleccionado Manualmente'}
                                 </span>
                                 <span class="text-xs font-mono text-blue-800 font-black">ID: ${candidate.imo}</span>
-                                <span class="text-xs text-slate-600 font-bold">| ${heroVSpec.name}</span>
+                                <span class="text-xs text-slate-600 font-bold">| ${heroShortName}</span>
                             </div>
 
                             <h3 class="text-xl md:text-2xl font-black text-[#002060] tracking-tight mt-1.5 truncate" id="hero-vessel-name">
@@ -1101,7 +1293,7 @@ class CompatibilityModuleManager {
                             <div class="compat-justification-icon"><i class="fa-solid fa-check"></i></div>
                             <div>
                                 <strong class="text-slate-900 block text-xs">Carga Útil & Flota Homologada</strong>
-                                <span class="text-slate-600 text-[11px]">${heroVSpec.payloadMt} MT útil (MMA ${heroVSpec.mmaMt} MT) admitida en corredor ${op.polName || 'Origen'} a ${op.podName || 'Destino'}.</span>
+                                <span class="text-slate-600 text-[11px]">${heroVSpec.payloadMt} MT útil (MMA ${heroVSpec.mmaMt} MT) admitida en corredor ${shortPol} a ${shortPod}.</span>
                             </div>
                         </div>
                     </div>
@@ -1218,10 +1410,10 @@ class CompatibilityModuleManager {
         if (volumeEl) volumeEl.textContent = nextOp.cargoVolumeMt > 0 ? `${Number(nextOp.cargoVolumeMt).toLocaleString()} MT` : '0 MT';
 
         const polEl = document.getElementById('compat-header-pol');
-        if (polEl) polEl.innerHTML = `<span>${nextOp.polName || 'Seleccionar POL'}</span> <span class="text-sm">${nextOp.polFlag}</span>`;
+        if (polEl) polEl.innerHTML = `<span>${(nextOp.polName || 'Seleccionar POL').split(',')[0].trim()}</span> <span class="text-sm">${nextOp.polFlag}</span>`;
 
         const podEl = document.getElementById('compat-header-pod');
-        if (podEl) podEl.innerHTML = `<span>${nextOp.podName || 'Seleccionar POD'}</span> <span class="text-sm">${nextOp.podFlag}</span>`;
+        if (podEl) podEl.innerHTML = `<span>${(nextOp.podName || 'Seleccionar POD').split(',')[0].trim()}</span> <span class="text-sm">${nextOp.podFlag}</span>`;
 
         const laycanEl = document.getElementById('compat-header-laycan');
         if (laycanEl) laycanEl.innerHTML = `<i class="fa-regular fa-calendar text-amber-600 text-[11px]"></i> ${nextOp.laycan || 'Sin definir'}`;
