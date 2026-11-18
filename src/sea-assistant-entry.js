@@ -1054,18 +1054,23 @@ async function executeActionableAiUpdateFields(actionObj) {
             typeof lastSubmittedAssistantPrompt === 'string' ? lastSubmittedAssistantPrompt : '',
         ].filter(Boolean).join(" ");
 
-        const PACKAGED_CARGO_REGEX = /(big\s*bag|saco|sling|paletizad|envasad)/i;
+        const PACKAGED_CARGO_REGEX = /(big\s*bag|saco|sling|paletizad|envasad|unitizad|unitarizad)/i;
         const BULK_CARGO_REGEX = /(granel|bulk)/i;
-        const isPackagedGoods = PACKAGED_CARGO_REGEX.test(rawCargoPrompt) && !BULK_CARGO_REGEX.test(rawCargoPrompt);
+        const MACHINERY_PROJECT_REGEX = /(maquinaria|proyecto|estructura|indivisible|pesad|tubo|viga)/i;
+        const isMachinery = MACHINERY_PROJECT_REGEX.test(rawCargoPrompt);
+        const isPackagedGoods = (PACKAGED_CARGO_REGEX.test(rawCargoPrompt) || /big\s*bag/i.test(rawCargoPrompt)) && !BULK_CARGO_REGEX.test(rawCargoPrompt);
         let assignedVehicle = null;
 
         if (payloadExplicitVehicle) {
             assignedVehicle = payloadExplicitVehicle;
             console.log("🚂 [Cerebro.ia/update_fields] Vehículo explícito recibido en payload:", assignedVehicle);
-        } else if (isPackagedGoods && !isCurrentOrPayloadRail) {
-            // Solo establecer por defecto Camión Plataforma si no hay un vehículo ya definido o no es tren
+        } else if (isMachinery && !isCurrentOrPayloadRail) {
             assignedVehicle = "Camión Plataforma con Grúa Autocarga";
-            console.log("🚛 [Cerebro.ia/FleetRule] Mercancía envasada detectada en NLP. Forzando vehículo a:", assignedVehicle);
+            console.log("🏗️ [Cerebro.ia/FleetRule] Mercancía de maquinaria/proyecto detectada. Seleccionando Grúa:", assignedVehicle);
+        } else if (isPackagedGoods && !isCurrentOrPayloadRail) {
+            // Big Bags / Paletizado / Carga Envasada -> Tauliner / Lona Corredera (24 MT -> 417 camiones para 10.000 MT)
+            assignedVehicle = "Tauliner / Lona Corredera";
+            console.log("🚛 [Cerebro.ia/FleetRule] Mercancía envasada/Big Bags detectada en NLP. Seleccionando Tauliner:", assignedVehicle);
         } else if (isCurrentOrPayloadRail && currentSelectedVehicle) {
             assignedVehicle = currentSelectedVehicle;
             console.log("🚂 [Cerebro.ia/update_fields] Conservando modo ferroviario existente:", assignedVehicle);

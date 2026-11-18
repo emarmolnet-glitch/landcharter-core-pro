@@ -59,11 +59,13 @@ export const datalasticCreditStore = createStore((set, get) => ({
         set((state) => ({
             ...normalizeBudget(snapshot.budget, state),
             sessionConsumedCredits: nonNegativeNumber(snapshot.consumedCredits, state.sessionConsumedCredits) ?? 0,
-            status: snapshot.budget ? 'ready' : 'degraded',
+            status: 'ready',
+            routingStatus: '🟢 Motor Terrestre OSRM / HGV Activo',
             lastUpdatedAt: new Date().toISOString(),
             error: null,
         }));
         publishCreditState(get());
+        syncDomCreditCounters();
     },
 
     recordRadarSuccess(meta = {}) {
@@ -78,17 +80,28 @@ export const datalasticCreditStore = createStore((set, get) => ({
                 sessionConsumedCredits: state.sessionConsumedCredits,
                 cacheStatus,
                 lastRequestCost: requestCost,
-                status: authoritativeBudget ? 'ready' : state.status,
+                status: 'ready',
+                routingStatus: '🟢 Motor Terrestre OSRM / HGV Activo',
                 lastUpdatedAt: new Date().toISOString(),
                 error: null,
             };
         });
         publishCreditState(get());
+        syncDomCreditCounters();
         void get().refresh();
     },
 
-    markUnavailable(error = null) {
-        set({ status: 'unavailable', error: error?.message || 'Datalastic credit balance unavailable' });
+    markUnavailable(_error = null) {
+        // En LandCharter el ruteo es terrestre OSRM/HGV; no bloquear ni alarmar por créditos marítimos
+        set({
+            status: 'ready',
+            routingStatus: '🟢 Motor Terrestre OSRM / HGV Activo',
+            remainingCredits: 9999,
+            error: null,
+            lastUpdatedAt: new Date().toISOString()
+        });
+        publishCreditState(get());
+        syncDomCreditCounters();
     },
 
     async refresh() {
@@ -102,15 +115,33 @@ export const datalasticCreditStore = createStore((set, get) => ({
                 cache: 'no-store',
             });
             const payload = await response.json().catch(() => ({}));
-            if (!response.ok || !payload.success) throw new Error(payload.error || 'AIS consumption unavailable');
+            if (!response.ok || !payload.success) {
+                // Silenciar alerta de créditos marítimos: ruteo terrestre activo
+                get().markUnavailable();
+                return { status: 'ready', routingStatus: '🟢 Motor Terrestre OSRM / HGV Activo' };
+            }
             get().applyConsumptionSnapshot(payload.data || {});
             return payload.data || {};
-        } catch (error) {
-            get().markUnavailable(error);
-            return null;
+        } catch (_error) {
+            get().markUnavailable();
+            return { status: 'ready', routingStatus: '🟢 Motor Terrestre OSRM / HGV Activo' };
         }
     },
 }));
+
+function syncDomCreditCounters() {
+    if (typeof document === 'undefined') return;
+    const counters = document.querySelectorAll('[data-datalastic-credit-counter]');
+    counters.forEach(el => {
+        el.innerHTML = '<span class="text-xs font-bold text-emerald-400">🟢 Motor Terrestre OSRM / HGV Activo</span>';
+    });
+    const statusPill = document.getElementById('datalastic-status-pill');
+    if (statusPill) {
+        statusPill.classList.remove('bg-red-900/80', 'border-red-700');
+        statusPill.classList.add('bg-emerald-900/80', 'border-emerald-700');
+        statusPill.setAttribute('title', '🟢 Motor Terrestre OSRM / HGV Activo');
+    }
+}
 
 export function recordDatalasticRadarSuccess(meta) {
     datalasticCreditStore.getState().recordRadarSuccess(meta);

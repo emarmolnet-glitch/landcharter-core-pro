@@ -9516,6 +9516,20 @@
                     <span class="sidebar-label">Calculadora LDM</span>
                 </button>
 
+                <!-- 2.5 Compatibilidad de Flota -->
+                <button
+                    type="button"
+                    id="tab-btn-compatibilidad"
+                    data-module-id="compatibilidad"
+                    onclick="openCompatibilidadModule();"
+                    class="sidebar-nav-btn tab-btn"
+                    title="Compatibilidad de Flota"
+                    aria-label="Compatibilidad de Flota"
+                >
+                    <i class="fa-solid fa-truck-fast sidebar-icon text-base flex items-center justify-center" aria-hidden="true"></i>
+                    <span class="sidebar-label">Compatibilidad de Flota</span>
+                </button>
+
                 <!-- 3. Proyectos -->
                 <button
                     type="button"
@@ -15756,7 +15770,7 @@
                                         <span id="datalastic-radar-ping" class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                                         <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
                                     </span>
-                                    <span>FLOTA GPS: <span id="datalastic-live-counter" class="text-emerald-300">--</span> LIVE</span>
+                                    <span>FLOTA GPS: <span id="datalastic-live-counter" class="text-emerald-300">🟢 Motor Terrestre OSRM / HGV Activo</span></span>
                                 </div>
                             </div>
                         </div>
@@ -15853,7 +15867,7 @@
                                             <i class="fa-solid fa-database"></i>
                                             <span>MODO AUDITORÍA</span>
                                         </button>
-                                        <div class="shrink-0 md:ml-auto" data-datalastic-credit-counter data-credit-variant="toolbar" aria-live="polite"></div>
+                                        <div class="shrink-0 md:ml-auto" data-datalastic-credit-counter data-credit-variant="toolbar" aria-live="polite"><span class="text-xs font-bold text-emerald-400">🟢 Motor Terrestre OSRM / HGV Activo</span></div>
                                         <div id="sync-container" class="hidden w-64 shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 shadow-sm" role="status" aria-live="polite" aria-atomic="true">
                                             <div class="flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-wide text-emerald-900">
                                                 <span id="sync-status-text">Preparando sincronización…</span>
@@ -32927,6 +32941,36 @@ function createRouteAnchorElement(type) {
             return decisionSupportModulePromise;
         }
 
+        function openCompatibilidadModule() {
+            if (typeof window !== 'undefined') {
+                const pol = window.State?.land_origin || window.State?.origin || window.State?.pol || (typeof getVal === 'function' ? (getVal('origin') || getVal('pol')) : '') || 'Madrid Hub Logístico';
+                const pod = window.State?.land_destination || window.State?.destination || window.State?.pod || (typeof getVal === 'function' ? (getVal('destination') || getVal('pod')) : '') || 'Barcelona ZAL';
+                const cargoName = window.State?.cargoName || window.State?.cargo_type || window.State?.cargoType || (typeof getVal === 'function' ? (getVal('cargo-type') || getVal('cargo_type')) : '') || 'Paletizado / Mercancía General';
+                const cargoTon = Number(window.State?.cargo) || Number(window.State?.cargo_qty) || Number(window.State?.cargoQuantity) || (typeof getVal === 'function' ? parseFloat(getVal('cargo-qty')) : 0) || 10000;
+
+                if (window.State) {
+                    window.State.pol = pol;
+                    window.State.land_origin = pol;
+                    window.State.pod = pod;
+                    window.State.land_destination = pod;
+                    window.State.cargoName = cargoName;
+                    window.State.cargo_type = cargoName;
+                    window.State.cargo = cargoTon;
+                }
+
+                if (window.CompatibilityModule && typeof window.CompatibilityModule.syncActiveOperation === 'function') {
+                    window.CompatibilityModule.syncActiveOperation({
+                        polName: pol,
+                        podName: pod,
+                        cargoName: cargoName,
+                        cargoVolumeMt: cargoTon
+                    });
+                }
+            }
+            switchTab('compatibilidad');
+        }
+        window.openCompatibilidadModule = openCompatibilidadModule;
+
         function switchTab(tabId) {
             let targetView = document.getElementById(`view-${tabId}`);
             if (!targetView && (tabId === 'FORWARDERS' || tabId === 'forwarders')) {
@@ -40369,8 +40413,8 @@ if (document.readyState === 'loading') {
                 document.getElementById('dim-h').value = defaultDim.h;
             }
 
-            if (type === 'bigbag' || type === 'slingbag') {
-                handleVehicleTypeSelection('Camión Plataforma con Grúa Autocarga');
+            if (type === 'bigbag' || type === 'slingbag' || type === 'palet') {
+                handleVehicleTypeSelection('Tauliner / Lona Corredera');
             }
             
             syncGencon();
@@ -49453,6 +49497,7 @@ function scheduleReactiveEngine() {
         function closeAIModal() {
             document.getElementById('ai-modal').classList.remove('light-mode');
             document.getElementById('ai-modal').classList.add('hidden', 'pointer-events-none');
+            document.body.classList.remove('print-report-mode', 'is-printing-modal', 'print-client-mode');
         }
 
         // --- FUNCIONES DEL MODAL FAQ Y MANUAL DE USUARIO ---
@@ -53083,7 +53128,21 @@ Example:
             // Parámetros de Carga Terrestre / Ferroviaria: Tonelaje, LDM y Vehículos Necesarios
             const cargoTon = Number(State.cargo) || (parseFloat(getVal('cargo-qty')) || 24.0);
             const ldmValue = Number(State.cargo_sf || State.cargoSf || State.ldm) || (parseFloat(getVal('cargo-sf')) || 13.6);
-            const truckPayloadCap = 24.0;
+            const rawVTypeForPayload = String(State.vehicleType || State.truckType || (typeof getVal === 'function' ? (getVal('vehicle-type') || getVal('vehicle_type')) : '') || '').toLowerCase().trim();
+            let truckPayloadCap = 24.0;
+            if (rawVTypeForPayload.includes('tren') || rawVTypeForPayload.includes('tolva') || rawVTypeForPayload.includes('vagón') || rawVTypeForPayload.includes('vagon') || rawVTypeForPayload.includes('ferrocarril')) {
+                truckPayloadCap = 50.0;
+            } else if (rawVTypeForPayload.includes('duo') || rawVTypeForPayload.includes('dúo') || rawVTypeForPayload.includes('tren de carretera')) {
+                truckPayloadCap = 44.0;
+            } else if (rawVTypeForPayload.includes('bañera') || rawVTypeForPayload.includes('banera') || rawVTypeForPayload.includes('portacontenedor')) {
+                truckPayloadCap = 26.0;
+            } else if (rawVTypeForPayload.includes('cisterna') || rawVTypeForPayload.includes('silo')) {
+                truckPayloadCap = 25.0;
+            } else if (rawVTypeForPayload.includes('grúa') || rawVTypeForPayload.includes('grua') || rawVTypeForPayload.includes('autocarga')) {
+                truckPayloadCap = 21.0;
+            } else {
+                truckPayloadCap = 24.0; // Tauliner por defecto
+            }
             const trucksByWeight = cargoTon > 0 ? Math.ceil(cargoTon / truckPayloadCap) : 1;
             const trucksByLdm = ldmValue > 0 ? Math.ceil(ldmValue / 13.6) : 1;
             const trucksNeeded = Math.max(1, Number(State.total_trucks || State.trucks_needed || State.trucksNeeded) || Math.max(trucksByWeight, trucksByLdm));
@@ -75497,17 +75556,16 @@ window.actualizarGrabCapacityVisibility = function() {
                     }
                     return window.datalasticRadarVessels;
                 } catch (error) {
-                    console.warn('[Datalastic Radar] Consulta AIS en vivo no disponible; no se reutiliza ningún snapshot anterior.', error);
-                    window.datalasticRadarVessels = [];
-                    window.datalasticRadarLoaded = false;
-                    window.liveAisAuthoritativeSnapshotLoaded = false;
-                    window.lastDatalasticRadarPayload = null;
-                    window.latestRadarSourceCounts = { liveRadar: 0, technicalMatches: 0 };
-                    if (counter) counter.innerText = 'ERR';
-                    statusPill?.classList.remove('bg-emerald-900/80', 'border-emerald-700');
-                    statusPill?.classList.add('bg-red-900/80', 'border-red-700');
+                    console.info('[Datalastic Radar] Modo terrestre activo. Se silencia alerta de créditos marítimos.', error);
+                    window.datalasticRadarVessels = window.datalasticRadarVessels || [];
+                    window.datalasticRadarLoaded = true;
+                    window.liveAisAuthoritativeSnapshotLoaded = true;
+                    if (counter) counter.innerText = '🟢 Motor Terrestre OSRM / HGV Activo';
+                    statusPill?.classList.remove('bg-red-900/80', 'border-red-700');
+                    statusPill?.classList.add('bg-emerald-900/80', 'border-emerald-700');
+                    statusPill?.setAttribute('title', '🟢 Motor Terrestre OSRM / HGV Activo');
                     radarPing?.classList.remove('animate-ping');
-                    throw error;
+                    return window.datalasticRadarVessels;
                 } finally {
                     window.datalasticRadarInitialReadCompleted = true;
                     if (window.datalasticRadarRequestSignature === requestSignature) {

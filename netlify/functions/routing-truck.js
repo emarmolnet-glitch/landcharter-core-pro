@@ -9,6 +9,58 @@ const CORS_HEADERS = {
   "Access-Control-Max-Age": "86400",
 };
 
+async function fetchOsrmFallback(startLon, startLat, endLon, endLat) {
+  const osrmEndpoints = [
+    `https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=full&geometries=geojson&steps=true`,
+    `https://routing.openstreetmap.de/routed-car/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=full&geometries=geojson&steps=true`
+  ];
+
+  for (const url of osrmEndpoints) {
+    try {
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 7000);
+      const res = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(tid);
+      if (res.ok) {
+        const json = await res.json();
+        const route = json?.routes?.[0];
+        if (route?.geometry?.coordinates?.length) {
+          return {
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                geometry: {
+                  type: "LineString",
+                  coordinates: route.geometry.coordinates
+                },
+                properties: {
+                  summary: {
+                    distance: route.distance,
+                    duration: route.duration
+                  },
+                  segments: [
+                    {
+                      distance: route.distance,
+                      duration: route.duration,
+                      steps: route.legs?.[0]?.steps || []
+                    }
+                  ],
+                  source: "OSRM-FALLBACK"
+                }
+              }
+            ],
+            routes: json.routes,
+            fallbackApplied: true,
+            ok: true
+          };
+        }
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
 export default async function handler(req, context) {
   const isLambda = !req || typeof req.json !== "function";
   const method = isLambda ? (req?.httpMethod || "GET") : req.method;
@@ -92,9 +144,18 @@ export default async function handler(req, context) {
     return sendJson({ error: "Missing or invalid coordinates. Expected [[lon, lat], [lon, lat]]" }, 400);
   }
 
+  const startLon = coordinates[0][0];
+  const startLat = coordinates[0][1];
+  const endLon = coordinates[1][0];
+  const endLat = coordinates[1][1];
+
   const apiKey = process.env.ORS_API_KEY || process.env.OPENROUTESERVICE_API_KEY;
   if (!apiKey) {
-    return sendJson({ error: "ORS_API_KEY environment variable is not configured" }, 500);
+    const fallbackData = await fetchOsrmFallback(startLon, startLat, endLon, endLat);
+    if (fallbackData) {
+      return sendJson(fallbackData, 200);
+    }
+    return sendJson({ ok: false, fallbackRequired: true, error: "ORS_API_KEY not configured and OSRM unavailable" }, 200);
   }
 
   const orsPayload = {
@@ -106,7 +167,7 @@ export default async function handler(req, context) {
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
     const orsRes = await fetch("https://api.openrouteservice.org/v2/directions/driving-hgv/geojson", {
@@ -120,14 +181,32 @@ export default async function handler(req, context) {
     });
     clearTimeout(timeoutId);
 
-    const data = await orsRes.json();
-    return sendJson(data, orsRes.status);
+    if (orsRes.ok) {
+      const data = await orsRes.json();
+      const coords = data?.features?.[0]?.geometry?.coordinates;
+      if (coords && coords.length > 0) {
+        return sendJson(data, 200);
+      }
+    }
+
+    // ORS falló o no tiene cobertura en la zona (ej. Sétif -> Bejaia) -> Fallback transparente a OSRM
+    const fallbackData = await fetchOsrmFallback(startLon, startLat, endLon, endLat);
+    if (fallbackData) {
+      return sendJson(fallbackData, 200);
+    }
+    return sendJson({ ok: false, fallbackRequired: true, orsStatus: orsRes.status }, 200);
   } catch (err) {
     clearTimeout(timeoutId);
+    const fallbackData = await fetchOsrmFallback(startLon, startLat, endLon, endLat);
+    if (fallbackData) {
+      return sendJson(fallbackData, 200);
+    }
     return sendJson({
+      ok: false,
+      fallbackRequired: true,
       error: "Error forwarding request to OpenRouteService",
       details: err?.message || String(err)
-    }, 502);
+    }, 200);
   }
 }
 
